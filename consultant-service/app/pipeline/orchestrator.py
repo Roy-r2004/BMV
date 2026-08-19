@@ -109,5 +109,8 @@ def _run_inner(db: Session, request_id: int) -> None:
 
     if _settings.REVIEW_MODE == "on" and _settings.REVIEW_TOKEN:
         req.review_status = "pending"
+        from app import mailer
+
+        mailer.notify_reviewer_pending(request_id, req.business_name or "")
     db.commit()
     emit(db, request_id, "done", "Done", 100, detail=f"{len(saved_images)} images ready")

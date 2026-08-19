@@ -159,6 +159,12 @@ class Settings:
     # gallery. Everything else created after the auth gate is private to
     # its owner. Comma-separated ids, set in the deploy environment.
     SHOWCASE_IDS: str = _env_or("SHOWCASE_IDS", "")
+    # Transactional mail from the consultancy's own mailbox. Unset
+    # password = mail silently disabled; nothing depends on it.
+    SMTP_HOST: str = _env_or("SMTP_HOST", "smtp.hostinger.com")
+    SMTP_PORT: int = int(_env_or("SMTP_PORT", "465"))
+    SMTP_USER: str = _env_or("SMTP_USER", "consulting@buildmyversion.com")
+    SMTP_PASSWORD: str = _env_or("SMTP_PASSWORD", "")
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
     REVIEW_TOKEN: str = _env_or("REVIEW_TOKEN", "")
     MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))

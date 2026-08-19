@@ -65,8 +65,15 @@ def _is_reviewer(review_token: str | None) -> bool:
 
 
 def _pending_for(req: Request, review_token: str | None) -> bool:
-    # True when this run is behind the review gate for THIS caller.
-    return req.review_status == "pending" and not _is_reviewer(review_token)
+    # True when this run is held from THIS caller. Only REVIEW_MODE="gate"
+    # holds results back; the default "on" is oversight — the client sees
+    # their result the moment it finishes, and the consultant reviews,
+    # edits and signs after delivery.
+    return (
+        settings.REVIEW_MODE == "gate"
+        and req.review_status == "pending"
+        and not _is_reviewer(review_token)
+    )
 
 
 def _teaser_payload(req: Request) -> dict:
@@ -542,6 +549,9 @@ def review_approve(request_id: int, review_token: str | None = None, db: Session
     req.review_status = "approved"
     req.reviewed_at = datetime.utcnow()
     db.commit()
+    from app import mailer
+
+    mailer.notify_owner_released(req.id, req.owner_email, req.business_name or "", req.concept_name)
     return {"id": req.id, "review_status": req.review_status}
 
 
