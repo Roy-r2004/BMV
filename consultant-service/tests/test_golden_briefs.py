@@ -156,7 +156,7 @@ def test_the_v4_set_still_spans_distinct_archetypes_for_the_bakeoff():
 def test_the_shipped_default_set_is_untouched_by_any_of_this():
     """The v1 set is what every evidence document before session 38 means
     by "the golden set", and what --frozen-specs replays."""
-    assert golden.briefs_dir().endswith("golden/briefs")
+    assert golden.briefs_dir().replace("\\", "/").endswith("golden/briefs")
     frozen_at = {
         json.loads((pathlib.Path(golden.briefs_dir()) / f"{bid}.json").read_text())["frozen_by"][
             "ui_spec_prompt_version"
