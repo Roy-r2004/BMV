@@ -560,7 +560,7 @@ def review_approve(request_ref: str, review_token: str | None = None, db: Sessio
     db.commit()
     from app import mailer
 
-    mailer.notify_owner_released(req.id, req.owner_email, req.business_name or "", req.concept_name)
+    mailer.notify_owner_released(req.public_id or req.id, req.owner_email, req.business_name or "", req.concept_name)
     return {"id": req.id, "review_status": req.review_status}
 
 

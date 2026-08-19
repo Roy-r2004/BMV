@@ -43,11 +43,18 @@ def send_async(to: str | None, subject: str, body: str) -> None:
     threading.Thread(target=_send, args=(to, subject, body), daemon=True).start()
 
 
-def notify_reviewer_pending(request_id: int, business_name: str) -> None:
-    link = f"https://buildmyversion.com/demo/{request_id}?review={settings.REVIEW_TOKEN}"
+def _run_url(ref: str | int) -> str:
+    """A run's address. Slug refs land on /engagements/<slug> (the private
+    spelling); numeric ids keep the legacy /demo/<id> spelling."""
+    path = f"demo/{ref}" if str(ref).isdigit() else f"engagements/{ref}"
+    return f"https://buildmyversion.com/{path}"
+
+
+def notify_reviewer_pending(ref: str | int, business_name: str) -> None:
+    link = f"{_run_url(ref)}?review={settings.REVIEW_TOKEN}"
     send_async(
         settings.SMTP_USER,
-        f"Engagement #{request_id} awaits your review — {business_name}",
+        f"An engagement awaits your review — {business_name}",
         (
             f"{business_name} finished generating and is waiting for your signature.\n\n"
             f"Review and release:\n{link}\n\n"
@@ -56,7 +63,7 @@ def notify_reviewer_pending(request_id: int, business_name: str) -> None:
     )
 
 
-def notify_owner_released(request_id: int, owner_email: str | None, business_name: str, concept: str | None) -> None:
+def notify_owner_released(ref: str | int, owner_email: str | None, business_name: str, concept: str | None) -> None:
     title = concept or business_name
     send_async(
         owner_email,
@@ -65,7 +72,7 @@ def notify_owner_released(request_id: int, owner_email: str | None, business_nam
             f"Good news: your engagement for {business_name} has been personally reviewed "
             f"and released by your consultant.\n\n"
             f"Open it here (sign in with this address):\n"
-            f"https://buildmyversion.com/demo/{request_id}\n\n"
+            f"{_run_url(ref)}\n\n"
             f"Inside you'll find your product screens, the Blueprint, the Technical Plan, "
             f"the Operations Manual, and the downloads — the three-volume PDF set and the deck.\n\n"
             f"Questions, corrections, or ready to talk about building it? Just reply to this email.\n\n"
