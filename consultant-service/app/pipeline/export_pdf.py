@@ -29,13 +29,19 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.pdfmetrics import registerFontFamily
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
+    BaseDocTemplate,
     CondPageBreak,
+    Frame,
     HRFlowable,
     Image,
+    NextPageTemplate,
     PageBreak,
+    PageTemplate,
     Paragraph,
-    SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
@@ -44,6 +50,36 @@ from reportlab.platypus.tableofcontents import TableOfContents
 
 from app.config import settings
 from app.models import Request
+
+_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "fonts")
+
+# The brand faces, embedded. Helvetica remains the silent fallback so a
+# missing font file can never take a paid deliverable down with it.
+_FONTS_OK = False
+try:
+    pdfmetrics.registerFont(TTFont("Syne-Bold", os.path.join(_FONT_DIR, "Syne-Bold.ttf")))
+    pdfmetrics.registerFont(TTFont("Syne-XBold", os.path.join(_FONT_DIR, "Syne-ExtraBold.ttf")))
+    pdfmetrics.registerFont(TTFont("Plex", os.path.join(_FONT_DIR, "PlexSans.ttf")))
+    pdfmetrics.registerFont(TTFont("Plex-Md", os.path.join(_FONT_DIR, "PlexSans-Medium.ttf")))
+    pdfmetrics.registerFont(TTFont("Plex-Sb", os.path.join(_FONT_DIR, "PlexSans-SemiBold.ttf")))
+    pdfmetrics.registerFont(TTFont("Plex-Bd", os.path.join(_FONT_DIR, "PlexSans-Bold.ttf")))
+    # <b>/<i> inside paragraphs resolve through the family map.
+    registerFontFamily("Plex", normal="Plex", bold="Plex-Sb", italic="Plex-Md", boldItalic="Plex-Bd")
+    _FONTS_OK = True
+except Exception:  # pragma: no cover — depends on packaged files
+    pass
+
+
+def _face(brand: str, fallback: str) -> str:
+    return brand if _FONTS_OK else fallback
+
+
+F_DISPLAY = _face("Syne-XBold", "Helvetica-Bold")
+F_HEAD = _face("Syne-Bold", "Helvetica-Bold")
+F_BODY = _face("Plex", "Helvetica")
+F_MD = _face("Plex-Md", "Helvetica")
+F_SB = _face("Plex-Sb", "Helvetica-Bold")
+F_BD = _face("Plex-Bd", "Helvetica-Bold")
 
 INK = colors.HexColor("#0f172a")
 MUTED = colors.HexColor("#52607a")
@@ -64,35 +100,41 @@ HEX_ACCENT = "#2563eb"
 HEX_GOOD = "#047857"
 HEX_RISK = "#be123c"
 HEX_WARN = "#b45309"
+PANEL = colors.HexColor("#0b1220")
+CYAN = colors.HexColor("#22d3ee")
 
 # Style names matter: "h1toc"/"h2toc" are how headings register themselves
 # in the table of contents (see _EngagementDoc.afterFlowable).
 _S = {
-    "kicker": ParagraphStyle("kicker", fontName="Helvetica-Bold", fontSize=9, textColor=ACCENT,
-                             spaceAfter=4, leading=12),
-    "cover_title": ParagraphStyle("cover_title", fontName="Helvetica-Bold", fontSize=34,
-                                  textColor=INK, leading=38, spaceAfter=10),
-    "cover_sub": ParagraphStyle("cover_sub", fontName="Helvetica", fontSize=13, textColor=MUTED,
+    "kicker": ParagraphStyle("kicker", fontName=F_SB, fontSize=8.5, textColor=ACCENT,
+                             spaceAfter=4, leading=11),
+    "secno": ParagraphStyle("secno", fontName=F_SB, fontSize=8, textColor=ACCENT,
+                            leading=10, spaceBefore=0, spaceAfter=3),
+    "cover_vol": ParagraphStyle("cover_vol", fontName=F_SB, fontSize=10.5, textColor=ACCENT,
+                                leading=14, spaceAfter=8),
+    "cover_title": ParagraphStyle("cover_title", fontName=F_DISPLAY, fontSize=31,
+                                  textColor=INK, leading=36, spaceAfter=12),
+    "cover_sub": ParagraphStyle("cover_sub", fontName=F_MD, fontSize=12.5, textColor=MUTED,
                                 leading=18, spaceAfter=4),
-    "h1toc": ParagraphStyle("h1toc", fontName="Helvetica-Bold", fontSize=15, textColor=INK,
-                            leading=19, spaceBefore=14, spaceAfter=6, backColor=TINT,
-                            borderPadding=(6, 8, 6, 8)),
-    "h2toc": ParagraphStyle("h2toc", fontName="Helvetica-Bold", fontSize=11.5, textColor=ACCENT_DK,
+    "h1toc": ParagraphStyle("h1toc", fontName=F_HEAD, fontSize=15.5, textColor=INK,
+                            leading=20, spaceBefore=4, spaceAfter=2),
+    "h2toc": ParagraphStyle("h2toc", fontName=F_SB, fontSize=11, textColor=ACCENT_DK,
                             leading=15, spaceBefore=11, spaceAfter=4),
-    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=9.5, textColor=ACCENT,
-                         leading=13, spaceBefore=8, spaceAfter=3),
-    "callout": ParagraphStyle("callout", fontName="Helvetica", fontSize=9.5, textColor=INK,
+    "h3": ParagraphStyle("h3", fontName=F_SB, fontSize=8.5, textColor=ACCENT,
+                         leading=12, spaceBefore=9, spaceAfter=3),
+    "callout": ParagraphStyle("callout", fontName=F_BODY, fontSize=9.3, textColor=INK,
                               leading=14.5),
-    "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9.5, textColor=INK,
-                           leading=14.5, spaceAfter=5),
-    "bullet": ParagraphStyle("bullet", fontName="Helvetica", fontSize=9.5, textColor=INK,
-                             leading=14, leftIndent=10, bulletIndent=2, spaceAfter=3),
-    "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=8.5, textColor=INK, leading=11.5),
-    "cellhead": ParagraphStyle("cellhead", fontName="Helvetica-Bold", fontSize=8, textColor=MUTED, leading=10),
-    "meta": ParagraphStyle("meta", fontName="Helvetica", fontSize=8.5, textColor=MUTED, leading=12),
-    "toc0": ParagraphStyle("toc0", fontName="Helvetica-Bold", fontSize=10, textColor=INK, leading=16),
-    "toc1": ParagraphStyle("toc1", fontName="Helvetica", fontSize=9, textColor=MUTED,
-                           leading=14, leftIndent=12),
+    "body": ParagraphStyle("body", fontName=F_BODY, fontSize=9.3, textColor=INK,
+                           leading=15, spaceAfter=5.5),
+    "bullet": ParagraphStyle("bullet", fontName=F_BODY, fontSize=9.3, textColor=INK,
+                             leading=14.2, leftIndent=11, bulletIndent=2, spaceAfter=3.2,
+                             bulletColor=ACCENT),
+    "cell": ParagraphStyle("cell", fontName=F_BODY, fontSize=8.4, textColor=INK, leading=11.8),
+    "cellhead": ParagraphStyle("cellhead", fontName=F_SB, fontSize=7.8, textColor=MUTED, leading=10),
+    "meta": ParagraphStyle("meta", fontName=F_MD, fontSize=8.4, textColor=MUTED, leading=12.5),
+    "toc0": ParagraphStyle("toc0", fontName=F_SB, fontSize=10, textColor=INK, leading=17),
+    "toc1": ParagraphStyle("toc1", fontName=F_BODY, fontSize=8.8, textColor=MUTED,
+                           leading=13.5, leftIndent=12),
 }
 
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
@@ -105,12 +147,17 @@ def _rich(text: str) -> str:
     return out
 
 
+_SECTION_COUNTER = {"n": 0}
+
+
 def _h1(text: str):
+    _SECTION_COUNTER["n"] += 1
     return [
         CondPageBreak(55 * mm),
-        Spacer(1, 4),
-        Paragraph(f'<font color="{HEX_ACCENT}">▌</font> ' + _rich(text), _S["h1toc"]),
-        HRFlowable(width="100%", thickness=1.1, color=ACCENT, spaceAfter=8),
+        Spacer(1, 10),
+        Paragraph(f"SECTION {_SECTION_COUNTER['n']:02d}", _S["secno"]),
+        Paragraph(_rich(text), _S["h1toc"]),
+        HRFlowable(width=14 * mm, thickness=2.2, color=ACCENT, spaceBefore=3, spaceAfter=9, hAlign="LEFT"),
     ]
 
 
@@ -130,7 +177,7 @@ def _callout(text_html: str, fg, bg) -> Table:
     return box
 
 
-class _EngagementDoc(SimpleDocTemplate):
+class _EngagementDoc(BaseDocTemplate):
     """SimpleDocTemplate that feeds every h1toc/h2toc heading into the
     TableOfContents flowable during multiBuild passes."""
 
@@ -138,7 +185,7 @@ class _EngagementDoc(SimpleDocTemplate):
         if isinstance(flowable, Paragraph):
             name = flowable.style.name
             if name == "h1toc":
-                self.notify("TOCEntry", (0, flowable.getPlainText().lstrip("▌ ").strip(), self.page))
+                self.notify("TOCEntry", (0, flowable.getPlainText().strip(), self.page))
             elif name == "h2toc":
                 self.notify("TOCEntry", (1, flowable.getPlainText(), self.page))
 
@@ -191,26 +238,68 @@ def _logo_flowable():
     return img
 
 
-def _cover(doc_label: str, sub_label: str, req: Request) -> list:
+_NUMERALS = {"blueprint": "01", "technical": "02", "operations": "03"}
+
+
+def _cover_painter(kind: str, req: Request):
+    """The cover's left architecture, painted on canvas: a full-height
+    deep-navy panel carrying the logo, the wordmark, and a ghosted volume
+    numeral — the page a client recognizes across every engagement."""
+
+    def draw(canvas, doc):
+        W, H = A4
+        panel_w = 62 * mm
+        canvas.saveState()
+        canvas.setFillColor(PANEL)
+        canvas.rect(0, 0, panel_w, H, stroke=0, fill=1)
+        canvas.setFillColor(ACCENT)
+        canvas.rect(panel_w, 0, 1.2 * mm, H, stroke=0, fill=1)
+        canvas.setFillColor(CYAN)
+        canvas.rect(panel_w + 1.2 * mm, H - 42 * mm, 0.5 * mm, 26 * mm, stroke=0, fill=1)
+
+        logo_path = getattr(settings, "BMV_LOGO_PATH", None)
+        if logo_path and os.path.isfile(logo_path):
+            canvas.drawImage(logo_path, 14 * mm, H - 34 * mm, 20 * mm, 20 * mm,
+                             mask="auto", preserveAspectRatio=True)
+        canvas.setFillColor(colors.white)
+        canvas.setFont(F_SB, 9)
+        canvas.drawString(14 * mm, H - 42 * mm, "BUILD MY VERSION")
+        canvas.setFillColor(CYAN)
+        canvas.setFont(F_MD, 7.5)
+        canvas.drawString(14 * mm, H - 47 * mm, "AI-native consultancy")
+
+        # the ghosted numeral — the volume's signature
+        canvas.setFillColor(colors.white)
+        canvas.setFillAlpha(0.09)
+        canvas.setFont(F_DISPLAY, 92)
+        canvas.drawString(10 * mm, 20 * mm, _NUMERALS.get(kind, ""))
+        canvas.setFillAlpha(1)
+
+        canvas.setFillColor(colors.HexColor("#9aa8c0"))
+        canvas.setFont(F_MD, 7.5)
+        canvas.drawString(14 * mm, 12 * mm, "buildmyversion.com")
+        canvas.restoreState()
+
+    return draw
+
+
+def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:
     concept = req.concept_name or req.business_name or ""
     date = datetime.utcnow().strftime("%B %d, %Y")
-    logo = _logo_flowable()
-    volume_style = ParagraphStyle(
-        "volume", fontName="Helvetica-Bold", fontSize=11, textColor=ACCENT,
-        leading=14, spaceAfter=6,
-    )
     return [
-        HRFlowable(width="100%", thickness=5, color=ACCENT, spaceAfter=18, hAlign="LEFT"),
-    ] + ([logo, Spacer(1, 4)] if logo else []) + [
-        Spacer(1, 42 * mm) if logo else Spacer(1, 52 * mm),
-        Paragraph("BUILD MY VERSION", _S["kicker"]),
-        HRFlowable(width=30 * mm, thickness=2.5, color=ACCENT, spaceAfter=14, hAlign="LEFT"),
-        Paragraph(_rich(sub_label).upper(), volume_style),
+        Spacer(1, 60 * mm),
+        Paragraph(_rich(sub_label).upper(), _S["cover_vol"]),
         Paragraph(_rich(doc_label), _S["cover_title"]),
+        HRFlowable(width=16 * mm, thickness=2.5, color=ACCENT, spaceAfter=12, hAlign="LEFT"),
         Paragraph(_rich(concept), _S["cover_sub"]),
-        Spacer(1, 10),
-        Paragraph(_rich(f"Prepared exclusively for {req.business_name} · {date}"), _S["meta"]),
+    ] + (
+        [Paragraph(_rich(f"An engagement for {req.business_name}"), _S["cover_sub"])]
+        if concept != req.business_name else []
+    ) + [
+        Spacer(1, 14),
+        Paragraph(_rich(f"Prepared exclusively · {date}"), _S["meta"]),
         Paragraph("Confidential — for the addressee's team and advisors.", _S["meta"]),
+        NextPageTemplate("body"),
         PageBreak(),
     ]
 
@@ -227,7 +316,7 @@ def _toc() -> list:
 
 
 _CELLHEAD_ON_ACCENT = ParagraphStyle(
-    "cellhead_on_accent", fontName="Helvetica-Bold", fontSize=8,
+    "cellhead_on_accent", fontName=F_SB, fontSize=7.8,
     textColor=colors.white, leading=10,
 )
 
@@ -705,19 +794,20 @@ def _page_chrome(label: str, concept: str):
 
     def draw(canvas, doc):
         canvas.saveState()
-        if doc.page > 1:
-            canvas.setStrokeColor(ACCENT)
-            canvas.setLineWidth(2)
-            canvas.line(18 * mm, A4[1] - 10 * mm, A4[0] - 18 * mm, A4[1] - 10 * mm)
-            canvas.setFont("Helvetica-Bold", 7)
-            canvas.setFillColor(ACCENT)
-            canvas.drawString(18 * mm, A4[1] - 8 * mm, label.upper())
-            canvas.setFillColor(MUTED)
-            canvas.setFont("Helvetica", 7)
-            canvas.drawRightString(A4[0] - 18 * mm, A4[1] - 8 * mm, concept)
-        canvas.setFont("Helvetica", 7.5)
+        canvas.setStrokeColor(ACCENT)
+        canvas.setLineWidth(1.6)
+        canvas.line(18 * mm, A4[1] - 11 * mm, A4[0] - 18 * mm, A4[1] - 11 * mm)
+        canvas.setFont(F_SB, 6.8)
+        canvas.setFillColor(ACCENT)
+        canvas.drawString(18 * mm, A4[1] - 9 * mm, label.upper())
+        canvas.setFillColor(MUTED)
+        canvas.setFont(F_MD, 6.8)
+        canvas.drawRightString(A4[0] - 18 * mm, A4[1] - 9 * mm, concept)
+        canvas.setFont(F_MD, 7.3)
         canvas.setFillColor(MUTED)
         canvas.drawString(18 * mm, 12 * mm, "Build My Version · buildmyversion.com · consulting@buildmyversion.com")
+        canvas.setFont(F_SB, 7.3)
+        canvas.setFillColor(ACCENT_DK)
         canvas.drawRightString(A4[0] - 18 * mm, 12 * mm, f"Page {doc.page}")
         canvas.restoreState()
 
@@ -758,7 +848,8 @@ def build_pdf(req: Request, kind: str) -> str:
     procedures = (_loads(req.procedures_json, {}) or {}).get("procedures") or []
     modules = _loads(req.modules_json, [])
 
-    flows = _cover(label, sub, req)
+    _SECTION_COUNTER["n"] = 0
+    flows = _cover(kind, label, sub, req)
     flows += _toc()
 
     if kind == "blueprint":
@@ -821,10 +912,16 @@ def build_pdf(req: Request, kind: str) -> str:
 
     doc = _EngagementDoc(
         out_path, pagesize=A4,
-        leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=20 * mm,
         title=f"{req.concept_name or req.business_name} — {label}",
         author="Build My Version",
     )
-    chrome = _page_chrome(label, req.concept_name or req.business_name or "")
-    doc.multiBuild(flows, onFirstPage=chrome, onLaterPages=chrome)
+    W, H = A4
+    cover_frame = Frame(74 * mm, 20 * mm, W - 92 * mm, H - 40 * mm, id="cover")
+    body_frame = Frame(18 * mm, 20 * mm, W - 36 * mm, H - 36 * mm, id="content")
+    doc.addPageTemplates([
+        PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req)),
+        PageTemplate(id="body", frames=[body_frame],
+                     onPage=_page_chrome(label, req.concept_name or req.business_name or "")),
+    ])
+    doc.multiBuild(flows)
     return out_path
