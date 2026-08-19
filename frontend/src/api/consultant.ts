@@ -379,6 +379,40 @@ export function studioZipUrl(ref: StudioRef): string {
   return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/zip`;
 }
 
+export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations';
+
+/** Fetch an export with the caller's session attached and hand it to the
+ *  browser as a saved file. The export routes are auth-gated, and a plain
+ *  <a href> navigation carries no Authorization header — the owner of a
+ *  private run would be refused their own download. */
+export async function downloadStudioExport(
+  ref: StudioRef,
+  kind: StudioExportKind,
+  reviewToken?: string | null,
+): Promise<void> {
+  const path =
+    kind === 'zip'
+      ? `/api/requests/${ref}/export/zip`
+      : kind === 'pptx'
+        ? `/api/requests/${ref}/export/pptx`
+        : `/api/requests/${ref}/export/pdf/${kind}`;
+  const suffix = reviewToken ? `?review_token=${encodeURIComponent(reviewToken)}` : '';
+  const { data, headers } = await consultantClient.get<Blob>(path + suffix, {
+    responseType: 'blob',
+    timeout: 180000,
+  });
+  const match = /filename="?([^";]+)"?/.exec(String(headers['content-disposition'] ?? ''));
+  const fallback = kind === 'zip' ? 'engagement.zip' : kind === 'pptx' ? 'deck.pptx' : `${kind}.pdf`;
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = match?.[1] ?? fallback;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export interface StudioPlaybookStep {
   phase: 'before' | 'during' | 'after';
   who: 'you' | 'bmv' | 'partner';

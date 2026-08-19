@@ -33,6 +33,10 @@ app.add_middleware(
     allow_origin_regex=r"http://localhost:\d+",
     allow_methods=["*"],
     allow_headers=["*"],
+    # Downloads are fetched as blobs (the routes are auth-gated, so plain
+    # link navigation can't carry the session); without this the browser
+    # may not read the filename we set and falls back to a generic one.
+    expose_headers=["Content-Disposition"],
 )
 
 os.makedirs(settings.UPLOADS_DIR, exist_ok=True)

@@ -17,12 +17,11 @@ import {
   consultantAssetUrl,
   isAtCapacity,
   isNotFound,
-  studioDeckUrl,
-  studioPdfUrl,
+  downloadStudioExport,
   studioResultPath,
-  studioZipUrl,
   type BriefMessage,
   type DiscoveryQuestion,
+  type StudioExportKind,
   type StudioRef,
   type StudioTeaser,
   type EngagementType,
@@ -319,6 +318,38 @@ function StudioPills({
 // Kept only as a bridge for someone who lands on bare /studio with a run
 // still going — the URL is the source of truth, this is the safety net.
 const RESUME_KEY = 'bmv_studio_request_id';
+
+// Every export download carries the caller's session. The export routes are
+// auth-gated, and a plain <a href> navigation sends no Authorization header —
+// the owner would be refused their own file (a signed-in owner hitting the
+// raw URL sees exactly that). The reviewer's ?review= token rides along when
+// the page has one.
+function DownloadButton({ refId, kind, className, children }: {
+  refId: StudioRef;
+  kind: StudioExportKind;
+  className?: string;
+  children: ReactNode;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={busy}
+      onClick={() => {
+        if (busy) return;
+        setBusy(true);
+        downloadStudioExport(refId, kind, new URLSearchParams(window.location.search).get('review'))
+          .catch(() => {
+            window.alert('The download could not start — check your connection and try again.');
+          })
+          .finally(() => setBusy(false));
+      }}
+    >
+      {busy ? 'Preparing…' : children}
+    </button>
+  );
+}
 
 function useElapsed(running: boolean, startedAt: number | null) {
   const [now, setNow] = useState(() => Date.now());
@@ -643,9 +674,9 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
               </tbody>
             </table>
           </div>
-          <a className="studio-ghost-btn bp-pdfbtn" href={studioPdfUrl(preview.id, 'blueprint')}>
+          <DownloadButton refId={preview.id} kind="blueprint" className="studio-ghost-btn bp-pdfbtn">
             Download the blueprint (PDF)
-          </a>
+          </DownloadButton>
         </div>
       )}
 
@@ -1252,9 +1283,9 @@ function PlaybookCinematic({ preview }: { preview: StudioPreview }) {
               </div>
             ))}
           </div>
-          <a className="studio-ghost-btn bp-pdfbtn" href={studioPdfUrl(preview.id, 'operations')}>
+          <DownloadButton refId={preview.id} kind="operations" className="studio-ghost-btn bp-pdfbtn">
             Download the operations manual (PDF)
-          </a>
+          </DownloadButton>
         </div>
       )}
 
@@ -1369,14 +1400,14 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
         </p>
         <div className="studio-plans-downloads mt-6">
           {preview.mvp_blueprint && (
-            <a className="studio-cta studio-plans-deckbtn" href={studioZipUrl(preview.id)}>
+            <DownloadButton refId={preview.id} kind="zip" className="studio-cta studio-plans-deckbtn">
               Download your full plan (ZIP — all three volumes)
-            </a>
+            </DownloadButton>
           )}
           {preview.deck_available && (
-            <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
+            <DownloadButton refId={preview.id} kind="pptx" className="studio-ghost-btn">
               Download the deck (PowerPoint)
-            </a>
+            </DownloadButton>
           )}
         </div>
       </div>
@@ -2865,19 +2896,19 @@ export default function StudioPage() {
                         {copied ? 'Copied' : 'Copy link'}
                       </button>
                       {preview.deck_available && (
-                        <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
+                        <DownloadButton refId={preview.id} kind="pptx" className="studio-ghost-btn">
                           Download the deck
-                        </a>
+                        </DownloadButton>
                       )}
                       {preview.mvp_blueprint && (
-                        <a className="studio-ghost-btn" href={studioZipUrl(preview.id)}>
+                        <DownloadButton refId={preview.id} kind="zip" className="studio-ghost-btn">
                           Download the full plan (ZIP)
-                        </a>
+                        </DownloadButton>
                       )}
                     </div>
                     <p className="studio-keepsafe-label mt-3">
-                      Bookmark it. Your screens stay at this address — share it with anyone who
-                      should see them.
+                      Bookmark it. Your engagement stays at this address — private to your
+                      account, only you can open it.
                     </p>
                   </div>
                 )}
@@ -3155,17 +3186,17 @@ export default function StudioPage() {
                         </p>
                         <div className="studio-doc-downloads">
                           {preview.deck_available && (
-                            <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
+                            <DownloadButton refId={preview.id} kind="pptx" className="studio-ghost-btn">
                               Download the deck
-                            </a>
+                            </DownloadButton>
                           )}
-                          <a className="studio-ghost-btn" href={studioPdfUrl(preview.id, 'technical')}>
+                          <DownloadButton refId={preview.id} kind="technical" className="studio-ghost-btn">
                             Download as PDF
-                          </a>
+                          </DownloadButton>
                           {preview.procedures.length > 0 && (
-                            <a className="studio-ghost-btn" href={studioPdfUrl(preview.id, 'operations')}>
+                            <DownloadButton refId={preview.id} kind="operations" className="studio-ghost-btn">
                               Operations manual (PDF)
-                            </a>
+                            </DownloadButton>
                           )}
                         </div>
                       </div>
