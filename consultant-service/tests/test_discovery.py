@@ -186,3 +186,82 @@ def test_decompose_prompt_opening_register():
     assert "avoided hires" in prompt
     # And the operating register never claims the business is unlaunched.
     assert "NOT launched" not in render("decompose.j2", **_decompose_context())
+
+
+# ── the pre-launch briefing chat ─────────────────────────────────────────
+
+
+def test_brief_opening_turn(client, monkeypatch):
+    from app.routers import discovery
+
+    captured = {}
+
+    def chat(model, messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return {"choices": [{"message": {"content": json.dumps(
+            {"reply": "You run a physio clinic...", "brief_addendum": None}
+        )}}], "usage": {}}
+
+    monkeypatch.setattr(discovery.provider, "chat", chat)
+    body = client.post("/api/discovery/brief", data={
+        "business_name": "Beacon", "business_description": "a clinic with six therapists",
+        "operating_stage": "operating", "engagement_type": "capability",
+        "main_problem": "missed calls",
+        "ops_numbers": json.dumps([{"question": "Missed calls/week?", "answer": "25"}]),
+    }).json()
+    assert body["ok"] is True
+    assert body["reply"].startswith("You run")
+    assert body["brief_addendum"] is None
+    # the register and the numbers reached the consultant
+    assert "ONE CAPABILITY" in captured["prompt"]
+    assert "Missed calls/week?: 25" in captured["prompt"]
+    assert "(empty)" in captured["prompt"]
+
+
+def test_brief_correction_turn_carries_conversation_and_addendum(client, monkeypatch):
+    from app.routers import discovery
+
+    captured = {}
+
+    def chat(model, messages, **kwargs):
+        captured["prompt"] = messages[0]["content"]
+        return {"choices": [{"message": {"content": json.dumps(
+            {"reply": "Got it — eight therapists.", "brief_addendum": "- Eight therapists, not six"}
+        )}}], "usage": {}}
+
+    monkeypatch.setattr(discovery.provider, "chat", chat)
+    body = client.post("/api/discovery/brief", data={
+        "business_name": "Beacon", "business_description": "a clinic",
+        "messages": json.dumps([
+            {"role": "assistant", "content": "You run a clinic with six therapists..."},
+            {"role": "user", "content": "We actually have eight therapists"},
+        ]),
+    }).json()
+    assert body["ok"] is True
+    assert "eight" in body["reply"]
+    assert body["brief_addendum"] == "- Eight therapists, not six"
+    assert "CLIENT: We actually have eight therapists" in captured["prompt"]
+
+
+def test_brief_fails_open(client, monkeypatch):
+    from app.routers import discovery
+
+    monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    body = client.post("/api/discovery/brief", data={
+        "business_name": "Beacon", "business_description": "a clinic",
+    }).json()
+    assert body == {"ok": False}
+
+
+def test_brief_tolerates_malformed_history(client, monkeypatch):
+    from app.routers import discovery
+
+    monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: {
+        "choices": [{"message": {"content": json.dumps({"reply": "ok", "brief_addendum": None})}}],
+        "usage": {},
+    })
+    body = client.post("/api/discovery/brief", data={
+        "business_name": "Beacon", "business_description": "a clinic",
+        "messages": "not json", "ops_numbers": "also not json",
+    }).json()
+    assert body["ok"] is True

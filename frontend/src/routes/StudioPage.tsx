@@ -5,6 +5,7 @@ import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import {
   createStudioRequest,
+  fetchBriefTurn,
   fetchDiscoveryQuestions,
   getStudioPreview,
   getStudioProgress,
@@ -14,6 +15,7 @@ import {
   studioDeckUrl,
   studioPdfUrl,
   studioResultPath,
+  type BriefMessage,
   type DiscoveryQuestion,
   type EngagementType,
   type OperatingStage,
@@ -64,7 +66,11 @@ const RENDER_WHISPERS = [
 
 // 'loading' is the beat between opening a result URL and knowing what is at
 // the other end; 'missing' is an id that was never issued.
-type Act = 'intake' | 'loading' | 'building' | 'reveal' | 'failed' | 'missing';
+// 'briefing' sits between the form and the launch: the consultant plays
+// back the brief in a short chat so wrong inputs get corrected before a
+// dollar of pipeline runs. It can never block — if the consultant is
+// unreachable, the run starts directly.
+type Act = 'intake' | 'loading' | 'briefing' | 'building' | 'reveal' | 'failed' | 'missing';
 
 type ResultTab = 'screens' | 'blueprint' | 'technical' | 'playbook' | 'team' | 'plans';
 
@@ -1416,6 +1422,19 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
   );
 }
 
+function BriefBot({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M9 3.5v2M15 3.5v2" />
+      <rect x="4.5" y="5.5" width="15" height="12.5" rx="4" />
+      <path d="M9.5 10.4v1.7M14.5 10.4v1.7" />
+      <path d="M9.6 15q2.4 1.7 4.8 0" />
+      <path d="M8.5 18v3l3-3" />
+    </svg>
+  );
+}
+
 export default function StudioPage() {
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
@@ -1466,6 +1485,12 @@ export default function StudioPage() {
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [numbersAnswers, setNumbersAnswers] = useState<Record<string, string>>({});
   const discoveryKey = useRef<string | null>(null);
+  // The pre-launch briefing chat.
+  const [briefMessages, setBriefMessages] = useState<BriefMessage[]>([]);
+  const [briefAddendum, setBriefAddendum] = useState<string | null>(null);
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefInput, setBriefInput] = useState('');
+  const briefEndRef = useRef<HTMLDivElement>(null);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const elapsed = useElapsed(act === 'building', startedAt);
@@ -1575,6 +1600,10 @@ export default function StudioPage() {
     };
   }, [routeId, navigate, applyProgress]);
 
+  useEffect(() => {
+    if (act === 'briefing') briefEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [act, briefMessages, briefBusy]);
+
   // Rotate the rendering-stage whispers.
   useEffect(() => {
     if (act !== 'building') return;
@@ -1664,6 +1693,88 @@ export default function StudioPage() {
 
   const goBack = () => setStep((s) => Math.max(s - 1, 0));
 
+  const buildIntake = () => ({
+    business_name: form.business_name.trim(),
+    business_description: form.business_description.trim(),
+    email: form.email.trim(),
+    industry: form.industry.trim() || undefined,
+    main_problem: form.main_problem.trim() || undefined,
+    target_customers: form.target_customers.trim() || undefined,
+    desired_outcome: form.desired_outcome.trim() || undefined,
+    reference_url: form.reference_url.trim() || undefined,
+    what_you_like: form.what_you_like.trim() || undefined,
+    needs_ai: form.needs_ai || undefined,
+    budget_range: form.budget_range || undefined,
+    timeline: form.timeline || undefined,
+    whatsapp: form.whatsapp.trim() || undefined,
+    site_url: form.site_url.trim() || undefined,
+    revenue_today: form.revenue_today.trim() || undefined,
+    operating_stage: form.operating_stage,
+    engagement_type: form.engagement_type,
+    ops_numbers: (discoveryQs ?? [])
+      .filter((q) => (numbersAnswers[q.id] ?? '').trim())
+      .map((q) => ({ question: q.label, answer: numbersAnswers[q.id].trim() })),
+  });
+
+  const launchEngagement = async (addendum: string | null) => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const intake = buildIntake();
+      const { id } = await createStudioRequest({
+        ...intake,
+        // Corrections from the briefing chat become part of the brief the
+        // whole pipeline reads — the client's facts, verbatim.
+        business_description: addendum
+          ? `${intake.business_description}\n\nCorrections and additions from the briefing chat:\n${addendum}`
+          : intake.business_description,
+      });
+      sessionStorage.setItem(RESUME_KEY, String(id));
+      // The run gets its address the moment it exists, not when it finishes —
+      // so a refresh, a closed laptop or a shared link all land somewhere.
+      navigate(studioResultPath(id));
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    } catch (err) {
+      setSubmitError(
+        isAtCapacity(err)
+          ? 'The studio is rendering at full capacity right now — give it a few minutes and try again.'
+          : 'Something went wrong reaching the studio. Try again in a moment.',
+      );
+      setAct('intake');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const briefTurn = async (messages: BriefMessage[], opening: boolean) => {
+    setBriefBusy(true);
+    const turn = await fetchBriefTurn({ intake: buildIntake(), messages });
+    setBriefBusy(false);
+    if (!turn.ok || !turn.reply) {
+      // The consultant being unreachable must never block the launch: on
+      // the opening turn start directly; mid-chat, say so honestly.
+      if (opening) void launchEngagement(briefAddendum);
+      else
+        setBriefMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: "I couldn't process that just now — your corrections so far are saved. Press Start whenever you're ready." },
+        ]);
+      return;
+    }
+    setBriefMessages([...messages, { role: 'assistant', content: turn.reply }]);
+    if (turn.brief_addendum !== undefined) setBriefAddendum(turn.brief_addendum ?? null);
+  };
+
+  const sendBriefMessage = () => {
+    const text = briefInput.trim();
+    if (!text || briefBusy) return;
+    const next: BriefMessage[] = [...briefMessages, { role: 'user', content: text }];
+    setBriefMessages(next);
+    setBriefInput('');
+    void briefTurn(next, false);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Enter in a text field submits the nearest form regardless of which
@@ -1678,44 +1789,13 @@ export default function StudioPage() {
     // (edited, then navigated away from) can't slip through.
     const allValid = [0, 1, 2, 4].every((i) => validateStep(i));
     if (!allValid || submitting) return;
-    setSubmitting(true);
-    try {
-      const { id } = await createStudioRequest({
-        business_name: form.business_name.trim(),
-        business_description: form.business_description.trim(),
-        email: form.email.trim(),
-        industry: form.industry.trim() || undefined,
-        main_problem: form.main_problem.trim() || undefined,
-        target_customers: form.target_customers.trim() || undefined,
-        desired_outcome: form.desired_outcome.trim() || undefined,
-        reference_url: form.reference_url.trim() || undefined,
-        what_you_like: form.what_you_like.trim() || undefined,
-        needs_ai: form.needs_ai || undefined,
-        budget_range: form.budget_range || undefined,
-        timeline: form.timeline || undefined,
-        whatsapp: form.whatsapp.trim() || undefined,
-        site_url: form.site_url.trim() || undefined,
-        revenue_today: form.revenue_today.trim() || undefined,
-        operating_stage: form.operating_stage,
-        engagement_type: form.engagement_type,
-        ops_numbers: (discoveryQs ?? [])
-          .filter((q) => (numbersAnswers[q.id] ?? '').trim())
-          .map((q) => ({ question: q.label, answer: numbersAnswers[q.id].trim() })),
-      });
-      sessionStorage.setItem(RESUME_KEY, String(id));
-      // The run gets its address the moment it exists, not when it finishes —
-      // so a refresh, a closed laptop or a shared link all land somewhere.
-      navigate(studioResultPath(id));
-      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
-    } catch (err) {
-      setSubmitError(
-        isAtCapacity(err)
-          ? 'The studio is rendering at full capacity right now — give it a few minutes and try again.'
-          : 'Something went wrong reaching the studio. Try again in a moment.',
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    // Before anything runs: the consultant plays back the brief in a short
+    // chat so wrong inputs get corrected while correcting is still free.
+    setBriefMessages([]);
+    setBriefAddendum(null);
+    setAct('briefing');
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    void briefTurn([], true);
   };
 
   const startOver = () => {
@@ -2286,6 +2366,99 @@ export default function StudioPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              </motion.section>
+            )}
+
+            {act === 'briefing' && (
+              <motion.section key="briefing" {...fade} transition={{ duration: 0.45 }}>
+                <div className="max-w-2xl mx-auto">
+                  <div className="text-center mb-8">
+                    <p className="studio-kicker mb-3">Before anything runs</p>
+                    <h1 className="studio-display text-3xl sm:text-4xl font-bold text-navy">
+                      Let's make sure I got this right
+                    </h1>
+                    <p className="studio-plan-rostertext mt-3">
+                      Your consultant read the brief. Correct anything in the chat — nothing
+                      launches until you press Start.
+                    </p>
+                  </div>
+
+                  <div className="studio-briefchat">
+                    <div className="studio-briefchat-msgs">
+                      {briefMessages.map((m, i) =>
+                        m.role === 'assistant' ? (
+                          <div className="studio-briefrow" key={`a-${i}`}>
+                            <span className="studio-briefavatar" aria-hidden="true">
+                              <BriefBot className="w-5 h-5" />
+                            </span>
+                            <div className="studio-briefbubble studio-briefbubble--bot">{m.content}</div>
+                          </div>
+                        ) : (
+                          <div className="studio-briefbubble studio-briefbubble--user" key={`u-${i}`}>
+                            {m.content}
+                          </div>
+                        ),
+                      )}
+                      {briefBusy && (
+                        <div className="studio-briefrow">
+                          <span className="studio-briefavatar" aria-hidden="true">
+                            <BriefBot className="w-5 h-5" />
+                          </span>
+                          <div className="studio-briefbubble studio-briefbubble--bot studio-brieftyping">
+                            <span />
+                            <span />
+                            <span />
+                          </div>
+                        </div>
+                      )}
+                      <div ref={briefEndRef} />
+                    </div>
+
+                    <div className="studio-briefchat-input">
+                      <input
+                        value={briefInput}
+                        onChange={(e) => setBriefInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            sendBriefMessage();
+                          }
+                        }}
+                        placeholder="Correct or add anything — e.g. we have 8 therapists, not 6"
+                        maxLength={600}
+                        disabled={briefBusy}
+                        aria-label="Correct your brief"
+                      />
+                      <button type="button" onClick={sendBriefMessage} disabled={briefBusy || !briefInput.trim()}>
+                        Send
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="studio-brief-actions">
+                    <button
+                      type="button"
+                      className="studio-cta studio-stepnav-cta"
+                      onClick={() => void launchEngagement(briefAddendum)}
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Starting your engagement…' : "Everything's right — start"}
+                    </button>
+                    <button
+                      type="button"
+                      className="studio-ghost-btn"
+                      onClick={() => setAct('intake')}
+                      disabled={submitting}
+                    >
+                      Back to the form
+                    </button>
+                  </div>
+                  {submitError && (
+                    <p className="studio-error-text text-center mt-4" role="alert">
+                      {submitError}
+                    </p>
+                  )}
                 </div>
               </motion.section>
             )}

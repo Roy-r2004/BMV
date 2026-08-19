@@ -85,6 +85,45 @@ export async function fetchDiscoveryQuestions(input: {
   return Array.isArray(data?.questions) ? data.questions : [];
 }
 
+export interface BriefMessage {
+  role: 'assistant' | 'user';
+  content: string;
+}
+
+export interface BriefTurn {
+  ok: boolean;
+  reply?: string;
+  /** Cumulative '- fact' lines of everything the client corrected in the
+   *  chat — appended to the description at launch. */
+  brief_addendum?: string | null;
+}
+
+/** One turn of the pre-launch briefing chat. Fails open (ok=false) — the
+ *  caller then launches directly; this chat may never block a run. */
+export async function fetchBriefTurn(input: {
+  intake: StudioIntake;
+  messages: BriefMessage[];
+}): Promise<BriefTurn> {
+  try {
+    const form = new FormData();
+    form.set('business_name', input.intake.business_name);
+    form.set('business_description', input.intake.business_description);
+    if (input.intake.industry) form.set('industry', input.intake.industry);
+    if (input.intake.target_customers) form.set('target_customers', input.intake.target_customers);
+    if (input.intake.main_problem) form.set('main_problem', input.intake.main_problem);
+    if (input.intake.desired_outcome) form.set('desired_outcome', input.intake.desired_outcome);
+    if (input.intake.operating_stage) form.set('operating_stage', input.intake.operating_stage);
+    if (input.intake.engagement_type) form.set('engagement_type', input.intake.engagement_type);
+    if (input.intake.needs_ai) form.set('needs_ai', input.intake.needs_ai);
+    if (input.intake.ops_numbers?.length) form.set('ops_numbers', JSON.stringify(input.intake.ops_numbers));
+    if (input.messages.length) form.set('messages', JSON.stringify(input.messages));
+    const { data } = await consultantClient.post('/api/discovery/brief', form, { timeout: 25000 });
+    return data?.ok ? data : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export interface StudioProgress {
   business_name: string | null;
   stage: string | null;

@@ -9,6 +9,7 @@ Fails open: any failure returns a generic-but-sane fallback set for the
 stage, marked source="fallback" — the intake never blocks on this call.
 """
 
+import json
 import logging
 
 from fastapi import APIRouter, Depends, Form
@@ -17,12 +18,14 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.database import get_db
-from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.templating import render
 
 logger = logging.getLogger("consultant.discovery")
 
 router = APIRouter(prefix="/api/discovery", tags=["discovery"])
+
+_ALLOWED_ENGAGEMENT_TYPES = {"full", "capability"}
 
 # The stage-generic sets used when the tailoring call fails. Deliberately
 # phrased to fit any business; the AI's whole job is to beat these.
@@ -175,3 +178,98 @@ def discovery_questions(
         )
         logger.warning("discovery tailoring failed, serving fallback: %s", exc)
         return {"questions": fallback, "source": "fallback"}
+
+
+def _format_numbers(raw: str | None) -> str:
+    """The discovery answers as prompt lines — same tolerance as the intake:
+    malformed client JSON reads as 'none given', never a 500."""
+    if not raw:
+        return "none given"
+    try:
+        pairs = json.loads(raw)
+    except ValueError:
+        return "none given"
+    if not isinstance(pairs, list):
+        return "none given"
+    lines = [
+        f"- {p.get('question')}: {p.get('answer')}"
+        for p in pairs
+        if isinstance(p, dict) and p.get("question") and p.get("answer")
+    ]
+    return "\n".join(lines) or "none given"
+
+
+def _format_conversation(raw: str | None) -> str:
+    if not raw:
+        return "(empty)"
+    try:
+        messages = json.loads(raw)
+    except ValueError:
+        return "(empty)"
+    if not isinstance(messages, list):
+        return "(empty)"
+    lines = []
+    for m in messages[-10:]:
+        if not (isinstance(m, dict) and m.get("content")):
+            continue
+        who = "CLIENT" if m.get("role") == "user" else "YOU"
+        lines.append(f"{who}: {str(m['content'])[:600]}")
+    return "\n".join(lines) or "(empty)"
+
+
+@router.post("/brief")
+def discovery_brief(
+    business_name: str = Form(...),
+    business_description: str = Form(...),
+    industry: str | None = Form(None),
+    target_customers: str | None = Form(None),
+    main_problem: str | None = Form(None),
+    desired_outcome: str | None = Form(None),
+    operating_stage: str | None = Form(None),
+    engagement_type: str | None = Form(None),
+    needs_ai: str | None = Form(None),
+    ops_numbers: str | None = Form(None),
+    messages: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    """The pre-launch briefing chat: the consultant plays back the brief and
+    absorbs corrections. One fast call per turn. Fails open with ok=false —
+    the frontend then launches directly; this chat may never block a run."""
+    try:
+        prompt = render(
+            "brief.j2",
+            engagement_register=build_engagement_register(
+                engagement_type if engagement_type in _ALLOWED_ENGAGEMENT_TYPES else None,
+                needs_ai, main_problem, desired_outcome,
+            ),
+            business_name=business_name,
+            business_description=business_description,
+            industry=industry or "unspecified",
+            target_customers=target_customers or "unspecified",
+            main_problem=main_problem or "unspecified",
+            desired_outcome=desired_outcome or "unspecified",
+            operating_stage="not launched yet — this is a plan" if operating_stage == "opening" else "already operating",
+            owner_numbers=_format_numbers(ops_numbers),
+            conversation=_format_conversation(messages),
+        )
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=900)
+        result = extract_json_from_text(body["choices"][0]["message"]["content"])
+        reply = str(result.get("reply") or "").strip()
+        if not reply:
+            raise ValueError("brief turn had no reply")
+        addendum = result.get("brief_addendum")
+        addendum = str(addendum).strip() if addendum else None
+        log_usage(
+            db, None,
+            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="brief",
+            usage=body.get("usage"), success=True,
+        )
+        return {"ok": True, "reply": reply[:2500], "brief_addendum": addendum[:2000] if addendum else None}
+    except Exception as exc:
+        log_usage(
+            db, None,
+            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="brief",
+            success=False, error=str(exc)[:500],
+        )
+        logger.warning("brief turn failed open: %s", exc)
+        return {"ok": False}
