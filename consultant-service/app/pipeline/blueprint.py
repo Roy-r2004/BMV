@@ -82,7 +82,9 @@ def write_blueprint(
             req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
         ),
     )
-    content = _markdown_call(db, request_id, "blueprint", prompt)
+    # Four front-matter sections joined the document (engagement scope,
+    # current state, opportunity) — give it room to finish them all.
+    content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
     req.mvp_blueprint = content
     db.commit()
     return content

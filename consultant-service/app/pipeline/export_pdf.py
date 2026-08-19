@@ -31,6 +31,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     HRFlowable,
+    Image,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -109,6 +110,25 @@ class _EngagementDoc(SimpleDocTemplate):
                 self.notify("TOCEntry", (1, flowable.getPlainText(), self.page))
 
 
+def _split_md_sections(md: str) -> list[tuple[str, str]]:
+    """[(heading, section_markdown_including_heading)] in document order.
+    Text before the first ## becomes ('', preamble)."""
+    sections = []
+    current_head = ""
+    current_lines: list[str] = []
+    for raw in (md or "").splitlines():
+        if raw.strip().startswith("## "):
+            if current_lines or current_head:
+                sections.append((current_head, "\n".join(current_lines)))
+            current_head = raw.strip()[3:].strip()
+            current_lines = [raw]
+        else:
+            current_lines.append(raw)
+    if current_lines or current_head:
+        sections.append((current_head, "\n".join(current_lines)))
+    return [(h, body) for h, body in sections if body.strip()]
+
+
 def _markdown_flowables(md: str) -> list:
     flows = []
     for raw in (md or "").splitlines():
@@ -129,11 +149,21 @@ def _markdown_flowables(md: str) -> list:
     return flows
 
 
+def _logo_flowable():
+    path = getattr(settings, "BMV_LOGO_PATH", None)
+    if not path or not os.path.isfile(path):
+        return None
+    img = Image(path, width=16 * mm, height=16 * mm)
+    img.hAlign = "LEFT"
+    return img
+
+
 def _cover(doc_label: str, sub_label: str, req: Request) -> list:
     concept = req.concept_name or req.business_name or ""
     date = datetime.utcnow().strftime("%B %d, %Y")
-    return [
-        Spacer(1, 60 * mm),
+    logo = _logo_flowable()
+    return ([logo, Spacer(1, 4)] if logo else []) + [
+        Spacer(1, 50 * mm) if logo else Spacer(1, 60 * mm),
         Paragraph("BUILD MY VERSION", _S["kicker"]),
         HRFlowable(width=30 * mm, thickness=2.5, color=ACCENT, spaceAfter=12, hAlign="LEFT"),
         Paragraph(_rich(doc_label), _S["cover_title"]),
@@ -536,17 +566,47 @@ def build_pdf(req: Request, kind: str) -> str:
 
     flows = _cover(label, sub, req)
     flows += _toc()
-    flows += _markdown_flowables(md)
 
     if kind == "blueprint":
+        # The canonical consultancy order: front matter (summary, engagement
+        # scope, current state, opportunity), then model, journey, solution,
+        # operating model, roadmap, scoreboard, risks, success, decision.
+        # The written document's sections are interleaved with the
+        # structured layers at their proper positions; any section the
+        # model wrote that no slot claims still lands before the close —
+        # content is never dropped.
+        sections = _split_md_sections(md)
+        used = set()
+
+        def md_slot(pattern: str) -> list:
+            for i, (head, body) in enumerate(sections):
+                if i in used:
+                    continue
+                if re.search(pattern, head, re.IGNORECASE):
+                    used.add(i)
+                    return _markdown_flowables(body)
+            return []
+
+        flows += md_slot(r"executive|summary")
+        flows += md_slot(r"engagement|context")
+        flows += md_slot(r"where you are|today")
+        flows += md_slot(r"opportunit")
         flows += _customers_flowables(business_case)
+        flows += md_slot(r"makes money")
         flows += _journey_flowables(journey)
+        flows += md_slot(r"module by module|the product")
         flows += _organization_flowables(org)
+        flows += md_slot(r"build first")
+        flows += _playbook_flowables(playbook)
         flows += _scoreboard_flowables(scoreboard)
         flows += _risks_flowables(risks)
-        flows += _playbook_flowables(playbook)
+        flows += md_slot(r"success looks like")
+        for i, (_, body) in enumerate(sections):
+            if i not in used:
+                flows += _markdown_flowables(body)
         flows += _decision_flowables()
     else:
+        flows += _markdown_flowables(md)
         flows += _module_appendix_flowables(modules)
         flows += _procedures_flowables(procedures)
         flows += _decision_flowables()
