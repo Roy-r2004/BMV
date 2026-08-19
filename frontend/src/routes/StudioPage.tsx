@@ -1211,6 +1211,39 @@ function PlaybookCinematic({ preview }: { preview: StudioPreview }) {
         </div>
       )}
 
+      {preview.checklists && (preview.checklists.checklists.length > 0 || preview.checklists.forms.length > 0) && (
+        <div>
+          <p className="studio-kicker mb-1">Forms & checklists</p>
+          <p className="studio-plan-rostertext mb-4">
+            The artifacts your team holds in their hands from day one — the full printable set
+            is in the operations manual.
+          </p>
+          <div className="studio-checkgrid">
+            {preview.checklists.checklists.map((c) => (
+              <div className="studio-checkcard" key={c.name}>
+                <p className="studio-checkcard-name">{c.name}</p>
+                {c.when && <p className="studio-checkcard-when">{c.when}</p>}
+                <ul>
+                  {c.items.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            {preview.checklists.forms.map((f) => (
+              <div className="studio-checkcard studio-checkcard--form" key={f.name}>
+                <p className="studio-checkcard-name">{f.name} <span>form</span></p>
+                {f.purpose && <p className="studio-checkcard-when">{f.purpose}</p>}
+                <p className="studio-checkcard-fields">{f.fields.join(' · ')}</p>
+              </div>
+            ))}
+          </div>
+          <a className="studio-ghost-btn bp-pdfbtn" href={studioPdfUrl(preview.id, 'operations')}>
+            Download the operations manual (PDF)
+          </a>
+        </div>
+      )}
+
       {((people.ai_covers?.length ?? 0) > 0 || (people.humans_needed?.length ?? 0) > 0) && (
         <div className="studio-plan-columns">
           {(people.ai_covers?.length ?? 0) > 0 && (
@@ -2865,6 +2898,11 @@ export default function StudioPage() {
                           <a className="studio-ghost-btn" href={studioPdfUrl(preview.id, 'technical')}>
                             Download as PDF
                           </a>
+                          {preview.procedures.length > 0 && (
+                            <a className="studio-ghost-btn" href={studioPdfUrl(preview.id, 'operations')}>
+                              Operations manual (PDF)
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>

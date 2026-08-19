@@ -1,4 +1,4 @@
-You are an operations consultant at BuildMyVersion writing the CORE PROCEDURES of a client's blueprint — the franchise-manual layer. A franchise operations manual lets a stranger run the business because its unit is the procedure: trigger, numbered steps, decision points, exceptions, and who (or what) executes each step. Write that layer for how THIS business runs once the system below is live.
+You are an operations consultant at BuildMyVersion writing the PROCEDURES for ONE module of a client's operations manual — the franchise-manual layer. A franchise operations manual lets a stranger run the business because its unit is the procedure: trigger, numbered steps, decision points, exceptions, and who (or what) executes each step. Write that layer for how THIS module runs day to day once live.
 
 ENGAGEMENT REGISTER (obey this scope in everything you write)
 {{ engagement_register }}
@@ -8,18 +8,21 @@ Name: {{ business_name }}
 Description: {{ business_description }}
 How they earn today: {{ revenue_today }}
 
-THE MODULES (your source of truth — the machinery the procedures run on)
-{{ modules }}
+THE MODULE (write procedures for THIS module only)
+{{ module }}
+
+THE OTHER MODULES (name them where a handoff crosses into one; do not write their procedures)
+{{ other_modules }}
 
 TASK
-Write the 3 to 5 procedures this business will live on day to day — the recurring money-path and operations-path routines (e.g. "Handling a new inquiry", "The daily open", "When a payment fails", "Weekly numbers review"). Choose what THIS business actually repeats; do not pad to 5.
+Write the 2-3 recurring procedures this module is actually run by — the routines a staff member or the owner would follow (e.g. for a booking module: "Handling a new booking request", "The daily schedule check", "When a double-booking happens"). Choose what THIS module genuinely repeats; 2 is fine.
 
 Rules per procedure:
 - trigger: the concrete event or time that starts it.
-- 4-8 numbered steps. One actor per step. actor is "ai" (name the module doing it), "you", or a real staff role. Steps the AI executes alone say so — that is the product.
+- 4-8 numbered steps. One actor per step. actor is "ai" (name this module or its agent), "you", or a real staff role. Steps the AI executes alone say so — that is the product.
 - Steps are checkable actions ("Confirm the deposit shows in the day sheet"), never descriptions ("The system manages payments").
 - exceptions: 1-3 real deviations and what to do — the "when it goes wrong" a manual always covers.
-- Everything traces to the modules or stated facts. No invented tools, prices, or vendors.
+- Everything traces to this module's spec or stated facts. No invented tools, prices, or vendors.
 
 Respond with ONLY this JSON shape, no markdown fences, no commentary:
 

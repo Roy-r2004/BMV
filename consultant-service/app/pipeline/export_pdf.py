@@ -497,15 +497,133 @@ def _module_appendix_flowables(modules: list) -> list:
     return flows
 
 
+def _screens_flowables(req: Request) -> list:
+    """The generated product screens, embedded with their spec-derived
+    stories. Each image is real pipeline output; missing files are simply
+    skipped — a broken image never ships in a paid document."""
+    images = sorted(req.images, key=lambda i: (i.role_id, i.variant)) if req.images else []
+    shots = []
+    for img in images:
+        marker = "/uploads/"
+        if not img.file_path or marker not in img.file_path:
+            continue
+        abs_path = os.path.join(settings.UPLOADS_DIR, img.file_path.split(marker, 1)[1])
+        if os.path.isfile(abs_path):
+            shots.append((img, abs_path))
+    if not shots:
+        return []
+    flows = _h1("The screens")
+    flows.append(Paragraph(
+        "Your product's interface, drawn with your own services and vocabulary — each screen "
+        "annotated with what it does.", _S["meta"],
+    ))
+    from PIL import Image as PILImage
+
+    for img, abs_path in shots:
+        try:
+            with PILImage.open(abs_path) as im:
+                w, h = im.size
+        except Exception:
+            continue
+        width = 168 * mm
+        height = width * h / w
+        flows.append(Paragraph(_rich(img.role_label or img.role_id), _S["h2toc"]))
+        pic = Image(abs_path, width=width, height=height)
+        pic.hAlign = "LEFT"
+        flows.append(pic)
+        try:
+            spec = json.loads(img.spec_json) if img.spec_json else None
+        except ValueError:
+            spec = None
+        if spec:
+            sub_line = spec.get("subheading")
+            if sub_line:
+                flows.append(Paragraph(_rich(sub_line), _S["meta"]))
+        flows.append(Spacer(1, 6))
+    return flows
+
+
+def _handbook_flowables(org: dict | None, procedures: list) -> list:
+    """Per-role handbook pages, COMPOSED from data already generated: the
+    org chart's human roles joined with the procedures that name them and
+    the change-impact notes. No model call — pure assembly."""
+    roles = [r for r in ((org or {}).get("roles") or []) if r.get("type") == "human"]
+    if not roles:
+        return []
+    impact_by_role = {c.get("role"): c for c in (org or {}).get("change_impact") or []}
+    flows = _h1("Role handbook")
+    flows.append(Paragraph(
+        "One page per human role: what they own, what they decide, and the procedures they run.",
+        _S["meta"],
+    ))
+    for r in roles:
+        role_name = r.get("role") or ""
+        flows.append(Paragraph(_rich(role_name), _S["h2toc"]))
+        for line in r.get("responsibilities") or []:
+            flows.append(Paragraph(_rich(line), _S["bullet"], bulletText="•"))
+        if r.get("decides_alone"):
+            flows.append(Paragraph("<b>Decides alone:</b> " + _rich(r["decides_alone"]), _S["body"]))
+        if r.get("hands_off"):
+            flows.append(Paragraph("<b>Hands off:</b> " + _rich(r["hands_off"]), _S["body"]))
+        mine = [
+            p2 for p2 in procedures
+            if any(role_name.lower() in str(st.get("actor") or "").lower() for st in p2.get("steps") or [])
+        ]
+        if mine:
+            flows.append(Paragraph(
+                "<b>Procedures this role runs:</b> " + _rich(" · ".join(p2.get("name") or "" for p2 in mine)),
+                _S["body"],
+            ))
+        c = impact_by_role.get(role_name)
+        if c:
+            flows.append(Paragraph(
+                "<b>What changes for you:</b> " + _rich(c.get("what_changes") or "")
+                + (" <b>To learn:</b> " + _rich(c["must_learn"]) if c.get("must_learn") else ""),
+                _S["body"],
+            ))
+    return flows
+
+
+def _checklists_flowables(checklists_data: dict | None) -> list:
+    checklists = (checklists_data or {}).get("checklists") or []
+    forms = (checklists_data or {}).get("forms") or []
+    if not checklists and not forms:
+        return []
+    flows = _h1("Forms & checklists")
+    flows.append(Paragraph(
+        "The artifacts your team holds in their hands — print them, laminate them, use them from day one.",
+        _S["meta"],
+    ))
+    for c in checklists:
+        flows.append(Paragraph(_rich(c.get("name") or ""), _S["h2toc"]))
+        if c.get("when"):
+            flows.append(Paragraph("<b>When:</b> " + _rich(c["when"]), _S["body"]))
+        for item in c.get("items") or []:
+            flows.append(Paragraph(_rich(item), _S["bullet"], bulletText="☐"))
+    for f in forms:
+        flows.append(Paragraph(_rich(f.get("name") or "") + " (form)", _S["h2toc"]))
+        if f.get("purpose"):
+            flows.append(Paragraph(_rich(f["purpose"]), _S["body"]))
+        for field in f.get("fields") or []:
+            flows.append(Paragraph(_rich(field) + ": ____________________", _S["bullet"], bulletText="•"))
+    return flows
+
+
 def _procedures_flowables(procedures: list) -> list:
     if not procedures:
         return []
-    flows = _h1("Core procedures")
+    flows = _h1("The procedure library")
     flows.append(Paragraph(
-        "The recurring routines this business runs on once live — who (or which AI) does each step.",
+        "The recurring routines this business runs on once live — who (or which AI) does each step. "
+        "Grouped by the part of the system each routine belongs to.",
         _S["meta"],
     ))
+    last_module = object()
     for p in procedures:
+        module = p.get("module")
+        if module and module != last_module:
+            flows.append(Paragraph(_rich(module), _S["h3"]))
+        last_module = module or last_module
         flows.append(Paragraph(_rich(p.get("name") or ""), _S["h2toc"]))
         if p.get("trigger"):
             flows.append(Paragraph("<b>Starts when:</b> " + _rich(p["trigger"]), _S["body"]))
@@ -548,11 +666,16 @@ def build_pdf(req: Request, kind: str) -> str:
     document is not on the request yet."""
     if kind == "blueprint":
         md = req.mvp_blueprint
-        label, sub = "The Blueprint", "The strategy volume of your engagement"
-    else:
+        label, sub = "The Blueprint", "Volume I — strategy"
+    elif kind == "technical":
         md = req.technical_plan
-        label, sub = "The Technical Plan", "The build volume of your engagement"
-    if not md:
+        label, sub = "The Technical Plan", "Volume II — the build"
+    else:
+        # The operations manual has no markdown backbone — it is assembled
+        # entirely from the structured layers; it needs the procedures.
+        md = None
+        label, sub = "The Operations Manual", "Volume III — running it day to day"
+    if kind != "operations" and not md:
         raise ValueError(f"{kind} document not ready")
 
     business_case = _loads(req.business_case_json, {})
@@ -604,11 +727,18 @@ def build_pdf(req: Request, kind: str) -> str:
         for i, (_, body) in enumerate(sections):
             if i not in used:
                 flows += _markdown_flowables(body)
+        flows += _screens_flowables(req)
         flows += _decision_flowables()
-    else:
+    elif kind == "technical":
         flows += _markdown_flowables(md)
         flows += _module_appendix_flowables(modules)
+        flows += _decision_flowables()
+    else:
+        if not procedures and not org and not (_loads(req.checklists_json, None)):
+            raise ValueError("operations manual not ready")
         flows += _procedures_flowables(procedures)
+        flows += _checklists_flowables(_loads(req.checklists_json, None))
+        flows += _handbook_flowables(org, procedures)
         flows += _decision_flowables()
 
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")

@@ -231,6 +231,7 @@ export interface StudioPreview {
   scoreboard: StudioScoreboardRow[];
   risks: StudioRisk[];
   procedures: StudioProcedure[];
+  checklists: StudioChecklists | null;
   engagement_type: EngagementType | null;
 }
 
@@ -280,6 +281,15 @@ export interface StudioProcedure {
   trigger: string | null;
   steps: { actor: string | null; step: string }[];
   exceptions: { when: string; then: string | null }[];
+  /** Which module this routine belongs to — per-module SOP library. */
+  module?: string | null;
+}
+
+/** The operations-manual appendix: the artifacts staff hold in their
+ *  hands, generated for THIS business. */
+export interface StudioChecklists {
+  checklists: { name: string; when: string | null; items: string[] }[];
+  forms: { name: string; purpose: string | null; fields: string[] }[];
 }
 
 export interface StudioQuickWin {
@@ -291,7 +301,7 @@ export interface StudioQuickWin {
 
 /** The blueprint or technical plan as a branded PDF. Only offer once the
  *  run is done — the route 400s before the document exists. */
-export function studioPdfUrl(id: number, kind: 'blueprint' | 'technical'): string {
+export function studioPdfUrl(id: number, kind: 'blueprint' | 'technical' | 'operations'): string {
   return `${CONSULTANT_API_BASE}/api/requests/${id}/export/pdf/${kind}`;
 }
 

@@ -1,0 +1,36 @@
+You are an operations consultant at BuildMyVersion writing the FORMS & CHECKLISTS appendix of a client's operations manual — the artifacts a franchise manual always ends with, because they are what staff actually hold in their hands. Every item must be real for THIS business: its services, its rooms/courts/chairs, its modules.
+
+ENGAGEMENT REGISTER (obey this scope in everything you write)
+{{ engagement_register }}
+
+BUSINESS
+Name: {{ business_name }}
+Description: {{ business_description }}
+
+THE MODULES (the system these artifacts run alongside)
+{{ modules }}
+
+TASK
+1. CHECKLISTS — 3 to 6. The recurring verification lists this business needs: a daily open, a daily close, and the 1-4 others THIS business genuinely repeats (a turnover check, a weekly numbers review, an event-day setup...). Each: when it is used, and 5-10 checkable items in execution order. Items are verifiable ("Float counted and signed", "All of yesterday's no-shows contacted"), never vague ("Ensure quality").
+2. FORMS — 2 to 4. The capture documents this business needs where information enters the operation (an intake form, an incident report, a supplier order sheet...). Each: its purpose and the 5-10 fields it captures, named for THIS business. Where a module captures this digitally, say so in the purpose ("captured in <module>; this paper version is the fallback").
+
+Rules: everything traces to the modules or stated facts. No invented suppliers, prices, or regulations. Choose counts the business needs; never pad.
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "checklists": [
+    {
+      "name": "<name>",
+      "when": "<when it is run>",
+      "items": ["<checkable item>", "..."]
+    }
+  ],
+  "forms": [
+    {
+      "name": "<name>",
+      "purpose": "<one sentence, naming the module that captures it digitally when one does>",
+      "fields": ["<field name>", "..."]
+    }
+  ]
+}

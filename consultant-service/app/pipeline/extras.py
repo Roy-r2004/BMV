@@ -111,7 +111,8 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             business_case=bc_json,
             engagement_register=register,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1600)
+        # Seven scoreboard rows + five risks occasionally truncated at 1600.
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2400)
         result = extract_json_from_text(body["choices"][0]["message"]["content"])
         scoreboard = [r for r in (result.get("scoreboard") or []) if isinstance(r, dict) and r.get("metric")][:7]
         risks = [r for r in (result.get("risks") or []) if isinstance(r, dict) and r.get("risk")][:5]
@@ -119,30 +120,77 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             raise ValueError("governance had neither scoreboard nor risks")
         return {"payload": {"scoreboard": scoreboard, "risks": risks}, "usage": body.get("usage")}
 
-    def _procedures() -> dict | None:
+    def _procedures_for(module: dict):
+        """Factory: one SOP call per module — the franchise-manual library
+        is built module by module, 2-3 procedures each."""
+        module_name = module.get("name") or ""
+        module_json = json.dumps(
+            {k: module.get(k) for k in ("id", "name", "purpose", "users", "spec")}, indent=1,
+        )
+        others = "\n".join(
+            f"- {m.get('name')}: {m.get('purpose', '')}" for m in modules if m is not module
+        ) or "none"
+
+        def _call() -> dict | None:
+            prompt = render(
+                "procedures.j2",
+                business_name=biz_name,
+                business_description=biz_desc,
+                revenue_today=revenue_today,
+                module=module_json,
+                other_modules=others,
+                engagement_register=register,
+            )
+            body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1800)
+            result = extract_json_from_text(body["choices"][0]["message"]["content"])
+            procs = []
+            for p in result.get("procedures") or []:
+                if not (isinstance(p, dict) and p.get("name")):
+                    continue
+                steps = [s for s in (p.get("steps") or []) if isinstance(s, dict) and s.get("step")]
+                if not steps:
+                    continue
+                p["steps"] = steps[:8]
+                p["exceptions"] = [e for e in (p.get("exceptions") or []) if isinstance(e, dict) and e.get("when")][:3]
+                p["module"] = module_name
+                procs.append(p)
+            if not procs:
+                raise ValueError("no valid procedures")
+            return {"payload": {"procedures": procs[:3]}, "usage": body.get("usage")}
+
+        return _call
+
+    def _checklists() -> dict | None:
         prompt = render(
-            "procedures.j2",
+            "checklists.j2",
             business_name=biz_name,
             business_description=biz_desc,
-            revenue_today=revenue_today,
             modules=slim,
             engagement_register=register,
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2200)
         result = extract_json_from_text(body["choices"][0]["message"]["content"])
-        procs = []
-        for p in result.get("procedures") or []:
-            if not (isinstance(p, dict) and p.get("name")):
+        checklists = []
+        for c in result.get("checklists") or []:
+            if not (isinstance(c, dict) and c.get("name")):
                 continue
-            steps = [s for s in (p.get("steps") or []) if isinstance(s, dict) and s.get("step")]
-            if not steps:
+            items = [str(i) for i in (c.get("items") or []) if i][:10]
+            if not items:
                 continue
-            p["steps"] = steps[:8]
-            p["exceptions"] = [e for e in (p.get("exceptions") or []) if isinstance(e, dict) and e.get("when")][:3]
-            procs.append(p)
-        if not procs:
-            raise ValueError("no valid procedures")
-        return {"payload": {"procedures": procs[:5]}, "usage": body.get("usage")}
+            c["items"] = items
+            checklists.append(c)
+        forms = []
+        for f in result.get("forms") or []:
+            if not (isinstance(f, dict) and f.get("name")):
+                continue
+            fields = [str(i) for i in (f.get("fields") or []) if i][:10]
+            if not fields:
+                continue
+            f["fields"] = fields
+            forms.append(f)
+        if not checklists and not forms:
+            raise ValueError("checklists call produced nothing valid")
+        return {"payload": {"checklists": checklists[:6], "forms": forms[:4]}, "usage": body.get("usage")}
 
     def _organization() -> dict | None:
         prompt = render(
@@ -165,8 +213,11 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     tasks = [
         ("journey", _journey),
         ("governance", _governance),
-        ("procedures", _procedures),
         ("organization", _organization),
+        ("checklists", _checklists),
+    ] + [
+        (f"procedures:{m.get('id') or i}", _procedures_for(m))
+        for i, m in enumerate(modules)
     ]
 
     def _guarded(item):
@@ -176,19 +227,28 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         except Exception as exc:  # each layer fails open alone
             return name, None, str(exc)[:500]
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
         results = list(pool.map(_guarded, tasks))
 
     for name, result, error in results:
         log_usage(
             db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose=name,
+            # per-module SOP calls all ledger under one purpose
+            provider="openrouter", model=settings.ANALYSIS_MODEL,
+            purpose="procedures" if name.startswith("procedures:") else name,
             usage=(result or {}).get("usage"), success=error is None, error=error,
         )
         if error is not None:
             logger.warning("extras layer %s failed open: request=%s error=%s", name, request_id, error)
 
     by_name = {name: (result or {}).get("payload") for name, result, _ in results}
+    # Merge the per-module SOP calls into one library, module order kept.
+    procedure_library = []
+    for name, result, _ in results:
+        if name.startswith("procedures:") and result:
+            procedure_library.extend(result["payload"]["procedures"])
+    if procedure_library:
+        by_name["procedures"] = {"procedures": procedure_library}
     if by_name.get("journey"):
         req.journey_json = json.dumps(by_name["journey"])
     gov = by_name.get("governance") or {}
@@ -200,4 +260,6 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         req.procedures_json = json.dumps(by_name["procedures"])
     if by_name.get("organization"):
         req.org_json = json.dumps(by_name["organization"])
+    if by_name.get("checklists"):
+        req.checklists_json = json.dumps(by_name["checklists"])
     db.commit()

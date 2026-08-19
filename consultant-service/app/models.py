@@ -87,6 +87,9 @@ class Request(Base):
     # The organization layer: human + AI roles with decision rights, and
     # the per-human change impact that seeds the adoption plan.
     org_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The forms & checklists appendix of the operations manual:
+    # {"checklists": [...], "forms": [...]} — the artifacts staff hold.
+    checklists_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)

@@ -79,10 +79,12 @@ def test_journey_prompt_demands_module_ids_and_their_vocabulary():
 def test_procedures_prompt_is_franchise_shaped():
     prompt = render(
         "procedures.j2", business_name="B", business_description="d",
-        revenue_today="fees", modules="[]", engagement_register="reg",
+        revenue_today="fees", module="{}", other_modules="none",
+        engagement_register="reg",
     )
     assert "trigger" in prompt
     assert "One actor per step" in prompt
+    assert "THIS module only" in prompt
 
 
 def test_playbook_prompt_demands_quick_wins_and_horizons():
@@ -112,7 +114,7 @@ def test_decompose_prompt_demands_cost_of_inaction():
 # ── extras stage: fail-open per layer, validation ────────────────────────
 
 
-def _chat_router(journey=None, governance=None, procedures=None, organization=None):
+def _chat_router(journey=None, governance=None, procedures=None, organization=None, checklists=None):
     """provider.chat replacement routing on prompt content; None → raise."""
 
     def chat(model, messages, **kwargs):
@@ -123,6 +125,8 @@ def _chat_router(journey=None, governance=None, procedures=None, organization=No
             payload = governance
         elif "ORGANIZATION" in prompt:
             payload = organization
+        elif "CHECKLISTS" in prompt:
+            payload = checklists
         else:
             payload = procedures
         if payload is None:
@@ -142,6 +146,10 @@ GOOD_GOV = {"scoreboard": [{"metric": "no-shows", "baseline": "measure in week 1
 GOOD_PROCS = {"procedures": [{"name": "Handling an inquiry", "trigger": "a call",
                               "steps": [{"actor": "ai", "step": "log it"}],
                               "exceptions": [{"when": "urgent", "then": "call owner"}]}]}
+GOOD_CHECK = {"checklists": [{"name": "Daily open", "when": "each morning",
+                              "items": ["Float counted", "Courts inspected"]}],
+              "forms": [{"name": "Intake form", "purpose": "captures new members",
+                         "fields": ["Name", "Phone"]}]}
 GOOD_ORG = {"roles": [
     {"role": "Owner", "type": "human", "responsibilities": ["approve"],
      "decides_alone": "pricing", "hands_off": "never"},
@@ -155,7 +163,7 @@ GOOD_ORG = {"roles": [
 def test_extras_persist_and_validate(monkeypatch, client):
     db = SessionLocal()
     row = _seed(db)
-    monkeypatch.setattr(extras.provider, "chat", _chat_router(GOOD_JOURNEY, GOOD_GOV, GOOD_PROCS, GOOD_ORG))
+    monkeypatch.setattr(extras.provider, "chat", _chat_router(GOOD_JOURNEY, GOOD_GOV, GOOD_PROCS, GOOD_ORG, GOOD_CHECK))
     extras.build_extras(db, row.id, {"target_customer_profile": "", "pain_points": []},
                         {"modules": MODULES, "business_case": {}})
     db.refresh(row)
@@ -168,6 +176,12 @@ def test_extras_persist_and_validate(monkeypatch, client):
     org = json.loads(row.org_json)
     assert org["roles"][1]["type"] == "ai"
     assert org["change_impact"][0]["role"] == "Owner"
+    # per-module SOP calls merged into one library, tagged with the module
+    procs = json.loads(row.procedures_json)["procedures"]
+    assert len(procs) == 2 and {p2["module"] for p2 in procs} == {"Scheduling", "Billing"}
+    check = json.loads(row.checklists_json)
+    assert check["checklists"][0]["name"] == "Daily open"
+    assert check["forms"][0]["fields"] == ["Name", "Phone"]
     db.close()
 
 
@@ -354,4 +368,23 @@ def test_blueprint_pdf_carries_all_layers(client, tmp_path, monkeypatch):
     r = client.get(f"/api/requests/{row.id}/export/pdf/blueprint")
     assert r.status_code == 200 and r.content.startswith(b"%PDF")
     assert len(r.content) > 4000
+    db.close()
+
+
+def test_operations_manual_pdf(client, tmp_path, monkeypatch):
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    row = _seed(
+        db, concept_name="BeaconOS",
+        procedures_json=json.dumps({"procedures": [dict(GOOD_PROCS["procedures"][0], module="Scheduling")]}),
+        org_json=json.dumps(GOOD_ORG),
+        checklists_json=json.dumps(GOOD_CHECK),
+    )
+    r = client.get(f"/api/requests/{row.id}/export/pdf/operations")
+    assert r.status_code == 200 and r.content.startswith(b"%PDF")
+    # not ready without any layer
+    empty = _seed(db)
+    assert client.get(f"/api/requests/{empty.id}/export/pdf/operations").status_code == 400
     db.close()

@@ -256,6 +256,8 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         "scoreboard": json.loads(req.scoreboard_json) if req.scoreboard_json else [],
         "risks": json.loads(req.risks_json) if req.risks_json else [],
         "procedures": json.loads(req.procedures_json)["procedures"] if req.procedures_json else [],
+        # The operations-manual appendix: {"checklists": [...], "forms": [...]}
+        "checklists": json.loads(req.checklists_json) if req.checklists_json else None,
     }
 
 
@@ -356,7 +358,7 @@ def export_pdf_route(request_id: int, kind: str, db: Session = Depends(get_db)):
     """The blueprint or technical plan as a branded PDF — the deliverable a
     client prints, forwards, and files. 400 before the document exists,
     same contract as the deck route."""
-    if kind not in ("blueprint", "technical"):
+    if kind not in ("blueprint", "technical", "operations"):
         raise HTTPException(status_code=404, detail="Unknown document")
     req = db.get(Request, request_id)
     if req is None:
