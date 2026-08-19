@@ -4,9 +4,12 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import {
+  approveReview,
   createStudioRequest,
   fetchBriefTurn,
   fetchDiscoveryQuestions,
+  isPendingTeaser,
+  saveReviewDocs,
   getStudioPreview,
   getStudioProgress,
   consultantAssetUrl,
@@ -18,6 +21,7 @@ import {
   studioZipUrl,
   type BriefMessage,
   type DiscoveryQuestion,
+  type StudioTeaser,
   type EngagementType,
   type OperatingStage,
   type StudioPreview,
@@ -71,7 +75,10 @@ const RENDER_WHISPERS = [
 // back the brief in a short chat so wrong inputs get corrected before a
 // dollar of pipeline runs. It can never block — if the consultant is
 // unreachable, the run starts directly.
-type Act = 'intake' | 'loading' | 'briefing' | 'building' | 'reveal' | 'failed' | 'missing';
+// 'pending' is the review gate's client-facing state: the engagement is
+// finished and with the consultant; the page shows a cinematic teaser of
+// real facts and flips to the reveal the moment it is approved.
+type Act = 'intake' | 'loading' | 'briefing' | 'pending' | 'building' | 'reveal' | 'failed' | 'missing';
 
 type ResultTab = 'screens' | 'blueprint' | 'technical' | 'playbook' | 'team' | 'plans';
 
@@ -1532,6 +1539,18 @@ export default function StudioPage() {
   const [briefBusy, setBriefBusy] = useState(false);
   const [briefInput, setBriefInput] = useState('');
   const briefEndRef = useRef<HTMLDivElement>(null);
+  // The review gate. The token arrives as ?review=... on the reviewer's
+  // link; its presence turns the page into the review view of the run.
+  const reviewToken = useMemo(
+    () => new URLSearchParams(window.location.search).get('review'),
+    [],
+  );
+  const [teaser, setTeaser] = useState<StudioTeaser | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editBp, setEditBp] = useState('');
+  const [editTech, setEditTech] = useState('');
+  const [qaOpen, setQaOpen] = useState(false);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const elapsed = useElapsed(act === 'building', startedAt);
@@ -1540,7 +1559,12 @@ export default function StudioPage() {
 
   const showResult = useCallback(async (id: number) => {
     try {
-      const data = await getStudioPreview(id);
+      const data = await getStudioPreview(id, reviewToken);
+      if (isPendingTeaser(data)) {
+        setTeaser(data);
+        setAct('pending');
+        return;
+      }
       setPreview(data);
       setActiveTab('screens');
       setAct('reveal');
@@ -1551,7 +1575,8 @@ export default function StudioPage() {
         setAct('failed');
       }
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewToken]);
 
   // Decide what a run's state means — used both on first load of a result URL
   // and on every poll, so there is exactly one set of rules.
@@ -1644,6 +1669,14 @@ export default function StudioPage() {
   useEffect(() => {
     if (act === 'briefing') briefEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [act, briefMessages, briefBusy]);
+
+  // While the engagement is with the consultant, quietly check for its
+  // release — the waiting client's page flips to the reveal on its own.
+  useEffect(() => {
+    if (act !== 'pending' || routeId == null) return;
+    const t = setInterval(() => void showResult(routeId), 20000);
+    return () => clearInterval(t);
+  }, [act, routeId, showResult]);
 
   // Rotate the rendering-stage whispers.
   useEffect(() => {
@@ -1837,6 +1870,35 @@ export default function StudioPage() {
     setAct('briefing');
     window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     void briefTurn([], true);
+  };
+
+  const doApprove = async () => {
+    if (!reviewToken || routeId == null || reviewBusy) return;
+    setReviewBusy(true);
+    try {
+      await approveReview(routeId, reviewToken);
+      await showResult(routeId);
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
+  const openEditor = () => {
+    setEditBp(preview?.mvp_blueprint ?? '');
+    setEditTech(preview?.technical_plan ?? '');
+    setEditOpen(true);
+  };
+
+  const doSaveDocs = async () => {
+    if (!reviewToken || routeId == null || reviewBusy) return;
+    setReviewBusy(true);
+    try {
+      await saveReviewDocs(routeId, reviewToken, { mvp_blueprint: editBp, technical_plan: editTech });
+      setEditOpen(false);
+      await showResult(routeId);
+    } finally {
+      setReviewBusy(false);
+    }
   };
 
   const startOver = () => {
@@ -2504,6 +2566,116 @@ export default function StudioPage() {
               </motion.section>
             )}
 
+            {act === 'pending' && teaser && (
+              <motion.section key="pending" {...fade} transition={{ duration: 0.5 }}>
+                <div className="max-w-4xl mx-auto text-center">
+                  <div className="studio-pend-badge" aria-hidden="true">
+                    <span className="studio-pend-ring" />
+                    <Icon path={INTAKE_ICONS.shield} className="w-5 h-5" />
+                  </div>
+                  <p className="studio-kicker mb-3 mt-6">Engagement complete — in final review</p>
+                  <h1 className="studio-display text-3xl sm:text-5xl font-bold text-navy">
+                    {teaser.concept_name || teaser.business_name} is ready.
+                  </h1>
+                  <p className="studio-plan-rostertext mt-4 max-w-xl mx-auto">
+                    Your consultant is personally reviewing every page before release — the same
+                    signature every engagement gets. You'll receive it shortly.
+                  </p>
+
+                  {teaser.numbers_echo.length > 0 && (
+                    <div className="studio-pend-numbers">
+                      <span>Built around your own numbers</span>
+                      {teaser.numbers_echo.map((n, i) => (
+                        <em key={i}>{n}</em>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="studio-pend-stats">
+                    {[
+                      [teaser.stats.modules, 'modules'],
+                      [teaser.stats.ai_agents, 'AI agents'],
+                      [teaser.stats.journey_stages, 'journey stages'],
+                      [teaser.stats.procedures, 'procedures'],
+                      [teaser.stats.checklists, 'checklists'],
+                      [teaser.stats.quick_wins, 'quick wins'],
+                    ]
+                      .filter(([n]) => (n as number) > 0)
+                      .map(([n, label], i) => (
+                        <motion.div
+                          className="studio-pend-stat"
+                          key={label as string}
+                          initial={reduceMotion ? undefined : { opacity: 0, y: 14 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.15 + i * 0.09, duration: 0.4 }}
+                        >
+                          <strong>{n}</strong>
+                          <span>{label}</span>
+                        </motion.div>
+                      ))}
+                  </div>
+
+                  {teaser.journey_stage_names.length > 0 && (
+                    <div className="studio-pend-journey">
+                      {teaser.journey_stage_names.map((name, i) => (
+                        <motion.span
+                          className="studio-pend-jstage"
+                          key={name}
+                          initial={reduceMotion ? undefined : { opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.4 + i * 0.12, duration: 0.35 }}
+                        >
+                          <i>{i + 1}</i>
+                          {name}
+                        </motion.span>
+                      ))}
+                    </div>
+                  )}
+
+                  {teaser.module_teasers.length > 0 && (
+                    <div className="studio-pend-modules">
+                      {teaser.module_teasers.map((m, i) => (
+                        <motion.div
+                          className="studio-pend-module"
+                          key={m.name ?? i}
+                          initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
+                        >
+                          <p className="studio-pend-module-name">{m.name}</p>
+                          {m.purpose && <p className="studio-pend-module-purpose">{m.purpose}</p>}
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+
+                  {teaser.qa_checks.length > 0 && (
+                    <div className="studio-pend-checks">
+                      <p className="studio-kicker mb-3">What the expert auditors verified</p>
+                      {teaser.qa_checks.map((c, i) => (
+                        <motion.p
+                          className={`studio-pend-check${c.passed ? '' : ' studio-pend-check--fixing'}`}
+                          key={c.label}
+                          initial={reduceMotion ? undefined : { opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.7 + i * 0.15 }}
+                        >
+                          <span aria-hidden="true">{c.passed ? '✓' : '…'}</span>
+                          {c.label}
+                          {!c.passed && <em> — being corrected by your consultant</em>}
+                        </motion.p>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="studio-hint studio-hint--trust justify-center mt-10">
+                    <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
+                    This page updates itself the moment your engagement is released.
+                  </p>
+                </div>
+              </motion.section>
+            )}
+
             {act === 'building' && (
               <motion.section key="building" {...fade} transition={{ duration: 0.45 }}>
                 <div className="max-w-3xl mx-auto text-center mb-10">
@@ -3089,6 +3261,63 @@ export default function StudioPage() {
           </AnimatePresence>
         </div>
       </main>
+
+      {reviewToken && act === 'reveal' && preview?.review_status === 'pending' && (
+        <div className="studio-reviewbar" role="region" aria-label="Review controls">
+          <div className="studio-reviewbar-info">
+            <strong>Review mode</strong>
+            <span>
+              This engagement awaits your approval.
+              {preview.qa_report && (
+                <button type="button" className="studio-reviewbar-qa" onClick={() => setQaOpen((o) => !o)}>
+                  {preview.qa_report.checks.filter((c) => c.passed).length}/{preview.qa_report.checks.length} checks
+                  passed · {preview.qa_report.findings.length} findings
+                </button>
+              )}
+            </span>
+          </div>
+          <div className="studio-reviewbar-actions">
+            <button type="button" className="studio-ghost-btn" onClick={openEditor} disabled={reviewBusy}>
+              Edit documents
+            </button>
+            <button type="button" className="studio-cta" onClick={() => void doApprove()} disabled={reviewBusy}>
+              {reviewBusy ? 'Working…' : 'Approve & release'}
+            </button>
+          </div>
+          {qaOpen && preview.qa_report && (
+            <div className="studio-reviewbar-findings">
+              {preview.qa_report.findings.length === 0 && <p>No findings — the auditors passed it clean.</p>}
+              {preview.qa_report.findings.map((f, i) => (
+                <p key={i}>
+                  <strong>[{f.severity}]</strong> {f.where ? `${f.where}: ` : ''}
+                  {f.issue}
+                  {f.fix && <em> → {f.fix}</em>}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {editOpen && (
+        <div className="studio-editor" role="dialog" aria-label="Edit documents">
+          <div className="studio-editor-panel">
+            <p className="studio-kicker mb-2">The red pen — your edits flow into every PDF</p>
+            <label>The Blueprint</label>
+            <textarea value={editBp} onChange={(e) => setEditBp(e.target.value)} rows={12} />
+            <label>The Technical Plan</label>
+            <textarea value={editTech} onChange={(e) => setEditTech(e.target.value)} rows={12} />
+            <div className="studio-editor-actions">
+              <button type="button" className="studio-ghost-btn" onClick={() => setEditOpen(false)} disabled={reviewBusy}>
+                Cancel
+              </button>
+              <button type="button" className="studio-cta" onClick={() => void doSaveDocs()} disabled={reviewBusy}>
+                {reviewBusy ? 'Saving…' : 'Save documents'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <dialog
         ref={dialogRef}

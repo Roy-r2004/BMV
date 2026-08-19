@@ -150,6 +150,11 @@ class Settings:
     # text call, so MAX also caps that stage's spend.
     # Discovery questions are soft-bounded the same way modules are — the
     # model chooses the count this business needs within the bounds.
+    # The human review gate: finished runs land as pending until the
+    # reviewer (holding REVIEW_TOKEN) approves. Active only when a token
+    # is configured — a gate nobody can open must never be armed.
+    REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
+    REVIEW_TOKEN: str = _env_or("REVIEW_TOKEN", "")
     MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))
     MAX_DISCOVERY_QUESTIONS: int = int(_env_or("MAX_DISCOVERY_QUESTIONS", "6"))
     MIN_MODULES_PER_REQUEST: int = int(_env_or("MIN_MODULES_PER_REQUEST", "3"))

@@ -125,6 +125,8 @@ export async function fetchBriefTurn(input: {
 }
 
 export interface StudioProgress {
+  /** "pending" while the human review gate holds a finished run. */
+  review_status?: string | null;
   business_name: string | null;
   stage: string | null;
   label: string | null;
@@ -233,6 +235,60 @@ export interface StudioPreview {
   procedures: StudioProcedure[];
   checklists: StudioChecklists | null;
   engagement_type: EngagementType | null;
+  review_status?: string | null;
+  /** The quality bench's full report — present for the reviewer. */
+  qa_report?: {
+    checks: { label: string; passed: boolean; note?: string }[];
+    findings: { severity: string; where?: string; issue: string; fix?: string }[];
+    polish_applied?: boolean;
+  } | null;
+}
+
+/** What a pending run shows the waiting client: real counts and names,
+ *  their own numbers echoed, and the quality bench's pass marks — never
+ *  the deliverable content itself. */
+export interface StudioTeaser {
+  pending_review: true;
+  id: number;
+  business_name: string;
+  concept_name: string | null;
+  engagement_type: EngagementType | null;
+  stats: {
+    modules: number;
+    ai_agents: number;
+    journey_stages: number;
+    org_roles: number;
+    procedures: number;
+    checklists: number;
+    quick_wins: number;
+  };
+  module_teasers: { name: string | null; purpose: string | null }[];
+  journey_stage_names: string[];
+  numbers_echo: string[];
+  qa_checks: { label: string; passed: boolean }[];
+}
+
+export type StudioPreviewResult = StudioPreview | StudioTeaser;
+
+export function isPendingTeaser(r: StudioPreviewResult): r is StudioTeaser {
+  return (r as StudioTeaser).pending_review === true;
+}
+
+/** Approve a pending engagement — reviewer only. */
+export async function approveReview(id: number, reviewToken: string): Promise<void> {
+  await consultantClient.post(`/api/requests/${id}/review/approve?review_token=${encodeURIComponent(reviewToken)}`);
+}
+
+/** The reviewer's red pen: edited documents replace the generated ones. */
+export async function saveReviewDocs(
+  id: number,
+  reviewToken: string,
+  docs: { mvp_blueprint?: string; technical_plan?: string },
+): Promise<void> {
+  const form = new FormData();
+  if (docs.mvp_blueprint) form.set('mvp_blueprint', docs.mvp_blueprint);
+  if (docs.technical_plan) form.set('technical_plan', docs.technical_plan);
+  await consultantClient.post(`/api/requests/${id}/review/docs?review_token=${encodeURIComponent(reviewToken)}`, form);
 }
 
 /** Humans and AI agents on one chart, with decision rights — plus what
@@ -399,8 +455,9 @@ export async function getStudioProgress(id: number): Promise<StudioProgress> {
   return data;
 }
 
-export async function getStudioPreview(id: number): Promise<StudioPreview> {
-  const { data } = await consultantClient.get(`/api/requests/${id}/preview`);
+export async function getStudioPreview(id: number, reviewToken?: string | null): Promise<StudioPreviewResult> {
+  const suffix = reviewToken ? `?review_token=${encodeURIComponent(reviewToken)}` : '';
+  const { data } = await consultantClient.get(`/api/requests/${id}/preview${suffix}`);
   return data;
 }
 

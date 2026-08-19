@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, decompose, extras, images, plan, playbook, research, ui_spec
+from app.pipeline import analyze, blueprint, consult, decompose, extras, images, plan, playbook, qa_experts, research, ui_spec
 from app.pipeline._shared import emit
 
 
@@ -81,6 +81,9 @@ def _run_inner(db: Session, request_id: int) -> None:
     emit(db, request_id, "playbook", "Writing your step-by-step execution playbook...", 60)
     playbook.write_playbook(db, request_id, plan_result, decomposition)
 
+    emit(db, request_id, "quality", "Expert auditors reviewing your documents...", 61)
+    qa_experts.review_quality(db, request_id)
+
     emit(db, request_id, "directing", "Designing your product screens...", 62)
     archetype_id, specs = ui_spec.build_ui_specs(db, request_id, consult_result, plan_result)
 
@@ -100,5 +103,11 @@ def _run_inner(db: Session, request_id: int) -> None:
     req.status = "done"
     req.is_generating = False
     req.is_failed = False
+    # The human review gate: when armed, a finished engagement waits for
+    # the reviewer's approval before the client sees it.
+    from app.config import settings as _settings
+
+    if _settings.REVIEW_MODE == "on" and _settings.REVIEW_TOKEN:
+        req.review_status = "pending"
     db.commit()
     emit(db, request_id, "done", "Done", 100, detail=f"{len(saved_images)} images ready")

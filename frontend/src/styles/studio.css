@@ -3493,3 +3493,316 @@
   align-items: center;
   gap: 0.7rem;
 }
+
+/* ── the pending act: engagement in final review ────────────────────── */
+
+.studio-pend-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #12264a, #020617);
+  color: #7dd3fc;
+  margin-top: 1rem;
+}
+
+.studio-pend-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 2px solid rgba(37, 99, 235, 0.35);
+  animation: studio-pend-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes studio-pend-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.12); opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-pend-ring { animation: none; }
+}
+
+.studio-pend-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 1.6rem;
+}
+
+.studio-pend-numbers span {
+  width: 100%;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+
+.studio-pend-numbers em {
+  font-style: normal;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: #1e40af;
+  background: rgba(37, 99, 235, 0.07);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+}
+
+.studio-pend-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(8.5rem, 45%), 1fr));
+  gap: 0.7rem;
+  max-width: 44rem;
+  margin: 2rem auto 0;
+}
+
+.studio-pend-stat {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  padding: 1rem 0.6rem;
+  box-shadow: 0 14px 32px -28px rgba(15, 23, 42, 0.5);
+}
+
+.studio-pend-stat strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #2563eb;
+  line-height: 1.1;
+}
+
+.studio-pend-stat span {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: #64748b;
+}
+
+.studio-pend-journey {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.6rem;
+}
+
+.studio-pend-jstage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  box-shadow: 0 8px 20px -16px rgba(15, 23, 42, 0.5);
+}
+
+.studio-pend-jstage i {
+  font-style: normal;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.studio-pend-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: 0.7rem;
+  max-width: 52rem;
+  margin: 1.8rem auto 0;
+  text-align: left;
+}
+
+.studio-pend-module {
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.04), #ffffff 55%);
+  padding: 0.9rem 1rem;
+  min-width: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.studio-pend-module:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px -24px rgba(37, 99, 235, 0.5);
+}
+
+.studio-pend-module-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.studio-pend-module-purpose {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.studio-pend-checks {
+  max-width: 30rem;
+  margin: 2.2rem auto 0;
+  text-align: left;
+}
+
+.studio-pend-check {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+  color: #0f172a;
+  margin-bottom: 0.45rem;
+}
+
+.studio-pend-check span {
+  color: #047857;
+  font-weight: 800;
+}
+
+.studio-pend-check--fixing span {
+  color: #b45309;
+}
+
+.studio-pend-check em {
+  font-style: normal;
+  color: #b45309;
+  font-size: 0.8rem;
+}
+
+/* ── review bar + editor ────────────────────────────────────────────── */
+
+.studio-reviewbar {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 70;
+  width: min(60rem, calc(100vw - 1.5rem));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 56px -24px rgba(15, 23, 42, 0.5);
+  padding: 0.85rem 1.1rem;
+}
+
+.studio-reviewbar-info strong {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.studio-reviewbar-info span {
+  font-size: 0.84rem;
+  color: #475569;
+}
+
+.studio-reviewbar-qa {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-left: 0.5rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.studio-reviewbar-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.studio-reviewbar-findings {
+  width: 100%;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding-top: 0.6rem;
+  max-height: 10rem;
+  overflow-y: auto;
+}
+
+.studio-reviewbar-findings p {
+  font-size: 0.8rem;
+  color: #475569;
+  margin-bottom: 0.35rem;
+}
+
+.studio-reviewbar-findings em {
+  color: #047857;
+  font-style: normal;
+}
+
+.studio-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.studio-editor-panel {
+  width: min(52rem, 100%);
+  max-height: 90dvh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 1.1rem;
+  padding: 1.4rem;
+  box-shadow: 0 40px 90px -40px rgba(15, 23, 42, 0.7);
+}
+
+.studio-editor-panel label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0.9rem 0 0.3rem;
+}
+
+.studio-editor-panel textarea {
+  width: 100%;
+  border: 1.5px solid rgba(37, 99, 235, 0.25);
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.8rem;
+  font-family: ui-monospace, monospace;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.studio-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}

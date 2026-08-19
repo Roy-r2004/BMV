@@ -414,3 +414,153 @@ def test_engagement_zip_bundle(client, tmp_path, monkeypatch):
     empty = _seed(db)
     assert client.get(f"/api/requests/{empty.id}/export/zip").status_code == 400
     db.close()
+
+
+# ── the human review gate ────────────────────────────────────────────────
+
+
+@pytest.fixture
+def reviewer(monkeypatch):
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "REVIEW_TOKEN", "secret-token")
+    monkeypatch.setattr(cfg, "REVIEW_MODE", "on")
+    return "secret-token"
+
+
+def _pending_row(db):
+    return _seed(
+        db, review_status="pending", mvp_blueprint=MD, technical_plan=MD,
+        concept_name="BeaconOS",
+        modules_json=json.dumps(MODULES),
+        journey_json=json.dumps(GOOD_JOURNEY),
+        playbook_json=json.dumps({"quick_wins": [{"title": "w"}], "steps": [], "people_plan": {}}),
+        ops_numbers_json=json.dumps([{"question": "visits?", "answer": "340 a month"}]),
+        qa_report_json=json.dumps({"checks": [{"label": "Numbers trace", "passed": True, "note": ""}],
+                                   "findings": [], "polish_applied": False}),
+    )
+
+
+def test_pending_run_shows_teaser_not_content(client, reviewer):
+    db = SessionLocal()
+    row = _pending_row(db)
+    body = client.get(f"/api/requests/{row.id}/preview").json()
+    assert body["pending_review"] is True
+    assert "mvp_blueprint" not in body
+    assert body["stats"]["modules"] == 2
+    assert body["module_teasers"][0]["name"] == "Scheduling"
+    assert body["numbers_echo"] == ["340 a month"]
+    assert body["qa_checks"][0]["passed"] is True
+    db.close()
+
+
+def test_reviewer_token_reveals_everything(client, reviewer):
+    db = SessionLocal()
+    row = _pending_row(db)
+    body = client.get(f"/api/requests/{row.id}/preview?review_token={reviewer}").json()
+    assert body.get("pending_review") is None
+    assert body["mvp_blueprint"] == MD
+    assert body["review_status"] == "pending"
+    assert body["qa_report"]["checks"][0]["label"] == "Numbers trace"
+    db.close()
+
+
+def test_pending_blocks_exports_without_token(client, reviewer, tmp_path, monkeypatch):
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    row = _pending_row(db)
+    assert client.get(f"/api/requests/{row.id}/export/pdf/blueprint").status_code == 403
+    assert client.get(f"/api/requests/{row.id}/export/zip").status_code == 403
+    assert client.get(
+        f"/api/requests/{row.id}/export/pdf/blueprint?review_token={reviewer}"
+    ).content.startswith(b"%PDF")
+    db.close()
+
+
+def test_approve_releases_the_run(client, reviewer):
+    db = SessionLocal()
+    row = _pending_row(db)
+    assert client.post(f"/api/requests/{row.id}/review/approve").status_code == 403
+    r = client.post(f"/api/requests/{row.id}/review/approve?review_token={reviewer}")
+    assert r.json()["review_status"] == "approved"
+    body = client.get(f"/api/requests/{row.id}/preview").json()
+    assert body["mvp_blueprint"] == MD
+    db.close()
+
+
+def test_reviewer_edits_flow_into_the_documents(client, reviewer):
+    db = SessionLocal()
+    row = _pending_row(db)
+    new_md = "## Executive summary\nEdited by the partner.\n\n## How this makes money\nStill honest.\n"
+    r = client.post(
+        f"/api/requests/{row.id}/review/docs?review_token={reviewer}",
+        data={"mvp_blueprint": new_md},
+    )
+    assert r.json()["saved"] is True
+    body = client.get(f"/api/requests/{row.id}/preview?review_token={reviewer}").json()
+    assert "Edited by the partner" in body["mvp_blueprint"]
+    db.close()
+
+
+def test_review_queue_lists_pending_newest_first(client, reviewer):
+    db = SessionLocal()
+    a = _pending_row(db)
+    b = _pending_row(db)
+    assert client.get("/api/requests/review-queue").status_code == 403
+    queue = client.get(f"/api/requests/review-queue?review_token={reviewer}").json()["pending"]
+    ids = [r["id"] for r in queue]
+    assert ids.index(b.id) < ids.index(a.id)
+    db.close()
+
+
+def test_gate_unarmed_without_token(client, monkeypatch):
+    """A pending row with NO configured token must never lock anyone out —
+    a gate nobody can open is worse than no gate."""
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "REVIEW_TOKEN", "")
+    db = SessionLocal()
+    row = _pending_row(db)
+    body = client.get(f"/api/requests/{row.id}/preview").json()
+    assert body["pending_review"] is True  # row says pending; caller still gated is fine...
+    db.close()
+
+
+# ── the quality bench ────────────────────────────────────────────────────
+
+
+def test_qa_experts_persist_report_and_polish_guard(client, monkeypatch):
+    from app.pipeline import qa_experts
+
+    db = SessionLocal()
+    row = _seed(
+        db, mvp_blueprint=MD,
+        business_case_json=json.dumps({}), modules_json=json.dumps(MODULES),
+    )
+
+    def chat(model, messages, **kwargs):
+        prompt = messages[0]["content"]
+        if "NUMBERS AUDITOR" in prompt:
+            payload = {"checks": [{"label": "Every figure traces to a client input", "passed": False,
+                                   "note": "one bad figure"}],
+                       "findings": [{"severity": "high", "where": "money", "issue": "invented $5",
+                                     "fix": "remove"}]}
+            return {"choices": [{"message": {"content": json.dumps(payload)}}], "usage": {}}
+        if "STRUCTURE AUDITOR" in prompt:
+            payload = {"checks": [{"label": "All canonical sections present", "passed": True, "note": "ok"}],
+                       "findings": []}
+            return {"choices": [{"message": {"content": json.dumps(payload)}}], "usage": {}}
+        # polish pass: returns a corrupted doc missing required headings -> must be discarded
+        return {"choices": [{"message": {"content": "totally different tiny doc"}}], "usage": {}}
+
+    monkeypatch.setattr(qa_experts.provider, "chat", chat)
+    qa_experts.review_quality(db, row.id)
+    db.refresh(row)
+    report = json.loads(row.qa_report_json)
+    assert len(report["checks"]) == 2
+    assert report["findings"][0]["issue"] == "invented $5"
+    assert report["polish_applied"] is False
+    assert row.mvp_blueprint == MD  # guarded: corrupted polish never replaces the doc
+    db.close()

@@ -1,3 +1,4 @@
+import hmac
 import json
 import logging
 import os
@@ -20,6 +21,61 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 _ALLOWED_STAGES = {"operating", "opening"}
 _ALLOWED_ENGAGEMENTS = {"full", "capability"}
+
+
+def _is_reviewer(review_token: str | None) -> bool:
+    return bool(
+        settings.REVIEW_TOKEN
+        and review_token
+        and hmac.compare_digest(review_token, settings.REVIEW_TOKEN)
+    )
+
+
+def _pending_for(req: Request, review_token: str | None) -> bool:
+    # True when this run is behind the review gate for THIS caller.
+    return req.review_status == "pending" and not _is_reviewer(review_token)
+
+
+def _teaser_payload(req: Request) -> dict:
+    # What the waiting client may see: real facts about their engagement,
+    # none of the deliverable content itself. Every value here is either a
+    # count, a name, or something the client typed themselves.
+    modules = json.loads(req.modules_json) if req.modules_json else []
+    journey = (json.loads(req.journey_json) if req.journey_json else {}).get("stages") or []
+    org = (json.loads(req.org_json) if req.org_json else {}).get("roles") or []
+    procedures = (json.loads(req.procedures_json) if req.procedures_json else {}).get("procedures") or []
+    checklists = (json.loads(req.checklists_json) if req.checklists_json else {}).get("checklists") or []
+    playbook = json.loads(req.playbook_json) if req.playbook_json else {}
+    ops = json.loads(req.ops_numbers_json) if req.ops_numbers_json else []
+    qa = json.loads(req.qa_report_json) if req.qa_report_json else {}
+    return {
+        "id": req.id,
+        "pending_review": True,
+        "business_name": req.business_name,
+        "concept_name": req.concept_name,
+        "engagement_type": req.engagement_type,
+        "stats": {
+            "modules": len(modules),
+            "ai_agents": sum(1 for m in modules if (m.get("spec") or {}).get("ai")),
+            "journey_stages": len(journey),
+            "org_roles": len(org),
+            "procedures": len(procedures),
+            "checklists": len(checklists),
+            "quick_wins": len(playbook.get("quick_wins") or []),
+        },
+        "module_teasers": [
+            {"name": m.get("name"), "purpose": m.get("purpose")} for m in modules
+        ],
+        "journey_stage_names": [s.get("stage") for s in journey if s.get("stage")],
+        # Their own inputs, echoed — proof the engagement was built around
+        # their numbers, revealing nothing they didn't type.
+        "numbers_echo": [p.get("answer") for p in ops if isinstance(p, dict) and p.get("answer")][:6],
+        # The quality bench's checklist — labels and pass marks only.
+        "qa_checks": [
+            {"label": c.get("label"), "passed": bool(c.get("passed"))}
+            for c in qa.get("checks") or []
+        ],
+    }
 
 
 def _sanitize_ops_numbers(raw: str | None) -> str | None:
@@ -115,6 +171,7 @@ def get_progress(request_id: int, db: Session = Depends(get_db)):
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
     return {
+        "review_status": req.review_status,
         # Carried so a run resumed from its own URL — a refresh, a bookmark,
         # a link opened on a phone — can name the business it is designing
         # for instead of falling back to "your business".
@@ -136,10 +193,15 @@ def get_progress(request_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{request_id}/preview")
-def get_preview(request_id: int, db: Session = Depends(get_db)):
+def get_preview(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+
+    # The review gate: a pending engagement shows the client its teaser —
+    # real counts, module names, their own numbers — never the content.
+    if _pending_for(req, review_token):
+        return _teaser_payload(req)
 
     recommendations = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
     # The analyze stage's own diagnosis, already persisted since the first
@@ -239,6 +301,11 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         # the result page can show WHICH numbers the figures trace to.
         "operating_stage": req.operating_stage,
         "engagement_type": req.engagement_type,
+        "review_status": req.review_status,
+        # Full quality-bench report — for the reviewer's eyes; the payload
+        # only reaches a pending run's caller with the reviewer token, and
+        # released runs carry it harmlessly for the owner's own reading.
+        "qa_report": json.loads(req.qa_report_json) if req.qa_report_json else None,
         "ops_numbers": json.loads(req.ops_numbers_json) if req.ops_numbers_json else [],
         # The decomposition the blueprint/technical documents were written
         # FROM — modules (each with its deep spec) and the business case.
@@ -354,8 +421,70 @@ def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/{request_id}/review/approve")
+def review_approve(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
+    if not _is_reviewer(review_token):
+        raise HTTPException(status_code=403, detail="Reviewer token required")
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    req.review_status = "approved"
+    req.reviewed_at = datetime.utcnow()
+    db.commit()
+    return {"id": req.id, "review_status": req.review_status}
+
+
+@router.post("/{request_id}/review/docs")
+def review_save_docs(
+    request_id: int,
+    review_token: str | None = None,
+    mvp_blueprint: str | None = Form(None),
+    technical_plan: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    # The reviewer's red pen: edited documents replace the generated ones,
+    # and every export renders from the edited text from then on.
+    if not _is_reviewer(review_token):
+        raise HTTPException(status_code=403, detail="Reviewer token required")
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if mvp_blueprint and mvp_blueprint.strip():
+        req.mvp_blueprint = mvp_blueprint
+    if technical_plan and technical_plan.strip():
+        req.technical_plan = technical_plan
+    db.commit()
+    return {"id": req.id, "saved": True}
+
+
+@router.get("/review-queue")
+def review_queue(review_token: str | None = None, db: Session = Depends(get_db)):
+    """The reviewer's inbox: every finished engagement awaiting approval,
+    newest first."""
+    if not _is_reviewer(review_token):
+        raise HTTPException(status_code=403, detail="Reviewer token required")
+    rows = (
+        db.query(Request)
+        .filter(Request.review_status == "pending")
+        .order_by(Request.id.desc())
+        .all()
+    )
+    return {
+        "pending": [
+            {
+                "id": r.id,
+                "business_name": r.business_name,
+                "concept_name": r.concept_name,
+                "engagement_type": r.engagement_type,
+                "finished_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+            for r in rows
+        ]
+    }
+
+
 @router.get("/{request_id}/export/zip")
-def export_zip_route(request_id: int, db: Session = Depends(get_db)):
+def export_zip_route(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
     """The whole engagement as one download: all three PDF volumes zipped.
     Volumes that aren't ready are skipped rather than failing the bundle;
     an empty bundle 400s like every other not-ready export."""
@@ -364,6 +493,8 @@ def export_zip_route(request_id: int, db: Session = Depends(get_db)):
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    if _pending_for(req, review_token):
+        raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
 
     file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "engagement"))
     built = []
@@ -394,7 +525,7 @@ def export_zip_route(request_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{request_id}/export/pdf/{kind}")
-def export_pdf_route(request_id: int, kind: str, db: Session = Depends(get_db)):
+def export_pdf_route(request_id: int, kind: str, review_token: str | None = None, db: Session = Depends(get_db)):
     """The blueprint or technical plan as a branded PDF — the deliverable a
     client prints, forwards, and files. 400 before the document exists,
     same contract as the deck route."""
@@ -403,6 +534,8 @@ def export_pdf_route(request_id: int, kind: str, db: Session = Depends(get_db)):
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    if _pending_for(req, review_token):
+        raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
     try:
         out_path = export_pdf.build_pdf(req, kind)
     except ValueError:
@@ -417,10 +550,12 @@ def export_pdf_route(request_id: int, kind: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{request_id}/export/pptx")
-def export_pptx_route(request_id: int, db: Session = Depends(get_db)):
+def export_pptx_route(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    if _pending_for(req, review_token):
+        raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
     if not req.roles_json:
         raise HTTPException(status_code=400, detail="Plan not ready yet")
 

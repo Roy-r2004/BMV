@@ -90,6 +90,14 @@ class Request(Base):
     # The forms & checklists appendix of the operations manual:
     # {"checklists": [...], "forms": [...]} — the artifacts staff hold.
     checklists_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The human review gate: null (legacy runs — treated as released),
+    # "pending" (finished, awaiting the reviewer), "approved" (released).
+    review_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # The quality bench's verdict: {"checks": [...], "findings": [...],
+    # "polish_applied": bool}. Shown in full to the reviewer; the client's
+    # pending page sees only the check labels and pass marks.
+    qa_report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
