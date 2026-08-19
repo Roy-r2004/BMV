@@ -424,7 +424,7 @@ def reviewer(monkeypatch):
     from app.config import settings as cfg
 
     monkeypatch.setattr(cfg, "REVIEW_TOKEN", "secret-token")
-    monkeypatch.setattr(cfg, "REVIEW_MODE", "on")
+    monkeypatch.setattr(cfg, "REVIEW_MODE", "gate")
     return "secret-token"
 
 
@@ -515,16 +515,18 @@ def test_review_queue_lists_pending_newest_first(client, reviewer):
     db.close()
 
 
-def test_gate_unarmed_without_token(client, monkeypatch):
-    """A pending row with NO configured token must never lock anyone out —
-    a gate nobody can open is worse than no gate."""
+def test_default_mode_serves_content_even_when_pending(client, monkeypatch):
+    """Oversight is the default: a pending row serves its full content to
+    the caller — review happens after delivery, never in the client's way."""
     from app.config import settings as cfg
 
     monkeypatch.setattr(cfg, "REVIEW_TOKEN", "")
+    monkeypatch.setattr(cfg, "REVIEW_MODE", "on")
     db = SessionLocal()
     row = _pending_row(db)
     body = client.get(f"/api/requests/{row.id}/preview").json()
-    assert body["pending_review"] is True  # row says pending; caller still gated is fine...
+    assert body.get("pending_review") is None
+    assert body["mvp_blueprint"] == MD
     db.close()
 
 
@@ -680,4 +682,22 @@ def test_delete_is_reviewer_only_and_total(client, reviewer, tmp_path, monkeypat
     assert r.json() == {"deleted": rid}
     assert client.get(f"/api/requests/{rid}/preview").status_code == 404
     assert not os.path.isdir(img_dir)
+    db.close()
+
+
+def test_oversight_mode_never_holds_the_client(client, reviewer, monkeypatch):
+    """The default mode: the run is pending in the reviewer's queue, but
+    the client sees everything immediately — review happens after
+    delivery, not in the client's way."""
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "REVIEW_MODE", "on")
+    db = SessionLocal()
+    row = _pending_row(db)
+    body = client.get(f"/api/requests/{row.id}/preview").json()
+    assert body.get("pending_review") is None
+    assert body["mvp_blueprint"] == MD
+    assert body["review_status"] == "pending"  # still in the queue
+    queue = client.get(f"/api/requests/review-queue?review_token={reviewer}").json()
+    assert any(r["id"] == row.id for r in queue["pending"])
     db.close()

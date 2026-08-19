@@ -107,7 +107,7 @@ def _run_inner(db: Session, request_id: int) -> None:
     # the reviewer's approval before the client sees it.
     from app.config import settings as _settings
 
-    if _settings.REVIEW_MODE == "on" and _settings.REVIEW_TOKEN:
+    if _settings.REVIEW_MODE in ("on", "gate") and _settings.REVIEW_TOKEN:
         req.review_status = "pending"
         from app import mailer
 
