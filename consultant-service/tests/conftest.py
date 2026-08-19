@@ -13,6 +13,18 @@ os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tempfile.mkdtemp(prefix
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _signed_in(monkeypatch):
+    """Every API test runs as a signed-in account unless it overrides this
+    — the auth gate's own tests monkeypatch resolve_user back to None."""
+    from app import auth_client
+
+    monkeypatch.setattr(
+        auth_client, "resolve_user",
+        lambda authorization: {"email": "test@example.com", "name": "Test"},
+    )
+
 from app.ui_spec import ChartSpec, Kpi, Panel, UIDemoSpec
 
 

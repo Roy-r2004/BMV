@@ -153,6 +153,12 @@ class Settings:
     # The human review gate: finished runs land as pending until the
     # reviewer (holding REVIEW_TOKEN) approves. Active only when a token
     # is configured — a gate nobody can open must never be armed.
+    # The main app owns accounts; sessions are introspected against it.
+    MAIN_API_URL: str = _env_or("MAIN_API_URL", "https://buildmyversion.com")
+    # Runs listed here are the PUBLIC example engagements — the marketing
+    # gallery. Everything else created after the auth gate is private to
+    # its owner. Comma-separated ids, set in the deploy environment.
+    SHOWCASE_IDS: str = _env_or("SHOWCASE_IDS", "")
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
     REVIEW_TOKEN: str = _env_or("REVIEW_TOKEN", "")
     MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))

@@ -5,10 +5,11 @@ import os
 import threading
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Form, HTTPException
+from fastapi import APIRouter, Depends, Form, Header, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app import auth_client
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
@@ -21,6 +22,38 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 _ALLOWED_STAGES = {"operating", "opening"}
 _ALLOWED_ENGAGEMENTS = {"full", "capability"}
+
+
+def _showcase_ids() -> set[int]:
+    out = set()
+    for part in (settings.SHOWCASE_IDS or "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            out.add(int(part))
+    return out
+
+
+def _can_view(req: Request, review_token: str | None, authorization: str | None) -> tuple[bool, int, str]:
+    # (allowed, status_code_if_not, message). Order: reviewer, showcase,
+    # legacy public (no owner), then owner match.
+    if _is_reviewer(review_token):
+        return True, 0, ""
+    if req.id in _showcase_ids():
+        return True, 0, ""
+    if not req.owner_email:
+        return True, 0, ""
+    user = auth_client.resolve_user(authorization)
+    if user is None:
+        return False, 401, "Sign in to view your engagement"
+    if user["email"].lower() != req.owner_email.lower():
+        return False, 403, "This engagement belongs to another account"
+    return True, 0, ""
+
+
+def _require_view(req: Request, review_token: str | None, authorization: str | None) -> None:
+    allowed, code, message = _can_view(req, review_token, authorization)
+    if not allowed:
+        raise HTTPException(status_code=code, detail=message)
 
 
 def _is_reviewer(review_token: str | None) -> bool:
@@ -122,8 +155,15 @@ def create_request(
     operating_stage: str | None = Form(None),
     engagement_type: str | None = Form(None),
     ops_numbers: str | None = Form(None),
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
+    # Engagements belong to accounts: no sign-in, no run. This is also the
+    # spend gate — anonymous traffic can no longer start the pipeline.
+    user = auth_client.resolve_user(authorization)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
+
     # Every accepted request spends real AI money — cap how many can be
     # generating at once so an unauthenticated burst can't drain the credit
     # balance (found in review).
@@ -153,6 +193,7 @@ def create_request(
         operating_stage=operating_stage if operating_stage in _ALLOWED_STAGES else None,
         engagement_type=engagement_type if engagement_type in _ALLOWED_ENGAGEMENTS else None,
         ops_numbers_json=_sanitize_ops_numbers(ops_numbers),
+        owner_email=user["email"],
         status="new",
         is_generating=True,
     )
@@ -165,11 +206,79 @@ def create_request(
     return {"id": req.id, "status": req.status}
 
 
+@router.get("/mine")
+def my_requests(authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """The caller's own engagements, newest first — the only listing a
+    client ever sees."""
+    user = auth_client.resolve_user(authorization)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Sign in to see your engagements")
+    rows = (
+        db.query(Request)
+        .filter(Request.owner_email == user["email"])
+        .order_by(Request.id.desc())
+        .limit(50)
+        .all()
+    )
+    return {
+        "engagements": [
+            {
+                "id": r.id,
+                "business_name": r.business_name,
+                "concept_name": r.concept_name,
+                "status": r.status,
+                "is_generating": r.is_generating,
+                "review_status": r.review_status,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/showcase-gallery")
+def showcase_gallery(db: Session = Depends(get_db)):
+    """The public example engagements — the marketing gallery. Only runs
+    explicitly listed in SHOWCASE_IDS ever appear here."""
+    cards = []
+    for rid in sorted(_showcase_ids()):
+        req = db.get(Request, rid)
+        if req is None or req.status != "done":
+            continue
+        modules = json.loads(req.modules_json) if req.modules_json else []
+        journey = (json.loads(req.journey_json) if req.journey_json else {}).get("stages") or []
+        procedures = (json.loads(req.procedures_json) if req.procedures_json else {}).get("procedures") or []
+        first_image = None
+        images = sorted(req.images, key=lambda i: (i.role_id, i.variant)) if req.images else []
+        if images:
+            cache_v = int(req.created_at.timestamp()) if req.created_at else 0
+            hero = compositing.variant_url(images[0].file_path, "hero", settings.UPLOADS_DIR)
+            first_image = f"{hero or images[0].file_path}?v={cache_v}"
+        cards.append({
+            "id": req.id,
+            "business_name": req.business_name,
+            "concept_name": req.concept_name,
+            "industry": req.industry,
+            "engagement_type": req.engagement_type,
+            "operating_stage": req.operating_stage,
+            "stats": {
+                "modules": len(modules),
+                "ai_agents": sum(1 for m in modules if (m.get("spec") or {}).get("ai")),
+                "journey_stages": len(journey),
+                "procedures": len(procedures),
+            },
+            "image_url": first_image,
+        })
+    return {"showcase": cards}
+
+
 @router.get("/{request_id}/progress")
-def get_progress(request_id: int, db: Session = Depends(get_db)):
+def get_progress(request_id: int, review_token: str | None = None,
+                 authorization: str | None = Header(None), db: Session = Depends(get_db)):
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    _require_view(req, review_token, authorization)
     return {
         "review_status": req.review_status,
         # Carried so a run resumed from its own URL — a refresh, a bookmark,
@@ -193,10 +302,12 @@ def get_progress(request_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{request_id}/preview")
-def get_preview(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
+def get_preview(request_id: int, review_token: str | None = None,
+                authorization: str | None = Header(None), db: Session = Depends(get_db)):
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    _require_view(req, review_token, authorization)
 
     # The review gate: a pending engagement shows the client its teaser —
     # real counts, module names, their own numbers — never the content.
@@ -484,7 +595,8 @@ def review_queue(review_token: str | None = None, db: Session = Depends(get_db))
 
 
 @router.get("/{request_id}/export/zip")
-def export_zip_route(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
+def export_zip_route(request_id: int, review_token: str | None = None,
+                     authorization: str | None = Header(None), db: Session = Depends(get_db)):
     """The whole engagement as one download: all three PDF volumes zipped.
     Volumes that aren't ready are skipped rather than failing the bundle;
     an empty bundle 400s like every other not-ready export."""
@@ -493,6 +605,7 @@ def export_zip_route(request_id: int, review_token: str | None = None, db: Sessi
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    _require_view(req, review_token, authorization)
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
 
@@ -525,7 +638,8 @@ def export_zip_route(request_id: int, review_token: str | None = None, db: Sessi
 
 
 @router.get("/{request_id}/export/pdf/{kind}")
-def export_pdf_route(request_id: int, kind: str, review_token: str | None = None, db: Session = Depends(get_db)):
+def export_pdf_route(request_id: int, kind: str, review_token: str | None = None,
+                     authorization: str | None = Header(None), db: Session = Depends(get_db)):
     """The blueprint or technical plan as a branded PDF — the deliverable a
     client prints, forwards, and files. 400 before the document exists,
     same contract as the deck route."""
@@ -534,6 +648,7 @@ def export_pdf_route(request_id: int, kind: str, review_token: str | None = None
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    _require_view(req, review_token, authorization)
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
     try:
@@ -550,10 +665,12 @@ def export_pdf_route(request_id: int, kind: str, review_token: str | None = None
 
 
 @router.get("/{request_id}/export/pptx")
-def export_pptx_route(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
+def export_pptx_route(request_id: int, review_token: str | None = None,
+                      authorization: str | None = Header(None), db: Session = Depends(get_db)):
     req = db.get(Request, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
+    _require_view(req, review_token, authorization)
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
     if not req.roles_json:

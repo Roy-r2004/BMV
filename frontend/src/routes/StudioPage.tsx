@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
@@ -8,7 +8,10 @@ import {
   createStudioRequest,
   fetchBriefTurn,
   fetchDiscoveryQuestions,
+  fetchMyEngagements,
+  isForbidden,
   isPendingTeaser,
+  isUnauthorized,
   saveReviewDocs,
   getStudioPreview,
   getStudioProgress,
@@ -21,6 +24,7 @@ import {
   studioZipUrl,
   type BriefMessage,
   type DiscoveryQuestion,
+  type StudioMineEntry,
   type StudioTeaser,
   type EngagementType,
   type OperatingStage,
@@ -38,6 +42,7 @@ import {
   stripInlineMarkdown,
 } from '../utils/consultantMarkdown';
 import { consultingEmailUrl } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import {
   BUILD_PLANS,
   suggestBusinessAddons,
@@ -78,7 +83,9 @@ const RENDER_WHISPERS = [
 // 'pending' is the review gate's client-facing state: the engagement is
 // finished and with the consultant; the page shows a cinematic teaser of
 // real facts and flips to the reveal the moment it is approved.
-type Act = 'intake' | 'loading' | 'briefing' | 'pending' | 'building' | 'reveal' | 'failed' | 'missing';
+// 'private' is the ownership wall: the run exists but belongs to a
+// different account (or the caller isn't signed in).
+type Act = 'intake' | 'loading' | 'briefing' | 'pending' | 'building' | 'reveal' | 'failed' | 'missing' | 'private';
 
 type ResultTab = 'screens' | 'blueprint' | 'technical' | 'playbook' | 'team' | 'plans';
 
@@ -1551,6 +1558,9 @@ export default function StudioPage() {
   const [editBp, setEditBp] = useState('');
   const [editTech, setEditTech] = useState('');
   const [qaOpen, setQaOpen] = useState(false);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [mine, setMine] = useState<StudioMineEntry[]>([]);
+  const [privateReason, setPrivateReason] = useState<'signin' | 'foreign'>('signin');
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const elapsed = useElapsed(act === 'building', startedAt);
@@ -1570,7 +1580,13 @@ export default function StudioPage() {
       setAct('reveal');
     } catch (err) {
       if (isNotFound(err)) setAct('missing');
-      else {
+      else if (isUnauthorized(err)) {
+        setPrivateReason('signin');
+        setAct('private');
+      } else if (isForbidden(err)) {
+        setPrivateReason('foreign');
+        setAct('private');
+      } else {
         setFailureDetail('Your screens were generated, but the studio could not load them just now. Refreshing this page usually brings them back.');
         setAct('failed');
       }
@@ -1656,6 +1672,9 @@ export default function StudioPage() {
           // A stale bookmark should not keep redirecting us back to itself.
           sessionStorage.removeItem(RESUME_KEY);
           setAct('missing');
+        } else if (isUnauthorized(err) || isForbidden(err)) {
+          setPrivateReason(isUnauthorized(err) ? 'signin' : 'foreign');
+          setAct('private');
         } else {
           setFailureDetail('The studio is not reachable right now. Your run is safe — this page will show it as soon as the connection is back.');
           setAct('failed');
@@ -1669,6 +1688,20 @@ export default function StudioPage() {
   useEffect(() => {
     if (act === 'briefing') briefEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [act, briefMessages, briefBusy]);
+
+  // A signed-in visitor's own engagements, shown above the intake form.
+  useEffect(() => {
+    if (act !== 'intake' || !isAuthenticated) return;
+    let cancelled = false;
+    fetchMyEngagements()
+      .then((rows) => {
+        if (!cancelled) setMine(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [act, isAuthenticated]);
 
   // While the engagement is with the consultant, quietly check for its
   // release — the waiting client's page flips to the reveal on its own.
@@ -2048,7 +2081,57 @@ export default function StudioPage() {
                     </div>
                   </div>
 
-                  <motion.form
+                  {!authLoading && !isAuthenticated && (
+                    <div className="studio-panel p-6 sm:p-8 studio-authwall">
+                      <p className="studio-kicker mb-3">Private to your account</p>
+                      <h2 className="studio-display text-2xl font-bold text-navy mb-3">
+                        Sign in to start your engagement
+                      </h2>
+                      <p className="studio-plan-rostertext mb-6">
+                        Every engagement is private - only your account can open the documents it
+                        produces. Create an account or sign in, and your work stays yours.
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        <RouterLink to="/signup?next=/demo" className="studio-cta">
+                          Create your account
+                        </RouterLink>
+                        <RouterLink to="/login?next=/demo" className="studio-ghost-btn">
+                          Sign in
+                        </RouterLink>
+                      </div>
+                      <p className="studio-hint studio-hint--trust mt-5">
+                        <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
+                        Your brief, your numbers, your documents - visible to you alone.
+                      </p>
+                    </div>
+                  )}
+
+                  {isAuthenticated && mine.length > 0 && (
+                    <div className="studio-mine">
+                      <p className="studio-kicker mb-2">Your engagements</p>
+                      <div className="studio-mine-list">
+                        {mine.slice(0, 4).map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className="studio-mine-item"
+                            onClick={() => navigate(studioResultPath(m.id))}
+                          >
+                            <span className="studio-mine-name">{m.concept_name || m.business_name}</span>
+                            <span className="studio-mine-status">
+                              {m.is_generating
+                                ? 'generating…'
+                                : m.review_status === 'pending'
+                                  ? 'in review'
+                                  : 'ready'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(authLoading || isAuthenticated) && <motion.form
                     id="studio-form"
                     className="studio-panel p-6 sm:p-8"
                     onSubmit={submit}
@@ -2386,7 +2469,7 @@ export default function StudioPage() {
                       <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
                       No sales call. No deck. Just a clearer path forward.
                     </p>
-                  </motion.form>
+                  </motion.form>}
                 </div>
 
                 {/* ── what you'll get: three sketch cards ── */}
@@ -2562,6 +2645,34 @@ export default function StudioPage() {
                       {submitError}
                     </p>
                   )}
+                </div>
+              </motion.section>
+            )}
+
+            {act === 'private' && (
+              <motion.section key="private" {...fade} transition={{ duration: 0.45 }}>
+                <div className="max-w-xl mx-auto text-center py-16">
+                  <p className="studio-kicker mb-3">Private engagement</p>
+                  <h1 className="studio-display text-3xl font-bold text-navy mb-4">
+                    {privateReason === 'signin'
+                      ? 'Sign in to open this engagement'
+                      : 'This engagement belongs to another account'}
+                  </h1>
+                  <p className="studio-plan-rostertext mb-8">
+                    {privateReason === 'signin'
+                      ? 'Engagements are private to the account that created them. Sign in with the account you used.'
+                      : "Every engagement is visible only to its owner. If this is yours, sign in with the right account - otherwise, start your own."}
+                  </p>
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    {privateReason === 'signin' && (
+                      <RouterLink to="/login?next=/demo" className="studio-cta">
+                        Sign in
+                      </RouterLink>
+                    )}
+                    <RouterLink to="/demo" className={privateReason === 'signin' ? 'studio-ghost-btn' : 'studio-cta'}>
+                      Start your own engagement
+                    </RouterLink>
+                  </div>
                 </div>
               </motion.section>
             )}

@@ -12,9 +12,10 @@ stage, marked source="fallback" — the intake never blocks on this call.
 import json
 import logging
 
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from app import auth_client
 from app.ai import provider
 from app.config import settings
 from app.database import get_db
@@ -138,8 +139,11 @@ def discovery_questions(
     industry: str | None = Form(None),
     operating_stage: str | None = Form(None),
     engagement_type: str | None = Form(None),
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
+    if auth_client.resolve_user(authorization) is None:
+        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
     operating = operating_stage != "opening"
     if engagement_type == "capability":
         fallback = _FALLBACK_CAPABILITY
@@ -230,8 +234,11 @@ def discovery_brief(
     needs_ai: str | None = Form(None),
     ops_numbers: str | None = Form(None),
     messages: str | None = Form(None),
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
+    if auth_client.resolve_user(authorization) is None:
+        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
     """The pre-launch briefing chat: the consultant plays back the brief and
     absorbs corrections. One fast call per turn. Fails open with ok=false —
     the frontend then launches directly; this chat may never block a run."""

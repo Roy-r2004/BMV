@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getUserToken } from './auth';
 
 // The image-demo pipeline is its own service (consultant-service), separate
 // from the main backend — its own port, its own ledger, its own uploads.
@@ -9,6 +10,14 @@ export const CONSULTANT_API_BASE =
   (import.meta.env.PROD ? '' : 'http://localhost:8002');
 
 const consultantClient = axios.create({ baseURL: CONSULTANT_API_BASE });
+
+// Engagements belong to accounts: every call carries the session token,
+// and the service resolves it against the main app.
+consultantClient.interceptors.request.use((config) => {
+  const token = getUserToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 export function consultantAssetUrl(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -471,6 +480,48 @@ export function studioDeckUrl(id: number): string {
  *  is the same string we put on screen, so build it in one place. */
 export function studioResultPath(id: number): string {
   return `/demo/${id}`;
+}
+
+/** One public example engagement — the marketing gallery card. */
+export interface StudioShowcaseCard {
+  id: number;
+  business_name: string;
+  concept_name: string | null;
+  industry: string | null;
+  engagement_type: EngagementType | null;
+  operating_stage: OperatingStage | null;
+  stats: { modules: number; ai_agents: number; journey_stages: number; procedures: number };
+  image_url: string | null;
+}
+
+export async function fetchShowcase(): Promise<StudioShowcaseCard[]> {
+  const { data } = await consultantClient.get('/api/requests/showcase-gallery');
+  return Array.isArray(data?.showcase) ? data.showcase : [];
+}
+
+/** The caller's own engagements — the only listing a client ever sees. */
+export interface StudioMineEntry {
+  id: number;
+  business_name: string;
+  concept_name: string | null;
+  status: string;
+  is_generating: boolean;
+  review_status: string | null;
+  created_at: string | null;
+}
+
+export async function fetchMyEngagements(): Promise<StudioMineEntry[]> {
+  const { data } = await consultantClient.get('/api/requests/mine');
+  return Array.isArray(data?.engagements) ? data.engagements : [];
+}
+
+/** Engagements are private: 401 = sign in, 403 = someone else's run. */
+export function isUnauthorized(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 401;
+}
+
+export function isForbidden(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 403;
 }
 
 /** The service returns 429 when the studio is at generation capacity. */

@@ -46,6 +46,10 @@ class Request(Base):
     # answered ones are stored. The decompose stage may compute ONLY with
     # these numbers.
     ops_numbers_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The account that created this run. Null on legacy runs (public by
+    # grandfathering); every run created after the auth gate carries one,
+    # and only that account (or the reviewer) can open it.
+    owner_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # Pipeline output.
     status: Mapped[str] = mapped_column(String(50), default="new")

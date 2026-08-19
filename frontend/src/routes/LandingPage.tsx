@@ -1,6 +1,7 @@
 import Hero from '../components/Hero';
 import WhatYoullGet from '../components/WhatYoullGet';
 import TheMachine from '../components/TheMachine';
+import ShowcaseEngagements from '../components/ShowcaseEngagements';
 import UseCases from '../components/UseCases';
 import Packages from '../components/Packages';
 import FAQ from '../components/FAQ';
@@ -17,6 +18,7 @@ export default function LandingPage() {
       </div>
       <WhatYoullGet />
       <TheMachine />
+      <ShowcaseEngagements />
       <div id="use-cases">
         <UseCases />
       </div>

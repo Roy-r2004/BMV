@@ -564,3 +564,99 @@ def test_qa_experts_persist_report_and_polish_guard(client, monkeypatch):
     assert report["polish_applied"] is False
     assert row.mvp_blueprint == MD  # guarded: corrupted polish never replaces the doc
     db.close()
+
+
+# ── accounts and ownership ───────────────────────────────────────────────
+
+
+def _as_user(monkeypatch, email):
+    from app import auth_client
+    from app.routers import discovery as discovery_router
+    from app.routers import requests as requests_router
+
+    def resolver(authorization):
+        return {"email": email, "name": "U"} if email else None
+
+    monkeypatch.setattr(auth_client, "resolve_user", resolver)
+
+
+def test_anonymous_cannot_start_an_engagement(client, monkeypatch):
+    _as_user(monkeypatch, None)
+    r = client.post("/api/requests", data={
+        "business_name": "B", "business_description": "long enough description here",
+        "email": "x@example.com",
+    })
+    assert r.status_code == 401
+    assert client.post("/api/discovery/questions", data={
+        "business_name": "B", "business_description": "d",
+    }).status_code == 401
+    assert client.post("/api/discovery/brief", data={
+        "business_name": "B", "business_description": "d",
+    }).status_code == 401
+
+
+def test_owned_runs_are_private_to_their_account(client, monkeypatch):
+    db = SessionLocal()
+    row = _seed(db, owner_email="owner@example.com", mvp_blueprint=MD)
+
+    _as_user(monkeypatch, "owner@example.com")
+    assert client.get(f"/api/requests/{row.id}/preview").status_code == 200
+    assert client.get(f"/api/requests/{row.id}/progress").status_code == 200
+
+    _as_user(monkeypatch, "intruder@example.com")
+    assert client.get(f"/api/requests/{row.id}/preview").status_code == 403
+    assert client.get(f"/api/requests/{row.id}/progress").status_code == 403
+
+    _as_user(monkeypatch, None)
+    assert client.get(f"/api/requests/{row.id}/preview").status_code == 401
+    db.close()
+
+
+def test_legacy_and_showcase_runs_stay_public(client, monkeypatch):
+    from app.config import settings as cfg
+
+    db = SessionLocal()
+    legacy = _seed(db)  # no owner: grandfathered public
+    owned = _seed(db, owner_email="owner@example.com", mvp_blueprint=MD)
+    monkeypatch.setattr(cfg, "SHOWCASE_IDS", str(owned.id))
+
+    _as_user(monkeypatch, None)
+    assert client.get(f"/api/requests/{legacy.id}/preview").status_code == 200
+    # showcase listing makes an owned run public by explicit choice
+    assert client.get(f"/api/requests/{owned.id}/preview").status_code == 200
+    db.close()
+
+
+def test_mine_lists_only_my_runs(client, monkeypatch):
+    db = SessionLocal()
+    mine = _seed(db, owner_email="me@example.com")
+    _seed(db, owner_email="other@example.com")
+
+    _as_user(monkeypatch, "me@example.com")
+    body = client.get("/api/requests/mine").json()
+    ids = [e["id"] for e in body["engagements"]]
+    assert mine.id in ids
+    assert all(
+        db.get(Request, i).owner_email == "me@example.com" for i in ids
+    )
+    db.close()
+
+
+def test_showcase_gallery_serves_cards(client, monkeypatch):
+    from app.config import settings as cfg
+
+    db = SessionLocal()
+    row = _seed(
+        db, concept_name="BeaconOS", industry="physio",
+        modules_json=json.dumps(MODULES),
+        journey_json=json.dumps(GOOD_JOURNEY),
+        procedures_json=json.dumps({"procedures": GOOD_PROCS["procedures"]}),
+    )
+    monkeypatch.setattr(cfg, "SHOWCASE_IDS", f"{row.id}, 99999")
+    _as_user(monkeypatch, None)
+    body = client.get("/api/requests/showcase-gallery").json()
+    assert len(body["showcase"]) == 1
+    card = body["showcase"][0]
+    assert card["concept_name"] == "BeaconOS"
+    assert card["stats"]["modules"] == 2
+    db.close()
