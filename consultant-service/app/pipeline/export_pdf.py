@@ -30,6 +30,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
+    CondPageBreak,
     HRFlowable,
     Image,
     PageBreak,
@@ -47,10 +48,22 @@ from app.models import Request
 INK = colors.HexColor("#0f172a")
 MUTED = colors.HexColor("#52607a")
 ACCENT = colors.HexColor("#2563eb")
+ACCENT_DK = colors.HexColor("#1e40af")
 LINE = colors.HexColor("#dbe4f2")
-TINT = colors.HexColor("#f2f6fd")
+TINT = colors.HexColor("#eef4ff")
+ZEBRA = colors.HexColor("#f6f9ff")
 GOOD = colors.HexColor("#047857")
+GOOD_BG = colors.HexColor("#e5f5ef")
 WARN = colors.HexColor("#b45309")
+WARN_BG = colors.HexColor("#fdf3e3")
+RISK = colors.HexColor("#be123c")
+RISK_BG = colors.HexColor("#fdeef2")
+
+# Inline hex strings for <font color=...> spans inside paragraphs.
+HEX_ACCENT = "#2563eb"
+HEX_GOOD = "#047857"
+HEX_RISK = "#be123c"
+HEX_WARN = "#b45309"
 
 # Style names matter: "h1toc"/"h2toc" are how headings register themselves
 # in the table of contents (see _EngagementDoc.afterFlowable).
@@ -62,11 +75,14 @@ _S = {
     "cover_sub": ParagraphStyle("cover_sub", fontName="Helvetica", fontSize=13, textColor=MUTED,
                                 leading=18, spaceAfter=4),
     "h1toc": ParagraphStyle("h1toc", fontName="Helvetica-Bold", fontSize=15, textColor=INK,
-                            leading=19, spaceBefore=16, spaceAfter=6),
-    "h2toc": ParagraphStyle("h2toc", fontName="Helvetica-Bold", fontSize=11.5, textColor=INK,
+                            leading=19, spaceBefore=14, spaceAfter=6, backColor=TINT,
+                            borderPadding=(6, 8, 6, 8)),
+    "h2toc": ParagraphStyle("h2toc", fontName="Helvetica-Bold", fontSize=11.5, textColor=ACCENT_DK,
                             leading=15, spaceBefore=11, spaceAfter=4),
-    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=10, textColor=ACCENT,
+    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=9.5, textColor=ACCENT,
                          leading=13, spaceBefore=8, spaceAfter=3),
+    "callout": ParagraphStyle("callout", fontName="Helvetica", fontSize=9.5, textColor=INK,
+                              leading=14.5),
     "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9.5, textColor=INK,
                            leading=14.5, spaceAfter=5),
     "bullet": ParagraphStyle("bullet", fontName="Helvetica", fontSize=9.5, textColor=INK,
@@ -91,10 +107,27 @@ def _rich(text: str) -> str:
 
 def _h1(text: str):
     return [
+        CondPageBreak(55 * mm),
         Spacer(1, 4),
-        Paragraph(_rich(text), _S["h1toc"]),
-        HRFlowable(width="100%", thickness=0.7, color=LINE, spaceAfter=6),
+        Paragraph(f'<font color="{HEX_ACCENT}">▌</font> ' + _rich(text), _S["h1toc"]),
+        HRFlowable(width="100%", thickness=1.1, color=ACCENT, spaceAfter=8),
     ]
+
+
+def _callout(text_html: str, fg, bg) -> Table:
+    """A tinted callout band with a colored spine — the report's way of
+    saying 'this line matters' without shouting."""
+    cell = Paragraph(text_html, _S["callout"])
+    box = Table([[cell]], colWidths=[168 * mm])
+    box.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), bg),
+        ("LINEBEFORE", (0, 0), (0, -1), 2.5, fg),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    return box
 
 
 class _EngagementDoc(SimpleDocTemplate):
@@ -105,7 +138,7 @@ class _EngagementDoc(SimpleDocTemplate):
         if isinstance(flowable, Paragraph):
             name = flowable.style.name
             if name == "h1toc":
-                self.notify("TOCEntry", (0, flowable.getPlainText(), self.page))
+                self.notify("TOCEntry", (0, flowable.getPlainText().lstrip("▌ ").strip(), self.page))
             elif name == "h2toc":
                 self.notify("TOCEntry", (1, flowable.getPlainText(), self.page))
 
@@ -162,14 +195,20 @@ def _cover(doc_label: str, sub_label: str, req: Request) -> list:
     concept = req.concept_name or req.business_name or ""
     date = datetime.utcnow().strftime("%B %d, %Y")
     logo = _logo_flowable()
-    return ([logo, Spacer(1, 4)] if logo else []) + [
-        Spacer(1, 50 * mm) if logo else Spacer(1, 60 * mm),
+    volume_style = ParagraphStyle(
+        "volume", fontName="Helvetica-Bold", fontSize=11, textColor=ACCENT,
+        leading=14, spaceAfter=6,
+    )
+    return [
+        HRFlowable(width="100%", thickness=5, color=ACCENT, spaceAfter=18, hAlign="LEFT"),
+    ] + ([logo, Spacer(1, 4)] if logo else []) + [
+        Spacer(1, 42 * mm) if logo else Spacer(1, 52 * mm),
         Paragraph("BUILD MY VERSION", _S["kicker"]),
-        HRFlowable(width=30 * mm, thickness=2.5, color=ACCENT, spaceAfter=12, hAlign="LEFT"),
+        HRFlowable(width=30 * mm, thickness=2.5, color=ACCENT, spaceAfter=14, hAlign="LEFT"),
+        Paragraph(_rich(sub_label).upper(), volume_style),
         Paragraph(_rich(doc_label), _S["cover_title"]),
         Paragraph(_rich(concept), _S["cover_sub"]),
-        Paragraph(_rich(sub_label), _S["cover_sub"]),
-        Spacer(1, 8),
+        Spacer(1, 10),
         Paragraph(_rich(f"Prepared exclusively for {req.business_name} · {date}"), _S["meta"]),
         Paragraph("Confidential — for the addressee's team and advisors.", _S["meta"]),
         PageBreak(),
@@ -187,20 +226,26 @@ def _toc() -> list:
     ]
 
 
+_CELLHEAD_ON_ACCENT = ParagraphStyle(
+    "cellhead_on_accent", fontName="Helvetica-Bold", fontSize=8,
+    textColor=colors.white, leading=10,
+)
+
+
 def _table(head: list[str], rows: list[list[str]], widths: list[float]) -> Table:
-    data = [[Paragraph(t, _S["cellhead"]) for t in head]]
+    data = [[Paragraph(t, _CELLHEAD_ON_ACCENT) for t in head]]
     for row in rows:
         data.append([Paragraph(_rich(v or "—"), _S["cell"]) for v in row])
     table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), TINT),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.7, LINE),
+        ("BACKGROUND", (0, 0), (-1, 0), ACCENT),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ZEBRA]),
         ("LINEBELOW", (0, 1), (-1, -1), 0.4, LINE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
     return table
 
@@ -228,7 +273,7 @@ def _customers_flowables(business_case: dict) -> list:
     return flows
 
 
-def _journey_flowables(journey: dict | None) -> list:
+def _journey_flowables(journey: dict | None, name_by_id: dict | None = None) -> list:
     stages = (journey or {}).get("stages") or []
     if not stages:
         return []
@@ -244,13 +289,16 @@ def _journey_flowables(journey: dict | None) -> list:
         if s.get("frontstage"):
             flows.append(Paragraph("<b>What they see:</b> " + _rich(s["frontstage"]), _S["body"]))
         if s.get("backstage_modules"):
+            names = [(name_by_id or {}).get(mid, mid) for mid in s["backstage_modules"]]
             flows.append(Paragraph(
-                "<b>Working backstage:</b> " + _rich(", ".join(s["backstage_modules"])), _S["body"],
+                "<b>Working backstage:</b> " + _rich(", ".join(names)), _S["body"],
             ))
         if s.get("fail_point_removed"):
-            flows.append(Paragraph(
-                "<b>What no longer goes wrong:</b> " + _rich(s["fail_point_removed"]), _S["body"],
+            flows.append(_callout(
+                f'<font color="{HEX_GOOD}"><b>What no longer goes wrong:</b></font> '
+                + _rich(s["fail_point_removed"]), GOOD, GOOD_BG,
             ))
+            flows.append(Spacer(1, 3))
     return flows
 
 
@@ -309,10 +357,12 @@ def _risks_flowables(risks: list) -> list:
         "The real risks are usually habits, not technology. Each one has a counter-move.",
         _S["meta"],
     ))
+    risk_head = ParagraphStyle("riskhead", parent=_S["h2toc"], textColor=RISK)
     for r in risks:
-        flows.append(Paragraph(_rich(r.get("risk") or ""), _S["h2toc"]))
+        flows.append(Paragraph(_rich(r.get("risk") or ""), risk_head))
         if r.get("mitigation"):
-            flows.append(Paragraph("<b>Counter-move:</b> " + _rich(r["mitigation"]), _S["body"]))
+            flows.append(_callout("<b>Counter-move:</b> " + _rich(r["mitigation"]), RISK, RISK_BG))
+            flows.append(Spacer(1, 2))
         if r.get("who_feels_it"):
             flows.append(Paragraph("<b>Felt by:</b> " + _rich(r["who_feels_it"]), _S["body"]))
     return flows
@@ -337,7 +387,7 @@ def _playbook_flowables(playbook: dict | None) -> list:
     if wins:
         flows.append(Paragraph("Your first 30 days — value before any software", _S["h2toc"]))
         for w in wins:
-            tag = " <b>(no software needed)</b>" if w.get("no_software") else ""
+            tag = f' <font color="{HEX_GOOD}"><b>(no software needed)</b></font>' if w.get("no_software") else ""
             flows.append(Paragraph(
                 f"<b>{_rich(w.get('title') or '')}</b> — " + _rich(w.get("detail") or "") + tag,
                 _S["bullet"], bulletText="•",
@@ -629,12 +679,17 @@ def _procedures_flowables(procedures: list) -> list:
             flows.append(Paragraph("<b>Starts when:</b> " + _rich(p["trigger"]), _S["body"]))
         for i, step in enumerate(p.get("steps") or [], start=1):
             actor = step.get("actor") or ""
-            label = f"<b>[{_rich(actor)}]</b> " if actor else ""
+            if actor:
+                color = HEX_ACCENT if actor.lower().startswith("ai") else "#52607a"
+                label = f'<font color="{color}"><b>[{_rich(actor)}]</b></font> '
+            else:
+                label = ""
             flows.append(Paragraph(label + _rich(step.get("step") or ""), _S["bullet"], bulletText=f"{i}."))
         for e in p.get("exceptions") or []:
             flows.append(
                 Paragraph(
-                    f"<b>If {_rich(e.get('when') or '')}:</b> " + _rich(e.get("then") or ""),
+                    f'<font color="{HEX_WARN}"><b>If {_rich(e.get("when") or "")}:</b></font> '
+                    + _rich(e.get("then") or ""),
                     _S["bullet"], bulletText="!",
                 )
             )
@@ -644,13 +699,29 @@ def _procedures_flowables(procedures: list) -> list:
 # ── assembly ─────────────────────────────────────────────────────────────
 
 
-def _footer(canvas, doc):
-    canvas.saveState()
-    canvas.setFont("Helvetica", 7.5)
-    canvas.setFillColor(MUTED)
-    canvas.drawString(18 * mm, 12 * mm, "Build My Version · buildmyversion.com · consulting@buildmyversion.com")
-    canvas.drawRightString(A4[0] - 18 * mm, 12 * mm, f"Page {doc.page}")
-    canvas.restoreState()
+def _page_chrome(label: str, concept: str):
+    """Footer + a slim accent header naming the volume — the mark of a
+    document that knows which binder it belongs to."""
+
+    def draw(canvas, doc):
+        canvas.saveState()
+        if doc.page > 1:
+            canvas.setStrokeColor(ACCENT)
+            canvas.setLineWidth(2)
+            canvas.line(18 * mm, A4[1] - 10 * mm, A4[0] - 18 * mm, A4[1] - 10 * mm)
+            canvas.setFont("Helvetica-Bold", 7)
+            canvas.setFillColor(ACCENT)
+            canvas.drawString(18 * mm, A4[1] - 8 * mm, label.upper())
+            canvas.setFillColor(MUTED)
+            canvas.setFont("Helvetica", 7)
+            canvas.drawRightString(A4[0] - 18 * mm, A4[1] - 8 * mm, concept)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(MUTED)
+        canvas.drawString(18 * mm, 12 * mm, "Build My Version · buildmyversion.com · consulting@buildmyversion.com")
+        canvas.drawRightString(A4[0] - 18 * mm, 12 * mm, f"Page {doc.page}")
+        canvas.restoreState()
+
+    return draw
 
 
 def _loads(raw, default):
@@ -716,7 +787,10 @@ def build_pdf(req: Request, kind: str) -> str:
         flows += md_slot(r"opportunit")
         flows += _customers_flowables(business_case)
         flows += md_slot(r"makes money")
-        flows += _journey_flowables(journey)
+        flows += _journey_flowables(
+            journey,
+            {m.get("id"): m.get("name") for m in modules if isinstance(m, dict) and m.get("id")},
+        )
         flows += md_slot(r"module by module|the product")
         flows += _organization_flowables(org)
         flows += md_slot(r"build first")
@@ -751,5 +825,6 @@ def build_pdf(req: Request, kind: str) -> str:
         title=f"{req.concept_name or req.business_name} — {label}",
         author="Build My Version",
     )
-    doc.multiBuild(flows, onFirstPage=_footer, onLaterPages=_footer)
+    chrome = _page_chrome(label, req.concept_name or req.business_name or "")
+    doc.multiBuild(flows, onFirstPage=chrome, onLaterPages=chrome)
     return out_path
