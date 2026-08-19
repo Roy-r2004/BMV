@@ -60,6 +60,10 @@ export interface StudioIntake {
 export type OperatingStage = 'operating' | 'opening';
 export type EngagementType = 'full' | 'capability';
 
+/** How a run is addressed: the unguessable public slug for its owner, or
+ *  the plain numeric id kept for the showcase and legacy links. */
+export type StudioRef = string | number;
+
 export interface OpsNumber {
   question: string;
   answer: string;
@@ -284,20 +288,20 @@ export function isPendingTeaser(r: StudioPreviewResult): r is StudioTeaser {
 }
 
 /** Approve a pending engagement — reviewer only. */
-export async function approveReview(id: number, reviewToken: string): Promise<void> {
-  await consultantClient.post(`/api/requests/${id}/review/approve?review_token=${encodeURIComponent(reviewToken)}`);
+export async function approveReview(ref: StudioRef, reviewToken: string): Promise<void> {
+  await consultantClient.post(`/api/requests/${ref}/review/approve?review_token=${encodeURIComponent(reviewToken)}`);
 }
 
 /** The reviewer's red pen: edited documents replace the generated ones. */
 export async function saveReviewDocs(
-  id: number,
+  ref: StudioRef,
   reviewToken: string,
   docs: { mvp_blueprint?: string; technical_plan?: string },
 ): Promise<void> {
   const form = new FormData();
   if (docs.mvp_blueprint) form.set('mvp_blueprint', docs.mvp_blueprint);
   if (docs.technical_plan) form.set('technical_plan', docs.technical_plan);
-  await consultantClient.post(`/api/requests/${id}/review/docs?review_token=${encodeURIComponent(reviewToken)}`, form);
+  await consultantClient.post(`/api/requests/${ref}/review/docs?review_token=${encodeURIComponent(reviewToken)}`, form);
 }
 
 /** Humans and AI agents on one chart, with decision rights — plus what
@@ -366,13 +370,13 @@ export interface StudioQuickWin {
 
 /** The blueprint or technical plan as a branded PDF. Only offer once the
  *  run is done — the route 400s before the document exists. */
-export function studioPdfUrl(id: number, kind: 'blueprint' | 'technical' | 'operations'): string {
-  return `${CONSULTANT_API_BASE}/api/requests/${id}/export/pdf/${kind}`;
+export function studioPdfUrl(ref: StudioRef, kind: 'blueprint' | 'technical' | 'operations'): string {
+  return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/pdf/${kind}`;
 }
 
 /** The whole engagement as one download: the three PDF volumes, zipped. */
-export function studioZipUrl(id: number): string {
-  return `${CONSULTANT_API_BASE}/api/requests/${id}/export/zip`;
+export function studioZipUrl(ref: StudioRef): string {
+  return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/zip`;
 }
 
 export interface StudioPlaybookStep {
@@ -435,7 +439,7 @@ export interface StudioSiteResearch {
   highlights: string[];
 }
 
-export async function createStudioRequest(intake: StudioIntake): Promise<{ id: number; status: string }> {
+export async function createStudioRequest(intake: StudioIntake): Promise<{ id: number; public_id: string | null; status: string }> {
   const form = new FormData();
   form.set('business_name', intake.business_name);
   form.set('business_description', intake.business_description);
@@ -459,27 +463,29 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   return data;
 }
 
-export async function getStudioProgress(id: number): Promise<StudioProgress> {
-  const { data } = await consultantClient.get(`/api/requests/${id}/progress`);
+export async function getStudioProgress(ref: StudioRef): Promise<StudioProgress> {
+  const { data } = await consultantClient.get(`/api/requests/${ref}/progress`);
   return data;
 }
 
-export async function getStudioPreview(id: number, reviewToken?: string | null): Promise<StudioPreviewResult> {
+export async function getStudioPreview(ref: StudioRef, reviewToken?: string | null): Promise<StudioPreviewResult> {
   const suffix = reviewToken ? `?review_token=${encodeURIComponent(reviewToken)}` : '';
-  const { data } = await consultantClient.get(`/api/requests/${id}/preview${suffix}`);
+  const { data } = await consultantClient.get(`/api/requests/${ref}/preview${suffix}`);
   return data;
 }
 
 /** The deck the pipeline already builds. Only offer it when the preview says
  *  `deck_available` — the route 400s before the plan stage has run. */
-export function studioDeckUrl(id: number): string {
-  return `${CONSULTANT_API_BASE}/api/requests/${id}/export/pptx`;
+export function studioDeckUrl(ref: StudioRef): string {
+  return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/pptx`;
 }
 
 /** The permanent address of a finished run. The customer's way back in — it
  *  is the same string we put on screen, so build it in one place. */
-export function studioResultPath(id: number): string {
-  return `/demo/${id}`;
+export function studioResultPath(ref: StudioRef): string {
+  // Numeric ids are the public spellings (showcase cards, legacy links); a
+  // slug is a private address only its owner's session can open.
+  return /^\d+$/.test(String(ref)) ? `/demo/${ref}` : `/engagements/${ref}`;
 }
 
 /** One public example engagement — the marketing gallery card. */
@@ -502,6 +508,8 @@ export async function fetchShowcase(): Promise<StudioShowcaseCard[]> {
 /** The caller's own engagements — the only listing a client ever sees. */
 export interface StudioMineEntry {
   id: number;
+  /** The run's private slug address. Null only for pre-slug legacy rows. */
+  public_id: string | null;
   business_name: string;
   concept_name: string | null;
   status: string;

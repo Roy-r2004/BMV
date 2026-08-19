@@ -701,3 +701,23 @@ def test_oversight_mode_never_holds_the_client(client, reviewer, monkeypatch):
     queue = client.get(f"/api/requests/review-queue?review_token={reviewer}").json()
     assert any(r["id"] == row.id for r in queue["pending"])
     db.close()
+
+
+def test_public_id_slug_addresses_a_run(client, monkeypatch):
+    from app.config import settings as cfg
+    from app.routers import requests as rr
+
+    monkeypatch.setattr(rr.orchestrator, "run", lambda request_id: None)
+    monkeypatch.setattr(cfg, "MAX_CONCURRENT_GENERATIONS", 10_000)
+    r = client.post("/api/requests", data={
+        "business_name": "Slugged", "business_description": "a business with a slug link",
+        "email": "t@example.com",
+    }).json()
+    slug = r["public_id"]
+    assert slug and not slug.isdigit() and len(slug) >= 10
+    # the slug resolves for its owner (autouse fixture signs us in as them)
+    assert client.get(f"/api/requests/{slug}/progress").status_code == 200
+    body = client.get(f"/api/requests/{slug}/preview").json()
+    assert body["business_name"] == "Slugged"
+    # a wrong slug is a clean 404
+    assert client.get("/api/requests/not-a-real-slug/preview").status_code == 404

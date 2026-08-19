@@ -1,5 +1,6 @@
 import hmac
 import json
+import secrets
 import logging
 import os
 import threading
@@ -54,6 +55,18 @@ def _require_view(req: Request, review_token: str | None, authorization: str | N
     allowed, code, message = _can_view(req, review_token, authorization)
     if not allowed:
         raise HTTPException(status_code=code, detail=message)
+
+
+def _load_request(ref: str, db: Session) -> Request:
+    """Resolve a run by numeric id (legacy/showcase) or public_id slug."""
+    req = None
+    if ref.isdigit():
+        req = db.get(Request, int(ref))
+    else:
+        req = db.query(Request).filter(Request.public_id == ref).first()
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return req
 
 
 def _is_reviewer(review_token: str | None) -> bool:
@@ -201,6 +214,7 @@ def create_request(
         engagement_type=engagement_type if engagement_type in _ALLOWED_ENGAGEMENTS else None,
         ops_numbers_json=_sanitize_ops_numbers(ops_numbers),
         owner_email=user["email"],
+        public_id=secrets.token_urlsafe(9),
         status="new",
         is_generating=True,
     )
@@ -210,7 +224,7 @@ def create_request(
 
     threading.Thread(target=orchestrator.run, args=(req.id,), daemon=True).start()
 
-    return {"id": req.id, "status": req.status}
+    return {"id": req.id, "public_id": req.public_id, "status": req.status}
 
 
 @router.get("/mine")
@@ -231,6 +245,7 @@ def my_requests(authorization: str | None = Header(None), db: Session = Depends(
         "engagements": [
             {
                 "id": r.id,
+                "public_id": r.public_id,
                 "business_name": r.business_name,
                 "concept_name": r.concept_name,
                 "status": r.status,
@@ -279,12 +294,10 @@ def showcase_gallery(db: Session = Depends(get_db)):
     return {"showcase": cards}
 
 
-@router.get("/{request_id}/progress")
-def get_progress(request_id: int, review_token: str | None = None,
+@router.get("/{request_ref}/progress")
+def get_progress(request_ref: str, review_token: str | None = None,
                  authorization: str | None = Header(None), db: Session = Depends(get_db)):
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
     return {
         "review_status": req.review_status,
@@ -308,12 +321,10 @@ def get_progress(request_id: int, review_token: str | None = None,
     }
 
 
-@router.get("/{request_id}/preview")
-def get_preview(request_id: int, review_token: str | None = None,
+@router.get("/{request_ref}/preview")
+def get_preview(request_ref: str, review_token: str | None = None,
                 authorization: str | None = Header(None), db: Session = Depends(get_db)):
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
 
     # The review gate: a pending engagement shows the client its teaser —
@@ -447,8 +458,8 @@ def get_preview(request_id: int, review_token: str | None = None,
     }
 
 
-@router.get("/{request_id}/admin")
-def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
+@router.get("/{request_ref}/admin")
+def get_admin_detail(request_ref: str, db: Session = Depends(get_db)):
     """Operator view of one request: what it cost, on which models, and how
     each screen scored.
 
@@ -460,9 +471,8 @@ def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
     OpenRouter key balance: the key is shared, so a balance delta is not
     this request's cost.
     """
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
+    request_id = req.id
 
     events = db.query(AiUsageEvent).filter(AiUsageEvent.request_id == request_id).all()
 
@@ -539,13 +549,12 @@ def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/{request_id}/review/approve")
-def review_approve(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
+@router.post("/{request_ref}/review/approve")
+def review_approve(request_ref: str, review_token: str | None = None, db: Session = Depends(get_db)):
     if not _is_reviewer(review_token):
         raise HTTPException(status_code=403, detail="Reviewer token required")
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
+    request_id = req.id
     req.review_status = "approved"
     req.reviewed_at = datetime.utcnow()
     db.commit()
@@ -555,9 +564,9 @@ def review_approve(request_id: int, review_token: str | None = None, db: Session
     return {"id": req.id, "review_status": req.review_status}
 
 
-@router.post("/{request_id}/review/docs")
+@router.post("/{request_ref}/review/docs")
 def review_save_docs(
-    request_id: int,
+    request_ref: str,
     review_token: str | None = None,
     mvp_blueprint: str | None = Form(None),
     technical_plan: str | None = Form(None),
@@ -567,9 +576,8 @@ def review_save_docs(
     # and every export renders from the edited text from then on.
     if not _is_reviewer(review_token):
         raise HTTPException(status_code=403, detail="Reviewer token required")
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
+    request_id = req.id
     if mvp_blueprint and mvp_blueprint.strip():
         req.mvp_blueprint = mvp_blueprint
     if technical_plan and technical_plan.strip():
@@ -604,16 +612,15 @@ def review_queue(review_token: str | None = None, db: Session = Depends(get_db))
     }
 
 
-@router.delete("/{request_id}")
-def delete_request(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
+@router.delete("/{request_ref}")
+def delete_request(request_ref: str, review_token: str | None = None, db: Session = Depends(get_db)):
     """Permanent deletion — reviewer only. Removes the row (images cascade),
     the run's uploaded files, and its export artifacts. There is no undo;
     the gate is the REVIEW_TOKEN, never exposed to clients."""
     if not _is_reviewer(review_token):
         raise HTTPException(status_code=403, detail="Reviewer token required")
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
+    request_id = req.id
 
     import shutil
 
@@ -634,17 +641,16 @@ def delete_request(request_id: int, review_token: str | None = None, db: Session
     return {"deleted": request_id}
 
 
-@router.get("/{request_id}/export/zip")
-def export_zip_route(request_id: int, review_token: str | None = None,
+@router.get("/{request_ref}/export/zip")
+def export_zip_route(request_ref: str, review_token: str | None = None,
                      authorization: str | None = Header(None), db: Session = Depends(get_db)):
     """The whole engagement as one download: all three PDF volumes zipped.
     Volumes that aren't ready are skipped rather than failing the bundle;
     an empty bundle 400s like every other not-ready export."""
     import zipfile
 
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
+    request_id = req.id
     _require_view(req, review_token, authorization)
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
@@ -677,17 +683,16 @@ def export_zip_route(request_id: int, review_token: str | None = None,
     )
 
 
-@router.get("/{request_id}/export/pdf/{kind}")
-def export_pdf_route(request_id: int, kind: str, review_token: str | None = None,
+@router.get("/{request_ref}/export/pdf/{kind}")
+def export_pdf_route(request_ref: str, kind: str, review_token: str | None = None,
                      authorization: str | None = Header(None), db: Session = Depends(get_db)):
     """The blueprint or technical plan as a branded PDF — the deliverable a
     client prints, forwards, and files. 400 before the document exists,
     same contract as the deck route."""
     if kind not in ("blueprint", "technical", "operations"):
         raise HTTPException(status_code=404, detail="Unknown document")
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
+    request_id = req.id
     _require_view(req, review_token, authorization)
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
@@ -704,12 +709,11 @@ def export_pdf_route(request_id: int, kind: str, review_token: str | None = None
     )
 
 
-@router.get("/{request_id}/export/pptx")
-def export_pptx_route(request_id: int, review_token: str | None = None,
+@router.get("/{request_ref}/export/pptx")
+def export_pptx_route(request_ref: str, review_token: str | None = None,
                       authorization: str | None = Header(None), db: Session = Depends(get_db)):
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
+    req = _load_request(request_ref, db)
+    request_id = req.id
     _require_view(req, review_token, authorization)
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")

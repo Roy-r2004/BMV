@@ -8,7 +8,6 @@ import {
   createStudioRequest,
   fetchBriefTurn,
   fetchDiscoveryQuestions,
-  fetchMyEngagements,
   isForbidden,
   isPendingTeaser,
   isUnauthorized,
@@ -24,7 +23,7 @@ import {
   studioZipUrl,
   type BriefMessage,
   type DiscoveryQuestion,
-  type StudioMineEntry,
+  type StudioRef,
   type StudioTeaser,
   type EngagementType,
   type OperatingStage,
@@ -1494,7 +1493,9 @@ export default function StudioPage() {
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { id: idParam } = useParams<{ id: string }>();
-  const routeId = idParam && /^\d+$/.test(idParam) ? Number(idParam) : null;
+  // A run's address: its unguessable slug (/engagements/<public_id>) for
+  // the owner, or a plain numeric id for showcase and legacy links.
+  const routeId = idParam && /^[A-Za-z0-9_-]{1,40}$/.test(idParam) ? idParam : null;
 
   const [act, setAct] = useState<Act>(routeId == null ? 'intake' : 'loading');
   const [progress, setProgress] = useState<StudioProgress | null>(null);
@@ -1559,7 +1560,6 @@ export default function StudioPage() {
   const [editTech, setEditTech] = useState('');
   const [qaOpen, setQaOpen] = useState(false);
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const [mine, setMine] = useState<StudioMineEntry[]>([]);
   const [privateReason, setPrivateReason] = useState<'signin' | 'foreign'>('signin');
 
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -1567,7 +1567,7 @@ export default function StudioPage() {
 
   const resultUrl = routeId != null ? `${window.location.origin}${studioResultPath(routeId)}` : null;
 
-  const showResult = useCallback(async (id: number) => {
+  const showResult = useCallback(async (id: StudioRef) => {
     try {
       const data = await getStudioPreview(id, reviewToken);
       if (isPendingTeaser(data)) {
@@ -1597,7 +1597,7 @@ export default function StudioPage() {
   // Decide what a run's state means — used both on first load of a result URL
   // and on every poll, so there is exactly one set of rules.
   const applyProgress = useCallback(
-    (id: number, p: StudioProgress) => {
+    (id: StudioRef, p: StudioProgress) => {
       setProgress(p);
       // The clock is the server's, but it is SET rather than re-based on
       // every poll. Re-basing each time read `Date.now() - elapsed_s*1000`
@@ -1655,7 +1655,7 @@ export default function StudioPage() {
         return;
       }
       const stored = sessionStorage.getItem(RESUME_KEY);
-      if (stored && /^\d+$/.test(stored)) navigate(studioResultPath(Number(stored)), { replace: true });
+      if (stored && /^[A-Za-z0-9_-]{1,40}$/.test(stored)) navigate(studioResultPath(stored), { replace: true });
       else setAct('intake');
       return;
     }
@@ -1688,20 +1688,6 @@ export default function StudioPage() {
   useEffect(() => {
     if (act === 'briefing') briefEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [act, briefMessages, briefBusy]);
-
-  // A signed-in visitor's own engagements, shown above the intake form.
-  useEffect(() => {
-    if (act !== 'intake' || !isAuthenticated) return;
-    let cancelled = false;
-    fetchMyEngagements()
-      .then((rows) => {
-        if (!cancelled) setMine(rows);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [act, isAuthenticated]);
 
   // While the engagement is with the consultant, quietly check for its
   // release — the waiting client's page flips to the reveal on its own.
@@ -1829,7 +1815,7 @@ export default function StudioPage() {
     setSubmitError(null);
     try {
       const intake = buildIntake();
-      const { id } = await createStudioRequest({
+      const created = await createStudioRequest({
         ...intake,
         // Corrections from the briefing chat become part of the brief the
         // whole pipeline reads — the client's facts, verbatim.
@@ -1837,10 +1823,13 @@ export default function StudioPage() {
           ? `${intake.business_description}\n\nCorrections and additions from the briefing chat:\n${addendum}`
           : intake.business_description,
       });
-      sessionStorage.setItem(RESUME_KEY, String(id));
+      // The private slug is the address we hand the client; the numeric id
+      // only backstops legacy rows created before slugs existed.
+      const ref = created.public_id ?? created.id;
+      sessionStorage.setItem(RESUME_KEY, String(ref));
       // The run gets its address the moment it exists, not when it finishes —
       // so a refresh, a closed laptop or a shared link all land somewhere.
-      navigate(studioResultPath(id));
+      navigate(studioResultPath(ref));
       window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     } catch (err) {
       setSubmitError(
@@ -2092,10 +2081,10 @@ export default function StudioPage() {
                         produces. Create an account or sign in, and your work stays yours.
                       </p>
                       <div className="flex flex-wrap gap-3">
-                        <RouterLink to="/signup?next=/demo" className="studio-cta">
+                        <RouterLink to="/signup" state={{ from: '/demo' }} className="studio-cta">
                           Create your account
                         </RouterLink>
-                        <RouterLink to="/login?next=/demo" className="studio-ghost-btn">
+                        <RouterLink to="/login" state={{ from: '/demo' }} className="studio-ghost-btn">
                           Sign in
                         </RouterLink>
                       </div>
@@ -2103,31 +2092,6 @@ export default function StudioPage() {
                         <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
                         Your brief, your numbers, your documents - visible to you alone.
                       </p>
-                    </div>
-                  )}
-
-                  {isAuthenticated && mine.length > 0 && (
-                    <div className="studio-mine">
-                      <p className="studio-kicker mb-2">Your engagements</p>
-                      <div className="studio-mine-list">
-                        {mine.slice(0, 4).map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            className="studio-mine-item"
-                            onClick={() => navigate(studioResultPath(m.id))}
-                          >
-                            <span className="studio-mine-name">{m.concept_name || m.business_name}</span>
-                            <span className="studio-mine-status">
-                              {m.is_generating
-                                ? 'generating…'
-                                : m.review_status === 'pending'
-                                  ? 'in review'
-                                  : 'ready'}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   )}
 
@@ -2665,7 +2629,7 @@ export default function StudioPage() {
                   </p>
                   <div className="flex flex-wrap gap-3 justify-center">
                     {privateReason === 'signin' && (
-                      <RouterLink to="/login?next=/demo" className="studio-cta">
+                      <RouterLink to="/login" state={{ from: window.location.pathname }} className="studio-cta">
                         Sign in
                       </RouterLink>
                     )}

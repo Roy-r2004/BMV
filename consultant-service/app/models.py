@@ -50,6 +50,11 @@ class Request(Base):
     # grandfathering); every run created after the auth gate carries one,
     # and only that account (or the reviewer) can open it.
     owner_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # The unguessable reference this run is addressed by in client-facing
+    # URLs (/engagements/<public_id>). Sequential numeric ids remain valid
+    # API references for legacy and showcase runs, but every owned run's
+    # links use this. Null on legacy rows.
+    public_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True, nullable=True)
 
     # Pipeline output.
     status: Mapped[str] = mapped_column(String(50), default="new")

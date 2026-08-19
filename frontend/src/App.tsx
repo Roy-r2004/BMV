@@ -16,6 +16,7 @@ const AboutPage = lazy(() => import('./routes/AboutPage'));
 const PrivateAIPage = lazy(() => import('./routes/PrivateAIPage'));
 const SubmitPage = lazy(() => import('./routes/SubmitPage'));
 const StudioPage = lazy(() => import('./routes/StudioPage'));
+const EngagementsPage = lazy(() => import('./routes/EngagementsPage'));
 const ResultPreviewPage = lazy(() => import('./routes/ResultPreviewPage'));
 const LoginPage = lazy(() => import('./routes/LoginPage'));
 const SignupPage = lazy(() => import('./routes/SignupPage'));
@@ -55,6 +56,11 @@ export default function App() {
           <Route path="/demo/:id" element={<StudioPage />} />
           <Route path="/studio" element={<StudioPage />} />
           <Route path="/studio/:id" element={<StudioPage />} />
+          {/* The signed-in client's home: the list of their runs, and each
+              run at its unguessable slug address. Numeric /demo/<id> stays
+              for the showcase and legacy links. */}
+          <Route path="/engagements" element={<EngagementsPage />} />
+          <Route path="/engagements/:id" element={<StudioPage />} />
           <Route path="/result/:id" element={<ResultPreviewPage />} />
           <Route path="/share/:id" element={<ResultPreviewPage />} />
           <Route path="/login" element={<LoginPage />} />

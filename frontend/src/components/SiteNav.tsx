@@ -22,6 +22,11 @@ export default function SiteNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, isAuthenticated, logout, loading } = useAuth();
 
+  // Engagements only exist for an account, so the tab only exists for one.
+  const links = isAuthenticated
+    ? [...LINKS.slice(0, 2), { to: '/engagements', label: 'Engagements' }, ...LINKS.slice(2)]
+    : LINKS;
+
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
@@ -48,7 +53,7 @@ export default function SiteNav() {
         </div>
 
         <div className="hidden md:flex items-center gap-0.5 lg:gap-1">
-          {LINKS.map((link) => {
+          {links.map((link) => {
             const active = pathname === link.to;
             return (
               <Link
@@ -125,7 +130,7 @@ export default function SiteNav() {
 
       {menuOpen && (
         <div className="md:hidden border-t border-slate-100 bg-white site-nav-mobile-menu">
-          {LINKS.map((link) => {
+          {links.map((link) => {
             const active = pathname === link.to;
             return (
               <Link
