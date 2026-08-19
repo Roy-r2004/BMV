@@ -594,6 +594,36 @@ def review_queue(review_token: str | None = None, db: Session = Depends(get_db))
     }
 
 
+@router.delete("/{request_id}")
+def delete_request(request_id: int, review_token: str | None = None, db: Session = Depends(get_db)):
+    """Permanent deletion — reviewer only. Removes the row (images cascade),
+    the run's uploaded files, and its export artifacts. There is no undo;
+    the gate is the REVIEW_TOKEN, never exposed to clients."""
+    if not _is_reviewer(review_token):
+        raise HTTPException(status_code=403, detail="Reviewer token required")
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    import shutil
+
+    images_dir = os.path.join(settings.UPLOADS_DIR, "images", str(request_id))
+    if os.path.isdir(images_dir):
+        shutil.rmtree(images_dir, ignore_errors=True)
+    exports_dir = os.path.join(settings.UPLOADS_DIR, "exports")
+    if os.path.isdir(exports_dir):
+        for name in os.listdir(exports_dir):
+            if name.startswith(f"{request_id}-") or name == f"{request_id}.pptx":
+                try:
+                    os.remove(os.path.join(exports_dir, name))
+                except OSError:
+                    pass
+
+    db.delete(req)
+    db.commit()
+    return {"deleted": request_id}
+
+
 @router.get("/{request_id}/export/zip")
 def export_zip_route(request_id: int, review_token: str | None = None,
                      authorization: str | None = Header(None), db: Session = Depends(get_db)):

@@ -660,3 +660,24 @@ def test_showcase_gallery_serves_cards(client, monkeypatch):
     assert card["concept_name"] == "BeaconOS"
     assert card["stats"]["modules"] == 2
     db.close()
+
+
+def test_delete_is_reviewer_only_and_total(client, reviewer, tmp_path, monkeypatch):
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    import os
+
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint=MD)
+    rid = row.id
+    img_dir = tmp_path / "images" / str(rid)
+    img_dir.mkdir(parents=True)
+    (img_dir / "a.png").write_bytes(b"x")
+
+    assert client.delete(f"/api/requests/{rid}").status_code == 403
+    r = client.delete(f"/api/requests/{rid}?review_token={reviewer}")
+    assert r.json() == {"deleted": rid}
+    assert client.get(f"/api/requests/{rid}/preview").status_code == 404
+    assert not os.path.isdir(img_dir)
+    db.close()
