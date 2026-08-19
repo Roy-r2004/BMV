@@ -388,3 +388,29 @@ def test_operations_manual_pdf(client, tmp_path, monkeypatch):
     empty = _seed(db)
     assert client.get(f"/api/requests/{empty.id}/export/pdf/operations").status_code == 400
     db.close()
+
+
+def test_engagement_zip_bundle(client, tmp_path, monkeypatch):
+    import io as _io
+    import zipfile
+
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    row = _seed(
+        db, concept_name="BeaconOS", mvp_blueprint=MD, technical_plan=MD,
+        procedures_json=json.dumps({"procedures": [dict(GOOD_PROCS["procedures"][0], module="Scheduling")]}),
+        org_json=json.dumps(GOOD_ORG), checklists_json=json.dumps(GOOD_CHECK),
+    )
+    r = client.get(f"/api/requests/{row.id}/export/zip")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    names = zipfile.ZipFile(_io.BytesIO(r.content)).namelist()
+    assert len(names) == 3
+    assert any("Volume I" in n for n in names)
+    assert any("Volume III" in n for n in names)
+    # nothing ready -> 400, never an empty bundle
+    empty = _seed(db)
+    assert client.get(f"/api/requests/{empty.id}/export/zip").status_code == 400
+    db.close()

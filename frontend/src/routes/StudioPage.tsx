@@ -15,6 +15,7 @@ import {
   studioDeckUrl,
   studioPdfUrl,
   studioResultPath,
+  studioZipUrl,
   type BriefMessage,
   type DiscoveryQuestion,
   type EngagementType,
@@ -1353,11 +1354,18 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
           Packages and add-ons below are written from this preview. No public prices — we quote
           after you choose and confirm scope.
         </p>
-        {preview.deck_available && (
-          <a className="studio-cta studio-plans-deckbtn mt-6" href={studioDeckUrl(preview.id)}>
-            Download the deck (PowerPoint)
-          </a>
-        )}
+        <div className="studio-plans-downloads mt-6">
+          {preview.mvp_blueprint && (
+            <a className="studio-cta studio-plans-deckbtn" href={studioZipUrl(preview.id)}>
+              Download your full plan (ZIP — all three volumes)
+            </a>
+          )}
+          {preview.deck_available && (
+            <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
+              Download the deck (PowerPoint)
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="studio-plancards">
@@ -2608,6 +2616,11 @@ export default function StudioPage() {
                       {preview.deck_available && (
                         <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
                           Download the deck
+                        </a>
+                      )}
+                      {preview.mvp_blueprint && (
+                        <a className="studio-ghost-btn" href={studioZipUrl(preview.id)}>
+                          Download the full plan (ZIP)
                         </a>
                       )}
                     </div>

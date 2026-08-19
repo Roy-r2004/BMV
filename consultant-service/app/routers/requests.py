@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import threading
 from datetime import datetime
 
@@ -351,6 +352,45 @@ def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
             for img in sorted(req.images, key=lambda i: (i.role_id, i.variant))
         ],
     }
+
+
+@router.get("/{request_id}/export/zip")
+def export_zip_route(request_id: int, db: Session = Depends(get_db)):
+    """The whole engagement as one download: all three PDF volumes zipped.
+    Volumes that aren't ready are skipped rather than failing the bundle;
+    an empty bundle 400s like every other not-ready export."""
+    import zipfile
+
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "engagement"))
+    built = []
+    for kind, name in (
+        ("blueprint", "Volume I - The Blueprint.pdf"),
+        ("technical", "Volume II - The Technical Plan.pdf"),
+        ("operations", "Volume III - The Operations Manual.pdf"),
+    ):
+        try:
+            built.append((export_pdf.build_pdf(req, kind), name))
+        except ValueError:
+            continue
+    if not built:
+        raise HTTPException(status_code=400, detail="Documents not ready yet")
+
+    out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f"{request_id}-engagement.zip")
+    with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as bundle:
+        for path, name in built:
+            bundle.write(path, arcname=f"{file_stub}/{name}")
+
+    return FileResponse(
+        out_path,
+        media_type="application/zip",
+        filename=f"{file_stub}-engagement.zip",
+    )
 
 
 @router.get("/{request_id}/export/pdf/{kind}")

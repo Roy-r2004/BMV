@@ -305,6 +305,11 @@ export function studioPdfUrl(id: number, kind: 'blueprint' | 'technical' | 'oper
   return `${CONSULTANT_API_BASE}/api/requests/${id}/export/pdf/${kind}`;
 }
 
+/** The whole engagement as one download: the three PDF volumes, zipped. */
+export function studioZipUrl(id: number): string {
+  return `${CONSULTANT_API_BASE}/api/requests/${id}/export/zip`;
+}
+
 export interface StudioPlaybookStep {
   phase: 'before' | 'during' | 'after';
   who: 'you' | 'bmv' | 'partner';
