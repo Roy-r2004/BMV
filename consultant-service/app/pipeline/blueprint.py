@@ -85,6 +85,24 @@ def write_blueprint(
     # Four front-matter sections joined the document (engagement scope,
     # current state, opportunity) — give it room to finish them all.
     content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
+    if content:
+        from app.pipeline import timebasis
+        from app.pipeline.decompose import _numbers_in as _nums
+
+        fm = (business_case or {}).get("financial_model") or {}
+        claims = []
+        for l in (fm.get("lines") or []) if isinstance(fm, dict) else []:
+            if isinstance(l, dict) and l.get("arithmetic_verified") and "$" in str(l.get("annual") or ""):
+                vals = _nums(str(l.get("annual") or ""))
+                if vals:
+                    claims.append(vals[0])
+        for sc in (fm.get("scenarios") or []) if isinstance(fm, dict) else []:
+            if isinstance(sc, dict) and sc.get("impact_verified"):
+                vals = [v for v in _nums(str(sc.get("impact") or "")) if v > 1]
+                if vals:
+                    claims.append(vals[0])
+        content, _ = timebasis.check_restatements(content, claims)
+        content = timebasis.round_counts(content)
     req.mvp_blueprint = content
     db.commit()
     return content

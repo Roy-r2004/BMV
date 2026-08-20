@@ -144,6 +144,15 @@ def review_quality(db: Session, request_id: int) -> None:
             # is by source, never by sniffing the finding's prose.
             findings += [{**f, "source": name} for f in report["findings"]]
 
+    # Machine findings first: structure the model cannot vary its way out of.
+    from app.pipeline.structural import structural_findings
+
+    try:
+        _bc_parsed = json.loads(business_case) if business_case.strip().startswith("{") else {}
+    except Exception:
+        _bc_parsed = {}
+    findings += [{**f, "source": "structural"} for f in structural_findings(_bc_parsed, modules)]
+
     polish_applied = False
     # The red pen only ever acts on the NUMBERS auditor's findings —
     # wording-level fixes to specific figures. Structure findings mean a

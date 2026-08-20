@@ -1646,3 +1646,187 @@ def test_daily_drift_snaps_to_the_verified_annual(client):
     _sanitize_financial_model(bc)
     assert "$194.40" in bc["cost_of_inaction"]
     assert "$1,944" not in bc["cost_of_inaction"]
+
+
+# -- deterministic structure: time bases, scenario completeness, graph -----
+
+
+def test_time_basis_identities_hold_bidirectionally():
+    from app.pipeline import timebasis as tb
+
+    annual = 70956.0
+    assert abs(tb.candidates(annual, "per day")[0][0] - 194.4) < 0.01
+    assert abs(tb.candidates(annual, "per day")[0][0] * 30 - 5832.0) < 0.01
+    assert abs(tb.candidates(annual, "per month")[0][0] - 5832.0) < 0.01     # 30-day operating month
+    assert abs(tb.candidates(annual, "per month")[1][0] - 5913.0) < 0.01     # calendar month
+    # the two month identities are distinct and never silently equal
+    assert tb.candidates(annual, "per month")[0][0] != tb.candidates(annual, "per month")[1][0]
+    assert abs(tb.candidates(2340.0, "per week")[0][0] * 52 - 2340.0) < 0.01
+
+
+def test_run43_daily_drift_is_the_fixture(client):
+    """'$1,944 per day' (run 43, G3) snaps to the machine value $194.40."""
+    from app.pipeline import timebasis as tb
+
+    text = "iCARRY incurs approximately $1,944 per day in re-attempt costs alone."
+    fixed, records = tb.check_restatements(text, [70956.0])
+    assert "$194.40" in fixed and "$1,944" not in fixed
+    assert records[0]["status"] == "snapped"
+    assert "365" in records[0]["formula"]
+    # correct restatements verify untouched, on every basis
+    for good in ("$194.40 per day", "$1,364.54 per week", "$5,832 per month",
+                 "$5,913 a month", "$70,956 per year"):
+        out, recs = tb.check_restatements(f"costing {good} today", [70956.0])
+        assert good.split()[0] in out, good
+        assert recs[0]["status"] == "verified", (good, recs)
+    # a figure with no candidate within factor 20 is left, recorded honestly
+    _, recs = tb.check_restatements("about $9,999,999 per day", [70956.0])
+    assert recs[0]["status"].startswith("unverifiable")
+
+
+def test_fractional_counts_round_whole(client):
+    from app.pipeline import timebasis as tb
+
+    out = tb.round_counts("31,937.5 'where is my order' inquiries resolved and 95,812.5 inquiries later")
+    assert "31,938" in out and "95,813" in out and ".5" not in out
+
+
+def test_scenario_component_map_judges_run43_scenarios_complete(client):
+    """Run 43's G5-G7: assumptions promise three mechanisms; impacts deliver
+    dollars + two volumes. The map proves completeness — the auditor's
+    demand for dollarization violated capacity-is-not-cash."""
+    from app.pipeline.structural import scenario_component_map
+
+    sc = {"assumption": "The system prevents 10% of failed first attempts and resolves 25% of "
+                        "'where is my order' inquiries and 20% of COD settlement inquiries.",
+          "impact": "Saved $7,095.60/year in re-attempt costs and 31,938 'where is my order' "
+                    "inquiries/year resolved, plus 720 COD settlement inquiries/year resolved."}
+    m = scenario_component_map(sc)
+    assert m["promised"] == 3 and m["complete"], m
+    # a scenario that truly omits a promised mechanism fails
+    bad = {"assumption": "prevents 10% of failed attempts and resolves 25% of inquiries",
+           "impact": "Saved $7,096/year in re-attempt costs."}
+    assert not scenario_component_map(bad)["complete"]
+    # an explicit cannot-quantify note satisfies the invariant
+    honest = {"assumption": "prevents 10% of failed attempts and resolves 25% of inquiries",
+              "impact": "Saved $7,096/year; inquiry handling cannot yet quantify — needs your loaded hourly cost."}
+    assert scenario_component_map(honest)["complete"]
+
+
+def test_structural_findings_catch_graph_and_scenario_defects(client):
+    from app.pipeline.structural import structural_findings
+
+    mods = [
+        {"id": "a", "name": "Alpha Coordinator", "purpose": "works with Beta Engine output",
+         "depends_on": []},
+        {"id": "b", "name": "Beta Engine", "purpose": "scores things", "depends_on": ["a"]},
+    ]
+    bc = {"build_order": ["a", "b"],
+          "financial_model": {"scenarios": [
+              {"name": "Bad", "assumption": "prevents 10% and resolves 25%",
+               "impact": "Saved $7,096/year."}]},
+          "pilot_gate": {"primary_metric": "x", "target": "y"}}
+    found = structural_findings(bc, mods)
+    issues = " | ".join(f["issue"] for f in found)
+    assert "promises 2 impact mechanism(s)" in issues
+    assert "Beta Engine" in issues and "built later" in issues
+    # topological violation
+    bc2 = {"build_order": ["b", "a"], "financial_model": {"scenarios": []}}
+    mods2 = [{"id": "a", "name": "Alpha", "purpose": "p", "depends_on": []},
+             {"id": "b", "name": "Beta", "purpose": "p", "depends_on": ["a"]}]
+    found2 = structural_findings(bc2, mods2)
+    assert any("not a valid topological order" in f["issue"] for f in found2)
+    # a clean decomposition produces zero findings
+    assert structural_findings({"build_order": ["a", "b"],
+                                "financial_model": {"scenarios": []}}, mods2) == []
+    # a cycle is caught
+    cyc = [{"id": "a", "name": "A", "purpose": "p", "depends_on": ["b"]},
+           {"id": "b", "name": "B", "purpose": "p", "depends_on": ["a"]}]
+    assert any("cycle" in f["issue"] for f in structural_findings({}, cyc))
+
+
+def test_r4_capacity_law_closes_dollarization_demands(client):
+    """Run 43's G4: demanding currency for staff hours while the loaded
+    labor costs are BY DESIGN in missing_inputs."""
+    from app.pipeline.adjudicate import adjudicate
+
+    db = SessionLocal()
+    row = _seed(db, business_case_json=json.dumps({"financial_model": {
+        "lines": [], "scenarios": [],
+        "missing_inputs": ["Your fully-loaded hourly cost for support staff."]}}),
+        qa_report_json=json.dumps({"checks": [], "findings": [{
+            "severity": "high", "source": "qa_numbers", "where": "cost_of_inaction",
+            "issue": "mentions 45 hours per week of finance staff time without providing an associated currency value for these costs",
+            "fix": "add the currency value"}]}))
+    result = adjudicate(row)
+    assert result["false_positives"] == 1
+    assert "capacity-is-not-cash" in result["ledger"][0]["evidence"]
+    db.close()
+
+
+def test_r5_component_map_closes_false_omission_claims(client):
+    from app.pipeline.adjudicate import adjudicate
+
+    db = SessionLocal()
+    row = _seed(db, business_case_json=json.dumps({"financial_model": {
+        "lines": [{"item": "x", "arithmetic": "900 * 0.12 * $1.80 * 365", "annual": "$70,956"}],
+        "scenarios": [{"name": "Conservative",
+                       "assumption": "prevents 10% and resolves 25% of inquiries and 20% of COD inquiries",
+                       "impact": "Saved $7,096/year and 31,938 inquiries/year resolved, plus 720 COD inquiries/year resolved."}]}}),
+        qa_report_json=json.dumps({"checks": [], "findings": [{
+            "severity": "high", "source": "qa_numbers", "where": "financial_model -> scenarios -> Conservative",
+            "issue": "The scenario fails to include any impact from inquiries in terms of cost savings",
+            "fix": "add cost savings"}]}))
+    result = adjudicate(row)
+    assert result["false_positives"] == 1
+    assert "component map complete" in result["ledger"][0]["evidence"]
+    db.close()
+
+
+def test_preflight_guards_the_prose_spend(client, monkeypatch):
+    from app.pipeline import orchestrator as orch
+
+    calls = {"n": 0}
+    bad = {"modules": [{"id": "a", "name": "A", "purpose": "p", "depends_on": []}],
+           "business_case": {"financial_model": {"scenarios": [
+               {"name": "S", "assumption": "prevents 10% and resolves 25%",
+                "impact": "Saved $7,096/year."}]}}}
+    good = {"modules": [{"id": "a", "name": "A", "purpose": "p", "depends_on": []}],
+            "business_case": {"financial_model": {"scenarios": []}}}
+
+    def fake_decompose(db, request_id, *a, **k):
+        calls["n"] += 1
+        return bad if calls["n"] == 1 else good
+
+    monkeypatch.setattr(orch.decompose, "decompose_business", fake_decompose)
+    out = orch._decompose_with_preflight(None, 1)
+    assert calls["n"] == 2 and out is good
+    # persistent failure stops the run instead of spending prose
+    calls["n"] = 0
+    monkeypatch.setattr(orch.decompose, "decompose_business", lambda *a, **k: bad)
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError):
+        orch._decompose_with_preflight(None, 1)
+
+
+def test_structural_findings_flow_into_the_gate(client, monkeypatch):
+    from app.pipeline import export_pdf as ep
+    from app.pipeline import qa_experts
+
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint=MD, modules_json=json.dumps(MODULES),
+                business_case_json=json.dumps({"financial_model": {"scenarios": [
+                    {"name": "S", "assumption": "prevents 10% and resolves 25%",
+                     "impact": "Saved $7,096/year."}]}}))
+
+    def chat(model, messages, **kwargs):
+        return {"choices": [{"message": {"content": json.dumps({"checks": [], "findings": []})}}], "usage": {}}
+
+    monkeypatch.setattr(qa_experts.provider, "chat", chat)
+    qa_experts.review_quality(db, row.id)
+    db.refresh(row)
+    qa = json.loads(row.qa_report_json)
+    structural = [f for f in qa["findings"] if f.get("source") == "structural"]
+    assert structural and "promises 2 impact mechanism(s)" in structural[0]["issue"]
+    assert ep.release_status(row)["status"] == "draft"
+    db.close()

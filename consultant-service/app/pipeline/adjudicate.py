@@ -174,6 +174,43 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None) -> dict:
             entry.update(classification="false positive", evidence=f["machine_evidence"])
             ledger.append(entry)
             continue
+        # R4 — capacity-is-not-cash: a finding demanding dollars for hours,
+        # staff or volumes while the loaded labor inputs are BY DESIGN in
+        # missing_inputs asks the generator to break its own law
+        missing = " ".join(str(x) for x in (fm.get("missing_inputs") or [])).lower()
+        wants_dollars = re.search(
+            r"without[^.]{0,40}(currency|cost)|in terms of cost|not.{0,20}monetiz",
+            issue, re.IGNORECASE)
+        about_capacity = re.search(r"hours|staff|inquiries|capacity", issue, re.IGNORECASE)
+        if wants_dollars and about_capacity and "hourly cost" in missing:
+            f["adjudication"] = "false_positive"
+            f["machine_evidence"] = ("R4: converting capacity to currency requires the loaded "
+                                     "labor costs, which are correctly listed as missing inputs — "
+                                     "the capacity-is-not-cash law forbids inventing them")
+            entry.update(classification="false positive", evidence=f["machine_evidence"])
+            ledger.append(entry)
+            continue
+        # R5 — scenario-completeness evidence: a finding claiming an impact
+        # mechanism was omitted closes when the component map proves every
+        # promised mechanism delivered a figure or a cannot-quantify note
+        if "fails to include any impact" in issue or "omit" in issue.lower():
+            from app.pipeline.structural import scenario_component_map
+
+            where = str(f.get("where") or "")
+            target = next((sc for sc in (fm.get("scenarios") or [])
+                           if isinstance(sc, dict) and str(sc.get("name") or "") and
+                           str(sc.get("name")) in where), None)
+            if target is not None:
+                cmap = scenario_component_map(target)
+                if cmap["complete"]:
+                    f["adjudication"] = "false_positive"
+                    f["machine_evidence"] = (
+                        f"R5: component map complete — {cmap['promised']} promised mechanism(s), "
+                        f"{cmap['quantified']} quantified + {cmap['cannot_quantify_notes']} "
+                        f"explicit cannot-quantify note(s) delivered")
+                    entry.update(classification="false positive", evidence=f["machine_evidence"])
+                    ledger.append(entry)
+                    continue
         # R2 — label presence in the rendered text
         _label_complaint = (("without" in issue.lower() and "(proposed" in issue)
                             or "invented percentage" in issue.lower()
