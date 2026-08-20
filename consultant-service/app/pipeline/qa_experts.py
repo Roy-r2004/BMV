@@ -78,7 +78,7 @@ def review_quality(db: Session, request_id: int) -> None:
             business_case=business_case,
             blueprint=blueprint,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1800)
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3000)
         return _sanitize_report(extract_json_from_text(body["choices"][0]["message"]["content"])), body.get("usage")
 
     def _completeness():

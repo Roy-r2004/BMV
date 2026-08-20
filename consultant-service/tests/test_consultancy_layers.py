@@ -928,3 +928,13 @@ def test_qa_numbers_prompt_demands_recompute_and_fraction_only_assumptions():
     assert "RECOMPUTE" in nums
     assert "belongs in missing_inputs" in nums
     assert "BMV's own pricing must never appear" in nums
+
+
+def test_numeric_annual_prints_as_money(client):
+    from app.pipeline import export_pdf as ep
+
+    fm = {"financial_model": {"lines": [
+        {"item": "re-attempts", "arithmetic": "900 x 0.12 x $1.80 x 365", "annual": 70956},
+    ]}}
+    text = _flow_text(ep._financial_model_flowables(fm))
+    assert "$70,956" in text

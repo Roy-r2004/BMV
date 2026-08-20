@@ -513,6 +513,14 @@ def _playbook_flowables(playbook: dict | None) -> list:
     return flows
 
 
+def _money(v) -> str:
+    """The model sometimes returns a computed figure as a bare number —
+    print it as money, not as '70956'."""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return f"${v:,.0f}"
+    return str(v or "")
+
+
 def _financial_model_flowables(business_case: dict) -> list:
     """The quantified case: the owner's numbers annualized, three labeled
     scenarios, and the inputs still missing — computed upstream by the
@@ -541,7 +549,7 @@ def _financial_model_flowables(business_case: dict) -> list:
         for l in lines:
             item = _rich(str(l.get("item") or ""))
             arith = _rich(str(l.get("arithmetic") or ""))
-            annual = _rich(str(l.get("annual") or ""))
+            annual = _rich(_money(l.get("annual")))
             # a figure may only print behind its shown computation
             text = f"<b>{item}</b>" + (f" — {arith}" if arith else "")
             if arith and annual:
@@ -554,7 +562,7 @@ def _financial_model_flowables(business_case: dict) -> list:
         for s in scenarios:
             flows.append(Paragraph(
                 f"<b>{_rich(str(s.get('name') or ''))}:</b> " + _rich(str(s.get("assumption") or ""))
-                + " — " + _rich(str(s.get("impact") or "")),
+                + " — " + _rich(_money(s.get("impact"))),
                 _S["bullet"], bulletText="•"))
     if payback:
         flows.append(Paragraph("<b>Payback:</b> " + _rich(payback), _S["body"]))
