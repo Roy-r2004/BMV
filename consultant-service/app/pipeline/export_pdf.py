@@ -343,7 +343,9 @@ def release_status(req: Request) -> dict:
     qa = _loads(getattr(req, "qa_report_json", None), None) or {}
     if isinstance(qa, dict):
         highs = [f for f in (qa.get("findings") or [])
-                 if isinstance(f, dict) and f.get("severity") == "high" and not f.get("repaired")]
+                 if isinstance(f, dict) and f.get("severity") == "high"
+                 and not f.get("repaired")
+                 and f.get("adjudication") != "false_positive"]
         if highs:
             reasons.append(f"{len(highs)} open high finding(s) on the quality bench")
     corpus_parts = [req.mvp_blueprint or "", req.technical_plan or ""]

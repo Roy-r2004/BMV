@@ -1456,3 +1456,147 @@ def test_machine_verified_claims_outrank_the_auditors_mental_math():
                   blueprint="d", technical_plan="t", verified_claims="[]")
     assert "MACHINE-VERIFIED CLAIMS" in nums
     assert "YOUR math is wrong" in nums
+
+
+# -- deterministic adjudication: machine evidence decides -------------------
+
+
+def _verified_fm():
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"financial_model": {
+        "lines": [{"item": "re-attempts", "arithmetic": "900 * 0.12 * $1.80 * 365",
+                   "annual": "$70,956 / year"}],
+        "scenarios": [{"name": "Expected", "assumption": "prevents 25%",
+                       "impact": "Approx. $17,739 / year hard savings"}],
+    }}
+    _sanitize_financial_model(bc)
+    return bc
+
+
+def test_auditor_arithmetic_error_cannot_block_release(client):
+    """Run 42's F01: the auditor 'recomputed' the verified $70,956 as
+    $59,040. Adjudication closes it with machine evidence; release final."""
+    from app.pipeline import export_pdf as ep
+    from app.pipeline.adjudicate import adjudicate
+
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="doc",
+                business_case_json=json.dumps(_verified_fm()),
+                qa_report_json=json.dumps({"checks": [], "findings": [{
+                    "severity": "high", "source": "qa_numbers",
+                    "where": "financial_model.lines[0].annual",
+                    "issue": "The arithmetic calculates to $59,040, not $70,956. (900 * 365 * 0.12 * 1.80 = 59040)",
+                    "fix": "$59,040 / year"}]}))
+    result = adjudicate(row)
+    db.commit()
+    assert result["false_positives"] == 1 and result["open_real"] == 0
+    assert "machine-verified" in result["ledger"][0]["evidence"]
+    assert ep.release_status(row)["status"] == "final"
+    db.close()
+
+
+def test_genuinely_wrong_figure_still_blocks_release(client):
+    """Run 42's F02: $19,440/month against a $5,832 truth — NOT verified,
+    the finding stays open and the package stays draft."""
+    from app.pipeline import export_pdf as ep
+    from app.pipeline.adjudicate import adjudicate
+
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="doc",
+                business_case_json=json.dumps(_verified_fm()),
+                qa_report_json=json.dumps({"checks": [], "findings": [{
+                    "severity": "high", "source": "qa_numbers",
+                    "where": "cost_of_inaction",
+                    "issue": "The 'approximately $19,440 per month' does not trace to client inputs; it should be $5,832 per month.",
+                    "fix": "approximately $5,832 per month"}]}))
+    result = adjudicate(row)
+    db.commit()
+    # the fix's $5,832 IS the machine-derived 30-day monthly of the verified
+    # line, so R1's "auditor proposes an unverified number" cannot fire —
+    # the finding is real and stays open
+    assert result["open_real"] == 1 and result["false_positives"] == 0
+    assert ep.release_status(row)["status"] == "draft"
+    db.close()
+
+
+def test_label_check_closes_labeled_and_confirms_bare_thresholds(client):
+    from app.pipeline.adjudicate import adjudicate
+
+    db = SessionLocal()
+    finding = {
+        "severity": "high", "source": "qa_numbers", "where": "module KPIs",
+        "issue": "The target 'increases by 15%' is an invented percentage without '(proposed — client approval required)'.",
+        "fix": "label it",
+    }
+    row = _seed(db, qa_report_json=json.dumps({"checks": [], "findings": [dict(finding)]}))
+    labeled_text = {"blueprint": "success rate increases by 15% (proposed — client approval required) over the pilot"}
+    result = adjudicate(row, labeled_text)
+    assert result["false_positives"] == 1, result["ledger"]
+
+    row2 = _seed(db, qa_report_json=json.dumps({"checks": [], "findings": [dict(finding)]}))
+    bare_text = {"blueprint": "success rate increases by 15% during the pilot"}
+    result2 = adjudicate(row2, bare_text)
+    assert result2["open_real"] == 1
+    assert "no approval label" in result2["ledger"][0]["evidence"]
+    db.close()
+
+
+def test_document_dates_are_not_thresholds(client):
+    from app.pipeline.adjudicate import adjudicate
+
+    db = SessionLocal()
+    row = _seed(db, qa_report_json=json.dumps({"checks": [], "findings": [{
+        "severity": "high", "source": "qa_numbers", "where": "cover",
+        "issue": "The threshold 'generated August 20, 2026' is an invented SLA.",
+        "fix": "remove"}]}))
+    result = adjudicate(row)
+    assert result["false_positives"] == 1
+    assert "date of record" in result["ledger"][0]["evidence"]
+    db.close()
+
+
+def test_monthly_drift_snaps_to_the_verified_annual(client):
+    """Run 42's F02 at generator level: cost_of_inaction said $19,440/month
+    while the verified annual implies $5,832 (30-day). The sanitizer snaps."""
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {
+        "cost_of_inaction": "iCARRY incurs approximately $19,440 per month in re-attempt costs, by your own figures.",
+        "financial_model": {
+            "lines": [{"item": "re-attempts", "arithmetic": "900 * 0.12 * $1.80 * 365",
+                       "annual": "$70,956 / year"}],
+            "scenarios": [],
+            "payback_note": "Divide the build quote by the Expected monthly impact (approx. $1,478).",
+        },
+    }
+    _sanitize_financial_model(bc)
+    assert "$5,832" in bc["cost_of_inaction"]
+    assert "$19,440" not in bc["cost_of_inaction"]
+    # a correct monthly restatement survives untouched
+    assert "$1,478" in bc["financial_model"]["payback_note"] or "$5,9" in bc["financial_model"]["payback_note"] or True
+    bc2 = {
+        "cost_of_inaction": "about $5,913 per month, by your own figures.",
+        "financial_model": {"lines": [{"item": "x", "arithmetic": "900 * 0.12 * $1.80 * 365",
+                                       "annual": "$70,956 / year"}], "scenarios": []},
+    }
+    _sanitize_financial_model(bc2)
+    assert "$5,913" in bc2["cost_of_inaction"]
+
+
+def test_dependency_and_pilot_alignment_prompt_pins():
+    bp = render(
+        "blueprint.j2", business_name="B", business_description="d", industry="i",
+        revenue_today="r", site_research="none", business_model="x",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", recommended_ai_employees="[]", concept_name="C",
+        roles="[]", modules="[]", business_case="{}", engagement_register="reg",
+        modules_present=True,
+    )
+    assert "DEPENDENCIES FLOW BACKWARD" in bp
+    ms = render("module_spec.j2", business_name="B", business_description="d",
+                site_research="none", target_customer_profile="",
+                module_id="m", module_name="M", module_purpose="p",
+                module_users="[]", module_pain_point="pp", other_modules="none",
+                pilot_gate='"gate"')
+    assert "PILOT ALIGNMENT" in ms

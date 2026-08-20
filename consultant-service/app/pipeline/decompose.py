@@ -47,6 +47,7 @@ def _numbers_in(text: str) -> list[float]:
 
 
 def _sanitize_financial_model(business_case: dict) -> None:
+    bc_dict = business_case if isinstance(business_case, dict) else {}
     """Deterministic arithmetic check on the financial model's annualized
     lines: when a line's arithmetic is a plain product of its numbers, the
     printed result must BE that product (allowing an unstated x12/x26/x52/
@@ -106,6 +107,39 @@ def _sanitize_financial_model(business_case: dict) -> None:
         nums = _numbers_in(str(line.get("annual") or ""))
         if nums:
             bases.append(nums[0])
+    # cost_of_inaction and payback restate monthly figures — a "per month"
+    # figure that is not annual/12 (calendar) or annual/365*30 (operating
+    # month) of the single verified currency line is drift, snapped to the
+    # 30-day value (run 42 shipped $19,440/month against a $5,832 truth).
+    currency_lines = [l for l in (fm.get("lines") or [])
+                      if isinstance(l, dict) and l.get("arithmetic_verified")
+                      and "$" in str(l.get("annual") or "")]
+    if len(currency_lines) == 1:
+        annual_vals = _numbers_in(str(currency_lines[0].get("annual") or ""))
+        if annual_vals:
+            annual = annual_vals[0]
+            monthly_ok = (annual / 12, annual / 365 * 30)
+
+            def _fix_monthly(text: str) -> str:
+                def _repl(m):
+                    vals = _numbers_in(m.group(1))
+                    if not vals:
+                        return m.group(0)
+                    v = vals[0]
+                    if any(abs(v - ok) / max(ok, 1e-9) <= 0.05 for ok in monthly_ok):
+                        return m.group(0)
+                    return m.group(0).replace(m.group(1), f"${annual / 365 * 30:,.0f}")
+
+                return re.sub(r"(\$\s?\d[\d,]*(?:\.\d+)?)\s*(?:per month|/\s*month|a month)",
+                              _repl, text)
+
+            coi = bc_dict.get("cost_of_inaction") if isinstance(bc_dict, dict) else None
+            if isinstance(coi, str) and coi:
+                bc_dict["cost_of_inaction"] = _fix_monthly(coi)
+            pn = fm.get("payback_note")
+            if isinstance(pn, str) and pn:
+                fm["payback_note"] = _fix_monthly(pn)
+
     for sc in fm.get("scenarios") or []:
         if not isinstance(sc, dict):
             continue
@@ -260,6 +294,7 @@ def decompose_business(
                 module_purpose=module.get("purpose") or "",
                 module_users=json.dumps(module.get("users") or []),
                 module_pain_point=module.get("pain_point_addressed") or "",
+                pilot_gate=json.dumps(business_case.get("pilot_gate") or "") if isinstance(business_case, dict) else '""',
                 other_modules=others,
             )
             body = provider.chat(

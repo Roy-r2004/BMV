@@ -213,3 +213,15 @@ def review_quality(db: Session, request_id: int) -> None:
         "polish_applied": polish_applied,
     })
     db.commit()
+
+    # Deterministic adjudication: machine evidence closes proven false
+    # positives (an auditor's own arithmetic error must not block release)
+    # and leaves every real finding open. Fail-open — adjudication being
+    # unavailable simply leaves the bench's verdicts standing.
+    try:
+        from app.pipeline.adjudicate import adjudicate
+
+        adjudicate(req)
+        db.commit()
+    except Exception:
+        logger.warning("adjudication failed open: request=%s", request_id)
