@@ -25,6 +25,14 @@ import os
 import re
 from datetime import datetime
 
+from reportlab import rl_config
+
+# Deterministic output: identical content must produce identical bytes, so
+# a release hash identifies CONTENT, not the moment of rendering. (Run 42's
+# reconciliation: three byte-different sets whose text was identical —
+# every difference was an embedded build timestamp.)
+rl_config.invariant = 1
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle

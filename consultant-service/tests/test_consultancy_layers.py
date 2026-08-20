@@ -1424,16 +1424,46 @@ def test_release_audit_records_hashes_and_detects_mutation(client, tmp_path, mon
                 qa_report_json=json.dumps({"checks": [], "findings": []}))
     record = release_audit.audit_run(row)
     assert record["status"] == "final"
+    assert record["revision"].endswith("-r1")
     assert all("sha256" in v for v in record["volumes"].values())
     assert release_audit.verify(record["record_path"]) == "valid"
-    # any mutation after the audit invalidates the recorded decision
+    # a revision is immutable: mutation + rebuild earns the NEXT revision,
+    # and the earlier audited set stays frozen and valid
     row.business_name = "Renamed"
     db.commit()
     import time
     time.sleep(1.1)
     db.refresh(row)
-    ep.build_pdf(row, "blueprint")  # rebuild changes bytes -> hash mismatch
-    assert release_audit.verify(record["record_path"]).startswith("stale")
+    record2 = release_audit.audit_run(row)
+    assert record2["revision"].endswith("-r2")
+    assert record2["record_path"] != record["record_path"]
+    assert release_audit.verify(record["record_path"]) == "valid"   # r1 untouched
+    assert release_audit.verify(record2["record_path"]) == "valid"
+    r1_sha = record["volumes"]["blueprint"]["sha256"]
+    r2_sha = record2["volumes"]["blueprint"]["sha256"]
+    assert r1_sha != r2_sha  # different content -> different revision hashes
+    db.close()
+
+
+def test_identical_content_builds_to_identical_bytes(client, tmp_path, monkeypatch):
+    """Deterministic rendering: a release hash identifies content, not the
+    moment of rendering — run 42's three byte-different-but-text-identical
+    sets are impossible now."""
+    import hashlib
+
+    from app.config import settings as cfg
+    from app.pipeline import export_pdf as ep
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="## Executive summary\nfine",
+                qa_report_json=json.dumps({"checks": [], "findings": []}))
+    p1 = ep.build_pdf(row, "blueprint")
+    h1 = hashlib.sha256(open(p1, "rb").read()).hexdigest()
+    os.remove(p1)  # bust the disk cache; same data, fresh render
+    p2 = ep.build_pdf(row, "blueprint")
+    h2 = hashlib.sha256(open(p2, "rb").read()).hexdigest()
+    assert h1 == h2
     db.close()
 
 

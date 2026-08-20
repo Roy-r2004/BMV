@@ -32,9 +32,24 @@ def _sha256(path: str) -> str:
     return h.hexdigest()
 
 
+def _next_revision(releases_dir: str, run_id: int) -> int:
+    import re as _re
+
+    n = 1
+    if os.path.isdir(releases_dir):
+        for name in os.listdir(releases_dir):
+            m = _re.fullmatch(rf"{run_id}-r(\d+)", name)
+            if m:
+                n = max(n, int(m.group(1)) + 1)
+    return n
+
+
 def audit_run(row, out_dir: str | None = None) -> dict:
-    """Build, inspect and hash all three volumes for one engagement row.
-    Returns the release record (also written to disk)."""
+    """Build, inspect and hash all three volumes for one engagement row,
+    then freeze them as an immutable revision: exports/releases/<id>-r<N>/
+    holds the exact audited PDFs plus record.json. An existing revision is
+    NEVER overwritten — a rebuild earns the next revision number, and every
+    earlier audit record stands untouched."""
     from app.config import settings
     from app.pipeline import export_pdf
     import inspect_pdf
@@ -69,9 +84,25 @@ def audit_run(row, out_dir: str | None = None) -> dict:
     if blockers and record["status"] == "final":
         record["status"] = "draft"
         record["reasons"] = blockers
-    out_dir = out_dir or os.path.join(settings.UPLOADS_DIR, "exports")
-    os.makedirs(out_dir, exist_ok=True)
-    record_path = os.path.join(out_dir, f"release-{row.id}.json")
+
+    import shutil
+
+    base = out_dir or os.path.join(settings.UPLOADS_DIR, "exports")
+    releases_dir = os.path.join(base, "releases")
+    revision = _next_revision(releases_dir, row.id)
+    rev_id = f"{row.id}-r{revision}"
+    rev_dir = os.path.join(releases_dir, rev_id)
+    if os.path.exists(rev_dir):
+        raise RuntimeError(f"revision store {rev_dir} already exists — refusing to overwrite")
+    os.makedirs(rev_dir)
+    for kind, vol in record["volumes"].items():
+        if "file" not in vol:
+            continue
+        src = os.path.join(base, vol["file"])
+        if os.path.isfile(src):
+            shutil.copy(src, os.path.join(rev_dir, vol["file"]))
+    record["revision"] = rev_id
+    record_path = os.path.join(rev_dir, "record.json")
     with open(record_path, "w", encoding="utf-8") as f:
         json.dump(record, f, indent=1)
     record["record_path"] = record_path
