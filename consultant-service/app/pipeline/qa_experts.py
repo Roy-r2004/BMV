@@ -59,6 +59,20 @@ def review_quality(db: Session, request_id: int) -> None:
     blueprint = req.mvp_blueprint
     technical = req.technical_plan or "(not produced)"
     owner_numbers = _format_owner_numbers(req)
+    # Claims the deterministic recompute already verified to the dollar —
+    # the auditor must not re-litigate machine-checked arithmetic (run 42:
+    # the model "recomputed" 900*365*0.12*1.80 as 59,040 and cascaded five
+    # false findings off its own error; the true product is 70,956).
+    _bc = json.loads(req.business_case_json) if req.business_case_json else {}
+    _fm = (_bc.get("financial_model") or {}) if isinstance(_bc, dict) else {}
+    verified_claims = json.dumps(
+        [{"item": l.get("item"), "arithmetic": l.get("arithmetic"), "value": l.get("annual")}
+         for l in (_fm.get("lines") or [])
+         if isinstance(l, dict) and l.get("arithmetic_verified")]
+        + [{"scenario": s.get("name"), "value": s.get("impact")}
+           for s in (_fm.get("scenarios") or [])
+           if isinstance(s, dict) and s.get("impact_verified")]
+    )
     register = build_engagement_register(
         req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
     )
@@ -79,6 +93,7 @@ def review_quality(db: Session, request_id: int) -> None:
             business_case=business_case,
             blueprint=blueprint,
             technical_plan=technical,
+            verified_claims=verified_claims,
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3000)
         return _sanitize_report(extract_json_from_text(body["choices"][0]["message"]["content"])), body.get("usage")

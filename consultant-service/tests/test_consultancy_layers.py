@@ -771,7 +771,7 @@ def test_qa_bench_audits_decision_and_contradictions():
     assert "The decision;" in comp
     assert "a weekly number reused as monthly is a high finding" in comp
     assert "Phase 1 wearing an AI name is a high finding" in comp
-    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc", technical_plan="doc")
+    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc", technical_plan="doc", verified_claims="[]")
     assert "conflicting values" in nums
     assert "No internal contradictions between figures" in nums
 
@@ -937,7 +937,7 @@ def test_numbers_findings_route_to_polish_by_source_not_wording(client, monkeypa
 
 
 def test_qa_numbers_prompt_demands_recompute_and_fraction_only_assumptions():
-    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc", technical_plan="doc")
+    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc", technical_plan="doc", verified_claims="[]")
     assert "RECOMPUTE" in nums
     assert "belongs in missing_inputs" in nums
     assert "BMV's own pricing must never appear" in nums
@@ -1400,7 +1400,7 @@ def test_audit_pass_prompt_pins():
     assert "THRESHOLD LAW" in ts
 
     nums = render("qa_numbers.j2", owner_numbers="x", business_case="{}",
-                  blueprint="doc", technical_plan="tdoc")
+                  blueprint="doc", technical_plan="tdoc", verified_claims="[]")
     assert "THE TECHNICAL PLAN DOCUMENT" in nums
     assert "unlabeled invented threshold is a high finding" in nums
     assert "ONE BASE" in nums
@@ -1435,3 +1435,24 @@ def test_release_audit_records_hashes_and_detects_mutation(client, tmp_path, mon
     ep.build_pdf(row, "blueprint")  # rebuild changes bytes -> hash mismatch
     assert release_audit.verify(record["record_path"]).startswith("stale")
     db.close()
+
+
+def test_machine_verified_claims_outrank_the_auditors_mental_math():
+    """Run 42: the LLM auditor recomputed 900x365x0.12x1.80 as 59,040 (true:
+    70,956) and cascaded five false findings. Deterministically verified
+    claims are now marked and handed to the auditor as beyond dispute."""
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"financial_model": {
+        "lines": [{"item": "re-attempts", "arithmetic": "900 * 0.12 * $1.80 * 365",
+                   "annual": "$70,956/year"}],
+        "scenarios": [{"name": "Conservative", "assumption": "prevents 15%",
+                       "impact": "$10,643/year"}],
+    }}
+    _sanitize_financial_model(bc)
+    assert bc["financial_model"]["lines"][0].get("arithmetic_verified") is True
+    assert bc["financial_model"]["scenarios"][0].get("impact_verified") is True
+    nums = render("qa_numbers.j2", owner_numbers="x", business_case="{}",
+                  blueprint="d", technical_plan="t", verified_claims="[]")
+    assert "MACHINE-VERIFIED CLAIMS" in nums
+    assert "YOUR math is wrong" in nums

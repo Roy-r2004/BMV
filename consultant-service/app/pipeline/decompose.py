@@ -89,6 +89,7 @@ def _sanitize_financial_model(business_case: dict) -> None:
                 if m:
                     exact = f"{product * period:,.0f}"
                     line["annual"] = annual[:m.start()] + exact + annual[m.end():]
+            line["arithmetic_verified"] = True
         else:
             line["annual"] = ""
 
@@ -135,7 +136,11 @@ def _sanitize_financial_model(business_case: dict) -> None:
                     return m.group(0)
 
                 sc["impact"] = _NUM_RE.sub(_snap, impact)
+                sc["impact_verified"] = True
                 break
+        else:
+            if any(abs(base * fracs[0] - target) / abs(target) <= 0.0005 for base in bases):
+                sc["impact_verified"] = True
 
 
 def _format_owner_numbers(req: Request) -> str:
