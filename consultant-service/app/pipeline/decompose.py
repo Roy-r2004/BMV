@@ -119,6 +119,7 @@ def _sanitize_financial_model(business_case: dict) -> None:
         if annual_vals:
             annual = annual_vals[0]
             monthly_ok = (annual / 12, annual / 365 * 30)
+            daily = annual / 365
 
             def _fix_monthly(text: str) -> str:
                 def _repl(m):
@@ -130,8 +131,19 @@ def _sanitize_financial_model(business_case: dict) -> None:
                         return m.group(0)
                     return m.group(0).replace(m.group(1), f"${annual / 365 * 30:,.0f}")
 
-                return re.sub(r"(\$\s?\d[\d,]*(?:\.\d+)?)\s*(?:per month|/\s*month|a month)",
-                              _repl, text)
+                out = re.sub(r"(\$\s?\d[\d,]*(?:\.\d+)?)\s*(?:per month|/\s*month|a month)",
+                             _repl, text)
+
+                def _repl_day(m):
+                    vals = _numbers_in(m.group(1))
+                    if not vals:
+                        return m.group(0)
+                    if abs(vals[0] - daily) / max(daily, 1e-9) <= 0.05:
+                        return m.group(0)
+                    return m.group(0).replace(m.group(1), f"${daily:,.2f}")
+
+                return re.sub(r"(\$\s?\d[\d,]*(?:\.\d+)?)\s*(?:per day|/\s*day|a day)",
+                              _repl_day, out)
 
             coi = bc_dict.get("cost_of_inaction") if isinstance(bc_dict, dict) else None
             if isinstance(coi, str) and coi:

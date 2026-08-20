@@ -1630,3 +1630,19 @@ def test_dependency_and_pilot_alignment_prompt_pins():
                 module_users="[]", module_pain_point="pp", other_modules="none",
                 pilot_gate='"gate"')
     assert "PILOT ALIGNMENT" in ms
+
+
+def test_daily_drift_snaps_to_the_verified_annual(client):
+    """Run 43's survivor: '$1,944 per day' where the verified annual implies
+    $194.40 — a 10x drift the monthly-only snapper missed."""
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {
+        "cost_of_inaction": "iCARRY incurs approximately $1,944 per day in re-attempt costs alone.",
+        "financial_model": {"lines": [{"item": "re-attempts",
+                                       "arithmetic": "900 * 0.12 * $1.80 * 365",
+                                       "annual": "$70,956 / year"}], "scenarios": []},
+    }
+    _sanitize_financial_model(bc)
+    assert "$194.40" in bc["cost_of_inaction"]
+    assert "$1,944" not in bc["cost_of_inaction"]
