@@ -1234,3 +1234,18 @@ def test_repaired_findings_release_the_gate(client):
                     {"severity": "low", "issue": "cosmetic"}]}))
     assert ep.release_status(row)["status"] == "final"
     db.close()
+
+
+def test_completeness_auditor_accepts_the_phased_decision_shape():
+    """Run 40's false positives: the auditor flagged the REQUIRED phase
+    ladder and a correctly rules-based Phase 1. The instruction now names
+    the phased shape as canon and forbids flagging it."""
+    comp = render(
+        "qa_completeness.j2", engagement_register="reg", blueprint="doc",
+        module_names="[]", procedures_list="[]", journey_stages="[]", org_count=1,
+        scoreboard_count=1, risks_count=1, procedures_count=1, checklists_count=1,
+        quick_wins_count=1,
+    )
+    assert "that phased shape is correct, never a finding" in comp
+    assert "never flag it for being what it must be" in comp
+    assert "ONE forceful choice" not in comp
