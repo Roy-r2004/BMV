@@ -125,10 +125,10 @@ _S = {
     "callout": ParagraphStyle("callout", fontName=F_BODY, fontSize=9.3, textColor=INK,
                               leading=14.5),
     "body": ParagraphStyle("body", fontName=F_BODY, fontSize=9.3, textColor=INK,
-                           leading=15, spaceAfter=5.5),
+                           leading=15, spaceAfter=5.5, allowWidows=0, allowOrphans=0),
     "bullet": ParagraphStyle("bullet", fontName=F_BODY, fontSize=9.3, textColor=INK,
                              leading=14.2, leftIndent=11, bulletIndent=2, spaceAfter=3.2,
-                             bulletColor=ACCENT),
+                             bulletColor=ACCENT, allowWidows=0, allowOrphans=0),
     "cell": ParagraphStyle("cell", fontName=F_BODY, fontSize=8.4, textColor=INK, leading=11.8),
     "cellhead": ParagraphStyle("cellhead", fontName=F_SB, fontSize=7.8, textColor=MUTED, leading=10),
     "meta": ParagraphStyle("meta", fontName=F_MD, fontSize=8.4, textColor=MUTED, leading=12.5),
@@ -287,6 +287,14 @@ def _cover_painter(kind: str, req: Request):
     return draw
 
 
+def _is_draft(req: Request) -> bool:
+    """A package is a draft while its own quality bench holds an open high
+    finding — the honest state, stamped rather than hidden."""
+    qa = _loads(getattr(req, "qa_report_json", None), None) or {}
+    findings = qa.get("findings") or [] if isinstance(qa, dict) else []
+    return any(isinstance(f, dict) and f.get("severity") == "high" for f in findings)
+
+
 def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:
     concept = req.concept_name or req.business_name or ""
     date = datetime.utcnow().strftime("%B %d, %Y")
@@ -307,6 +315,12 @@ def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:
         if (settings.ENGAGEMENT_LEAD or "").strip() else []
     ) + [
         Paragraph("Confidential — for the addressee's team and advisors.", _S["meta"]),
+    ] + (
+        [Spacer(1, 6), Paragraph(
+            '<font color="#b45309"><b>DRAFT — REQUIRES VALIDATION.</b> The quality review '
+            "recorded open findings; resolve them before client release.</font>", _S["meta"])]
+        if _is_draft(req) else []
+    ) + [
         NextPageTemplate("body"),
         PageBreak(),
     ]
@@ -958,6 +972,11 @@ def _procedures_flowables(procedures: list) -> list:
             flows.append(Paragraph(_rich(module), _S["h3"]))
         last_module = module or last_module
         flows.append(Paragraph(_rich(p.get("name") or ""), _S["h2toc"]))
+        phase = str(p.get("phase") or "").strip().lower()
+        if phase in ("pilot", "future"):
+            chip = ("PILOT PROCEDURE — runs during the pilot" if phase == "pilot"
+                    else "FUTURE STATE — usable once this module is built, not before")
+            flows.append(Paragraph(f'<font color="{HEX_WARN}"><b>{chip}</b></font>', _S["meta"]))
         if p.get("trigger"):
             flows.append(Paragraph("<b>Starts when:</b> " + _rich(p["trigger"]), _S["body"]))
         for i, step in enumerate(p.get("steps") or [], start=1):
@@ -982,9 +1001,10 @@ def _procedures_flowables(procedures: list) -> list:
 # ── assembly ─────────────────────────────────────────────────────────────
 
 
-def _page_chrome(label: str, concept: str):
+def _page_chrome(label: str, concept: str, draft: bool = False):
     """Footer + a slim accent header naming the volume — the mark of a
-    document that knows which binder it belongs to."""
+    document that knows which binder it belongs to. A run whose quality
+    bench recorded a high finding is stamped DRAFT on every page."""
 
     def draw(canvas, doc):
         canvas.saveState()
@@ -992,6 +1012,9 @@ def _page_chrome(label: str, concept: str):
         canvas.setLineWidth(1.6)
         canvas.line(18 * mm, A4[1] - 11 * mm, A4[0] - 18 * mm, A4[1] - 11 * mm)
         canvas.setFont(F_SB, 6.8)
+        if draft:
+            canvas.setFillColor(WARN)
+            canvas.drawCentredString(A4[0] / 2, A4[1] - 9 * mm, "DRAFT — REQUIRES VALIDATION")
         canvas.setFillColor(ACCENT)
         canvas.drawString(18 * mm, A4[1] - 9 * mm, label.upper())
         canvas.setFillColor(MUTED)
@@ -1128,7 +1151,8 @@ def build_pdf(req: Request, kind: str) -> str:
     doc.addPageTemplates([
         PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req)),
         PageTemplate(id="body", frames=[body_frame],
-                     onPage=_page_chrome(label, req.concept_name or req.business_name or "")),
+                     onPage=_page_chrome(label, req.concept_name or req.business_name or "",
+                                         draft=_is_draft(req))),
     ])
     doc.multiBuild(flows)
     return out_path

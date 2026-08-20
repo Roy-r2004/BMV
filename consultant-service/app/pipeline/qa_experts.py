@@ -92,6 +92,10 @@ def review_quality(db: Session, request_id: int) -> None:
             scoreboard_count=len(scoreboard),
             risks_count=len(risks),
             procedures_count=len(procedures),
+            procedures_list=json.dumps([
+                {"name": p.get("name"), "phase": p.get("phase"), "module": p.get("module")}
+                for p in procedures if isinstance(p, dict)
+            ]),
             checklists_count=len(checklists.get("checklists") or []),
             quick_wins_count=len(playbook.get("quick_wins") or []),
         )

@@ -765,7 +765,7 @@ def test_decompose_prompt_demands_quantified_financial_model():
 def test_qa_bench_audits_decision_and_contradictions():
     comp = render(
         "qa_completeness.j2", engagement_register="reg", blueprint="doc",
-        module_names="[]", journey_stages="[]", org_count=1, scoreboard_count=1,
+        module_names="[]", procedures_list="[]", journey_stages="[]", org_count=1, scoreboard_count=1,
         risks_count=1, procedures_count=1, checklists_count=1, quick_wins_count=1,
     )
     assert "The decision;" in comp
@@ -979,3 +979,139 @@ def test_pdf_build_is_cached_until_the_data_changes(client, tmp_path, monkeypatc
     p3 = ep.build_pdf(row, "blueprint")
     assert os.path.getmtime(p3) > m1
     db.close()
+
+
+# -- the systemic pass: phases, thresholds, naming, gates ------------------
+
+
+def test_procedures_prompt_grounds_phases_thresholds_and_names():
+    prompt = render(
+        "procedures.j2", business_name="B", business_description="d",
+        revenue_today="fees", module="{}", other_modules="none",
+        engagement_register="reg",
+    )
+    assert '"phase": "current|pilot|future"' in prompt
+    assert "Never present an unbuilt screen" in prompt
+    assert "proposed — client approval required" in prompt
+    assert "EXACT module name" in prompt
+
+
+def test_checklists_prompt_bans_privacy_invasive_fields():
+    prompt = render(
+        "checklists.j2", business_name="B", business_description="d",
+        modules="[]", engagement_register="reg",
+    )
+    assert "last seen" in prompt
+    assert "proposed — client approval required" in prompt
+
+
+def test_prose_prompts_enforce_one_name_per_capability():
+    bp = render(
+        "blueprint.j2", business_name="B", business_description="d", industry="i",
+        revenue_today="r", site_research="none", business_model="x",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", recommended_ai_employees="[]", concept_name="C",
+        roles="[]", modules="[]", business_case="{}", engagement_register="reg",
+        modules_present=True,
+    )
+    assert "ONE CAPABILITY, ONE NAME" in bp
+    comp = render(
+        "qa_completeness.j2", engagement_register="reg", blueprint="doc",
+        module_names="[]", procedures_list="[]", journey_stages="[]", org_count=1,
+        scoreboard_count=1, risks_count=1, procedures_count=1, checklists_count=1,
+        quick_wins_count=1,
+    )
+    assert "synonymized or rebranded module name is a high finding" in comp
+    assert "unbuilt capability as usable today" in comp
+
+
+def test_financial_data_floor_in_technical_prompts():
+    tech = render(
+        "technical_plan.j2", business_name="B", business_description="d",
+        site_research="none", concept_name="C", modules="[]", modules_present=True,
+        engagement_register="reg", business_model="x", roles="[]",
+        recommended_ai_employees="[]", industry="i", revenue_today="r",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", business_case="{}",
+    )
+    assert "stronger than a phone number or order code" in tech
+    assert "never sees a merchant" in tech
+
+
+def test_draft_watermark_follows_open_high_findings(client, tmp_path, monkeypatch):
+    """A run whose bench holds a high finding is stamped DRAFT on cover and
+    pages; a clean run is not."""
+    from app.config import settings as cfg
+    from app.pipeline import export_pdf as ep
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    dirty = _seed(db, mvp_blueprint="## Executive summary\nfine",
+                  qa_report_json=json.dumps({"checks": [], "findings": [
+                      {"severity": "high", "issue": "invented figure"}]}))
+    clean = _seed(db, mvp_blueprint="## Executive summary\nfine",
+                  qa_report_json=json.dumps({"checks": [], "findings": []}))
+    import pypdfium2 as pdfium
+
+    def pdf_text(row):
+        path = ep.build_pdf(row, "blueprint")
+        doc = pdfium.PdfDocument(path)
+        try:
+            return "\n".join(pg.get_textpage().get_text_range() for pg in doc)
+        finally:
+            doc.close()
+
+    assert "DRAFT — REQUIRES VALIDATION" in pdf_text(dirty)
+    assert "DRAFT" not in pdf_text(clean)
+    db.close()
+
+
+def test_procedure_phase_chips_render(client):
+    from app.pipeline import export_pdf as ep
+
+    procs = [
+        {"name": "Current routine", "phase": "current", "module": "M",
+         "steps": [{"actor": "you", "step": "do it"}], "exceptions": []},
+        {"name": "Pilot routine", "phase": "pilot", "module": "M",
+         "steps": [{"actor": "you", "step": "do it"}], "exceptions": []},
+        {"name": "Future routine", "phase": "future", "module": "M",
+         "steps": [{"actor": "ai", "step": "do it"}], "exceptions": []},
+    ]
+    text = _flow_text(ep._procedures_flowables(procs))
+    assert "PILOT PROCEDURE" in text
+    assert "FUTURE STATE" in text
+    assert text.count("FUTURE STATE") == 1  # never stamped on current routines
+
+
+def test_icarry_regression_arithmetic_is_pinned():
+    """The reference engagement's own figures, as a permanent fixture:
+    900/day x 12% x $1.80 x 365 = $70,956 survives; a padded figure dies."""
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"financial_model": {"lines": [
+        {"item": "re-attempts", "arithmetic": "900 deliveries/day * 0.12 * $1.80 * 365 days",
+         "annual": "$70,956/year"},
+        {"item": "padded", "arithmetic": "900 * 0.12 * $1.80 * 365",
+         "annual": "$95,000/year"},
+    ]}}
+    _sanitize_financial_model(bc)
+    lines = bc["financial_model"]["lines"]
+    assert lines[0]["annual"] == "$70,956/year"
+    assert lines[1]["annual"] == ""
+
+
+def test_capacity_and_frequency_discipline_is_prompt_law():
+    """The contradictory finance-hours case: an ambiguous frequency may not
+    be computed with, and staffing facts are never inflated into FTE claims."""
+    ctx = dict(
+        business_name="B", business_description="d", industry="i", revenue_today="r",
+        main_problem="m", desired_outcome="o", site_research="none", business_model="x",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", recommended_ai_employees="[]", recommended_features="[]",
+        concept_name="C", min_modules=3, max_modules=7, operating_stage="operating",
+        owner_numbers="- 45 finance hours (frequency unclear)", engagement_register="reg",
+    )
+    prompt = render("decompose.j2", **ctx)
+    assert "confirm whether <the figure> is per week or per month" in prompt
+    assert "CAPACITY IS NOT CASH" in prompt
+    assert "Never claim headcount is removed" in prompt

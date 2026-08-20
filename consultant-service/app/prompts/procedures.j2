@@ -18,6 +18,13 @@ TASK
 Write the 2-3 recurring procedures this module is actually run by — the routines a staff member or the owner would follow (e.g. for a booking module: "Handling a new booking request", "The daily schedule check", "When a double-booking happens"). Choose what THIS module genuinely repeats; 2 is fine.
 
 Rules per procedure:
+- phase — every procedure declares when it becomes runnable:
+  "current"  = staff can run it TODAY with what already exists (their phones, their spreadsheets, their habits);
+  "pilot"    = runs during the recommended pilot, with the pilot's minimal tooling;
+  "future"   = depends on a module that must be BUILT first.
+  Never present an unbuilt screen, portal, dashboard or automation as something staff can use today — a procedure whose steps need the new system is "future", full stop.
+- THRESHOLDS: any waiting period, cut-off time, retry count, operating-hours window, SLA or monitoring interval must be either a fact the client stated, or written as "<value> (proposed — client approval required)". Never an unlabeled invented number.
+- Name systems by their EXACT module name from the module spec, or by a tool the client said they already use. One capability, one name — no synonyms, no rebrands.
 - trigger: the concrete event or time that starts it.
 - 4-8 numbered steps. One actor per step. actor is "ai" (name this module or its agent), "you", or a real staff role. Steps the AI executes alone say so — that is the product.
 - Steps are checkable actions ("Confirm the deposit shows in the day sheet"), never descriptions ("The system manages payments").
@@ -30,6 +37,7 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
   "procedures": [
     {
       "name": "<gerund or 'When...' name, their vocabulary>",
+      "phase": "current|pilot|future",
       "trigger": "<the event or time that starts this>",
       "steps": [
         {"actor": "ai|you|<staff role>", "step": "<one checkable action; if actor is ai, name the module>"}

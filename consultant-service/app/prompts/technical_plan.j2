@@ -55,8 +55,10 @@ This plan is complete enough to execute without us — this section tells the ow
 
 ## Keeping your information safe
 4-5 bullets, system-wide, in plain words: where your data lives, backups, client privacy, who can see what, staying available — specific to this business, no boilerplate.
+When any module touches payments, settlements, payouts or other sensitive financial records, these are the floor and must be covered: sign-in stronger than a phone number or order code before financial records are shown; each person and client sees only their own records (a business client never sees another client's money; an end customer never sees a merchant's settlement details); every access and every adjustment to a financial record is logged; financial adjustments need a named human's approval, and the person who adjusts is not the person who approves.
 
 Rules:
+- ONE CAPABILITY, ONE NAME: call every module by its EXACT name from the decomposition, everywhere — never a synonym, shorthand, or rebrand.
 - Write directly to the business owner ("you", "your clients").
 - FORBIDDEN outside the "For your build team" lines: API, endpoint, entity, schema, database table, backend, frontend, CRUD, JSON, snake_case identifiers. Say what things ARE, not what they're called in engineering.
 - Grounded and specific to THIS business — their services, their workflow, their words.
