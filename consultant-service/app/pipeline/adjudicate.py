@@ -54,8 +54,30 @@ def _numbers_in(text: str) -> list[float]:
     return vals
 
 
+def _recomputed_value(arith: str, stated: str) -> float | None:
+    """Recompute a plain product with an optional period step; return the
+    stated value when the machine confirms it (never relies on stored
+    verification marks — adjudication re-derives everything itself)."""
+    if not arith or not stated or "+" in arith or " - " in arith:
+        return None
+    operands = _numbers_in(arith)
+    stated_vals = _numbers_in(stated)
+    if len(operands) < 2 or not stated_vals:
+        return None
+    product = 1.0
+    for v in operands:
+        product *= v
+    target = stated_vals[0]
+    if not target:
+        return None
+    for period in (1, 12, 26, 52, 365):
+        if abs(product * period - target) / abs(target) <= 0.005:
+            return target
+    return None
+
+
 def _verified_values(fm: dict) -> dict[float, str]:
-    """value -> evidence, for every machine-verified financial claim plus
+    """value -> evidence, for every machine-verifiable financial claim plus
     its standard derivations (monthly = /12, 30-day monthly = /365*30)."""
     out: dict[float, str] = {}
 
@@ -63,26 +85,32 @@ def _verified_values(fm: dict) -> dict[float, str]:
         if v:
             out[round(v, 2)] = why
 
+    line_values: list[float] = []
     for line in (fm.get("lines") or []) if isinstance(fm, dict) else []:
-        if not (isinstance(line, dict) and line.get("arithmetic_verified")):
+        if not isinstance(line, dict):
             continue
-        vals = _numbers_in(str(line.get("annual") or ""))
-        if not vals:
-            continue
-        annual = vals[0]
         arith = str(line.get("arithmetic") or "")
+        annual = _recomputed_value(arith, str(line.get("annual") or ""))
+        if annual is None:
+            continue
+        line_values.append(annual)
         _add(annual, f"deterministic recompute of '{arith}' = {annual:,.0f}")
         _add(annual / 12, f"{annual:,.0f}/year / 12 = {annual / 12:,.2f}/month")
         _add(annual / 365 * 30, f"{annual:,.0f}/year / 365 x 30 = {annual / 365 * 30:,.2f}/30-day month")
     for sc in (fm.get("scenarios") or []) if isinstance(fm, dict) else []:
-        if not (isinstance(sc, dict) and sc.get("impact_verified")):
+        if not isinstance(sc, dict):
             continue
-        vals = [v for v in _numbers_in(str(sc.get("impact") or "")) if v > 1]
-        if not vals:
+        fracs = [v for v in _numbers_in(str(sc.get("assumption") or "")) if 0 < v < 1]
+        impacts = [v for v in _numbers_in(str(sc.get("impact") or "")) if v > 1]
+        if not fracs or not impacts:
             continue
-        impact = vals[0]
-        _add(impact, f"scenario '{sc.get('name')}' impact verified: {impact:,.0f}")
-        _add(impact / 12, f"verified scenario impact {impact:,.0f} / 12 = {impact / 12:,.2f}/month")
+        impact = impacts[0]
+        hit = next(((frac, base) for frac in fracs for base in line_values
+                    if abs(base * frac - impact) / max(impact, 1e-9) <= 0.005), None)
+        if hit:
+            frac, base = hit
+            _add(impact, f"scenario '{sc.get('name')}': {frac:.0%} x verified {base:,.0f} = {impact:,.0f}")
+            _add(impact / 12, f"verified scenario impact {impact:,.0f} / 12 = {impact / 12:,.2f}/month")
     return out
 
 
@@ -147,7 +175,10 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None) -> dict:
             ledger.append(entry)
             continue
         # R2 — label presence in the rendered text
-        if "(proposed" in issue or "invented percentage" in issue.lower() or "invented threshold" in issue.lower():
+        _label_complaint = (("without" in issue.lower() and "(proposed" in issue)
+                            or "invented percentage" in issue.lower()
+                            or "invented threshold" in issue.lower())
+        if _label_complaint:
             quoted = _QUOTED.findall(issue)
             if quoted:
                 labeled, evidence = _label_check(quoted[0], corpus)
