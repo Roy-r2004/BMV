@@ -144,6 +144,10 @@ def _rich(text: str) -> str:
     """Escape, then translate the markdown inline forms our prompts emit."""
     out = html.escape(str(text), quote=False)
     out = _BOLD.sub(r"<b>\1</b>", out)
+    # model punctuation artifacts ("escalations..", "profitability.;") --
+    # collapsed deterministically; real ellipses are left alone
+    out = re.sub(r"(?<!\.)\.\.(?!\.)", ".", out)
+    out = out.replace(".;", ".").replace(".,", ".")
     return out
 
 
@@ -525,7 +529,7 @@ def _playbook_flowables(playbook: dict | None) -> list:
             flows.append(Paragraph("<b>AI covers:</b> " + _rich(line), _S["bullet"], bulletText="•"))
         for h in humans:
             flows.append(Paragraph(
-                f"<b>{_rich(h.get('role') or '')}</b> — when: " + _rich(h.get("when") or "")
+                f"<b>{_rich(h.get('role') or '')}</b> — when: " + _rich((h.get("when") or "").rstrip("."))
                 + ". " + _rich(h.get("why") or ""),
                 _S["bullet"], bulletText="•",
             ))
@@ -582,7 +586,9 @@ def _financial_model_flowables(business_case: dict) -> list:
         flows.append(Spacer(1, 4))
         flows.append(_table(
             ["Scenario", "Assumption (ours — requires your approval)", "Annual impact (computed)"],
-            [[str(s.get("name") or ""), str(s.get("assumption") or ""), _money(s.get("impact"))]
+            [[str(s.get("name") or ""),
+              str(s.get("assumption") or ""),
+              re.sub(r",?\s*by your own figures\.?", "", _money(s.get("impact"))).strip()]
              for s in scenarios],
             [22 * mm, 78 * mm, 74 * mm],
         ))
@@ -651,7 +657,9 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
         sources.append(f"Your own site — {sr['source_url']} (facts extracted and weighed in the analysis)")
     if corrections:
         sources.append("Your corrections from the pre-launch briefing chat (quoted below)")
-    sources.append("BuildMyVersion's structured decomposition, audited figure-by-figure by its quality bench")
+    sources.append(
+        "BuildMyVersion's structured decomposition — each numerical claim checked against "
+        "the inputs above and the calculations shown in this report")
     for s in sources:
         flows.append(Paragraph(_rich(s), _S["bullet"], bulletText="•"))
 
