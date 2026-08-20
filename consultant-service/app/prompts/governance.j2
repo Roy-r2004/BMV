@@ -18,7 +18,8 @@ Business case: {{ business_case }}
 TASK
 1. SCOREBOARD — 4 to 7 rows. Each: the metric (in their vocabulary), today's baseline, the direction of the target, who owns watching it, and the review cadence.
    Baseline rules — absolute: a baseline is either one of the owner's numbers above (cite it as given), or exactly "measure in week 1". NEVER an invented figure.
-   Target rules: a direction and mechanism ("down, as reminders recover no-shows"), or arithmetic on owner numbers with the computation shown. Never an invented percentage target — a bare percentage with no shown arithmetic and no named owner input is a defect.
+   Target rules: a direction and mechanism ("down, as reminders recover no-shows"), or arithmetic on owner numbers with the computation shown, or a numeric threshold EXPLICITLY labeled "proposed decision threshold — requires your approval". Never an unlabeled invented percentage — a bare percentage with no shown arithmetic and no named owner input is a defect.
+   PILOT METRICS: when the engagement sequences a pilot, the scoreboard must carry its decision metrics — the core failure/success rate for pilot versus control, the customer response/confirmation rate, cost per avoided incident, and the opt-out or complaint rate; once a predictive component exists, the false-positive (unnecessary-contact) rate. These are what the phase gate is decided on.
    owner is "you" or a real role at this business — never "BMV" (the scoreboard survives us leaving the room).
 2. RISKS — the 3 to 5 things most likely to make this fail for THIS business, each with a concrete mitigation and who feels it day-to-day. Real risks are usually people and habits (staff bypassing the system, data never exported, owner bottleneck on approvals) — not technology. No generic filler ("scope creep").
 
@@ -29,9 +30,10 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
     {
       "metric": "<the number, in their vocabulary>",
       "baseline": "<an owner number, cited as given, or exactly: measure in week 1>",
-      "target": "<direction + mechanism, or arithmetic on owner numbers with the computation shown>",
+      "target": "<direction + mechanism, shown arithmetic, or a labeled proposed decision threshold>",
       "owner": "<you | a real role here>",
-      "review": "<weekly | monthly | after every X>"
+      "review": "<weekly | monthly | after every X>",
+      "formula": "<how this metric is computed or measured, one short phrase>"
     }
   ],
   "risks": [

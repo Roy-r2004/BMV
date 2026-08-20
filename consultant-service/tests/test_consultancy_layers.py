@@ -738,8 +738,12 @@ def test_blueprint_prompt_demands_the_decision_memo():
     assert "## The decision" in prompt
     assert "PROVE-THEN-AUTOMATE" in prompt
     assert "SCOPE GUARD" in prompt
-    assert "Beyond this engagement" in prompt
+    assert "future extensibility" in prompt
     assert "SELECTIVITY" in prompt
+    # the decision is phased, and Phase 1 is never an AI engine
+    assert "Phase 1" in prompt
+    assert 'never contain "AI"' in prompt
+    assert "requiring the client's approval" in prompt
 
 
 def test_decompose_prompt_demands_quantified_financial_model():
@@ -765,14 +769,23 @@ def test_qa_bench_audits_decision_and_contradictions():
         risks_count=1, procedures_count=1, checklists_count=1, quick_wins_count=1,
     )
     assert "The decision;" in comp
-    assert "internal contradiction is a high finding" in comp
+    assert "a weekly number reused as monthly is a high finding" in comp
+    assert "Phase 1 wearing an AI name is a high finding" in comp
     nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc")
     assert "conflicting values" in nums
     assert "No internal contradictions between figures" in nums
 
 
 def _flow_text(flows):
-    return " ".join(getattr(f, "text", "") or "" for f in flows)
+    parts = []
+    for f in flows:
+        t = getattr(f, "text", "") or ""
+        if t:
+            parts.append(t)
+        for row in getattr(f, "_cellvalues", None) or []:
+            for c in row:
+                parts.append(getattr(c, "text", None) or str(c))
+    return " ".join(parts)
 
 
 def test_financial_model_renders_lines_scenarios_and_missing_inputs(client):

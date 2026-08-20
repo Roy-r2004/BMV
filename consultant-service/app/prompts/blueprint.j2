@@ -33,10 +33,14 @@ TASK
 Write the Blueprint in Markdown. Structure (exactly these ## headings, in this order):
 
 ## The decision
-The one-page executive decision memo — the first thing the owner reads, and the sharpest. State ONE unmistakable recommendation in 4-6 sentences: the single move to make first, why it beats the alternatives, and what we would deliberately NOT build yet. Then close the section with two bold one-line verdicts:
-- **First:** the one thing to do first — usually proving the core workflow with the cheapest possible instrument before automating it.
-- **Not yet:** the tempting thing to defer, and the evidence that would unlock it.
-PROVE-THEN-AUTOMATE: when the decomposition contains a predictive, scoring or ML-style module, the decision must sequence a piloted workflow FIRST — the pilot is what generates the data the predictive module needs. Recommending the predictive engine before the pilot is a failure.
+The one-page executive decision memo — the first thing the owner reads, and the sharpest. State ONE unmistakable recommendation in 3-5 sentences: what to do now, what we would deliberately NOT build yet, and why this sequence reduces risk. Then lay out the sequence as phases (as many as the engagement genuinely needs, usually 2-3):
+- **Phase 1 — <a plain-language pilot name>:** a rules-based or manually-run pilot of the core workflow. Name what it proves, the control group it runs against, a proposed duration EXPLICITLY labeled as a proposal requiring the client's approval, and the decision gate — the specific evidence that unlocks Phase 2. Phase 1 must contain NO predictive component, and its name must never contain "AI", "engine", "predictive" or "scoring".
+- **Phase 2 — <the data-driven component>:** built only from Phase 1's recorded data.
+- **Phase 3 — <the automation>:** built only after Phases 1-2 demonstrate measured value.
+Close with two bold one-line verdicts:
+- **Now:** the Phase 1 pilot, in one line.
+- **Not yet:** the tempting build to defer, and the evidence that would unlock it.
+PROVE-THEN-AUTOMATE: when the decomposition contains a predictive, scoring or ML-style module, the decision must sequence a piloted workflow FIRST — the pilot is what generates the data the predictive module needs. Recommending the predictive engine before the pilot, or describing the Phase 1 pilot as AI, is a failure.
 
 ## Executive summary
 3-4 sentences in the classic consulting arc — Situation (who they are), Complication (the specific problem or ambition, in their facts), Resolution ({{ concept_name }} and the single strongest business reason to act). Written for an owner deciding whether to spend money.
@@ -80,7 +84,10 @@ Rules:
 - The decomposition above is empty (an upstream step failed). Derive the modules yourself from the analysis and planned product, keeping the exact same document structure, and keep the same standard of specificity.
 {% endif %}
 - Amounts and percentages may appear ONLY when the business case computed them from the owner's own inputs — keep their attribution. Never any other currency figure, and never OUR pricing.
-- SCOPE GUARD: every recommendation stays inside the engagement's stated scope and geography (see the register — if the client scoped one country or one operation, so does this document). Anything beyond it appears only as one clearly-labeled sentence beginning "Beyond this engagement:".
-- Judgment over coverage: cut any sentence that describes without deciding. A shorter, sharper document beats a complete one.
+- SCOPE GUARD: every recommendation stays inside the engagement's stated scope and geography (see the register — if the client scoped one country or one operation, so does this document). Other markets the business operates in may appear ONLY under an explicit "future extensibility" label, never in current implementation instructions.
+- Judgment over coverage: cut any sentence that describes without deciding. A shorter, sharper document beats a complete one. Paragraphs stay under ~5 lines.
+- ATTRIBUTION WITHOUT REPETITION: the phrase "by your own figures" appears AT MOST once in the whole document. Attribution is carried by naming the input inline ("at your $1.80 re-attempt cost"), not by repeating the formula phrase.
+- No vague intensifiers ("drastically", "significantly", "greatly improve") — name the mechanism or the computed figure instead.
+- CAPACITY IS NOT CASH: hours saved are capacity released, stated in hours; staffing claims restate the client's facts ("these inquiries currently involve five support staff"), never inferred conclusions ("requires five full-time staff").
 - No preamble before the first heading, no closing sign-off.
 - Respond with ONLY the Markdown document.

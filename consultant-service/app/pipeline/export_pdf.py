@@ -395,6 +395,16 @@ def _journey_flowables(journey: dict | None, name_by_id: dict | None = None) -> 
     return flows
 
 
+def _decision_right(v, *, hands: bool = False) -> str:
+    # AI decision rights are never blank or "Null" in a client document —
+    # an empty scope is stated as the deliberate constraint it is.
+    s = str(v or "").strip()
+    if not s or s.lower() in ("null", "none", "n/a", "-", "nothing"):
+        return ("Hands every action to a human for approval." if hands
+                else "Does not decide autonomously — proposes, a human approves.")
+    return s
+
+
 def _organization_flowables(org: dict | None) -> list:
     roles = (org or {}).get("roles") or []
     impact = (org or {}).get("change_impact") or []
@@ -403,11 +413,12 @@ def _organization_flowables(org: dict | None) -> list:
     flows = _h1("The organization — humans and AI on one chart")
     rows = []
     for r in roles:
+        is_ai = r.get("type") == "ai"
         rows.append([
-            ("AI · " if r.get("type") == "ai" else "") + (r.get("role") or ""),
+            ("AI · " if is_ai else "") + (r.get("role") or ""),
             "; ".join(r.get("responsibilities") or []),
-            r.get("decides_alone") or "—",
-            r.get("hands_off") or "—",
+            _decision_right(r.get("decides_alone")) if is_ai else (r.get("decides_alone") or "—"),
+            _decision_right(r.get("hands_off"), hands=True) if is_ai else (r.get("hands_off") or "—"),
         ])
     flows.append(_table(
         ["Role", "Responsibilities", "Decides alone", "Hands off"],
@@ -439,6 +450,14 @@ def _scoreboard_flowables(scoreboard: list) -> list:
          for r in scoreboard],
         [42 * mm, 34 * mm, 52 * mm, 20 * mm, 22 * mm],
     ))
+    formulas = [(r.get("metric"), r.get("formula")) for r in scoreboard if r.get("formula")]
+    if formulas:
+        flows.append(Spacer(1, 3))
+        flows.append(Paragraph(
+            "How each is measured: " + " · ".join(
+                f"<b>{_rich(str(m))}</b> — {_rich(str(f))}" for m, f in formulas),
+            _S["meta"],
+        ))
     return flows
 
 
@@ -557,13 +576,16 @@ def _financial_model_flowables(business_case: dict) -> list:
             flows.append(Paragraph(text, _S["bullet"], bulletText="•"))
     if scenarios:
         flows.append(Paragraph(
-            "Three scenarios. Each assumption is ours and labeled as such; each figure is "
-            "computed from your numbers at that assumption:", _S["body"]))
-        for s in scenarios:
-            flows.append(Paragraph(
-                f"<b>{_rich(str(s.get('name') or ''))}:</b> " + _rich(str(s.get("assumption") or ""))
-                + " — " + _rich(_money(s.get("impact"))),
-                _S["bullet"], bulletText="•"))
+            "Three scenarios. Each assumption is ours and labeled as such; each impact is "
+            "computed from your numbers at that assumption — approve or correct the "
+            "assumption and the impact recomputes:", _S["body"]))
+        flows.append(Spacer(1, 4))
+        flows.append(_table(
+            ["Scenario", "Assumption (ours — requires your approval)", "Annual impact (computed)"],
+            [[str(s.get("name") or ""), str(s.get("assumption") or ""), _money(s.get("impact"))]
+             for s in scenarios],
+            [22 * mm, 78 * mm, 74 * mm],
+        ))
     if payback:
         flows.append(Paragraph("<b>Payback:</b> " + _rich(payback), _S["body"]))
     if missing:
@@ -656,12 +678,12 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
         "Method rule this engagement was produced under: a figure may appear only when it is one "
         "of your inputs above, or plain arithmetic on them with the computation shown; scenario "
         "fractions must be explicitly labeled assumptions; everything else must be stated as a "
-        "mechanism, never a number. The quality bench audits every document against this rule "
-        "before release.", _S["meta"]))
+        "mechanism, never a number. Each numerical claim was checked against the client inputs "
+        "quoted above and the calculations shown in this report before release.", _S["meta"]))
     return flows
 
 
-def _decision_flowables() -> list:
+def _decision_flowables(req: Request | None = None) -> list:
     flows = _h1("Three ways forward")
     for title, body in [
         ("We execute this plan for you",
@@ -682,7 +704,14 @@ def _decision_flowables() -> list:
     flows.append(Spacer(1, 6))
     lead = (settings.ENGAGEMENT_LEAD or "").strip()
     if lead:
-        flows.append(Paragraph(_rich(f"Your engagement lead — {lead}"), _S["body"]))
+        flows.append(Paragraph("Engagement leadership", _S["h2toc"]))
+        flows.append(Paragraph(_rich(lead), _S["body"]))
+        # Real accountability only: the release date prints when a reviewer
+        # actually released this run — never as an invented formality.
+        if req is not None and getattr(req, "reviewed_at", None):
+            flows.append(Paragraph(
+                _rich(f"Reviewed and released on {req.reviewed_at:%B %d, %Y}."), _S["meta"]))
+        flows.append(Spacer(1, 4))
     flows.append(Paragraph("<b>consulting@buildmyversion.com</b>", _S["body"]))
     return flows
 
@@ -1063,18 +1092,18 @@ def build_pdf(req: Request, kind: str) -> str:
                 flows += _markdown_flowables(body)
         flows += _evidence_flowables(req, business_case, scoreboard)
         flows += _screens_flowables(req)
-        flows += _decision_flowables()
+        flows += _decision_flowables(req)
     elif kind == "technical":
         flows += _markdown_flowables(md)
         flows += _module_appendix_flowables(modules)
-        flows += _decision_flowables()
+        flows += _decision_flowables(req)
     else:
         if not procedures and not org and not (_loads(req.checklists_json, None)):
             raise ValueError("operations manual not ready")
         flows += _procedures_flowables(procedures)
         flows += _checklists_flowables(_loads(req.checklists_json, None))
         flows += _handbook_flowables(org, procedures)
-        flows += _decision_flowables()
+        flows += _decision_flowables(req)
 
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
