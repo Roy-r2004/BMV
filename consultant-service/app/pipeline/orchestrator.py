@@ -84,7 +84,7 @@ def _run_inner(db: Session, request_id: int) -> None:
     plan_result = plan.plan_integration(db, request_id, consult_result)
 
     emit(db, request_id, "decomposing", "Breaking your business down, module by module...", 42)
-    decomposition = _decompose_with_preflight(db, request_id,
+    decomposition = _decompose_with_preflight(
         db, request_id, analysis_result, consult_result, plan_result,
     )
 

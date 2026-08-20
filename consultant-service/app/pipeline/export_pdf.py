@@ -348,6 +348,15 @@ def release_status(req: Request) -> dict:
     its quality bench report and a deterministic artifact scan of every
     client-facing string. {"status": "final"|"draft", "reasons": [...]}."""
     reasons = []
+    # Preconditions: a run that never finished, has no documents, or was
+    # never audited by the bench can hold NO release decision — run 44's
+    # 19-second failure came back "final" because nothing had findings.
+    if getattr(req, "status", None) != "done" or getattr(req, "is_failed", False):
+        reasons.append("the run did not complete")
+    if not (getattr(req, "mvp_blueprint", None) or getattr(req, "technical_plan", None)):
+        reasons.append("no documents were produced")
+    if not getattr(req, "qa_report_json", None):
+        reasons.append("the quality bench never audited this run")
     qa = _loads(getattr(req, "qa_report_json", None), None) or {}
     if isinstance(qa, dict):
         highs = [f for f in (qa.get("findings") or [])

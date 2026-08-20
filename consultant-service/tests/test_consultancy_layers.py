@@ -1353,7 +1353,8 @@ def test_ops_manual_carries_doc_control_and_state_legend(client):
     from app.pipeline import export_pdf as ep
 
     db = SessionLocal()
-    row = _seed(db, qa_report_json=json.dumps({"checks": [], "findings": []}))
+    row = _seed(db, mvp_blueprint="doc",
+                qa_report_json=json.dumps({"checks": [], "findings": []}))
     text = _flow_text(ep._doc_control_flowables(row))
     assert "Document control" in text and "FINAL" in text
     assert "Uncontrolled when printed" in text
@@ -1829,4 +1830,25 @@ def test_structural_findings_flow_into_the_gate(client, monkeypatch):
     structural = [f for f in qa["findings"] if f.get("source") == "structural"]
     assert structural and "promises 2 impact mechanism(s)" in structural[0]["issue"]
     assert ep.release_status(row)["status"] == "draft"
+    db.close()
+
+
+def test_failed_or_unaudited_runs_can_never_be_final(client):
+    """Run 44's 19-second failure returned status 'final' because an empty
+    run had zero findings. Completion, documents and a bench report are
+    preconditions of any release decision."""
+    from app.pipeline import export_pdf as ep
+
+    db = SessionLocal()
+    failed = _seed(db, status="failed", is_failed=True)
+    assert ep.release_status(failed)["status"] == "draft"
+    assert "did not complete" in " ".join(ep.release_status(failed)["reasons"])
+    unaudited = _seed(db, mvp_blueprint="doc")
+    assert ep.release_status(unaudited)["status"] == "draft"
+    assert "never audited" in " ".join(ep.release_status(unaudited)["reasons"])
+    empty = _seed(db, qa_report_json=json.dumps({"checks": [], "findings": []}))
+    assert "no documents" in " ".join(ep.release_status(empty)["reasons"])
+    complete = _seed(db, mvp_blueprint="doc",
+                     qa_report_json=json.dumps({"checks": [], "findings": []}))
+    assert ep.release_status(complete)["status"] == "final"
     db.close()
