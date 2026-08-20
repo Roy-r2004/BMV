@@ -138,16 +138,28 @@ _S = {
 }
 
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
+# The JSON shapes in our prompts document fields as <value> — the model
+# occasionally imitates that notation around real prose ("<2 hours
+# (proposed — client approval required)>"). Unwrap exactly that case;
+# genuine less-than signs ("<70%", "<150/month") are left alone.
+_WRAPPED_VALUE = re.compile(r"<\s*([^<>\n]*\(proposed[^<>]*)\s*>")
+
+
+def _strip_artifacts(text: str) -> str:
+    out = _WRAPPED_VALUE.sub(r"\1", str(text))
+    out = re.sub(r"(?<!\.)\.\.(?!\.)", ".", out)
+    out = out.replace(".;", ".").replace(".,", ".")
+    # engineering identifiers leaking into client prose read as residue:
+    # "failed_first_attempt_rate" becomes "failed first attempt rate"
+    out = re.sub(r"\b([a-z0-9]+(?:_[a-z0-9]+)+)\b",
+                 lambda m: m.group(1).replace("_", " "), out)
+    return out
 
 
 def _rich(text: str) -> str:
     """Escape, then translate the markdown inline forms our prompts emit."""
-    out = html.escape(str(text), quote=False)
+    out = html.escape(_strip_artifacts(text), quote=False)
     out = _BOLD.sub(r"<b>\1</b>", out)
-    # model punctuation artifacts ("escalations..", "profitability.;") --
-    # collapsed deterministically; real ellipses are left alone
-    out = re.sub(r"(?<!\.)\.\.(?!\.)", ".", out)
-    out = out.replace(".;", ".").replace(".,", ".")
     return out
 
 
@@ -287,12 +299,60 @@ def _cover_painter(kind: str, req: Request):
     return draw
 
 
-def _is_draft(req: Request) -> bool:
-    """A package is a draft while its own quality bench holds an open high
-    finding — the honest state, stamped rather than hidden."""
+# Artifact classes that must never reach a client and that the renderer
+# does NOT auto-repair — any hit forces the DRAFT stamp.
+_GATE_ARTIFACTS = [
+    ("template token", re.compile(r"\{\{|\{%|%\}")),
+    ("literal Null", re.compile(r"\bNull\b")),
+    ("unresolved placeholder", re.compile(r"\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR )[^\]]*\]", re.IGNORECASE)),
+    ("duplicate approval label",
+     re.compile(r"\(proposed — client approval required\)[^()]{0,12}\(proposed — client approval required\)")),
+]
+
+
+def find_artifacts(text: str) -> list[str]:
+    """Names of client-unsafe artifact classes present in `text`, checked
+    AFTER the renderer's own deterministic cleanup — only what would truly
+    reach the page counts."""
+    cleaned = _strip_artifacts(text or "")
+    return [name for name, rx in _GATE_ARTIFACTS if rx.search(cleaned)]
+
+
+def _strings_of(obj) -> list[str]:
+    if isinstance(obj, str):
+        return [obj]
+    if isinstance(obj, dict):
+        return [s for v in obj.values() for s in _strings_of(v)]
+    if isinstance(obj, list):
+        return [s for v in obj for s in _strings_of(v)]
+    return []
+
+
+def release_status(req: Request) -> dict:
+    """The release decision, computed from THIS run's persisted records:
+    its quality bench report and a deterministic artifact scan of every
+    client-facing string. {"status": "final"|"draft", "reasons": [...]}."""
+    reasons = []
     qa = _loads(getattr(req, "qa_report_json", None), None) or {}
-    findings = qa.get("findings") or [] if isinstance(qa, dict) else []
-    return any(isinstance(f, dict) and f.get("severity") == "high" for f in findings)
+    if isinstance(qa, dict):
+        highs = [f for f in (qa.get("findings") or [])
+                 if isinstance(f, dict) and f.get("severity") == "high"]
+        if highs:
+            reasons.append(f"{len(highs)} open high finding(s) on the quality bench")
+    corpus_parts = [req.mvp_blueprint or "", req.technical_plan or ""]
+    for attr in ("business_case_json", "procedures_json", "checklists_json",
+                 "scoreboard_json", "org_json", "journey_json", "playbook_json"):
+        corpus_parts.extend(_strings_of(_loads(getattr(req, attr, None), None)))
+    hits = sorted({h for part in corpus_parts for h in find_artifacts(part)})
+    if hits:
+        reasons.append("client-unsafe artifacts: " + ", ".join(hits))
+    return {"status": "draft" if reasons else "final", "reasons": reasons}
+
+
+def _is_draft(req: Request) -> bool:
+    """A package is a draft while its release gate holds ANY open reason —
+    the honest state, stamped rather than hidden."""
+    return release_status(req)["status"] == "draft"
 
 
 def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:

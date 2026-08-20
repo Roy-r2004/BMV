@@ -1115,3 +1115,93 @@ def test_capacity_and_frequency_discipline_is_prompt_law():
     assert "confirm whether <the figure> is per week or per month" in prompt
     assert "CAPACITY IS NOT CASH" in prompt
     assert "Never claim headcount is removed" in prompt
+
+
+# -- release hardening: artifact cleanup, gate, inspection tool ------------
+
+
+def test_angle_bracket_wrappers_are_unwrapped_but_real_lt_survives(client):
+    from app.pipeline import export_pdf as ep
+
+    out = ep._rich("respond within <2 hours (proposed — client approval required)> of dispatch")
+    assert "&lt;" not in out and ">" not in out.replace("</b>", "").replace("<b>", "")
+    assert "2 hours (proposed — client approval required)" in out
+    # a genuine less-than sign is untouched
+    assert "&lt;70%" in ep._rich("keep it <70% of capacity")
+    # engineering identifiers read as words
+    assert "failed first attempt rate" in ep._rich("0.12 failed_first_attempt_rate")
+
+
+def test_artifact_detector_names_each_class(client):
+    from app.pipeline import export_pdf as ep
+
+    assert ep.find_artifacts("clean prose, nothing wrong") == []
+    assert "template token" in ep.find_artifacts("hello {{ business_name }}")
+    assert "literal Null" in ep.find_artifacts("decides alone: Null")
+    assert "unresolved placeholder" in ep.find_artifacts("owner: [TODO fill in]")
+    assert "duplicate approval label" in ep.find_artifacts(
+        "2 hours (proposed — client approval required) (proposed — client approval required)")
+
+
+def test_release_status_comes_from_the_runs_own_records(client):
+    from app.pipeline import export_pdf as ep
+
+    db = SessionLocal()
+    dirty = _seed(db, mvp_blueprint="fine doc",
+                  qa_report_json=json.dumps({"checks": [], "findings": [
+                      {"severity": "high", "issue": "invented figure"}]}))
+    artifacty = _seed(db, mvp_blueprint="owner: [TODO fill in]",
+                      qa_report_json=json.dumps({"checks": [], "findings": []}))
+    clean = _seed(db, mvp_blueprint="fine doc",
+                  qa_report_json=json.dumps({"checks": [], "findings": []}))
+    assert ep.release_status(dirty)["status"] == "draft"
+    assert "high finding" in ep.release_status(dirty)["reasons"][0]
+    assert ep.release_status(artifacty)["status"] == "draft"
+    assert "artifacts" in ep.release_status(artifacty)["reasons"][0]
+    final = ep.release_status(clean)
+    assert final == {"status": "final", "reasons": []}
+    db.close()
+
+
+def test_inspection_tool_passes_final_and_demands_draft(client, tmp_path, monkeypatch):
+    """The repeatable release inspection: a clean build passes --expect-final;
+    a run with an open high finding passes only as --expect-draft."""
+    import sys
+
+    from app.config import settings as cfg
+    from app.pipeline import export_pdf as ep
+
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+    import inspect_pdf
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    clean = _seed(db, mvp_blueprint="## Executive summary\nA fine plan.",
+                  qa_report_json=json.dumps({"checks": [], "findings": []}))
+    dirty = _seed(db, mvp_blueprint="## Executive summary\nA fine plan.",
+                  qa_report_json=json.dumps({"checks": [], "findings": [
+                      {"severity": "high", "issue": "x"}]}))
+    ok = inspect_pdf.inspect(ep.build_pdf(clean, "blueprint"), expect="final")
+    assert ok["ok"], ok["failures"]
+    assert ok["pages"] > 0 and ok["draft_watermark"] is False
+    drafted = inspect_pdf.inspect(ep.build_pdf(dirty, "blueprint"), expect="draft")
+    assert drafted["ok"], drafted["failures"]
+    assert drafted["draft_watermark"] is True
+    # and the wrong expectation fails, so the stamp cannot be waved through
+    assert not inspect_pdf.inspect(ep.build_pdf(dirty, "blueprint"), expect="final")["ok"]
+    db.close()
+
+
+def test_layer_prompts_forbid_schema_notation_in_output():
+    for tpl, ctx in (
+        ("procedures.j2", dict(business_name="B", business_description="d",
+                               revenue_today="f", module="{}", other_modules="none",
+                               engagement_register="reg")),
+        ("checklists.j2", dict(business_name="B", business_description="d",
+                               modules="[]", engagement_register="reg")),
+        ("governance.j2", dict(business_name="B", business_description="d",
+                               operating_stage="operating", owner_numbers="x",
+                               modules="[]", business_case="{}", engagement_register="reg")),
+    ):
+        prompt = render(tpl, **ctx)
+        assert "NEVER output format" in prompt, tpl
