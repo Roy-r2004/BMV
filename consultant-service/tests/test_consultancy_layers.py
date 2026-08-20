@@ -938,3 +938,31 @@ def test_numeric_annual_prints_as_money(client):
     ]}}
     text = _flow_text(ep._financial_model_flowables(fm))
     assert "$70,956" in text
+
+
+def test_pdf_build_is_cached_until_the_data_changes(client, tmp_path, monkeypatch):
+    """Two downloads of an unchanged run serve the same file; a data change
+    (updated_at bump) rebuilds it. The 30s three-volume build was read as
+    'unable to download'."""
+    import os
+    import time
+
+    from app.config import settings as cfg
+    from app.pipeline import export_pdf as ep
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="## Executive summary\n\nA fine plan.")
+    p1 = ep.build_pdf(row, "blueprint")
+    m1 = os.path.getmtime(p1)
+    time.sleep(0.05)
+    p2 = ep.build_pdf(row, "blueprint")
+    assert p2 == p1 and os.path.getmtime(p2) == m1  # served from disk, not rebuilt
+    # a data change invalidates the cache
+    time.sleep(1.1)
+    row.business_name = "Renamed Clinic"
+    db.commit()
+    db.refresh(row)
+    p3 = ep.build_pdf(row, "blueprint")
+    assert os.path.getmtime(p3) > m1
+    db.close()

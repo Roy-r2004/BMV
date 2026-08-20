@@ -982,6 +982,16 @@ def build_pdf(req: Request, kind: str) -> str:
     """Render one engagement volume ('blueprint' | 'technical') to a PDF
     file and return its path. Raises ValueError when the underlying
     document is not on the request yet."""
+    # A finished engagement's volume is deterministic in its stored data,
+    # and building all three takes ~30s of CPU — long enough that the
+    # download button reads as broken. Serve the file already on disk while
+    # it is newer than the run's last data change (a rerun or a reviewer
+    # edit bumps updated_at, which invalidates it).
+    cached = os.path.join(settings.UPLOADS_DIR, "exports", f"{req.id}-{kind}.pdf")
+    if os.path.isfile(cached) and req.updated_at is not None:
+        if datetime.utcfromtimestamp(os.path.getmtime(cached)) > req.updated_at:
+            return cached
+
     if kind == "blueprint":
         md = req.mvp_blueprint
         label, sub = "The Blueprint", "Volume I — strategy"
