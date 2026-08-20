@@ -1205,3 +1205,32 @@ def test_layer_prompts_forbid_schema_notation_in_output():
     ):
         prompt = render(tpl, **ctx)
         assert "NEVER output format" in prompt, tpl
+
+
+def test_sanitizer_self_repairs_near_miss_products():
+    """Run 39's real defect: $71,064 printed where the product is $70,956 —
+    within loose tolerance, still an invented number. The exact product now
+    replaces it; only unparseable garbage is deleted."""
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"financial_model": {"lines": [
+        {"item": "re-attempts", "arithmetic": "900 * 0.12 * $1.80 * 365 days",
+         "annual": "$71,064/year"},
+        {"item": "garbage", "arithmetic": "3 * $95", "annual": "$9,999/year"},
+    ]}}
+    _sanitize_financial_model(bc)
+    lines = bc["financial_model"]["lines"]
+    assert lines[0]["annual"] == "$70,956/year"
+    assert lines[1]["annual"] == ""
+
+
+def test_repaired_findings_release_the_gate(client):
+    from app.pipeline import export_pdf as ep
+
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="fine",
+                qa_report_json=json.dumps({"checks": [], "findings": [
+                    {"severity": "high", "issue": "was wrong", "repaired": True},
+                    {"severity": "low", "issue": "cosmetic"}]}))
+    assert ep.release_status(row)["status"] == "final"
+    db.close()

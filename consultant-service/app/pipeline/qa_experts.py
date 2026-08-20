@@ -147,6 +147,12 @@ def review_quality(db: Session, request_id: int) -> None:
             if size_ok and headings_ok:
                 req.mvp_blueprint = corrected
                 polish_applied = True
+                # A finding the red pen just corrected in the document is no
+                # longer an OPEN finding -- the release gate counts only what
+                # still stands. Structure findings were never forwarded and
+                # stay open.
+                for f in numbers_findings:
+                    f["repaired"] = True
             else:
                 logger.warning(
                     "polish pass discarded (size_ok=%s headings_ok=%s): request=%s",

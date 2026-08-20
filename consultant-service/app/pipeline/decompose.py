@@ -75,11 +75,21 @@ def _sanitize_financial_model(business_case: dict) -> None:
         target = results[0]
         if not target:
             continue
-        ok = any(
-            abs(product * period - target) / abs(target) <= 0.02
-            for period in (1, 12, 26, 52, 365)
+        # find the period step the model intended (annualizing x12/x52/...)
+        period, rel = min(
+            ((p, abs(product * p - target) / abs(target)) for p in (1, 12, 26, 52, 365)),
+            key=lambda pair: pair[1],
         )
-        if not ok:
+        if rel <= 0.05:
+            # the arithmetic is real, so the printed figure must BE the
+            # product to the dollar: a 0.15% drift is still an invented
+            # number. Self-repair in place rather than delete.
+            if rel > 0.0005:
+                m = _NUM_RE.search(annual)
+                if m:
+                    exact = f"{product * period:,.0f}"
+                    line["annual"] = annual[:m.start()] + exact + annual[m.end():]
+        else:
             line["annual"] = ""
 
 
