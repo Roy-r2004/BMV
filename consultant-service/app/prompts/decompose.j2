@@ -76,9 +76,24 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       ],
       "payback_note": "<one sentence telling the owner how to compute payback themselves: divide the build quote by the Expected monthly impact above — never state OUR price>",
       "missing_inputs": ["<a specific number still needed from the owner to complete this model, e.g. 'your fully-loaded hourly cost for finance staff'>"]
+    },
+    "pilot_gate": {
+      "duration": "<proposed pilot length, labeled: '6 weeks (proposed — client approval required)'>",
+      "population": "<which orders/customers enter the pilot>",
+      "control": "<how the control group is formed>",
+      "primary_metric": "<exactly ONE outcome metric, in their vocabulary>",
+      "baseline": "<an owner number cited as given, or exactly: measure in week 1>",
+      "target": "<exactly ONE target for the primary metric, EXPLICITLY relative ('a 25% relative reduction') or percentage-point ('3 percentage points'), labeled (proposed — client approval required)>",
+      "secondary_metrics": ["<supporting metric, each one distinct — never conflate two different measurements>"],
+      "guardrail": "<the opt-out or complaint ceiling that pauses the pilot, labeled proposed>",
+      "approvals_required": ["<each pilot parameter the client must approve before launch>"]
     }
   }
 }
+
+PILOT GATE rules — absolute:
+- The pilot_gate is the ONLY source of pilot success criteria for the entire engagement. Exactly one primary metric, one baseline, one target. Never two competing thresholds for the same outcome; never conflate distinct measurements (pins captured ≠ deliveries confirmed).
+- Every numeric pilot parameter that is not an owner number carries "(proposed — client approval required)".
 
 FINANCIAL MODEL rules — absolute:
 - UNIT DISCIPLINE: every figure carries its unit AND period (per day / per week / per month / per year). Use a 365-day year and a 30-day operating month, and keep each figure's frequency identical everywhere it appears. If the client's inputs are ambiguous or conflicting about a figure's frequency (a number that could be weekly or monthly), do NOT compute with it — add "confirm whether <the figure> is per week or per month" to missing_inputs instead.

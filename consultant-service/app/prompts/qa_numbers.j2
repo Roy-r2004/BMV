@@ -9,6 +9,9 @@ THE BUSINESS CASE (structured)
 THE BLUEPRINT DOCUMENT
 {{ blueprint }}
 
+THE TECHNICAL PLAN DOCUMENT (audit its numbers with the same duty)
+{{ technical_plan }}
+
 TASK
 Audit every number (currency, count, percentage, hours) in the business case and blueprint:
 1. Does each trace to a client input above, or to shown arithmetic on those inputs?
@@ -20,6 +23,9 @@ Audit every number (currency, count, percentage, hours) in the business case and
 7. A scenario assumption may only be a rate or fraction applied to client inputs ("1 in 3 recovered"). Any absolute currency amount, wage, hours or margin the client never gave appearing as an assumption is a high finding — it belongs in missing_inputs instead.
 8. BMV's own pricing must never appear anywhere — any fee, build price or session price of OURS is a high finding.
 9. UNITS: verify every figure keeps its stated period (per day / week / month / year) in every appearance, and that annual claims state their basis (365-day year, 30-day operating month). Frequency drift on the same figure is a high finding.
+10. THRESHOLDS: every accuracy %, SLA, evaluation window, sample size or rate in EITHER document that is not a client input must carry "(proposed — client approval required)" or equivalent. An unlabeled invented threshold is a high finding.
+11. ONE BASE: the same computed quantity must use ONE value everywhere — a scenario computing from a base that differs from the stated canonical figure is a high finding.
+List at most the 12 most material findings.
 Ignore section numbering, page references and the client's own quoted answers.
 
 Respond with ONLY this JSON shape, no markdown fences, no commentary:

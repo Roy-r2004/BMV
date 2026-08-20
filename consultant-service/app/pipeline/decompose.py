@@ -92,6 +92,51 @@ def _sanitize_financial_model(business_case: dict) -> None:
         else:
             line["annual"] = ""
 
+    # Scenario impacts must compute from the SAME canonical bases as the
+    # lines — a scenario built on a drifted base ($71,064 where the line
+    # says $70,956) contradicts the document it sits in. When a scenario's
+    # assumption carries one clean fraction and its impact figure matches
+    # fraction x some line's exact product within 5%, snap it to the exact
+    # value; an unmatchable figure is left for the quality bench.
+    bases = []
+    for line in fm.get("lines") or []:
+        if not isinstance(line, dict):
+            continue
+        nums = _numbers_in(str(line.get("annual") or ""))
+        if nums:
+            bases.append(nums[0])
+    for sc in fm.get("scenarios") or []:
+        if not isinstance(sc, dict):
+            continue
+        impact = str(sc.get("impact") or "")
+        fracs = [v for v in _numbers_in(str(sc.get("assumption") or "")) if 0 < v < 1]
+        targets = _numbers_in(impact)
+        if len(fracs) != 1 or not targets or not bases:
+            continue
+        target = targets[0]
+        if not target:
+            continue
+        for base in bases:
+            exact = base * fracs[0]
+            rel = abs(exact - target) / abs(target) if target else 1.0
+            if exact and 0.0005 < rel <= 0.05:
+                # snap the result AND any drifted copy of the base itself --
+                # the released defect showed "(0.15 * $71,064)" one page
+                # after the canonical $70,956
+                def _snap(m):
+                    vals = _numbers_in(m.group(0))
+                    if not vals:
+                        return m.group(0)
+                    v = vals[0]
+                    if abs(v - target) / max(abs(target), 1e-9) <= 0.05:
+                        return f"{exact:,.0f}"
+                    if v != base and abs(v - base) / max(abs(base), 1e-9) <= 0.05:
+                        return f"{base:,.0f}"
+                    return m.group(0)
+
+                sc["impact"] = _NUM_RE.sub(_snap, impact)
+                break
+
 
 def _format_owner_numbers(req: Request) -> str:
     """The discovery Q&A as prompt lines. 'none provided' rather than an
@@ -158,7 +203,7 @@ def decompose_business(
             min_modules=settings.MIN_MODULES_PER_REQUEST,
             max_modules=settings.MAX_MODULES_PER_REQUEST,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=5600)
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=6400)
         content = body["choices"][0]["message"]["content"]
         result = extract_json_from_text(content)
         modules = _clamp_modules(result.get("modules") or [])

@@ -24,6 +24,7 @@ Rules per procedure:
   "future"   = depends on a module that must be BUILT first.
   Never present an unbuilt screen, portal, dashboard or automation as something staff can use today — a procedure whose steps need the new system is "future", full stop.
 - THRESHOLDS: any waiting period, cut-off time, retry count, operating-hours window, SLA or monitoring interval must be either a fact the client stated, or written as "<value> (proposed — client approval required)". Never an unlabeled invented number.
+- ONE CONDITION, ONE NUMBER: the same event may never carry two different waits or retry counts anywhere in your output — a customer flagged unreachable "after 15 minutes" in a step and "after 30 minutes" in an exception is a contradiction, not a nuance. Pick one value and reuse it.
 - Name systems by their EXACT module name from the module spec, or by a tool the client said they already use. One capability, one name — no synonyms, no rebrands.
 - trigger: the concrete event or time that starts it.
 - 4-8 numbered steps. One actor per step. actor is "ai" (name this module or its agent), "you", or a real staff role. Steps the AI executes alone say so — that is the product.

@@ -57,6 +57,7 @@ def review_quality(db: Session, request_id: int) -> None:
 
     # Snapshots before threads — the standing rule.
     blueprint = req.mvp_blueprint
+    technical = req.technical_plan or "(not produced)"
     owner_numbers = _format_owner_numbers(req)
     register = build_engagement_register(
         req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
@@ -77,6 +78,7 @@ def review_quality(db: Session, request_id: int) -> None:
             owner_numbers=owner_numbers,
             business_case=business_case,
             blueprint=blueprint,
+            technical_plan=technical,
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3000)
         return _sanitize_report(extract_json_from_text(body["choices"][0]["message"]["content"])), body.get("usage")
@@ -87,6 +89,7 @@ def review_quality(db: Session, request_id: int) -> None:
             engagement_register=register,
             blueprint=blueprint,
             module_names=json.dumps([m.get("name") for m in modules]),
+            pilot_gate=json.dumps((json.loads(business_case) if business_case.strip().startswith("{") else {}).get("pilot_gate") or "none defined"),
             journey_stages=json.dumps([s.get("stage") for s in journey.get("stages") or []]),
             org_count=len(org.get("roles") or []),
             scoreboard_count=len(scoreboard),
@@ -153,6 +156,25 @@ def review_quality(db: Session, request_id: int) -> None:
                 # stay open.
                 for f in numbers_findings:
                     f["repaired"] = True
+                # The corrected document is re-audited against the same duty:
+                # repairs must hold, and the rewrite must not have introduced
+                # a new defect. Recheck findings stay OPEN — no repair loop.
+                try:
+                    blueprint = corrected
+                    recheck, usage2 = _numbers()
+                    findings += [{**f, "source": "qa_numbers_recheck"}
+                                 for f in recheck["findings"]]
+                    log_usage(
+                        db, request_id,
+                        provider="openrouter", model=settings.ANALYSIS_MODEL,
+                        purpose="qa_numbers_recheck", usage=usage2, success=True,
+                    )
+                except Exception as exc:
+                    log_usage(
+                        db, request_id,
+                        provider="openrouter", model=settings.ANALYSIS_MODEL,
+                        purpose="qa_numbers_recheck", success=False, error=str(exc)[:500],
+                    )
             else:
                 logger.warning(
                     "polish pass discarded (size_ok=%s headings_ok=%s): request=%s",

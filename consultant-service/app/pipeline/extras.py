@@ -77,6 +77,37 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         indent=1,
     )
     bc_json = json.dumps(business_case, indent=1)
+    pilot_gate = business_case.get("pilot_gate") if isinstance(business_case, dict) else None
+
+    def _pilot() -> dict | None:
+        prompt = render(
+            "pilot_sop.j2",
+            business_name=biz_name,
+            business_description=biz_desc,
+            pilot_gate=json.dumps(pilot_gate, indent=1),
+            modules=slim,
+            engagement_register=register,
+        )
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2600)
+        result = extract_json_from_text(body["choices"][0]["message"]["content"])
+        procs = []
+        for p in result.get("procedures") or []:
+            if not (isinstance(p, dict) and p.get("name")):
+                continue
+            # a manual pilot has no AI actors, whatever the model says
+            steps = [s for s in (p.get("steps") or [])
+                     if isinstance(s, dict) and s.get("step")
+                     and str(s.get("actor") or "").strip().lower() != "ai"]
+            if not steps:
+                continue
+            p["steps"] = steps[:8]
+            p["exceptions"] = [e for e in (p.get("exceptions") or []) if isinstance(e, dict) and e.get("when")][:3]
+            p["phase"] = "pilot"
+            p["module"] = "The pilot"
+            procs.append(p)
+        if not procs:
+            raise ValueError("no valid pilot procedures")
+        return {"payload": {"procedures": procs[:4]}, "usage": body.get("usage")}
 
     def _journey() -> dict | None:
         prompt = render(
@@ -215,7 +246,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         ("governance", _governance),
         ("organization", _organization),
         ("checklists", _checklists),
-    ] + [
+    ] + ([("procedures:pilot", _pilot)] if pilot_gate else []) + [
         (f"procedures:{m.get('id') or i}", _procedures_for(m))
         for i, m in enumerate(modules)
     ]

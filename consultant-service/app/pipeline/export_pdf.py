@@ -153,6 +153,10 @@ def _strip_artifacts(text: str) -> str:
     # "failed_first_attempt_rate" becomes "failed first attempt rate"
     out = re.sub(r"\b([a-z0-9]+(?:_[a-z0-9]+)+)\b",
                  lambda m: m.group(1).replace("_", " "), out)
+    # comparison notation is engineering shorthand, not client prose:
+    # "<30 minutes" reads as a placeholder — say the words
+    out = re.sub(r"(?<![\w<>])<\s*(\d)", r"fewer than \1", out)
+    out = re.sub(r"(?<![\w<>])>\s*(\d)", r"more than \1", out)
     return out
 
 
@@ -307,6 +311,9 @@ _GATE_ARTIFACTS = [
     ("unresolved placeholder", re.compile(r"\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR )[^\]]*\]", re.IGNORECASE)),
     ("duplicate approval label",
      re.compile(r"\(proposed — client approval required\)[^()]{0,12}\(proposed — client approval required\)")),
+    ("currency sign on a count",
+     re.compile(r"[$\u20ac\u00a3]\s?\d[\d,]*(?:\.\d+)?\s*(?:inquiries|hours|deliveries|orders|messages|calls|attempts)\b",
+                re.IGNORECASE)),
 ]
 
 
@@ -610,12 +617,49 @@ def _playbook_flowables(playbook: dict | None) -> list:
     return flows
 
 
-def _money(v) -> str:
-    """The model sometimes returns a computed figure as a bare number —
-    print it as money, not as '70956'."""
-    if isinstance(v, (int, float)) and not isinstance(v, bool):
+_CURRENCY_HINT = re.compile(r"[$\u20ac\u00a3]|\bUSD\b|\bEUR\b|\bGBP\b", re.IGNORECASE)
+_UNIT_HINTS = (("inquir", "inquiries"), ("hour", "hours"), ("deliver", "deliveries"),
+               ("order", "orders"), ("message", "messages"), ("call", "calls"),
+               ("attempt", "attempts"))
+
+
+def _quantity(v, context: str = "") -> str:
+    """Format a computed figure by its UNIT, inferred from its own label and
+    arithmetic. A count of inquiries or a number of hours must never wear a
+    currency sign — '$127,750 inquiries' was a released defect."""
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return str(v or "")
+    ctx = (context or "").lower()
+    if _CURRENCY_HINT.search(ctx):
         return f"${v:,.0f}"
-    return str(v or "")
+    unit = next((u for h, u in _UNIT_HINTS if h in ctx), "")
+    return (f"{v:,.0f} {unit}").strip()
+
+
+def _pilot_gate_flowables(business_case: dict) -> list:
+    """The ONE pilot decision gate, rendered as its own box right after the
+    decision — every other mention in any volume restates this table. Five
+    competing gate criteria in one released document is why this exists."""
+    gate = (business_case or {}).get("pilot_gate") or {}
+    if not isinstance(gate, dict) or not gate.get("primary_metric"):
+        return []
+    flows = [Spacer(1, 4), Paragraph("The pilot decision gate", _S["h2toc"]),
+             Paragraph(
+                 "One gate governs the pilot. Every criterion elsewhere in this engagement "
+                 "restates this table — nothing else counts as pilot success.", _S["meta"])]
+    rows = [(label, gate.get(key)) for label, key in (
+        ("Duration", "duration"), ("Population", "population"),
+        ("Control group", "control"), ("Primary metric", "primary_metric"),
+        ("Baseline", "baseline"), ("Target", "target"), ("Guardrail", "guardrail"),
+    ) if gate.get(key)]
+    flows.append(_table(["Parameter", "Value"],
+                        [[label, str(v)] for label, v in rows], [34 * mm, 134 * mm]))
+    approvals = [a for a in (gate.get("approvals_required") or []) if a]
+    if approvals:
+        flows.append(Paragraph("Before launch, you approve:", _S["body"]))
+        for a in approvals:
+            flows.append(Paragraph(_rich(str(a)), _S["bullet"], bulletText="•"))
+    return flows
 
 
 def _financial_model_flowables(business_case: dict) -> list:
@@ -646,7 +690,8 @@ def _financial_model_flowables(business_case: dict) -> list:
         for l in lines:
             item = _rich(str(l.get("item") or ""))
             arith = _rich(str(l.get("arithmetic") or ""))
-            annual = _rich(_money(l.get("annual")))
+            annual = _rich(_quantity(l.get("annual"),
+                                     str(l.get("arithmetic") or "") + " " + str(l.get("item") or "")))
             # a figure may only print behind its shown computation
             text = f"<b>{item}</b>" + (f" — {arith}" if arith else "")
             if arith and annual:
@@ -662,7 +707,9 @@ def _financial_model_flowables(business_case: dict) -> list:
             ["Scenario", "Assumption (ours — requires your approval)", "Annual impact (computed)"],
             [[str(s.get("name") or ""),
               str(s.get("assumption") or ""),
-              re.sub(r",?\s*by your own figures\.?", "", _money(s.get("impact"))).strip()]
+              re.sub(r",?\s*by your own figures\.?", "",
+                     _quantity(s.get("impact"), str(s.get("assumption") or "") + " "
+                               + str(s.get("impact") or ""))).strip()]
              for s in scenarios],
             [22 * mm, 78 * mm, 74 * mm],
         ))
@@ -1016,15 +1063,48 @@ def _checklists_flowables(checklists_data: dict | None) -> list:
     return flows
 
 
+def _doc_control_flowables(req: Request) -> list:
+    """Document control for the operations volume — the block a real
+    manual opens with, from the run's own records (never invented)."""
+    status = release_status(req)["status"].upper()
+    owner = (settings.ENGAGEMENT_LEAD or "").strip() or "Unassigned — set before controlled distribution"
+    date = datetime.utcnow().strftime("%B %d, %Y")
+    flows = [Paragraph("Document control", _S["h2toc"])]
+    for label, value in (
+        ("Version", f"Engagement run {req.id} · generated {date}"),
+        ("Status", status),
+        ("Owner", owner),
+        ("Review", "A regenerated engagement supersedes this copy; review at each phase gate."),
+        ("Copies", "Uncontrolled when printed."),
+    ):
+        flows.append(Paragraph(f"<b>{label}:</b> " + _rich(value), _S["meta"]))
+    flows.append(Spacer(1, 6))
+    return flows
+
+
 def _procedures_flowables(procedures: list) -> list:
     if not procedures:
         return []
     flows = _h1("The procedure library")
     flows.append(Paragraph(
-        "The recurring routines this business runs on once live — who (or which AI) does each step. "
+        "The recurring routines this business runs on — who (or which AI) does each step. "
         "Grouped by the part of the system each routine belongs to.",
         _S["meta"],
     ))
+    present = {str(p.get("phase") or "").strip().lower() for p in procedures if isinstance(p, dict)}
+    legend = []
+    if "current" in present:
+        legend.append("CURRENT — runs today, with what already exists")
+    if "pilot" in present:
+        legend.append("PILOT — runs during the pilot, with today's tools only")
+    if "future" in present:
+        legend.append("FUTURE — usable only once its module is built")
+    if legend:
+        flows.append(Paragraph("States in this library: " + " · ".join(legend), _S["meta"]))
+    if "current" not in present:
+        flows.append(Paragraph(
+            "No current-state routines were documented in this engagement — the library "
+            "begins at the pilot; today's informal practice is not restated here.", _S["meta"]))
     last_module = object()
     for p in procedures:
         module = p.get("module")
@@ -1160,6 +1240,7 @@ def build_pdf(req: Request, kind: str) -> str:
             return []
 
         flows += md_slot(r"the decision")
+        flows += _pilot_gate_flowables(business_case)
         flows += md_slot(r"executive|summary")
         flows += md_slot(r"engagement|context")
         flows += md_slot(r"where you are|today")
@@ -1191,6 +1272,7 @@ def build_pdf(req: Request, kind: str) -> str:
     else:
         if not procedures and not org and not (_loads(req.checklists_json, None)):
             raise ValueError("operations manual not ready")
+        flows += _doc_control_flowables(req)
         flows += _procedures_flowables(procedures)
         flows += _checklists_flowables(_loads(req.checklists_json, None))
         flows += _handbook_flowables(org, procedures)

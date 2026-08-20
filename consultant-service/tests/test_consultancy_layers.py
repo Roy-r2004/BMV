@@ -765,13 +765,13 @@ def test_decompose_prompt_demands_quantified_financial_model():
 def test_qa_bench_audits_decision_and_contradictions():
     comp = render(
         "qa_completeness.j2", engagement_register="reg", blueprint="doc",
-        module_names="[]", procedures_list="[]", journey_stages="[]", org_count=1, scoreboard_count=1,
+        module_names="[]", procedures_list="[]", pilot_gate="none", journey_stages="[]", org_count=1, scoreboard_count=1,
         risks_count=1, procedures_count=1, checklists_count=1, quick_wins_count=1,
     )
     assert "The decision;" in comp
     assert "a weekly number reused as monthly is a high finding" in comp
     assert "Phase 1 wearing an AI name is a high finding" in comp
-    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc")
+    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc", technical_plan="doc")
     assert "conflicting values" in nums
     assert "No internal contradictions between figures" in nums
 
@@ -937,7 +937,7 @@ def test_numbers_findings_route_to_polish_by_source_not_wording(client, monkeypa
 
 
 def test_qa_numbers_prompt_demands_recompute_and_fraction_only_assumptions():
-    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc")
+    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc", technical_plan="doc")
     assert "RECOMPUTE" in nums
     assert "belongs in missing_inputs" in nums
     assert "BMV's own pricing must never appear" in nums
@@ -1017,7 +1017,7 @@ def test_prose_prompts_enforce_one_name_per_capability():
     assert "ONE CAPABILITY, ONE NAME" in bp
     comp = render(
         "qa_completeness.j2", engagement_register="reg", blueprint="doc",
-        module_names="[]", procedures_list="[]", journey_stages="[]", org_count=1,
+        module_names="[]", procedures_list="[]", pilot_gate="none", journey_stages="[]", org_count=1,
         scoreboard_count=1, risks_count=1, procedures_count=1, checklists_count=1,
         quick_wins_count=1,
     )
@@ -1126,8 +1126,10 @@ def test_angle_bracket_wrappers_are_unwrapped_but_real_lt_survives(client):
     out = ep._rich("respond within <2 hours (proposed — client approval required)> of dispatch")
     assert "&lt;" not in out and ">" not in out.replace("</b>", "").replace("<b>", "")
     assert "2 hours (proposed — client approval required)" in out
-    # a genuine less-than sign is untouched
-    assert "&lt;70%" in ep._rich("keep it <70% of capacity")
+    # comparison shorthand becomes words — "<30 minutes" was released prose
+    assert "fewer than 70%" in ep._rich("keep it <70% of capacity")
+    assert "fewer than 30 minutes of dispatch" in ep._rich("within <30 minutes of dispatch")
+    assert "more than 1 hour" in ep._rich("time is >1 hour")
     # engineering identifiers read as words
     assert "failed first attempt rate" in ep._rich("0.12 failed_first_attempt_rate")
 
@@ -1242,10 +1244,194 @@ def test_completeness_auditor_accepts_the_phased_decision_shape():
     the phased shape as canon and forbids flagging it."""
     comp = render(
         "qa_completeness.j2", engagement_register="reg", blueprint="doc",
-        module_names="[]", procedures_list="[]", journey_stages="[]", org_count=1,
+        module_names="[]", procedures_list="[]", pilot_gate="none", journey_stages="[]", org_count=1,
         scoreboard_count=1, risks_count=1, procedures_count=1, checklists_count=1,
         quick_wins_count=1,
     )
     assert "that phased shape is correct, never a finding" in comp
     assert "never flag it for being what it must be" in comp
     assert "ONE forceful choice" not in comp
+
+
+# -- the external-audit pass: units, one gate, pilot SOPs, hashed release --
+
+
+def test_counts_and_hours_never_wear_currency(client):
+    """Released defects: "$127,750" annual inquiries, "$2,340" staff hours."""
+    from app.pipeline import export_pdf as ep
+
+    assert ep._quantity(127750, "350 inquiries per day * 365 days") == "127,750 inquiries"
+    assert ep._quantity(2340, "45 hours per week * 52 weeks") == "2,340 hours"
+    assert ep._quantity(70956, "900/day * 0.12 * $1.80 * 365 days") == "$70,956"
+    assert "currency sign on a count" in ep.find_artifacts("handle $127,750 inquiries a year")
+    assert ep.find_artifacts("handle 127,750 inquiries a year") == []
+    fm = {"financial_model": {"lines": [
+        {"item": "annual inquiries", "arithmetic": "350 inquiries/day * 365 days", "annual": 127750},
+    ]}}
+    text = _flow_text(ep._financial_model_flowables(fm))
+    assert "127,750 inquiries" in text and "$127,750" not in text
+
+
+def test_scenario_snaps_to_the_canonical_base(client):
+    """Released defect: scenarios computed from $71,064 one page after the
+    canonical $70,956 — both the result and the drifted base are snapped."""
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"financial_model": {
+        "lines": [{"item": "re-attempts", "arithmetic": "900 * 0.12 * $1.80 * 365",
+                   "annual": "$70,956/year"}],
+        "scenarios": [{"name": "Conservative",
+                       "assumption": "prevents 15% of failed first attempts",
+                       "impact": "Annual savings of $10,659.60 from re-attempts (0.15 * $71,064)"}],
+    }}
+    _sanitize_financial_model(bc)
+    impact = bc["financial_model"]["scenarios"][0]["impact"]
+    assert "10,643" in impact
+    assert "71,064" not in impact and "70,956" in impact
+
+
+def test_pilot_sops_merge_first_and_carry_no_ai_actors(monkeypatch, client):
+    db = SessionLocal()
+    row = _seed(db)
+
+    def chat(model, messages, **kwargs):
+        prompt = messages[0]["content"]
+        if "MANUAL PILOT" in prompt:
+            payload = {"procedures": [{
+                "name": "Running the daily pilot outreach", "phase": "pilot",
+                "trigger": "each morning",
+                "steps": [{"actor": "ai", "step": "should be filtered"},
+                          {"actor": "dispatcher", "step": "send the approved WhatsApp template"}],
+                "exceptions": [{"when": "customer opts out", "then": "mark and never recontact"}],
+            }]}
+        elif "SERVICE BLUEPRINT" in prompt:
+            payload = GOOD_JOURNEY
+        elif "GOVERNANCE" in prompt:
+            payload = GOOD_GOV
+        elif "ORGANIZATION" in prompt:
+            payload = GOOD_ORG
+        elif "CHECKLISTS" in prompt:
+            payload = GOOD_CHECK
+        else:
+            payload = GOOD_PROCS
+        return {"choices": [{"message": {"content": json.dumps(payload)}}], "usage": {}}
+
+    monkeypatch.setattr(extras.provider, "chat", chat)
+    extras.build_extras(db, row.id, {"target_customer_profile": "", "pain_points": []},
+                        {"modules": MODULES,
+                         "business_case": {"pilot_gate": {"primary_metric": "first-attempt failures"}}})
+    db.refresh(row)
+    procs = json.loads(row.procedures_json)["procedures"]
+    assert procs[0]["module"] == "The pilot" and procs[0]["phase"] == "pilot"
+    actors = [st["actor"] for st in procs[0]["steps"]]
+    assert "ai" not in [a.lower() for a in actors]
+    db.close()
+
+
+def test_pilot_gate_box_renders_the_single_gate(client):
+    from app.pipeline import export_pdf as ep
+
+    gate = {"pilot_gate": {
+        "duration": "6 weeks (proposed — client approval required)",
+        "population": "all Beirut-zone orders", "control": "alternate-day assignment",
+        "primary_metric": "first-attempt delivery failures",
+        "baseline": "12% of deliveries (given)",
+        "target": "a 25% relative reduction (proposed — client approval required)",
+        "guardrail": "pause above 2% opt-outs (proposed — client approval required)",
+        "approvals_required": ["the pilot duration", "the reduction target"],
+    }}
+    text = _flow_text(ep._pilot_gate_flowables(gate))
+    assert "One gate governs the pilot" in text
+    assert "first-attempt delivery failures" in text
+    assert "25% relative reduction" in text
+    assert "the pilot duration" in text
+    assert ep._pilot_gate_flowables({}) == []
+    assert ep._pilot_gate_flowables({"pilot_gate": {"duration": "x"}}) == []
+
+
+def test_ops_manual_carries_doc_control_and_state_legend(client):
+    from app.pipeline import export_pdf as ep
+
+    db = SessionLocal()
+    row = _seed(db, qa_report_json=json.dumps({"checks": [], "findings": []}))
+    text = _flow_text(ep._doc_control_flowables(row))
+    assert "Document control" in text and "FINAL" in text
+    assert "Uncontrolled when printed" in text
+    db.close()
+    procs = [
+        {"name": "P1", "phase": "pilot", "module": "The pilot",
+         "steps": [{"actor": "you", "step": "x"}], "exceptions": []},
+        {"name": "P2", "phase": "future", "module": "M",
+         "steps": [{"actor": "ai", "step": "x"}], "exceptions": []},
+    ]
+    text = _flow_text(ep._procedures_flowables(procs))
+    assert "States in this library" in text
+    assert "No current-state routines were documented" in text
+
+
+def test_audit_pass_prompt_pins():
+    ctx_dec = dict(
+        business_name="B", business_description="d", industry="i", revenue_today="r",
+        main_problem="m", desired_outcome="o", site_research="none", business_model="x",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", recommended_ai_employees="[]", recommended_features="[]",
+        concept_name="C", min_modules=3, max_modules=7, operating_stage="operating",
+        owner_numbers="x", engagement_register="reg",
+    )
+    dec = render("decompose.j2", **ctx_dec)
+    assert "pilot_gate" in dec and "PILOT GATE rules" in dec
+    assert "pins captured" in dec  # never conflate distinct measurements
+
+    pilot = render("pilot_sop.j2", business_name="B", business_description="d",
+                   pilot_gate="{}", modules="[]", engagement_register="reg")
+    assert "executable today" in pilot
+    assert "restate the pilot gate verbatim" in pilot
+
+    procs = render("procedures.j2", business_name="B", business_description="d",
+                   revenue_today="f", module="{}", other_modules="none",
+                   engagement_register="reg")
+    assert "ONE CONDITION, ONE NUMBER" in procs
+
+    ts = render("tech_spec.j2", business_name="B", business_description="d",
+                module_id="m", module_name="M", module_purpose="p",
+                module_spec="{}", other_modules="none")
+    assert "NEVER one-way hashed" in ts
+    assert "AUTHENTICATED tenant context" in ts
+    assert "THRESHOLD LAW" in ts
+
+    nums = render("qa_numbers.j2", owner_numbers="x", business_case="{}",
+                  blueprint="doc", technical_plan="tdoc")
+    assert "THE TECHNICAL PLAN DOCUMENT" in nums
+    assert "unlabeled invented threshold is a high finding" in nums
+    assert "ONE BASE" in nums
+
+
+def test_release_audit_records_hashes_and_detects_mutation(client, tmp_path, monkeypatch):
+    import sys as _sys
+
+    from app.config import settings as cfg
+    from app.pipeline import export_pdf as ep
+
+    _sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+    import release_audit
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="## Executive summary\nfine", technical_plan="## How your system works\nfine",
+                procedures_json=json.dumps({"procedures": [
+                    {"name": "P", "phase": "pilot", "module": "The pilot",
+                     "steps": [{"actor": "you", "step": "x"}], "exceptions": []}]}),
+                qa_report_json=json.dumps({"checks": [], "findings": []}))
+    record = release_audit.audit_run(row)
+    assert record["status"] == "final"
+    assert all("sha256" in v for v in record["volumes"].values())
+    assert release_audit.verify(record["record_path"]) == "valid"
+    # any mutation after the audit invalidates the recorded decision
+    row.business_name = "Renamed"
+    db.commit()
+    import time
+    time.sleep(1.1)
+    db.refresh(row)
+    ep.build_pdf(row, "blueprint")  # rebuild changes bytes -> hash mismatch
+    assert release_audit.verify(record["record_path"]).startswith("stale")
+    db.close()
