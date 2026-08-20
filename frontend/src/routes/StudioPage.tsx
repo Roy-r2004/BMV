@@ -1384,7 +1384,7 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
   );
   const deepDiveEmailHref = consultingEmailUrl(
     `Deep-dive request — ${preview.business_name} (demo #${preview.id})`,
-    `Hi,\n\nI'd like to book the deep-dive working session for my demo (${demoUrl}).\n\nPreferred days and times: \n`,
+    `Hi,\n\nI'd like to book the executive working session for my engagement (${demoUrl}).\n\nPreferred days and times: \n`,
   );
 
   return (
@@ -1487,18 +1487,18 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
       <div className="studio-deepdive">
         <div className="studio-deepdive-info">
           <p className="studio-kicker mb-2">Not ready to choose?</p>
-          <p className="studio-deepdive-title">Book a deep-dive working session</p>
+          <p className="studio-deepdive-title">Book the executive working session</p>
           <p className="studio-deepdive-text">
-            90 minutes with our consultant inside your real operation. We correct this plan
-            together — modules re-scoped, the business case recomputed from your actual
-            numbers — and you leave with an exact quote.
+            Ninety minutes with your engagement lead inside your real operation. We pressure-test
+            this plan against your constraints — modules re-scoped, the business case recomputed
+            from your actual numbers — and you leave with the corrected plan and an exact quote.
           </p>
         </div>
         <div className="studio-deepdive-side">
-          <p className="studio-deepdive-price">$200</p>
-          <p className="studio-deepdive-credit">Credited in full against your build</p>
+          <p className="studio-deepdive-price">Terms on request</p>
+          <p className="studio-deepdive-credit">The session fee is credited in full against your build</p>
           <a className="studio-cta studio-deepdive-btn" href={deepDiveEmailHref}>
-            Request your deep-dive
+            Request the session
             <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
           </a>
         </div>

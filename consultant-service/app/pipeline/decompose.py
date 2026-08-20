@@ -16,6 +16,7 @@ request.
 
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy.orm import Session
@@ -28,6 +29,58 @@ from app.pipeline.analyze import _format_site_research
 from app.templating import render
 
 logger = logging.getLogger("consultant.decompose")
+
+_NUM_RE = re.compile(r"\d[\d,]*\.?\d*\s*%?")
+
+
+def _numbers_in(text: str) -> list[float]:
+    vals = []
+    for m in _NUM_RE.finditer(text or ""):
+        tok = m.group(0).strip()
+        pct = tok.endswith("%")
+        try:
+            v = float(tok.rstrip("%").replace(",", "").strip())
+        except ValueError:
+            continue
+        vals.append(v / 100.0 if pct else v)
+    return vals
+
+
+def _sanitize_financial_model(business_case: dict) -> None:
+    """Deterministic arithmetic check on the financial model's annualized
+    lines: when a line's arithmetic is a plain product of its numbers, the
+    printed result must BE that product (allowing an unstated x12/x26/x52/
+    x365 period step) — a wrong result is an invented figure wearing perfect
+    attribution, so the figure is dropped and the honest arithmetic stays.
+    Sums and prose we cannot verify are left for the quality bench."""
+    fm = (business_case or {}).get("financial_model")
+    if not isinstance(fm, dict):
+        return
+    for line in fm.get("lines") or []:
+        if not isinstance(line, dict):
+            continue
+        arith = str(line.get("arithmetic") or "")
+        annual = str(line.get("annual") or "")
+        # additions and spaced subtractions are not plain products — skip
+        # (hyphens inside words like "no-shows" are not subtraction)
+        if not arith or not annual or "+" in arith or " - " in arith:
+            continue
+        operands = _numbers_in(arith)
+        results = _numbers_in(annual)
+        if len(operands) < 2 or not results:
+            continue
+        product = 1.0
+        for v in operands:
+            product *= v
+        target = results[0]
+        if not target:
+            continue
+        ok = any(
+            abs(product * period - target) / abs(target) <= 0.02
+            for period in (1, 12, 26, 52, 365)
+        )
+        if not ok:
+            line["annual"] = ""
 
 
 def _format_owner_numbers(req: Request) -> str:
@@ -95,11 +148,12 @@ def decompose_business(
             min_modules=settings.MIN_MODULES_PER_REQUEST,
             max_modules=settings.MAX_MODULES_PER_REQUEST,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3400)
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=5600)
         content = body["choices"][0]["message"]["content"]
         result = extract_json_from_text(content)
         modules = _clamp_modules(result.get("modules") or [])
         business_case = result.get("business_case") or {}
+        _sanitize_financial_model(business_case)
         log_usage(
             db, request_id,
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="decompose",

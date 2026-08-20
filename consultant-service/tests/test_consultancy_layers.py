@@ -721,3 +721,210 @@ def test_public_id_slug_addresses_a_run(client, monkeypatch):
     assert body["business_name"] == "Slugged"
     # a wrong slug is a clean 404
     assert client.get("/api/requests/not-a-real-slug/preview").status_code == 404
+
+
+# ── the elite pass: decision memo, quantified case, evidence trail ───────
+
+
+def test_blueprint_prompt_demands_the_decision_memo():
+    prompt = render(
+        "blueprint.j2", business_name="B", business_description="d", industry="i",
+        revenue_today="r", site_research="none", business_model="x",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", recommended_ai_employees="[]", concept_name="C",
+        roles="[]", modules="[]", business_case="{}", engagement_register="reg",
+        modules_present=True,
+    )
+    assert "## The decision" in prompt
+    assert "PROVE-THEN-AUTOMATE" in prompt
+    assert "SCOPE GUARD" in prompt
+    assert "Beyond this engagement" in prompt
+    assert "SELECTIVITY" in prompt
+
+
+def test_decompose_prompt_demands_quantified_financial_model():
+    ctx = dict(
+        business_name="B", business_description="d", industry="i", revenue_today="r",
+        main_problem="m", desired_outcome="o", site_research="none", business_model="x",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", recommended_ai_employees="[]", recommended_features="[]",
+        concept_name="C", min_modules=3, max_modules=7, operating_stage="operating",
+        owner_numbers="- visits: 340", engagement_register="reg",
+    )
+    prompt = render("decompose.j2", **ctx)
+    assert "financial_model" in prompt
+    assert "missing_inputs" in prompt
+    assert "Never guess a missing input" in prompt
+    assert "Conservative" in prompt and "Upside" in prompt
+
+
+def test_qa_bench_audits_decision_and_contradictions():
+    comp = render(
+        "qa_completeness.j2", engagement_register="reg", blueprint="doc",
+        module_names="[]", journey_stages="[]", org_count=1, scoreboard_count=1,
+        risks_count=1, procedures_count=1, checklists_count=1, quick_wins_count=1,
+    )
+    assert "The decision;" in comp
+    assert "internal contradiction is a high finding" in comp
+    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc")
+    assert "conflicting values" in nums
+    assert "No internal contradictions between figures" in nums
+
+
+def _flow_text(flows):
+    return " ".join(getattr(f, "text", "") or "" for f in flows)
+
+
+def test_financial_model_renders_lines_scenarios_and_missing_inputs(client):
+    from app.pipeline import export_pdf as ep
+
+    bc = {"financial_model": {
+        "lines": [{"item": "Failed re-attempts", "arithmetic": "12% of 900/day x $1.80 x 26 days",
+                   "annual": "$60,700/year"}],
+        "scenarios": [
+            {"name": "Conservative", "assumption": "1 in 3 prevented", "impact": "$20,200/year, by your own figures"},
+            {"name": "Expected", "assumption": "1 in 2 prevented", "impact": "$30,350/year, by your own figures"},
+        ],
+        "payback_note": "Divide the build quote by the Expected monthly figure above.",
+        "missing_inputs": ["your fully-loaded hourly cost for finance staff"],
+    }}
+    text = _flow_text(ep._financial_model_flowables(bc))
+    assert "Failed re-attempts" in text and "$60,700/year" in text
+    assert "Conservative" in text and "1 in 3 prevented" in text
+    assert "fully-loaded hourly cost" in text
+    # fail-open: nothing produced, nothing rendered
+    assert ep._financial_model_flowables({}) == []
+    assert ep._financial_model_flowables({"financial_model": {}}) == []
+
+
+def test_evidence_page_quotes_the_owner_verbatim(client):
+    from app.pipeline import export_pdf as ep
+
+    db = SessionLocal()
+    row = _seed(
+        db,
+        ops_numbers_json=json.dumps([{"question": "No-shows per week?", "answer": "3 at $95"}]),
+        revenue_today="per-visit fees",
+        business_description=(
+            "clinic\n\nCorrections and additions from the briefing chat:\n- closed Sundays"
+        ),
+    )
+    flows = ep._evidence_flowables(
+        row,
+        {"financial_model": {"scenarios": [{"name": "Expected", "assumption": "half recovered"}]}},
+        [{"metric": "no-shows", "baseline": "measure in week 1"}],
+    )
+    text = _flow_text(flows)
+    assert "No-shows per week?" in text and "3 at $95" in text
+    assert "per-visit fees" in text
+    assert "closed Sundays" in text
+    assert "half recovered" in text
+    assert "no-shows" in text  # the week-1 measurement list
+    assert "Method rule" in text
+    db.close()
+
+
+def test_decision_close_is_premium_and_signed(client, monkeypatch):
+    from app.config import settings as cfg
+    from app.pipeline import export_pdf as ep
+
+    monkeypatch.setattr(cfg, "ENGAGEMENT_LEAD", "Roy Rizkallah - Managing Consultant")
+    text = _flow_text(ep._decision_flowables())
+    assert "$200" not in text
+    assert "executive working session" in text.lower()
+    assert "Roy Rizkallah" in text
+    # unset lead: the sign-off line simply vanishes
+    monkeypatch.setattr(cfg, "ENGAGEMENT_LEAD", "")
+    assert "Roy Rizkallah" not in _flow_text(ep._decision_flowables())
+
+
+# -- the hardening pass: deterministic guards the skeptics demanded --------
+
+
+def test_arithmetic_sanitizer_drops_wrong_products_keeps_right_ones():
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"financial_model": {"lines": [
+        # correct plain product (hyphenated words must not disqualify it)
+        {"item": "no-shows", "arithmetic": "3 no-shows/week x $95 x 52 weeks", "annual": "$14,820/year"},
+        # correct with an unstated x12 annualization step
+        {"item": "monthly loss", "arithmetic": "45 hours x $10", "annual": "$5,400/year"},
+        # WRONG product: the figure goes, the honest arithmetic stays
+        {"item": "padded", "arithmetic": "3 x $95 x 52 weeks", "annual": "$19,000/year"},
+        # additions are unverifiable here: left for the bench
+        {"item": "sum", "arithmetic": "$100 + $200 per month", "annual": "$3,600/year"},
+    ]}}
+    _sanitize_financial_model(bc)
+    lines = bc["financial_model"]["lines"]
+    assert lines[0]["annual"] == "$14,820/year"
+    assert lines[1]["annual"] == "$5,400/year"
+    assert lines[2]["annual"] == ""
+    assert lines[3]["annual"] == "$3,600/year"
+    _sanitize_financial_model({})  # no model at all: a no-op, never a crash
+    _sanitize_financial_model({"financial_model": ["not-a-dict"]})
+
+
+def test_financial_render_guards_unlabeled_and_priced_content(client):
+    from app.pipeline import export_pdf as ep
+
+    fm = {"financial_model": {
+        "lines": [{"item": "bare figure", "arithmetic": "", "annual": "$12,000"}],
+        "scenarios": [{"name": "Expected", "assumption": "", "impact": "$9,999 appears from nowhere"}],
+        "payback_note": "at our usual $6,000 build fee, payback is under 3 months",
+        "missing_inputs": [],
+    }}
+    text = _flow_text(ep._financial_model_flowables(fm))
+    assert "$12,000" not in text          # no figure without its computation
+    assert "$9,999" not in text           # no scenario without its label
+    assert "$6,000" not in text           # no BMV pricing, ever
+    # a model carrying ONLY a clean payback note still renders
+    only_note = {"financial_model": {"payback_note": "Divide the build quote by the Expected monthly figure."}}
+    assert "Divide the build quote" in _flow_text(ep._financial_model_flowables(only_note))
+    # malformed shape fails open, never crashes the export
+    assert ep._financial_model_flowables({"financial_model": ["wat"]}) == []
+
+
+def test_evidence_page_is_silent_for_legacy_rows(client):
+    from app.pipeline import export_pdf as ep
+
+    db = SessionLocal()
+    row = _seed(db, business_name="Legacy", business_description="old run",
+                revenue_today=None, main_problem=None)
+    assert ep._evidence_flowables(row, {}, []) == []
+    db.close()
+
+
+def test_numbers_findings_route_to_polish_by_source_not_wording(client, monkeypatch):
+    """A numbers finding worded without 'figure' or '$' must still reach the
+    repair pass — routing is by auditor, not by sniffing prose."""
+    from app.pipeline import qa_experts
+
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint=MD, business_case_json=json.dumps({}),
+                modules_json=json.dumps(MODULES))
+    polish_called = {"v": False}
+
+    def chat(model, messages, **kwargs):
+        prompt = messages[0]["content"]
+        if "NUMBERS AUDITOR" in prompt:
+            payload = {"checks": [], "findings": [{
+                "severity": "high", "where": "scoreboard",
+                "issue": "35 percent uplift target has no client input",
+                "fix": "reword as direction only"}]}
+            return {"choices": [{"message": {"content": json.dumps(payload)}}], "usage": {}}
+        if "STRUCTURE AUDITOR" in prompt:
+            return {"choices": [{"message": {"content": json.dumps({"checks": [], "findings": []})}}], "usage": {}}
+        polish_called["v"] = True
+        return {"choices": [{"message": {"content": "tiny"}}], "usage": {}}
+
+    monkeypatch.setattr(qa_experts.provider, "chat", chat)
+    qa_experts.review_quality(db, row.id)
+    assert polish_called["v"] is True
+    db.close()
+
+
+def test_qa_numbers_prompt_demands_recompute_and_fraction_only_assumptions():
+    nums = render("qa_numbers.j2", owner_numbers="none", business_case="{}", blueprint="doc")
+    assert "RECOMPUTE" in nums
+    assert "belongs in missing_inputs" in nums
+    assert "BMV's own pricing must never appear" in nums

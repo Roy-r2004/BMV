@@ -64,6 +64,24 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
     },
     "pricing_levers": ["<a concrete way the product lets them charge more, retain longer, or sell wider>"],
     "payback_logic": "<3-4 sentences: the honest chain of reasoning from 'system goes live' to 'owner is better off' — computed from owner numbers where they exist, mechanisms otherwise>",
-    "cost_of_inaction": "<1-2 sentences: what staying as they are costs per month. If owner numbers exist, compute it from them and show the arithmetic ('14 hours a week is ~60 hours a month of your time on bookings, by your own figures'). Without owner numbers: the mechanism of the ongoing loss only — never an invented figure.>"
+    "cost_of_inaction": "<1-2 sentences: what staying as they are costs per month. If owner numbers exist, compute it from them and show the arithmetic ('14 hours a week is ~60 hours a month of your time on bookings, by your own figures'). Without owner numbers: the mechanism of the ongoing loss only — never an invented figure.>",
+    "financial_model": {
+      "lines": [
+        {"item": "<the loss or gain, in their vocabulary>", "arithmetic": "<the computation written out from named owner inputs, e.g. '3 no-shows/week x $95 x 52 weeks'>", "annual": "<the computed annual figure>"}
+      ],
+      "scenarios": [
+        {"name": "Conservative", "assumption": "<the explicit labeled fraction, e.g. 'the agent prevents 1 in 3 failed attempts'>", "impact": "<the computed figure at that fraction, arithmetic shown, closed with 'by your own figures'>"},
+        {"name": "Expected", "assumption": "<...>", "impact": "<...>"},
+        {"name": "Upside", "assumption": "<...>", "impact": "<...>"}
+      ],
+      "payback_note": "<one sentence telling the owner how to compute payback themselves: divide the build quote by the Expected monthly impact above — never state OUR price>",
+      "missing_inputs": ["<a specific number still needed from the owner to complete this model, e.g. 'your fully-loaded hourly cost for finance staff'>"]
+    }
   }
 }
+
+FINANCIAL MODEL rules — absolute:
+- `lines` annualize the owner's own numbers with the arithmetic written out; annualizing (x12, x52, x26 working days) is legitimate arithmetic on their inputs.
+- `scenarios` are the ONLY place a fraction the owner never gave may appear — and only as an explicitly labeled assumption (a conservative / expected / upside recovery rate) applied to their figures with the arithmetic shown. Three scenarios, always in that order.
+- Never guess a missing input — name it in `missing_inputs` instead. An hourly wage, a margin, a cost the owner never stated goes in `missing_inputs`, not in a computation.
+- If NO owner numbers exist: lines and scenarios are empty arrays, payback_note is "", and missing_inputs lists the numbers to collect in week 1.

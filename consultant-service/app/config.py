@@ -166,6 +166,10 @@ class Settings:
     SMTP_USER: str = _env_or("SMTP_USER", "consulting@buildmyversion.com")
     SMTP_PASSWORD: str = _env_or("SMTP_PASSWORD", "")
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
+    # Named on covers and in the closing pages when set ("Roy Rizkallah -
+    # Managing Consultant"). A document a person signs reads senior; one
+    # nobody signs reads generated. Empty = omitted entirely.
+    ENGAGEMENT_LEAD: str = _env_or("ENGAGEMENT_LEAD", "")
     REVIEW_TOKEN: str = _env_or("REVIEW_TOKEN", "")
     MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))
     MAX_DISCOVERY_QUESTIONS: int = int(_env_or("MAX_DISCOVERY_QUESTIONS", "6"))

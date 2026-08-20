@@ -13,7 +13,12 @@ TASK
 Audit every number (currency, count, percentage, hours) in the business case and blueprint:
 1. Does each trace to a client input above, or to shown arithmetic on those inputs?
 2. Is the attribution present ("by your own figures", "at your planned $X")?
-3. Are stated assumptions conservative and explicit?
+3. Are stated assumptions conservative and explicit? (Scenario fractions — conservative/expected/upside — are legitimate ONLY when explicitly labeled as assumptions and applied to client inputs with the arithmetic shown.)
+4. Do any two statements give conflicting values or policies for the same fact (a cycle stated as both 2 days and monthly, two different volumes for the same operation)? A contradiction is a high finding.
+5. Does any target percentage appear with no shown arithmetic and no named client input? Flag it.
+6. RECOMPUTE every multiplication yourself — when an arithmetic string and its result both appear ("3 x $95 x 52 weeks = $19,000"), do the math. A wrong result is an invented figure wearing attribution: a high finding.
+7. A scenario assumption may only be a rate or fraction applied to client inputs ("1 in 3 recovered"). Any absolute currency amount, wage, hours or margin the client never gave appearing as an assumption is a high finding — it belongs in missing_inputs instead.
+8. BMV's own pricing must never appear anywhere — any fee, build price or session price of OURS is a high finding.
 Ignore section numbering, page references and the client's own quoted answers.
 
 Respond with ONLY this JSON shape, no markdown fences, no commentary:
@@ -22,7 +27,8 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
   "checks": [
     {"label": "Every figure traces to a client input", "passed": true|false, "note": "<one sentence>"},
     {"label": "Attributions present on computed figures", "passed": true|false, "note": "<one sentence>"},
-    {"label": "Assumptions explicit and conservative", "passed": true|false, "note": "<one sentence>"}
+    {"label": "Assumptions explicit and conservative", "passed": true|false, "note": "<one sentence>"},
+    {"label": "No internal contradictions between figures", "passed": true|false, "note": "<one sentence>"}
   ],
   "findings": [
     {"severity": "high|low", "where": "<section or quote fragment>", "issue": "<the untraceable or unattributed figure and why it fails>", "fix": "<the exact corrected wording, or 'remove'>"}

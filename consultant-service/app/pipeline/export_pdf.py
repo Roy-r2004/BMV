@@ -298,6 +298,10 @@ def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:
     ) + [
         Spacer(1, 14),
         Paragraph(_rich(f"Prepared exclusively · {date}"), _S["meta"]),
+    ] + (
+        [Paragraph(_rich(f"Engagement lead: {settings.ENGAGEMENT_LEAD}"), _S["meta"])]
+        if (settings.ENGAGEMENT_LEAD or "").strip() else []
+    ) + [
         Paragraph("Confidential — for the addressee's team and advisors.", _S["meta"]),
         NextPageTemplate("body"),
         PageBreak(),
@@ -509,6 +513,146 @@ def _playbook_flowables(playbook: dict | None) -> list:
     return flows
 
 
+def _financial_model_flowables(business_case: dict) -> list:
+    """The quantified case: the owner's numbers annualized, three labeled
+    scenarios, and the inputs still missing — computed upstream by the
+    decomposition, rendered here. Every figure carries its arithmetic; the
+    scenarios are the one place a labeled assumption may appear."""
+    fm = (business_case or {}).get("financial_model") or {}
+    if not isinstance(fm, dict):
+        fm = {}
+    lines = [l for l in (fm.get("lines") or []) if isinstance(l, dict)]
+    # A scenario figure may only print behind its labeled assumption — an
+    # unlabeled one would sit under the very sentence promising the label.
+    scenarios = [s for s in (fm.get("scenarios") or [])
+                 if isinstance(s, dict) and str(s.get("assumption") or "").strip()]
+    missing = [m for m in (fm.get("missing_inputs") or []) if m]
+    payback = str(fm.get("payback_note") or "").strip()
+    # The payback note is a divide-it-yourself instruction by contract: one
+    # carrying a currency amount is a pricing leak and is dropped whole.
+    if re.search(r"[$\u20ac\u00a3]\s*\d|\d\s*(?:USD|EUR|GBP)\b", payback, re.IGNORECASE):
+        payback = ""
+    if not lines and not scenarios and not missing and not payback:
+        return []
+    flows = _h1("The financial case, quantified")
+    if lines:
+        flows.append(Paragraph(
+            "What the current way of working costs, annualized from your own figures:", _S["body"]))
+        for l in lines:
+            item = _rich(str(l.get("item") or ""))
+            arith = _rich(str(l.get("arithmetic") or ""))
+            annual = _rich(str(l.get("annual") or ""))
+            # a figure may only print behind its shown computation
+            text = f"<b>{item}</b>" + (f" — {arith}" if arith else "")
+            if arith and annual:
+                text += f" = <b>{annual}</b>"
+            flows.append(Paragraph(text, _S["bullet"], bulletText="•"))
+    if scenarios:
+        flows.append(Paragraph(
+            "Three scenarios. Each assumption is ours and labeled as such; each figure is "
+            "computed from your numbers at that assumption:", _S["body"]))
+        for s in scenarios:
+            flows.append(Paragraph(
+                f"<b>{_rich(str(s.get('name') or ''))}:</b> " + _rich(str(s.get("assumption") or ""))
+                + " — " + _rich(str(s.get("impact") or "")),
+                _S["bullet"], bulletText="•"))
+    if payback:
+        flows.append(Paragraph("<b>Payback:</b> " + _rich(payback), _S["body"]))
+    if missing:
+        flows.append(Paragraph("To complete this model, we still need from you:", _S["body"]))
+        for m in missing:
+            flows.append(Paragraph(_rich(str(m)), _S["bullet"], bulletText="•"))
+    return flows
+
+
+def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> list:
+    """Evidence & method — composed from the engagement's own records with
+    no model call: the client's inputs verbatim, the sources used, which
+    claims are labeled assumptions, and what awaits measurement. The page
+    that separates 'trust us' from 'check us'."""
+    facts = [f for f in (_loads(req.ops_numbers_json, []) or []) if isinstance(f, dict)]
+    fm = (business_case or {}).get("financial_model") or {}
+    if not isinstance(fm, dict):
+        fm = {}
+    assumptions = [s for s in (fm.get("scenarios") or [])
+                   if isinstance(s, dict) and s.get("assumption")]
+    to_measure = [str(r.get("metric")) for r in (scoreboard or [])
+                  if isinstance(r, dict) and "measure in week 1" in str(r.get("baseline") or "").lower()]
+    marker = "Corrections and additions from the briefing chat:"
+    corrections = ""
+    if req.business_description and marker in req.business_description:
+        corrections = req.business_description.split(marker, 1)[1].strip()
+    sr = _loads(getattr(req, "site_research_json", None), None)
+    has_site = isinstance(sr, dict) and sr.get("source_url")
+
+    # Fail-open for legacy rows: an engagement with no evidence records at
+    # all renders exactly as it did before this section existed. Printing a
+    # method page for a run that never had the method would be a lie.
+    if (not facts and not req.revenue_today and not req.main_problem
+            and not has_site and not corrections and not assumptions and not to_measure):
+        return []
+
+    flows = _h1("Evidence & method")
+    flows.append(Paragraph(
+        "Where every figure in this engagement comes from — which claims are facts you supplied, "
+        "which are labeled assumptions of ours, and which await measurement.", _S["meta"]))
+
+    if facts or req.revenue_today or req.main_problem:
+        flows.append(Paragraph("Facts you supplied", _S["h2toc"]))
+    for f in facts:
+        q = _rich(str(f.get("question") or ""))
+        a = _rich(str(f.get("answer") or ""))
+        if q or a:
+            flows.append(Paragraph(f"<b>{q}</b> — {a}", _S["bullet"], bulletText="•"))
+    if req.revenue_today:
+        flows.append(Paragraph(
+            "<b>How you earn today (your words)</b> — " + _rich(req.revenue_today),
+            _S["bullet"], bulletText="•"))
+    if req.main_problem:
+        flows.append(Paragraph(
+            "<b>The problem (your words)</b> — " + _rich(req.main_problem),
+            _S["bullet"], bulletText="•"))
+    flows.append(Paragraph("Sources", _S["h2toc"]))
+    sources = [
+        f"Your intake brief and the discovery questionnaire ({len(facts)} figures, quoted above verbatim)"
+        if facts else "Your intake brief"
+    ]
+    if has_site:
+        sources.append(f"Your own site — {sr['source_url']} (facts extracted and weighed in the analysis)")
+    if corrections:
+        sources.append("Your corrections from the pre-launch briefing chat (quoted below)")
+    sources.append("BuildMyVersion's structured decomposition, audited figure-by-figure by its quality bench")
+    for s in sources:
+        flows.append(Paragraph(_rich(s), _S["bullet"], bulletText="•"))
+
+    if corrections:
+        flows.append(Paragraph("Corrections you made in the briefing chat", _S["h2toc"]))
+        for line in corrections.splitlines():
+            line = line.strip().lstrip("-• ").strip()
+            if line:
+                flows.append(Paragraph(_rich(line), _S["bullet"], bulletText="•"))
+
+    if assumptions:
+        flows.append(Paragraph("Labeled assumptions (ours — not your data)", _S["h2toc"]))
+        for s in assumptions:
+            flows.append(Paragraph(
+                f"<b>{_rich(str(s.get('name') or ''))}:</b> " + _rich(str(s.get("assumption") or "")),
+                _S["bullet"], bulletText="•"))
+
+    if to_measure:
+        flows.append(Paragraph("To be measured in week 1", _S["h2toc"]))
+        for m in to_measure:
+            flows.append(Paragraph(_rich(m), _S["bullet"], bulletText="•"))
+
+    flows.append(Paragraph(
+        "Method rule this engagement was produced under: a figure may appear only when it is one "
+        "of your inputs above, or plain arithmetic on them with the computation shown; scenario "
+        "fractions must be explicitly labeled assumptions; everything else must be stated as a "
+        "mechanism, never a number. The quality bench audits every document against this rule "
+        "before release.", _S["meta"]))
+    return flows
+
+
 def _decision_flowables() -> list:
     flows = _h1("Three ways forward")
     for title, body in [
@@ -516,9 +660,11 @@ def _decision_flowables() -> list:
          "The team that wrote it builds it — module by module, in the order above, with you "
          "reviewing at every phase. Email us this document's reference and we reply with the "
          "exact quote."),
-        ("Book a deep-dive working session",
-         "90 minutes with our consultant inside your real operation. We correct this plan "
-         "together and you leave with an exact quote. $200, credited in full against your build."),
+        ("Book the executive working session",
+         "Ninety minutes with your engagement lead inside your real operation: we pressure-test "
+         "this plan against your constraints, correct it together, and you leave with the "
+         "corrected plan and an exact quote. Request terms by replying with this document's "
+         "reference — the session fee is credited in full against your build."),
         ("Take the plan — it's yours",
          "Every module, data model, procedure, build sequence and acceptance check is written "
          "down here. A competent team can build from this document."),
@@ -526,6 +672,9 @@ def _decision_flowables() -> list:
         flows.append(Paragraph(title, _S["h2toc"]))
         flows.append(Paragraph(body, _S["body"]))
     flows.append(Spacer(1, 6))
+    lead = (settings.ENGAGEMENT_LEAD or "").strip()
+    if lead:
+        flows.append(Paragraph(_rich(f"Your engagement lead — {lead}"), _S["body"]))
     flows.append(Paragraph("<b>consulting@buildmyversion.com</b>", _S["body"]))
     return flows
 
@@ -872,12 +1021,14 @@ def build_pdf(req: Request, kind: str) -> str:
                     return _markdown_flowables(body)
             return []
 
+        flows += md_slot(r"the decision")
         flows += md_slot(r"executive|summary")
         flows += md_slot(r"engagement|context")
         flows += md_slot(r"where you are|today")
         flows += md_slot(r"opportunit")
         flows += _customers_flowables(business_case)
         flows += md_slot(r"makes money")
+        flows += _financial_model_flowables(business_case)
         flows += _journey_flowables(
             journey,
             {m.get("id"): m.get("name") for m in modules if isinstance(m, dict) and m.get("id")},
@@ -892,6 +1043,7 @@ def build_pdf(req: Request, kind: str) -> str:
         for i, (_, body) in enumerate(sections):
             if i not in used:
                 flows += _markdown_flowables(body)
+        flows += _evidence_flowables(req, business_case, scoreboard)
         flows += _screens_flowables(req)
         flows += _decision_flowables()
     elif kind == "technical":

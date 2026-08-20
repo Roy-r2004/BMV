@@ -32,6 +32,12 @@ Business case:
 TASK
 Write the Blueprint in Markdown. Structure (exactly these ## headings, in this order):
 
+## The decision
+The one-page executive decision memo — the first thing the owner reads, and the sharpest. State ONE unmistakable recommendation in 4-6 sentences: the single move to make first, why it beats the alternatives, and what we would deliberately NOT build yet. Then close the section with two bold one-line verdicts:
+- **First:** the one thing to do first — usually proving the core workflow with the cheapest possible instrument before automating it.
+- **Not yet:** the tempting thing to defer, and the evidence that would unlock it.
+PROVE-THEN-AUTOMATE: when the decomposition contains a predictive, scoring or ML-style module, the decision must sequence a piloted workflow FIRST — the pilot is what generates the data the predictive module needs. Recommending the predictive engine before the pilot is a failure.
+
 ## Executive summary
 3-4 sentences in the classic consulting arc — Situation (who they are), Complication (the specific problem or ambition, in their facts), Resolution ({{ concept_name }} and the single strongest business reason to act). Written for an owner deciding whether to spend money.
 
@@ -58,6 +64,7 @@ One ### subsection PER MODULE, in the decomposition's order. Each subsection:
 - **What it does:** the module's exact features from its spec, as a bullet list — their names and one-line descriptions, verbatim in spirit
 - **Where the AI works:** the module's AI role, what it decides alone, and when it hands off — only if the spec has a non-null "ai"; omit this line entirely for modules without one
 - **You'll know it's working when:** the module's KPIs, in one sentence
+SELECTIVITY: only the module(s) named in The decision's "First" verdict get the full treatment above. Compress every OTHER module to 2-3 sentences — what it is, the single strongest thing it does, its one KPI. Uniform exhaustiveness reads as machine output; the full depth lives in the Technical Plan.
 
 ## What we'd build first
 Which modules belong in version one and which come later, with one honest sentence of reasoning per choice — sequencing by dependency and by fastest path to the money mechanisms above.
@@ -73,5 +80,7 @@ Rules:
 - The decomposition above is empty (an upstream step failed). Derive the modules yourself from the analysis and planned product, keeping the exact same document structure, and keep the same standard of specificity.
 {% endif %}
 - Amounts and percentages may appear ONLY when the business case computed them from the owner's own inputs — keep their attribution. Never any other currency figure, and never OUR pricing.
+- SCOPE GUARD: every recommendation stays inside the engagement's stated scope and geography (see the register — if the client scoped one country or one operation, so does this document). Anything beyond it appears only as one clearly-labeled sentence beginning "Beyond this engagement:".
+- Judgment over coverage: cut any sentence that describes without deciding. A shorter, sharper document beats a complete one.
 - No preamble before the first heading, no closing sign-off.
 - Respond with ONLY the Markdown document.

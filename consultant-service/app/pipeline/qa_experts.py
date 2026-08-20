@@ -30,7 +30,7 @@ from app.templating import render
 
 logger = logging.getLogger("consultant.qa_experts")
 
-_REQUIRED_HEADINGS = ("## Executive summary", "## How this makes money")
+_REQUIRED_HEADINGS = ("## The decision", "## Executive summary", "## How this makes money")
 
 
 def _sanitize_report(result: dict) -> dict:
@@ -118,16 +118,16 @@ def review_quality(db: Session, request_id: int) -> None:
         )
         if report:
             checks += report["checks"]
-            findings += report["findings"]
+            # Tag each finding with its auditor — routing to the repair pass
+            # is by source, never by sniffing the finding's prose.
+            findings += [{**f, "source": name} for f in report["findings"]]
 
     polish_applied = False
     # The red pen only ever acts on the NUMBERS auditor's findings —
     # wording-level fixes to specific figures. Structure findings mean a
     # section is missing, and "fixing" that would mean inventing content;
     # they go to the human reviewer instead.
-    numbers_findings = [f for f in findings if "figure" in f.get("issue", "").lower()
-                        or f.get("fix", "").strip().lower() in ("remove",)
-                        or "$" in f.get("issue", "")]
+    numbers_findings = [f for f in findings if f.get("source") == "qa_numbers"]
     if numbers_findings:
         try:
             prompt = render(
