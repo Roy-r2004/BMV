@@ -22,8 +22,8 @@ exists, and every action is recorded with its formula for the audit trail.
 import re
 
 _MONEY_BASIS = re.compile(
-    r"(\$\s?\d[\d,]*(?:\.\d+)?)\s*(per day|/\s*day|a day|per week|/\s*week|a week|"
-    r"per month|/\s*month|a month|per year|/\s*year|a year)",
+    r"(\$\s?\d[\d,]*(?:\.\d+)?)\s*(per day|/\s*day|a day|daily|per week|/\s*week|a week|weekly|"
+    r"per month|/\s*month|a month|monthly|per year|/\s*year|a year|annually|per annum|yearly)",
     re.IGNORECASE,
 )
 _NUM = re.compile(r"\d[\d,]*\.?\d*")
@@ -42,7 +42,9 @@ def _value(token: str) -> float | None:
 def candidates(annual: float, basis: str) -> list[tuple[float, str]]:
     """(value, formula) pairs a stated figure may legitimately be."""
     b = basis.lower()
-    if "day" in b:
+    if "annu" in b or "year" in b:
+        return [(annual, f"{annual:,.0f}/year (as stated)")]
+    if "day" in b or "daily" in b:
         return [(annual / 365, f"{annual:,.0f}/year / 365 = {annual / 365:,.2f}/day")]
     if "week" in b:
         return [(annual / 52, f"{annual:,.0f}/year / 52 = {annual / 52:,.2f}/week")]

@@ -1852,3 +1852,42 @@ def test_failed_or_unaudited_runs_can_never_be_final(client):
                      qa_report_json=json.dumps({"checks": [], "findings": []}))
     assert ep.release_status(complete)["status"] == "final"
     db.close()
+
+
+def test_run45_regressions_are_pinned(client):
+    """Run 45's escapes: multi-fraction scenarios never snapped (the guard
+    demanded exactly one fraction) and '$194,400 annually' dodged a regex
+    that only knew 'per year'."""
+    from app.pipeline import timebasis as tb
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"financial_model": {
+        "lines": [{"item": "re-attempts", "arithmetic": "900 * 0.12 * $1.80 * 365",
+                   "annual": "$70,956/year"}],
+        "scenarios": [{"name": "Conservative",
+                       "assumption": "prevents 15% of failed attempts and resolves 30% of inquiries and 20% of COD inquiries",
+                       "impact": "$10,675.80/year hard savings + ~12,775 inquiries/year automated"}],
+    }}
+    _sanitize_financial_model(bc)
+    impact = bc["financial_model"]["scenarios"][0]["impact"]
+    assert "10,643" in impact and "10,675" not in impact
+
+    fixed, recs = tb.check_restatements(
+        "costs you approximately $194,400 annually in re-attempt costs", [70956.0])
+    assert "$70,956" in fixed and "194,400" not in fixed
+    assert recs[0]["status"] == "snapped"
+
+    from app.pipeline import export_pdf as ep
+    assert "invented ROI figure" in ep.find_artifacts("delivering 115% ROI in year one")
+    assert "invented ROI figure" in ep.find_artifacts("an ROI of 210% on your investment")
+    assert ep.find_artifacts("reduce inquiries by 40%") == []
+
+    bp = render(
+        "blueprint.j2", business_name="B", business_description="d", industry="i",
+        revenue_today="r", site_research="none", business_model="x",
+        target_customer_profile="", pain_points="[]", growth_opportunity="",
+        consulting_summary="", recommended_ai_employees="[]", concept_name="C",
+        roles="[]", modules="[]", business_case="{}", engagement_register="reg",
+        modules_present=True,
+    )
+    assert "NO ROI" in bp and "NO INVENTED POLICIES" in bp

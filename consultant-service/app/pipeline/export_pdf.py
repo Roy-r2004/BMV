@@ -319,6 +319,8 @@ _GATE_ARTIFACTS = [
     ("unresolved placeholder", re.compile(r"\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR )[^\]]*\]", re.IGNORECASE)),
     ("duplicate approval label",
      re.compile(r"\(proposed — client approval required\)[^()]{0,12}\(proposed — client approval required\)")),
+    ("invented ROI figure",
+     re.compile(r"\d[\d.]*\s*%\s*ROI|ROI (?:of|is|at)\s*~?\d[\d.]*\s*%", re.IGNORECASE)),
     ("currency sign on a count",
      re.compile(r"[$\u20ac\u00a3]\s?\d[\d,]*(?:\.\d+)?\s*(?:inquiries|hours|deliveries|orders|messages|calls|attempts)\b",
                 re.IGNORECASE)),

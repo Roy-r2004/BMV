@@ -132,13 +132,15 @@ def _sanitize_financial_model(business_case: dict) -> None:
         impact = str(sc.get("impact") or "")
         fracs = [v for v in _numbers_in(str(sc.get("assumption") or "")) if 0 < v < 1]
         targets = _numbers_in(impact)
-        if len(fracs) != 1 or not targets or not bases:
+        if not fracs or not targets or not bases:
             continue
         target = targets[0]
         if not target:
             continue
-        for base in bases:
-            exact = base * fracs[0]
+        # multi-mechanism assumptions carry several fractions — the leading
+        # dollar figure snaps on whichever (fraction x base) it belongs to
+        for base, frac0 in [(b, f) for b in bases for f in fracs]:
+            exact = base * frac0
             rel = abs(exact - target) / abs(target) if target else 1.0
             if exact and 0.0005 < rel <= 0.05:
                 # snap the result AND any drifted copy of the base itself --
@@ -159,7 +161,8 @@ def _sanitize_financial_model(business_case: dict) -> None:
                 sc["impact_verified"] = True
                 break
         else:
-            if any(abs(base * fracs[0] - target) / abs(target) <= 0.0005 for base in bases):
+            if any(abs(base * f - target) / abs(target) <= 0.0005
+                   for base in bases for f in fracs):
                 sc["impact_verified"] = True
     # the for-else above: an exact match verifies without snapping
     # scenario-verified dollars extend the claim set for the payback note
