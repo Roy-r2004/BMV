@@ -140,6 +140,14 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     content = timebasis.round_counts(content)
     if kind == "blueprint":
         content = _align_cost_line(content, business_case)
+    if registry:
+        # invented settlement/remittance periods in prose are corrected to the
+        # client's stated cycle exactly as they are in the specs
+        lines = []
+        for line in content.split("\n"):
+            fixed, _ = _reg.policy_pass(line, registry.get("claims") or [])
+            lines.append(fixed)
+        content = "\n".join(lines)
     if kind == "technical" and registry:
         counter = {"n": sum(1 for c in registry.get("claims") or [] if str(c.get("id", "")).startswith("TH-"))}
         content, new = _reg.label_prose_thresholds(content, registry.get("claims") or [], counter,
@@ -186,6 +194,7 @@ def write_blueprint(
         modules_present=bool(modules),
         engagement_register=build_engagement_register(
             req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
         ),
         pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
         build_order_names="\n".join(f"{i}. {n}" for i, n in enumerate(registry.get("build_order_names") or [], 1))
@@ -229,6 +238,7 @@ def write_technical_plan(
         modules_present=bool(modules),
         engagement_register=build_engagement_register(
             req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
         ),
         pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
     )

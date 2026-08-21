@@ -393,7 +393,7 @@ def test_pilot_module_is_named_honestly_in_every_structure():
     assert pilot["original_name"] == "Pre-Dispatch WhatsApp Engine"
     assert pilot["automation_level"] in ("manual", "rules") and pilot["phase"] == "PILOT"
     assert reg["renames"] == [{"id": "pre-dispatch-whatsapp-engine", "from": "Pre-Dispatch WhatsApp Engine",
-                               "to": "Pre-Dispatch WhatsApp Pilot"}]
+                               "to": "Pre-Dispatch WhatsApp Pilot", "reason": "pilot_name"}]
     # every other mention followed the rename
     assert "Engine" not in json.dumps(bc)
     dca = next(m for m in mods if m["id"] == "driver-clarification-assistant")
@@ -859,6 +859,96 @@ def test_page_chrome_is_stripped_from_rendered_text():
     clean = " ".join(strip_page_chrome(page_text, "iCARRY Lebanon").split())
     assert canon in clean and "Page 7" not in clean
     assert pg.restatement_findings(strip_page_chrome(page_text, "iCARRY Lebanon"), reg["pilot_gate"]) == []
+
+
+def test_kpi_renderings_state_baselines_labels_and_never_claim_ids():
+    mods = [{"id": "cod-handler", "name": "COD Settlement Inquiry Handler", "purpose": "p", "depends_on": [],
+             "spec": {"ai": {"role": "x"}, "kpis": [
+                 {"metric": "Manual support staff interventions for COD settlement inquiries", "basis": "client_fact",
+                  "value": 300, "unit": "count", "horizon": None},
+                 {"metric": "Reduction in manual COD settlement inquiry handling", "basis": "scenario_assumption",
+                  "value": 30, "unit": "%", "horizon": "within 3 months of launch"},
+                 {"metric": "Manual dispatcher interventions per day", "basis": "pilot_gate", "value": 5, "unit": "count", "horizon": None}]},
+             "tech": {}}]
+    bc = {"financial_model": copy.deepcopy(FM46), "pilot_gate": copy.deepcopy(GATE47),
+          "build_order": ["cod-handler"]}
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    _sanitize_financial_model(bc)
+    reg = rg.build_registry(OPS, bc, mods)
+    stmt = mods[0]["spec"]["kpi_statement"]
+    assert "baseline: Around 300 inquiries (your figure)" in stmt and "300 count" not in stmt
+    assert "30% (proposed — client approval required; our scenario assumption)" in stmt
+    assert "claim " not in stmt and "count (" not in stmt
+    assert rg.kpi_number_findings("**You'll know it's working when:** " + stmt, reg, strict_kpi=True) == []
+
+
+def test_pilot_module_is_ai_free_by_construction_and_policy_pass_reaches_every_spec_string():
+    bc, mods, reg = _skeleton()
+    mods2 = copy.deepcopy(MODULES46)
+    mods2[0]["spec"]["ai"] = {"role": "parses replies"}
+    mods2[0]["tech"]["ai_agent"] = {"purpose": "parse", "tools": [{"name": "t", "does": "shows the expected remittance date under the 2-day remittance policy"}]}
+    bc2 = {"financial_model": copy.deepcopy(FM46), "pilot_gate": copy.deepcopy(GATE47), "build_order": list(BUILD_ORDER46)}
+    reg2 = rg.build_registry(OPS, bc2, mods2)
+    pilot = next(m for m in mods2 if m["pilot"])
+    assert pilot["spec"]["ai"] is None and pilot["tech"]["ai_agent"] is None and pilot["ai_involvement"] is False
+    assert reg2["pilot_ai_removed"] == [pilot["id"]] and reg2["errors"] == []
+    other = copy.deepcopy(MODULES46)
+    other[1]["tech"]["ai_agent"]["tools"] = [{"name": "t", "does": "shows the expected remittance date under the 2-day remittance policy"}]
+    reg3 = rg.build_registry(OPS, {"financial_model": copy.deepcopy(FM46), "pilot_gate": copy.deepcopy(GATE47),
+                                   "build_order": list(BUILD_ORDER46)}, other)
+    assert "10-day (your stated cycle)" in other[1]["tech"]["ai_agent"]["tools"][0]["does"]
+    assert reg3["policy_corrections"]
+
+
+def test_register_carries_the_clients_briefing_corrections():
+    from app.pipeline._shared import briefing_corrections, build_engagement_register
+
+    desc = ("Delivery platform.\n\nCorrections and additions from the briefing chat:\n"
+            "- The capability must also handle COD settlement inquiries from business clients (around 300 a month). Cover both.")
+    assert briefing_corrections(desc).startswith("The capability must also handle COD settlement inquiries")
+    reg = build_engagement_register("capability", "yes", "Failed first-attempt deliveries", "fewer failures", desc)
+    assert "EXTENDED the capability" in reg and "COD settlement inquiries" in reg
+    assert "EXTENDED" not in build_engagement_register("capability", "yes", "x", "y", "no corrections here")
+
+
+def test_r14_r15_r16_and_ai_consistency(client):
+    from app.pipeline.adjudicate import adjudicate
+
+    bc, mods, reg = _skeleton()
+    desc = ("Delivery platform.\n\nCorrections and additions from the briefing chat:\n"
+            "- The capability must also handle COD settlement inquiries from business clients (around 300 a month). Cover both.")
+    db = SessionLocal()
+    row = _seed(db, business_description=desc, business_case_json=json.dumps(bc), modules_json=json.dumps(mods),
+                registry_json=json.dumps(reg), qa_report_json=json.dumps({"checks": [], "findings": [
+                    _finding("The decision, Executive summary",
+                             "The engagement blueprint claims to address TWO capabilities ('enhancing first-attempt delivery success and automating COD settlement inquiries') despite the engagement register specifying ONE CAPABILITY.",
+                             source="qa_completeness"),
+                    _finding("The decision",
+                             "The description of Phase 1 refers to the pilot as 'Pre-Dispatch WhatsApp Pilot', which is a module name, instead of describing it as a rules-based process without using a module name.",
+                             source="qa_completeness"),
+                    _finding("THE BUSINESS CASE.financial_model.scenarios.Conservative",
+                             "The discrepancy is just a missing comma in the arithmetic field but correct in the impact string. This is a minor formatting issue.",
+                             fix="No fix needed for the figure, only for the arithmetic formatting to add a comma if desired."),
+                ]}))
+    result = adjudicate(row, {"blueprint": "fine"})
+    kinds = [e["classification"] for e in result["ledger"]]
+    assert kinds == ["semantic false positive resolved by structured phase data",
+                     "semantic false positive resolved by structured phase data",
+                     "machine-proven false positive"]
+    assert "R14" in result["ledger"][0]["evidence"] and "R15" in result["ledger"][1]["evidence"] and "R16" in result["ledger"][2]["evidence"]
+    md = "### Delivery Incident Predictor\n**What the AI does on its own:** No AI in this part — deliberately.\n"
+    found = rg.ai_consistency_findings(md, mods)
+    assert len(found) == 1 and "specified with an AI component" in found[0]["issue"]
+    db.close()
+
+
+def test_prose_thresholds_in_hand_off_sentences_are_labeled():
+    bc, mods, reg = _skeleton()
+    line = ("**Where it stops and hands to you:** it hands off when a customer doesn't respond quickly enough "
+            "(2 hours for express/same-day, 4 hours for standard deliveries), or asks for human help.")
+    out, new = rg.label_prose_thresholds(line, reg["claims"], {"n": 0})
+    assert out.count(rg.PROPOSED_LABEL) == 2 and all(c["type"] == "timing_sla" for c in new)
 
 
 def test_partial_extras_rebuild_merges_the_pilot_sop_into_the_existing_library(client, monkeypatch):

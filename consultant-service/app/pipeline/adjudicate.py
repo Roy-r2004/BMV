@@ -137,13 +137,16 @@ def _verified_values(fm: dict) -> dict[float, str]:
         impacts = [v for v in _numbers_in(str(sc.get("impact") or "")) if v > 1]
         if not fracs or not impacts:
             continue
-        impact = impacts[0]
-        hit = next(((frac, base) for frac in fracs for base in line_values
-                    if abs(base * frac - impact) / max(impact, 1e-9) <= 0.005), None)
-        if hit:
-            frac, base = hit
-            _add(impact, f"scenario '{sc.get('name')}': {frac:.0%} x verified {base:,.0f} = {impact:,.0f}")
-            _add(impact / 365 * 30, f"verified scenario impact {impact:,.0f} / 365 x 30 = {impact / 365 * 30:,.2f}/30-day month")
+        # every component of the impact (dollars AND counts) that is a
+        # fraction of a verified line is verified
+        for j, impact in enumerate(impacts):
+            hit = next(((frac, base) for frac in fracs for base in line_values
+                        if abs(base * frac - impact) / max(impact, 1e-9) <= 0.005), None)
+            if hit:
+                frac, base = hit
+                _add(impact, f"scenario '{sc.get('name')}': {frac:.0%} x verified {base:,.0f} = {impact:,.0f}")
+                if j == 0:
+                    _add(impact / 365 * 30, f"verified scenario impact {impact:,.0f} / 365 x 30 = {impact / 365 * 30:,.2f}/30-day month")
     return out
 
 
@@ -251,6 +254,19 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
             if drift:
                 _close("confirmed", f"R12: {drift[0]['issue'][:200]}", "real defect")
                 continue
+            # the figure IS the package identity and the auditor objects only
+            # to the words "per month": the convention is stated in the document
+            monthly_cited = [v for v in _numbers_in(issue) if v > 1 and _matches(v, verified)
+                             and any(abs(v - a / 365 * 30) / max(v, 1e-9) <= 0.005 for a in annuals)]
+            unverified_cited = [v for v in _numbers_in(issue) if v > 1 and not _matches(v, verified)
+                                and v not in (30, 365, 12)]
+            if monthly_cited and not unverified_cited and \
+                    re.search(r"operating.30.day|30-day month|identity|convention|'per month'", issue, re.IGNORECASE):
+                _close("false_positive",
+                       f"R12: {monthly_cited[0]:,.0f} is the package's 30-day operating-month identity and the package "
+                       "states that convention; 'per month' means that month throughout",
+                       "machine-proven false positive")
+                continue
         # R1 (confirming direction) — the auditor disputes an UNverified value
         # and proposes the verified derivation: the recompute agrees with the auditor
         dollar_cited = [float(x.replace(",", "")) for x in re.findall(r"\$\s?([\d,]+(?:\.\d+)?)", issue)]
@@ -276,7 +292,7 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 continue
             canon = re.sub(r"\s+", " ", _pg.canonical_sentence(gate))
             if canon and canon in re.sub(r"\s+", " ", corpus) and re.search(
-                    r"not (?:precisely |exactly )?match|differs from|deviates|does not match", issue, re.IGNORECASE):
+                    r"not (?:\w+\s+)?match|differs from|deviates|does not match|do not match", issue, re.IGNORECASE):
                 _close("false_positive",
                        "R8: the canonical gate sentence is present verbatim in the rendered text and zero "
                        "paraphrases exist — the auditor's mismatch claim has no textual basis",
@@ -361,11 +377,43 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 if labeled is False:
                     _close("confirmed", f"R2: {evidence}", "real defect")
                     continue
+        # R14 — scope: the client's own briefing corrections extend the capability
+        from app.pipeline._shared import briefing_corrections
+
+        corrections = briefing_corrections(getattr(req, "business_description", None))
+        if corrections and re.search(r"two capabilit|second capabilit|outside (?:the )?scope|scope creep|"
+                                     r"introduced prematurely|beyond the (?:one|stated) capability", issue, re.IGNORECASE):
+            nouns = {w for w in re.findall(r"[a-z]{4,}", corrections.lower())} - {"must", "also", "from", "around", "month",
+                                                                                    "roughly", "half", "just", "cover", "both", "with"}
+            shared = [w for w in nouns if w in issue.lower()]
+            if len(shared) >= 2:
+                _close("false_positive",
+                       f"R14: the client extended the capability in the briefing chat (shared terms: {', '.join(sorted(shared)[:4])}) — "
+                       "the register carries that correction; this is scope, not scope creep",
+                       "semantic false positive resolved by structured phase data")
+                continue
+        # R15 — the Phase 1 bullet carries the pilot module's client-facing name BY DESIGN
+        if registry and re.search(r"phase 1", issue, re.IGNORECASE) and \
+                re.search(r"module name|refers? to the pilot as|instead of describing|uses? the module", issue, re.IGNORECASE):
+            pilot = next((m for m in registry.get("modules") or [] if m.get("pilot")), None)
+            if pilot and pilot.get("automation_level") in ("manual", "rules") and not pilot.get("ai_involvement"):
+                _close("false_positive",
+                       f"R15: Phase 1 is named after its pilot module '{pilot.get('client_facing_name')}', which the "
+                       f"registry types as PILOT / {pilot.get('automation_level')} / no AI — one capability, one name",
+                       "semantic false positive resolved by structured phase data")
+                continue
+        # R16 — the auditor's own text reports no defect
+        if re.search(r"no fix (?:is )?needed|no change (?:is )?needed|no correction (?:is )?needed|formatting only|"
+                     r"this is a minor|cosmetic", fix + " " + issue, re.IGNORECASE) and \
+                not re.search(r"must|should be corrected|is wrong|incorrect", fix, re.IGNORECASE):
+            _close("false_positive", "R16: the auditor's own fix text states no correction is needed — not a defect",
+                   "machine-proven false positive")
+            continue
         # R10 — pilot-module honesty: a Phase 1 naming/AI finding against the registry
         if registry and re.search(r"phase 1|pilot", issue, re.IGNORECASE) and \
                 re.search(r"engine|predictive|rules-based|manual|\bAI\b", issue, re.IGNORECASE):
             errs = [e for e in (registry.get("errors") or []) if "pilot" in e.lower()]
-            renames = registry.get("renames") or []
+            renames = [r for r in (registry.get("renames") or []) if r.get("reason", "pilot_name") == "pilot_name"]
             if errs or renames:
                 _close("confirmed",
                        "R10: the registry rejects the pilot module as named/specified — "

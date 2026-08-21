@@ -60,6 +60,7 @@ def analyze_business(db: Session, request_id: int) -> dict:
             site_research=_format_site_research(req),
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
             ),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}])

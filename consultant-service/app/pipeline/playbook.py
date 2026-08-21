@@ -54,6 +54,7 @@ def write_playbook(
             business_case=json.dumps(business_case, indent=1) if business_case else "(empty)",
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
             ),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=4000)

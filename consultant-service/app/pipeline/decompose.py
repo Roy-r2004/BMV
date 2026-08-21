@@ -247,6 +247,7 @@ def decompose_business(
             owner_numbers=_format_owner_numbers(req),
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
             ),
             business_model=analysis.get("business_model", "Unknown"),
             target_customer_profile=analysis.get("target_customer_profile", ""),

@@ -89,6 +89,7 @@ def machine_findings(req: Request, registry: dict | None, texts: dict[str, str] 
         scope["business_case"] = bc
         out += timebasis.identity_findings(scope, annuals)
     out += _registry.policy_findings(texts, registry.get("claims") or [])
+    out += _registry.ai_consistency_findings(req.technical_plan or "", modules)
     return out
 
 
@@ -117,6 +118,7 @@ def review_quality(db: Session, request_id: int) -> None:
     )
     register = build_engagement_register(
         req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
     )
     business_case = req.business_case_json or "{}"
     modules = json.loads(req.modules_json) if req.modules_json else []

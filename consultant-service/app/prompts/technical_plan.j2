@@ -30,7 +30,7 @@ One ### subsection PER MODULE, in the decomposition's order. Each subsection res
 - **What this part does:** 1-2 plain sentences (from purpose/features)
 - **What it keeps track of:** each record from tech.data_model as a plain phrase with what's inside, e.g. "every pre-approval request — which patient, which insurer, which treatments, where it stands". Never show snake_case or field-list notation here.
 - **The screens you'll use:** from the spec ("screens")
-- **What the AI does on its own:** the agent's purpose and its tools translated into plain verbs, e.g. "checks where a request stands, drafts the message to the patient, flags anything unusual" — or the line "No AI in this part — deliberately." when tech.ai_agent is null
+- **What the AI does on its own:** the agent's purpose and its tools translated into plain verbs, e.g. "checks where a request stands, drafts the message to the patient, flags anything unusual" — or the line "No AI in this part — deliberately." ONLY when the module's ai_involvement is false (never for a module whose spec carries an AI role)
 - **What it knows:** the agent's brain in plain words — the knowledge of YOUR business it is grounded in
 - **Where it stops and hands to you:** decides_alone vs escalation, as one honest sentence naming who picks it up
 - **What it will never do:** the guardrails, plainly

@@ -40,6 +40,7 @@ def consult(db: Session, request_id: int, analysis: dict) -> dict:
             growth_opportunity=analysis.get("growth_opportunity", ""),
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
             ),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}])

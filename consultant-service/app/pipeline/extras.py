@@ -45,11 +45,14 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
 
     claims = (registry or {}).get("claims") or []
     counter = {"n": sum(1 for c in claims if str(c.get("id", "")).startswith("TH-"))}
+    renames = [(r["from"], r["to"]) for r in ((registry or {}).get("renames") or []) if r.get("from") and r.get("to")]
 
     def _fix(s):
         if not isinstance(s, str):
             return s
         s, _ = _pg.enforce(s, gate)
+        for old, new in renames:
+            s = s.replace(old, new)
         return _registry.resolve_module_ids(s, modules)
 
     ai_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
@@ -57,7 +60,7 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
     for p in procedures or []:
         if not isinstance(p, dict):
             continue
-        for key in ("name", "trigger"):
+        for key in ("name", "trigger", "module"):
             p[key] = _fix(p.get(key))
         for st in p.get("steps") or []:
             if isinstance(st, dict):
@@ -176,6 +179,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     operating_stage = req.operating_stage or "operating"
     register = build_engagement_register(
         req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            req.business_description,
     )
 
     # Slim module context: the full deep specs would triple every prompt;

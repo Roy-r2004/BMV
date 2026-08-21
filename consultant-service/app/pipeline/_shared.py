@@ -7,16 +7,34 @@ from sqlalchemy.orm import Session
 from app.models import AiUsageEvent, Request
 
 
+CORRECTIONS_MARKER = "Corrections and additions from the briefing chat:"
+
+
+def briefing_corrections(business_description: str | None) -> str:
+    """The client's own additions from the pre-launch briefing chat, as one
+    line — they extend the capability's scope and every stage must know."""
+    text = business_description or ""
+    if CORRECTIONS_MARKER not in text:
+        return ""
+    tail = text.split(CORRECTIONS_MARKER, 1)[1]
+    lines = [ln.strip().lstrip("-• ").strip() for ln in tail.splitlines()]
+    return " ".join(ln for ln in lines if ln)
+
+
 def build_engagement_register(
     engagement_type: str | None,
     needs_ai: str | None,
     main_problem: str | None,
     desired_outcome: str | None,
+    business_description: str | None = None,
 ) -> str:
     """The scope-and-AI-appetite paragraph injected into every content
     prompt. Two independent axes: whole-business vs one-capability, and
     how much AI the client actually asked for. One shared builder so the
-    register can never drift between stages."""
+    register can never drift between stages. The client's briefing-chat
+    corrections extend the capability (run 47: COD settlement inquiries
+    were read as a second capability because the register never said)."""
+    corrections = briefing_corrections(business_description)
     if engagement_type == "capability":
         focus = main_problem or desired_outcome or "the one problem stated in their brief"
         base = (
@@ -27,6 +45,11 @@ def build_engagement_register(
             "outside this capability's slice, and always include how it plugs into their current "
             "operation."
         )
+        if corrections:
+            base += (
+                " The client EXTENDED the capability in the briefing chat — these corrections are part "
+                f"of the scope, not scope creep: {corrections}"
+            )
     else:
         base = (
             "This engagement blueprints the WHOLE BUSINESS — the complete operating picture: how "

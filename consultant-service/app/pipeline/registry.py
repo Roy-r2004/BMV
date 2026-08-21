@@ -81,7 +81,10 @@ _SKIP_AFTER = re.compile(r"^\s*(/7|x\b|×|am\b|pm\b|:\d|-\w)", re.IGNORECASE)
 _THRESHOLD_SENTENCE = re.compile(
     r"within\s+\d|under\s+\d|\d\s*%\s*(accuracy|precision|recall|f1|of|success|resolution|helpful|"
     r"correct|confirm)|\d+\s*(ms|milliseconds)\b|first\s+\d|sample of\s+\d|historical|"
-    r"know it.?s working|finished when|evaluation|trusted when|acceptance", re.IGNORECASE)
+    r"know it.?s working|finished when|evaluation|trusted when|acceptance|"
+    r"(?=.*\d)(?:.*\b(sample|review|reviews|reviewed|checked|audit\w*|backtest\w*|precision|recall|f1|latency|"
+    r"accuracy|at least|more than|fewer than|less than|no more than|per day|per hour|per week|threshold|target|"
+    r"window|hours? for|minutes? for|seconds? for)\b)", re.IGNORECASE)
 _YEAR = re.compile(r"^(19|20)\d{2}$")
 _LABEL_WINDOW = 130
 _SLUG_ITEM = re.compile(r"(?m)^\s*(?:\d+\.|[-*•])\s*\**([a-z0-9]+(?:-[a-z0-9]+)+)\**\s*:")
@@ -315,7 +318,8 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
         if is_pilot and _AI_NAME.search(name):
             name = canonical_pilot_name(name)
         if name != original:
-            renames.append({"id": m["id"], "from": original, "to": name})
+            renames.append({"id": m["id"], "from": original, "to": name,
+                            "reason": "pilot_name" if (is_pilot and _AI_NAME.search(original)) else "alias"})
             m["original_name"] = original
             m["name"] = name
         if alias:
@@ -588,8 +592,8 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
                 if re.search(r"\b30[- ]day\s*(?:operating\s*)?month|[x×*]\s*30\s*days", near, re.IGNORECASE):
                     continue
                 stated = m.group(0)
-                if re.search(r"\(proposed", sentence[m.end():m.end() + 130]):
-                    continue
+                # a label does not rescue an invented policy: the client stated
+                # their cycle, and a different one is a contradiction, labeled or not
                 out.append({"severity": "high", "source": "structural", "where": f"{label}: operational policy",
                             "issue": (f"A settlement/remittance period of '{stated}' is stated, but the client's "
                                       f"stated period is {sorted(client_days)[0]} days — a policy the client never gave: "
@@ -661,6 +665,35 @@ def enforce_gate_in_specs(modules: list, gate: dict | None) -> int:
     return n
 
 
+def ai_consistency_findings(technical_md: str, modules: list) -> list[dict]:
+    """A module specified with an AI component may not be described as
+    'No AI in this part' — and vice versa (run 47: the Smart Reply module)."""
+    out = []
+    md = technical_md or ""
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+        name = str(m.get("client_facing_name") or m.get("name") or "")
+        if not name:
+            continue
+        start = md.find("### " + name)
+        if start < 0:
+            continue
+        nxt = md.find("\n### ", start + 4)
+        section = md[start: nxt if nxt > 0 else len(md)]
+        says_no_ai = "No AI in this part" in section
+        has_ai = bool(m.get("ai_involvement"))
+        if says_no_ai and has_ai:
+            out.append({"severity": "high", "source": "structural", "where": f"technical: {name}",
+                        "issue": f"'{name}' is specified with an AI component but its section says 'No AI in this part — deliberately'.",
+                        "fix": "describe the module's AI role from its spec, or remove the AI from the spec"})
+        if not says_no_ai and not has_ai and re.search(r"\*\*What the AI does on its own:\*\*\s*(?!No AI)", section):
+            out.append({"severity": "high", "source": "structural", "where": f"technical: {name}",
+                        "issue": f"'{name}' has no AI component in its spec but its section describes AI behavior.",
+                        "fix": "write 'No AI in this part — deliberately.' for this module"})
+    return out
+
+
 def proposals(reg: dict) -> list[dict]:
     """Every consultant-proposed numeric claim still awaiting acceptance —
     the list the client signs off, and nothing a document may state as fact."""
@@ -703,8 +736,51 @@ def type_technical_specs(modules: list, claims: list[dict], counter: dict) -> li
                                                             source="tech.ai_agent.escalation",
                                                             module_id=mid, counter=counter, phase=phase)
                     new += c
+        # client-facing strings outside the spec proper carry thresholds too
+        for key in ("purpose", "pain_point_addressed"):
+            if isinstance(m.get(key), str):
+                m[key], c = threshold_pass(m[key], claims, source=f"module.{key}", module_id=mid,
+                                           counter=counter, phase=phase)
+                new += c
+        if isinstance(tech, dict):
+            for key in ("apis",):
+                for i, it in enumerate(tech.get(key) or []):
+                    if isinstance(it, dict) and isinstance(it.get("does"), str):
+                        it["does"], c = threshold_pass(it["does"], claims, source=f"tech.{key}[{i}].does",
+                                                       module_id=mid, counter=counter, phase=phase)
+                        new += c
+            for i, it in enumerate(tech.get("integration_details") or []):
+                if isinstance(it, dict) and isinstance(it.get("data"), str):
+                    it["data"], c = threshold_pass(it["data"], claims, source=f"tech.integration_details[{i}].data",
+                                                   module_id=mid, counter=counter, phase=phase)
+                    new += c
+            agent = tech.get("ai_agent")
+            if isinstance(agent, dict):
+                for i, t in enumerate(agent.get("tools") or []):
+                    if isinstance(t, dict) and isinstance(t.get("does"), str):
+                        t["does"], c = threshold_pass(t["does"], claims, source=f"tech.ai_agent.tools[{i}].does",
+                                                      module_id=mid, counter=counter, phase=phase)
+                        new += c
+                for key in ("brain", "memory"):
+                    if isinstance(agent.get(key), list):
+                        for i, it in enumerate(agent[key]):
+                            if isinstance(it, str):
+                                agent[key][i], c = threshold_pass(it, claims, source=f"tech.ai_agent.{key}[{i}]",
+                                                                  module_id=mid, counter=counter, phase=phase)
+                                new += c
+                    elif isinstance(agent.get(key), str):
+                        agent[key], c = threshold_pass(agent[key], claims, source=f"tech.ai_agent.{key}",
+                                                       module_id=mid, counter=counter, phase=phase)
+                        new += c
         spec = m.get("spec") or {}
         if isinstance(spec, dict):
+            for key in ("data", "screens", "integrations"):
+                if isinstance(spec.get(key), list):
+                    for i, it in enumerate(spec[key]):
+                        if isinstance(it, str):
+                            spec[key][i], c = threshold_pass(it, claims, source=f"spec.{key}[{i}]",
+                                                             module_id=mid, counter=counter, phase=phase)
+                            new += c
             for i, f in enumerate(spec.get("features") or []):
                 if isinstance(f, dict) and isinstance(f.get("description"), str):
                     f["description"], c = threshold_pass(f["description"], claims,
@@ -841,10 +917,16 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
             if isinstance(value, (int, float)) and basis in _BASIS_TYPES:
                 known = _matches_claim(float(value), "%" if unit == "%" else unit, claims, _BASIS_TYPES[basis])
             if isinstance(value, (int, float)) and known is not None:
-                tag = {"client_fact": "your figure", "scenario_assumption": "scenario assumption — requires your approval",
-                       "pilot_gate": "the pilot gate"}.get(known["type"], "computed from your figures")
-                shown = f"{value:.0%}" if unit == "%" and value <= 1 else f"{value:g}{(' ' + unit) if unit and unit != '%' else ('%' if unit == '%' else '')}"
-                stmt = f"{metric}: {shown} ({tag}, claim {known['id']})."
+                shown_unit = "" if unit in ("count", "number", "") else (" " + unit if unit != "%" else "")
+                shown = f"{value:.0%}" if unit == "%" and value <= 1 else f"{value:g}{shown_unit}"
+                if known["type"] == "client_fact":
+                    # a client figure is a BASELINE a KPI starts from, never a target we set
+                    fact = str(known.get("text") or shown).strip()
+                    stmt = f"{metric} — baseline: {fact} (your figure); {WEEK_ONE_SENTENCE[0].lower() + WEEK_ONE_SENTENCE[1:-1]} for the target."
+                elif known["type"] == "scenario_assumption":
+                    stmt = f"{metric}: {shown} {PROPOSED_LABEL[:-1]}; our scenario assumption)."
+                else:
+                    stmt = f"{metric}: {shown} {PROPOSED_LABEL[:-1]}; from the pilot decision gate)."
                 rendered.append(stmt)
                 out.append(_claim(f"MK-{mid}-{n:02d}", "module_kpi", value, unit or "count", scope=mid,
                                   phase=m.get("phase") or "FUTURE", provenance=known["provenance"],
@@ -896,19 +978,46 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         bc["pilot_gate"] = gate
         claims += _pg.gate_claims(gate)
     enforce_gate_in_specs(modules, gate)
-    policy_notes = []
+    # the Phase 1 pilot is manual or rules-based BY LAW: an AI component the
+    # model specced into the pilot module is removed from it (the AI belongs
+    # to the later modules the pilot's data will train)
+    pilot_ai_removed = []
     for m in modules or []:
-        tech = m.get("tech") if isinstance(m, dict) and isinstance(m.get("tech"), dict) else {}
-        agent = tech.get("ai_agent") if isinstance(tech.get("ai_agent"), dict) else {}
-        for items in (agent.get("brain"), agent.get("evaluation"), tech.get("done_when"), tech.get("security")):
-            if isinstance(items, list):
-                for i, it in enumerate(items):
-                    if isinstance(it, str):
-                        items[i], notes = policy_pass(it, claims)
-                        policy_notes += notes
-        if isinstance(agent.get("memory"), str):
-            agent["memory"], notes = policy_pass(agent["memory"], claims)
-            policy_notes += notes
+        if isinstance(m, dict) and m.get("pilot"):
+            spec = m.get("spec") if isinstance(m.get("spec"), dict) else None
+            tech = m.get("tech") if isinstance(m.get("tech"), dict) else None
+            if (spec and spec.get("ai")) or (tech and tech.get("ai_agent")):
+                pilot_ai_removed.append(m["id"])
+                if spec is not None:
+                    spec["ai"] = None
+                if tech is not None:
+                    tech["ai_agent"] = None
+                m["ai_involvement"] = False
+                m["automation_level"] = "rules" if m.get("automation_level") not in ("manual", "rules") else m["automation_level"]
+                for rm in reg_modules:
+                    if rm["id"] == m["id"]:
+                        rm["ai_involvement"] = False
+                        rm["automation_level"] = m["automation_level"]
+    policy_notes = []
+
+    def _policy_walk(obj, key=None):
+        if isinstance(obj, str):
+            if key in ("id", "name", "entity", "fields", "original_name", "client_facing_name", "alias"):
+                return obj
+            fixed, notes = policy_pass(obj, claims)
+            policy_notes.extend(notes)
+            return fixed
+        if isinstance(obj, dict):
+            return {k: _policy_walk(v, k) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_policy_walk(v, key) for v in obj]
+        return obj
+
+    for m in modules or []:
+        if isinstance(m, dict):
+            for key in ("spec", "tech", "purpose", "pain_point_addressed"):
+                if key in m:
+                    m[key] = _policy_walk(m[key], key)
     counter = {"n": 0}
     claims += type_technical_specs(modules, claims, counter)
     if procedures:
@@ -924,6 +1033,7 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         "modules": reg_modules,
         "renames": renames,
         "policy_corrections": policy_notes,
+        "pilot_ai_removed": pilot_ai_removed,
         "pilot_gate": gate,
         "pilot_gate_sentence": _pg.canonical_sentence(gate) if gate else "",
         "build_order_names": [
