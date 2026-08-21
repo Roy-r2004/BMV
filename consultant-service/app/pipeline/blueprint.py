@@ -149,6 +149,33 @@ def _pin_kpi_lines(content: str, modules: list) -> str:
     return "".join(parts)
 
 
+def _repair_no_ai_lines(content: str, modules: list) -> str:
+    """A module specced with AI never reads 'No AI in this part': the line is
+    rebuilt from the spec's own ai role / decides_alone / hands_off."""
+    if not content:
+        return content
+    parts = re.split(r"(?m)^(### [^\n]+)$", content)
+    by_name = {str(m.get("client_facing_name") or m.get("name") or ""): m for m in (modules or []) if isinstance(m, dict)}
+    for i in range(1, len(parts), 2):
+        m = by_name.get(parts[i][4:].strip().strip("*").strip())
+        if not m or not m.get("ai_involvement"):
+            continue
+        ai = (m.get("spec") or {}).get("ai") if isinstance(m.get("spec"), dict) else None
+        if not isinstance(ai, dict):
+            continue
+        role = str(ai.get("role") or "").strip().rstrip(".")
+        alone = str(ai.get("decides_alone") or "").strip().rstrip(".")
+        hands = str(ai.get("hands_off") or "").strip().rstrip(".")
+        line = role[0].upper() + role[1:] if role else "Works inside this part as specified"
+        if alone:
+            line += f". On its own it {alone[0].lower() + alone[1:]}"
+        if hands:
+            line += f". It hands off {hands[0].lower() + hands[1:]}"
+        parts[i + 1] = re.sub(r"(\*\*What the AI does on its own:\*\*)\s*No AI in this part — deliberately\.?",
+                              lambda mm: f"{mm.group(1)} {line}.", parts[i + 1])
+    return "".join(parts)
+
+
 def _no_null_lines(content: str) -> str:
     out = _NULL_LINE.sub(r"\1 No AI in this part — deliberately.", content or "")
     return _ANY_NULL.sub(r"\1 none", out)
@@ -173,6 +200,8 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
         content = _pg.ensure_in_decision(content, gate)
         content = _pin_kpi_lines(content, modules)
     content = _no_null_lines(content)
+    if kind == "technical":
+        content = _repair_no_ai_lines(content, modules)
     content = _reg.resolve_module_ids(content, modules)
     content, _ = timebasis.check_restatements(content, _annual_claims(business_case))
     content = timebasis.round_counts(content)

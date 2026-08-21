@@ -877,7 +877,7 @@ def test_kpi_renderings_state_baselines_labels_and_never_claim_ids():
     _sanitize_financial_model(bc)
     reg = rg.build_registry(OPS, bc, mods)
     stmt = mods[0]["spec"]["kpi_statement"]
-    assert "baseline: Around 300 inquiries (your figure)" in stmt and "300 count" not in stmt
+    assert "(your related figure: COD settlement inquiries per month: Around 300 inquiries)" in stmt and "300 count" not in stmt
     assert "30% (proposed — client approval required; our scenario assumption)" in stmt
     assert "claim " not in stmt and "count (" not in stmt
     assert rg.kpi_number_findings("**You'll know it's working when:** " + stmt, reg, strict_kpi=True) == []
@@ -1030,6 +1030,48 @@ def test_polish_rewrite_goes_through_the_deterministic_passes(client, monkeypatc
     qa_experts.review_quality(db, row.id)
     db.refresh(row)
     assert row.mvp_blueprint.count(canon) == 2 and "derived from your 12%" not in row.mvp_blueprint
+    db.close()
+
+
+def test_pass5_classes_merged_sentences_future_week_one_no_ai_repair_and_quote_only_findings(client):
+    from app.pipeline.adjudicate import adjudicate
+    from app.pipeline.blueprint import _repair_no_ai_lines
+
+    bc, mods, reg = _skeleton()
+    g = reg["pilot_gate"]
+    merged = ("- Enhanced client satisfaction due to improved reliability and faster COD settlements **What staying manual "
+              "costs:** Continuing with 12% failed first attempts costs approximately $5,832 per month in re-attempt costs alone.")
+    assert pg.restatement_findings(merged, g) == []
+    out, rep = pg.enforce(merged, g)
+    assert out == merged and rep["paraphrases_replaced"] == 0
+    # the FUTURE module's week-one statement names its own launch
+    dip = next(m for m in mods if m["id"] == "delivery-incident-predictor")
+    assert "once this module is live" in dip["spec"]["kpi_statement"]
+    pilot = next(m for m in mods if m["pilot"])
+    assert "once this module is live" not in pilot["spec"]["kpi_statement"]
+    # the "No AI" line of an AI-specced module is rebuilt from its spec
+    dip["spec"]["ai"] = {"role": "scores each order's failure risk", "decides_alone": "which orders to flag",
+                         "hands_off": "to operations when a flagged order needs a call"}
+    md = "### Delivery Incident Predictor\n- **What the AI does on its own:** No AI in this part — deliberately.\n"
+    fixed = _repair_no_ai_lines(md, mods)
+    assert "No AI in this part" not in fixed and "Scores each order's failure risk. On its own it which orders to flag" in fixed
+    # quote-only findings: labeled everywhere => proposal; a bare one => defect with evidence
+    db = SessionLocal()
+    row = _seed(db, registry_json=json.dumps(reg), modules_json=json.dumps(mods), business_case_json=json.dumps(bc),
+                qa_report_json=json.dumps({"checks": [], "findings": [
+                    _finding("THE TECHNICAL PLAN DOCUMENT: X", "'within 5 minutes', '>90%'"),
+                    _finding("THE TECHNICAL PLAN DOCUMENT: Y", "'3 re-prompts'"),
+                    _finding("The product, module by module",
+                             "The module 'Automated COD Settlement Inquiry Handler' is listed as 'Automated COD Settlement Inquiry Handler' in the document but is listed as 'Automated COD Settlement Inquiry Handler' in the structured layers, an inconsistency.",
+                             source="qa_completeness"),
+                ]}))
+    rendered = {"technical": "sent within 5 minutes (proposed — client approval required); accuracy >90% (proposed — client approval required). "
+                             "escalates after 3 re-prompts with no label here."}
+    result = adjudicate(row, rendered)
+    kinds = [e["classification"] for e in result["ledger"]]
+    assert kinds[0] == "semantic false positive resolved by structured threshold typing" and "R23" in result["ledger"][0]["evidence"]
+    assert kinds[1] == "real defect" and "carry no approval label" in result["ledger"][1]["evidence"]
+    assert kinds[2] == "machine-proven false positive" and "R22" in result["ledger"][2]["evidence"]
     db.close()
 
 

@@ -77,7 +77,10 @@ _NUM = re.compile(
 _SKIP_BEFORE = re.compile(
     r"((phase|section|page|volume|step|week|tier|level|version|part|top|chapter|figure|table|"
     r"option|v|q|run|no\.|#)\s*|[A-Za-z0-9]-|claim\s+[A-Z]{2}-[\w-]*)$", re.IGNORECASE)
-_SKIP_AFTER = re.compile(r"^\s*(/7|x\b|×|am\b|pm\b|:\d|-\w)", re.IGNORECASE)
+_SKIP_AFTER = re.compile(
+    r"^\s*(/7|x\b|×|am\b|pm\b|:\d|-\w|(?:phases?|steps?|parts?|modules?|volumes?|sections?|pages?|records?|"
+    r"screens?|tables?|fields?|roles?|types?|categories|options?|lists?|entities|tools?|integrations?|"
+    r"scenarios?|stages?|layers?|columns?|rows?|reasons?|sentences?|questions?|items?)\b)", re.IGNORECASE)
 _THRESHOLD_SENTENCE = re.compile(
     r"within\s+\d|under\s+\d|\d\s*%\s*(accuracy|precision|recall|f1|of|success|resolution|helpful|"
     r"correct|confirm)|\d+\s*(ms|milliseconds)\b|first\s+\d|sample of\s+\d|historical|"
@@ -122,7 +125,7 @@ def _numbers(text: str) -> list[tuple[str, float, str, int, int]]:
     out = []
     for m in _NUM.finditer(text or ""):
         before = text[max(0, m.start() - 14):m.start()]
-        after = text[m.end():m.end() + 4]
+        after = text[m.end():m.end() + 16]
         tok, unit = m.group(1), (m.group(2) or "").strip()
         if _SKIP_BEFORE.search(before) or _SKIP_AFTER.match(after):
             continue
@@ -537,7 +540,9 @@ def label_prose_thresholds(text: str, claims: list[dict], counter: dict, *,
     new: list[dict] = []
     out_lines = []
     for line in text.split("\n"):
-        if not _THRESHOLD_SENTENCE.search(line) or "For your build team" in line:
+        # every body line of the plan is in scope — except the sanctioned
+        # technical line, headings, and lines with no digit at all
+        if "For your build team" in line or line.lstrip().startswith("#") or not re.search(r"\d", line):
             out_lines.append(line)
             continue
         fixed, c = threshold_pass(line, claims, source=source, module_id=module_id, counter=counter)
@@ -931,9 +936,12 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
                 shown_unit = "" if unit in ("count", "number", "") else (" " + unit if unit != "%" else "")
                 shown = f"{value:.0%}" if unit == "%" and value <= 1 else f"{value:g}{shown_unit}"
                 if known["type"] == "client_fact":
-                    # a client figure is a BASELINE a KPI starts from, never a target we set
+                    # a client figure is context a KPI starts from — named with
+                    # its question so it is never read as the metric's own baseline
                     fact = str(known.get("text") or shown).strip()
-                    stmt = f"{metric} — baseline: {fact} (your figure); {WEEK_ONE_SENTENCE[0].lower() + WEEK_ONE_SENTENCE[1:-1]} for the target."
+                    q = str(known.get("question") or "").strip().rstrip("?")
+                    related = f"{q}: {fact}" if q else fact
+                    stmt = f"{metric} — {WEEK_ONE_SENTENCE[:-1]} (your related figure: {related})."
                 elif known["type"] == "scenario_assumption":
                     stmt = f"{metric}: {shown} {PROPOSED_LABEL[:-1]}; our scenario assumption)."
                 else:
@@ -957,6 +965,12 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
             pain = str(m.get("pain_point_addressed") or m.get("purpose") or "the outcome this part exists for")
             pain = pain.rstrip(".")
             rendered.append(f"{pain[0].upper() + pain[1:]} — {WEEK_ONE_SENTENCE}")
+        # a FUTURE module's week one is its first week live, not the pilot's
+        if not m.get("pilot"):
+            rendered = [r.replace(WEEK_ONE_SENTENCE, WEEK_ONE_SENTENCE[:-1] + " once this module is live.")
+                        .replace(WEEK_ONE_SENTENCE[:-1] + " (your related figure",
+                                 WEEK_ONE_SENTENCE[:-1] + " once this module is live (your related figure")
+                        for r in rendered]
         # de-duplicate while preserving order
         seen = set()
         rendered = [r for r in rendered if not (r in seen or seen.add(r))]

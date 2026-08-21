@@ -259,8 +259,9 @@ _SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[*(\-•\d])|\n")
 
 
 _GATE_SIGNAL = re.compile(
-    r"percentage.point|\bpp\b|decision gate|pilot gate|unlock phase|target|baseline|increas|decreas|"
-    r"\brise|\bfall|improv|reduc|success rate|within \d+ weeks? of (the )?pilot", re.IGNORECASE)
+    r"percentage.point|\bpp\b|decision gate|pilot gate|unlock phase|\btarget|baseline|success rate|"
+    r"within \d+ weeks? of (the )?pilot|\b1 in \d+\b", re.IGNORECASE)
+_BOLD_LABEL = re.compile(r"\s+(?=\*\*[A-Z][^*\n]{2,60}:\*\*)")
 
 
 def is_paraphrase(sentence: str, g: dict) -> bool:
@@ -285,6 +286,7 @@ def restatement_findings(text: str, g: dict) -> list[dict]:
     text = re.sub(r"\n\s*(?:[-*•]|\d+\.)\s+", ". ", text)
     text = re.sub(r"\s*•\s*", ". ", text)
     text = re.sub(r"\s-\s+(?=[A-Z*])", ". ", text)
+    text = _BOLD_LABEL.sub(". ", text)
     text = re.sub(r"[ \t\r]*\n[ \t\r]*", " ", text)
     text = re.sub(r"\s{2,}", " ", text)
     text = _GATE_TABLE.sub(" [gate components table] ", text)
@@ -317,7 +319,7 @@ def enforce(text: str, g: dict | None) -> tuple[str, dict]:
             fixed.append(para)
             continue
         has_canon = canon in para
-        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z\[*(\-•\d])", para)
+        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z\[*(\-•\d])|\s+(?=\*\*[A-Z][^*\n]{2,60}:\*\*)|\s-\s+(?=[A-Z*])", para)
         rebuilt = []
         for s in sentences:
             if is_paraphrase(s, g):

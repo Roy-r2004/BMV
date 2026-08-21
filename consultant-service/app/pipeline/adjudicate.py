@@ -311,7 +311,7 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
             canon = re.sub(r"\s+", " ", _pg.canonical_sentence(gate))
             if canon and canon in re.sub(r"\s+", " ", corpus) and re.search(
                     r"not (?:\w+\s+)?match|differs? from|deviat|does not match|do not match|discrepanc|"
-                    r"formatting difference|inconsisten|but the struct", issue, re.IGNORECASE):
+                    r"formatting difference|inconsisten|but the struct|varies|variation|slightly", issue, re.IGNORECASE):
                 _close("false_positive",
                        "R8: the canonical gate sentence is present verbatim in the rendered text and zero "
                        "paraphrases exist — the auditor's mismatch claim has no textual basis",
@@ -396,6 +396,44 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 if labeled is False:
                     _close("confirmed", f"R2: {evidence}", "real defect")
                     continue
+        # R21 — week-one measurement on a FUTURE module: its first week live, by the statement itself
+        if registry and re.search(r"week.one|week 1", issue, re.IGNORECASE) and re.search(r"phase [23]|future|later phase|not (?:yet )?built", issue, re.IGNORECASE):
+            named = [m for m in registry.get("modules") or []
+                     if m.get("client_facing_name") and m["client_facing_name"] in issue and m.get("phase") == "FUTURE"]
+            if named and "once this module is live" in corpus:
+                _close("false_positive",
+                       f"R21: '{named[0]['client_facing_name']}' is FUTURE; its KPI statement reads 'week-one measurement once "
+                       "this module is live' — the baseline is measured when the module launches, not during the pilot",
+                       "semantic false positive resolved by structured phase data")
+                continue
+        # R22 — an 'inconsistency' between two identical names is no inconsistency
+        quoted_all = _QUOTED.findall(issue)
+        if len(quoted_all) >= 2 and re.search(r"inconsisten|mismatch|differ|listed as", issue, re.IGNORECASE) and \
+                len({q.strip().lower() for q in quoted_all if not any(ch.isdigit() for ch in q)}) == 1 and \
+                not any(ch.isdigit() for ch in "".join(quoted_all)):
+            _close("false_positive",
+                   f"R22: the quoted names are identical ('{quoted_all[0]}') — the auditor compared a string with itself",
+                   "machine-proven false positive")
+            continue
+        # R23 — a finding that is only a list of quoted thresholds: each is judged on
+        # its own evidence — registered & labeled everywhere => proposal, bare => defect
+        stripped = re.sub(r"'[^']*'", "", issue).strip(" ,;.")
+        if quoted_all and not stripped:
+            numeric = [q for q in quoted_all if any(ch.isdigit() for ch in q)]
+            qualitative = [q for q in quoted_all if not any(ch.isdigit() for ch in q)]
+            bare = []
+            for q in numeric:
+                labeled, evidence = _label_check(q, corpus)
+                if labeled is False:
+                    bare.append(evidence)
+            if bare:
+                _close("confirmed", "R23/R2: " + "; ".join(bare)[:300], "real defect")
+                continue
+            _close("false_positive",
+                   "R23: every quoted threshold is labeled '(proposed …)' at every occurrence in the rendered text"
+                   + (f"; qualitative triggers carry no value to approve ({', '.join(qualitative[:2])})" if qualitative else ""),
+                   "semantic false positive resolved by structured threshold typing")
+            continue
         # R14 — scope: the client's own briefing corrections extend the capability
         from app.pipeline._shared import briefing_corrections
 
