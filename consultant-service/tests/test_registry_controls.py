@@ -1220,6 +1220,37 @@ def test_overlapping_modules_and_list_named_phases_are_rejected_and_label_probes
     assert labeled is True and "all 1 occurrence" in evidence
 
 
+def test_preflight_retries_with_targeted_feedback_and_metric_direction_is_checked(client, monkeypatch):
+    from app.pipeline import orchestrator as orch
+    from app.templating import render
+
+    claims = rg.client_fact_claims(json.loads(OPS), [])
+    wrong_way = {**GATE47, "target": "A 25% relative reduction in first-attempt delivery success rate (proposed — client approval required)",
+                 "change_kind": "relative", "target_value": 25}
+    errs = pg.gate_errors(pg.normalize_gate(wrong_way, claims))
+    assert any("contradicts a success-type" in e for e in errs)
+    seen = []
+    bad = {"modules": [{"id": "a", "name": "A", "purpose": "p", "depends_on": []}],
+           "business_case": {"financial_model": {"scenarios": [
+               {"name": "S", "assumption": "prevents 10% and resolves 25%", "impact": "Saved $7,096/year."}]}}}
+    good = {"modules": [{"id": "a", "name": "A", "purpose": "p", "depends_on": []}], "business_case": {"financial_model": {"scenarios": []}}}
+
+    def fake_decompose(db, request_id, *a, feedback=None, **k):
+        seen.append(feedback)
+        return good if len(seen) == 3 else bad
+
+    monkeypatch.setattr(orch.decompose, "decompose_business", fake_decompose)
+    out = orch._decompose_with_preflight(None, 1)
+    assert out is good and seen[0] is None and seen[1] and "promises 2 impact mechanism" in seen[1][0] and seen[2]
+    prompt = render("decompose.j2", business_name="B", business_description="d", industry="i", revenue_today="r",
+                    main_problem="m", desired_outcome="o", site_research="none", business_model="x",
+                    target_customer_profile="", pain_points="[]", growth_opportunity="", consulting_summary="",
+                    recommended_ai_employees="[]", recommended_features="[]", concept_name="C", min_modules=3,
+                    max_modules=7, operating_stage="operating", owner_numbers="x", engagement_register="reg",
+                    preflight_feedback="- pilot_gate: missing numerator")
+    assert "PREVIOUS ATTEMPT WAS REJECTED" in prompt and "missing numerator" in prompt
+
+
 def test_r26_structural_corroboration_confirms_a_scenario_arithmetic_finding(client):
     from app.pipeline.adjudicate import adjudicate
 

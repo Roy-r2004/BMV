@@ -26,6 +26,11 @@ Recommended AI employees: {{ recommended_ai_employees }}
 Recommended features: {{ recommended_features }}
 Planned concept name: {{ concept_name }}
 
+{% if preflight_feedback | default("") %}
+YOUR PREVIOUS ATTEMPT WAS REJECTED BY THE STRUCTURAL PREFLIGHT. Fix every item below in this attempt — the same defect again ends the engagement without documents:
+{{ preflight_feedback }}
+
+{% endif %}
 TASK
 1. Decompose the proposed product into between {{ min_modules }} and {{ max_modules }} MODULES — the real load-bearing parts of the system, each one a thing this business would recognize as a distinct piece of how they operate (e.g. "Intake & identification portal", "Session scheduling engine", "Insurance pre-approval tracker" — never generic filler like "Dashboard module"). Choose the number this business actually needs; do not pad to the maximum.
 2. Build the BUSINESS CASE: exactly how this product makes or protects money for THIS business. Ground it in how they earn today.

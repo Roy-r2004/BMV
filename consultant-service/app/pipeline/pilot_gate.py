@@ -143,6 +143,15 @@ def gate_errors(g: dict) -> list[str]:
         errors.append("target must be explicitly percentage-point or relative")
     if g.get("direction") is None:
         errors.append("target direction (rise/fall) not stated")
+    # a success/completion rate rises; a failure/error/complaint rate falls —
+    # a target pointing the other way measures something else than the metric
+    metric = (g.get("primary_metric") or "").lower()
+    if g.get("direction") == "fall" and re.search(r"success|completion|confirmed|resolved|accuracy|adoption", metric) \
+            and not re.search(r"fail|error|complaint|miss|re-attempt|unreach", metric):
+        errors.append("target direction 'fall' contradicts a success-type primary metric (state the target on the metric itself)")
+    if g.get("direction") == "rise" and re.search(r"fail|error|complaint|miss|re-attempt|unreach", metric) \
+            and not re.search(r"success|completion|confirmed|resolved|accuracy|adoption", metric):
+        errors.append("target direction 'rise' contradicts a failure-type primary metric (state the target on the metric itself)")
     if g.get("baseline_value") is None and g.get("baseline_source") != "measure in week 1":
         errors.append("baseline must be a client figure or 'measure in week 1'")
     if not g.get("guardrails"):

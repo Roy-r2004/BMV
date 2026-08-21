@@ -6,13 +6,20 @@ from app.pipeline import analyze, blueprint, consult, decompose, extras, images,
 from app.pipeline.structural import preflight as _structural_preflight
 
 
+PREFLIGHT_ATTEMPTS = 3
+
+
 def _decompose_with_preflight(db, request_id, *args, **kwargs):
     """Structural preflight guards the prose spend: a decomposition whose
-    scenarios, dependencies or pilot gate fail validation is retried once;
-    a second failure stops the run cleanly instead of generating volumes
+    scenarios, dependencies or pilot gate fail validation is retried — and
+    each retry hands the model the exact failures of the previous attempt
+    (a blind re-roll is a lottery; a targeted one is a correction). After
+    PREFLIGHT_ATTEMPTS the run stops cleanly instead of generating volumes
     from a broken skeleton."""
-    for attempt in (1, 2):
-        decomposition = decompose.decompose_business(db, request_id, *args, **kwargs)
+    feedback = None
+    issues = []
+    for attempt in range(1, PREFLIGHT_ATTEMPTS + 1):
+        decomposition = decompose.decompose_business(db, request_id, *args, feedback=feedback, **kwargs)
         issues = _structural_preflight(
             (decomposition or {}).get("business_case") or {},
             (decomposition or {}).get("modules") or [],
@@ -20,14 +27,12 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
         ) if decomposition else []
         if decomposition and not issues:
             return decomposition
-        if decomposition and issues and attempt == 1:
-            continue
-        if decomposition and issues:
-            raise RuntimeError(
-                "structural preflight failed after retry: "
-                + "; ".join(i["issue"][:80] for i in issues[:3]))
-        return decomposition
-    return None
+        if not decomposition:
+            return None
+        feedback = [f"{i['where']}: {i['issue']} Fix: {i['fix']}" for i in issues]
+    raise RuntimeError(
+        f"structural preflight failed after {PREFLIGHT_ATTEMPTS} attempts: "
+        + "; ".join(i["issue"][:80] for i in issues[:3]))
 from app.pipeline._shared import emit
 
 

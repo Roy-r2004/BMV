@@ -266,7 +266,8 @@ def _clamp_modules(modules: list) -> list:
 
 
 def decompose_business(
-    db: Session, request_id: int, analysis: dict, consult_result: dict, plan_result: dict
+    db: Session, request_id: int, analysis: dict, consult_result: dict, plan_result: dict,
+    feedback: list[str] | None = None,
 ) -> dict | None:
     """Break the product into modules + business case, then deep-spec each
     module with its own call (in parallel — they are independent).
@@ -305,6 +306,7 @@ def decompose_business(
             concept_name=plan_result.get("concept_name", req.business_name or ""),
             min_modules=settings.MIN_MODULES_PER_REQUEST,
             max_modules=settings.MAX_MODULES_PER_REQUEST,
+            preflight_feedback="\n".join(f"- {f}" for f in (feedback or [])),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=6400)
         content = body["choices"][0]["message"]["content"]
