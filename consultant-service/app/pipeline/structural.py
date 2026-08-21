@@ -95,6 +95,90 @@ def unpromised_components(scenario: dict, lines: list) -> list[dict]:
     return out
 
 
+_INLINE_PRODUCT = re.compile(
+    r"(\d[\d,]*(?:\.\d+)?)\s*[x×*]\s*(0?\.\d+|\d{1,2}(?:\.\d+)?\s*%)\s*(?:\)|=|≈|~|→|->|,|\s)\s*"
+    r"(?:(?:=|≈|~|→|->|leading to|giving|yields?|or|i\.e\.)\s*)?(?:about |approximately |~)?(\d[\d,]*(?:\.\d+)?)?",
+    re.IGNORECASE)
+
+
+def inline_product_findings(business_case: dict) -> list[dict]:
+    """Arithmetic the model writes INSIDE business-case prose (payback logic,
+    costs removed, revenue streams, pricing levers) must (a) compute, and
+    (b) apply a fraction the scenarios actually assume for that base — run 47
+    wrote '(127750 * 0.20) = 25,550 fewer inquiries' while its scenarios
+    assumed 40/60/80% for that line."""
+    out = []
+    bc = business_case if isinstance(business_case, dict) else {}
+    fm = bc.get("financial_model") if isinstance(bc.get("financial_model"), dict) else {}
+    bases = {}
+    for line in fm.get("lines") or []:
+        if isinstance(line, dict):
+            nums = [float(v.replace(",", "")) for v in _QUANT.findall(str(line.get("annual") or ""))]
+            if nums:
+                bases[round(nums[0], 2)] = str(line.get("item") or "")
+    fracs = set()
+    for sc in fm.get("scenarios") or []:
+        if isinstance(sc, dict):
+            a = str(sc.get("assumption") or "")
+            fracs |= {round(float(x) / 100, 4) for x in re.findall(r"(\d[\d.]*)\s*%", a)}
+            fracs |= {round(1 / float(n), 4) for n in re.findall(r"\b1 in (\d+)\b", a)}
+    texts = []
+    for key in ("payback_logic", "cost_of_inaction"):
+        if isinstance(bc.get(key), str):
+            texts.append((key, bc[key]))
+    for key, field in (("costs_removed", "how"), ("revenue_streams", "description")):
+        for i, it in enumerate(bc.get(key) or []):
+            if isinstance(it, dict) and isinstance(it.get(field), str):
+                texts.append((f"{key}[{i}].{field}", it[field]))
+    for i, it in enumerate(bc.get("pricing_levers") or []):
+        if isinstance(it, str):
+            texts.append((f"pricing_levers[{i}]", it))
+    # a scenario's own arithmetic field (run 47 added one beside assumption
+    # and impact) must produce the figures its impact states
+    for i, sc in enumerate(fm.get("scenarios") or []):
+        if not (isinstance(sc, dict) and isinstance(sc.get("arithmetic"), str)):
+            continue
+        impact_nums = [float(v.replace(",", "")) for v in _QUANT.findall(str(sc.get("impact") or ""))]
+        for m in re.finditer(r"\(([^()]*\d[^()]*)\)", sc["arithmetic"]):
+            expr = m.group(1)
+            operands = [float(x.replace(",", "")) for x in re.findall(r"\d[\d,]*(?:\.\d+)?", expr)]
+            if len(operands) < 2 or not re.fullmatch(r"[\d,.\s*x×$%]+", expr.replace("$", "")):
+                continue
+            product = 1.0
+            for v in operands:
+                product *= v
+            if product < 10:
+                continue
+            if not any(abs(product - n) / max(n, 1e-9) <= 0.005 for n in impact_nums):
+                nearest = min(impact_nums, key=lambda n: abs(n - product)) if impact_nums else None
+                out.append({"severity": "high", "source": "structural",
+                            "where": f"financial_model.scenarios[{i}].arithmetic",
+                            "issue": (f"Scenario '{sc.get('name')}' arithmetic '({expr})' = {product:,.0f} matches no figure "
+                                      f"in its impact" + (f" (nearest stated: {nearest:,.0f})" if nearest else "") +
+                                      " — assumption, arithmetic and impact must agree."),
+                            "fix": "regenerate the scenario so its arithmetic produces the stated impact figures"})
+    for where, text in texts:
+        for m in _INLINE_PRODUCT.finditer(text):
+            base = float(m.group(1).replace(",", ""))
+            ftok = m.group(2)
+            frac = float(ftok.rstrip("% ")) / 100 if "%" in ftok else float(ftok)
+            result = float(m.group(3).replace(",", "")) if m.group(3) else None
+            if base not in bases or base < 100:
+                continue
+            product = base * frac
+            if result is not None and abs(product - result) / max(result, 1e-9) > 0.005:
+                out.append({"severity": "high", "source": "structural", "where": f"business_case.{where}",
+                            "issue": (f"Inline arithmetic '{m.group(0).strip()}' does not compute: "
+                                      f"{base:,.0f} x {frac:g} = {product:,.0f}, not {result:,.0f}."),
+                            "fix": "correct the result or remove the arithmetic"})
+            elif fracs and round(frac, 4) not in fracs:
+                out.append({"severity": "high", "source": "structural", "where": f"business_case.{where}",
+                            "issue": (f"Inline arithmetic applies {frac:.0%} to the '{bases[base][:40]}' line, but the "
+                                      f"scenarios assume {', '.join(f'{f:.0%}' for f in sorted(fracs))} — one base, one set of fractions."),
+                            "fix": "use a scenario fraction or remove the arithmetic from the prose"})
+    return out
+
+
 def structural_findings(business_case: dict, modules: list, registry: dict | None = None) -> list[dict]:
     """High findings a machine can prove — appended to the QA report and
     counted by the release gate like any other."""
@@ -124,6 +208,8 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
                           f"cannot-quantify notes). Every promised mechanism must produce one or the other."),
                 "fix": "add the missing impact clause or an explicit 'cannot yet quantify — needs <input>' note",
             })
+
+    findings += inline_product_findings(bc)
 
     gate = bc.get("pilot_gate") or {}
     if isinstance(gate, dict) and gate:

@@ -237,6 +237,7 @@ def reaudit_revision(rev_dir: str, row) -> dict:
         volumes[kind] = {"file": vol["file"], "sha256": _sha256(path), "pages": result["pages"],
                          "inspected_pages": result["inspected_pages"],
                          "every_page_inspected": result["every_page_inspected"],
+                         "draft_stamped": bool(result.get("draft_watermark")),
                          "inspection_ok": result["ok"], "failures": result["failures"]}
 
     # in-memory re-adjudication: the run's persisted findings are not altered
@@ -268,6 +269,10 @@ def reaudit_revision(rev_dir: str, row) -> dict:
     reasons = []
     if open_real:
         reasons.append(f"{len(open_real)} open high finding(s) on the quality bench")
+    # a re-audit can clear findings; it can never turn DRAFT-stamped pages
+    # into a FINAL — that takes a fresh render, inspection and freeze
+    if any(v.get("draft_stamped") for v in volumes.values()):
+        reasons.append("frozen files carry the DRAFT stamp — a FINAL requires a fresh render and freeze")
     if machine:
         reasons.append(f"{len(machine)} machine finding(s) from the current controls")
     if artifacts:

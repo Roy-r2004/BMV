@@ -579,6 +579,12 @@ def test_audit_run_records_validated_totals_and_reaudit_never_touches_the_source
     # the run's persisted findings were read, never written
     db.refresh(row)
     assert "adjudication" not in json.loads(row.qa_report_json)["findings"][0]
+    # a re-audit can clear every finding and still never call DRAFT-stamped pages FINAL
+    row.qa_report_json = json.dumps({"checks": [], "findings": []})
+    db.commit()
+    audit2 = ra.reaudit_revision(rev_dir, row)
+    assert audit2["status"] == "draft" and any("DRAFT stamp" in r for r in audit2["reasons"])
+    assert audit2["audit_revision"].endswith("-a3")
     db.close()
 
 
@@ -1140,6 +1146,31 @@ def test_failed_regeneration_never_erases_an_existing_volume(client, monkeypatch
     assert row.mvp_blueprint == "## The decision\nkept\n" == out
     assert row.technical_plan == "## How your system works\nkept\n" == out2
     db.close()
+
+
+def test_inline_arithmetic_in_business_case_prose_must_compute_on_scenario_fractions():
+    from app.pipeline.structural import inline_product_findings, preflight
+
+    bc = {"financial_model": {"lines": [{"item": "Annual support inquiries for 'where is my order'",
+                                         "arithmetic": "350 * 365", "annual": "127,750 inquiries/year"}],
+                              "scenarios": [{"name": "Conservative", "assumption": "resolves 40% of 'where is my order' inquiries",
+                                             "impact": "51,100 fewer 'where is my order' inquiries/year"}]},
+          "payback_logic": "Automating 'where is my order' inquiries (127750 * 0.20) = 25,550 fewer inquiries a year frees support capacity."}
+    found = inline_product_findings(bc)
+    assert len(found) == 1 and "scenarios assume 40%" in found[0]["issue"]
+    bc["payback_logic"] = "Automating 'where is my order' inquiries (127,750 x 40%) = 51,100 fewer inquiries a year."
+    assert inline_product_findings(bc) == []
+    bc["payback_logic"] = "Automating inquiries (127,750 x 40% = 61,100) frees capacity."
+    assert "does not compute" in inline_product_findings(bc)[0]["issue"]
+    assert any("does not compute" in f["issue"] for f in preflight(bc, []))
+    # run 47: the scenario's own arithmetic field contradicted its impact
+    bc["payback_logic"] = "fine"
+    bc["financial_model"]["scenarios"][0]["arithmetic"] = "(300 * 12 * 0.40) annually for COD inquiries. (127750 * 0.20) for 'where is my order' inquiries."
+    bc["financial_model"]["scenarios"][0]["impact"] = "51,100 fewer 'where is my order' inquiries/year + 1,440 fewer COD inquiries/year"
+    found = inline_product_findings(bc)
+    assert len(found) == 1 and "(127750 * 0.20)' = 25,550 matches no figure" in found[0]["issue"]
+    bc["financial_model"]["scenarios"][0]["arithmetic"] = "(300 * 12 * 0.40) for COD inquiries. (127750 * 0.40) for 'where is my order' inquiries."
+    assert inline_product_findings(bc) == []
 
 
 def test_prose_thresholds_in_hand_off_sentences_are_labeled():
