@@ -262,7 +262,7 @@ def test_no_module_kpi_number_is_coined_and_proposals_stay_out_of_documents():
     assert pilot["spec"]["kpi_statement"].startswith(reg["pilot_gate_sentence"])
     # every coined candidate is registered as a proposal awaiting approval, not accepted
     props = [c for c in rg.proposals(reg) if c["type"] == "module_kpi"]
-    assert len(props) >= 8
+    assert len(props) >= 7  # the pilot module's candidates are not registered: its KPI is the gate alone
     assert all(c["approval_status"] == "consultant_proposed — client approval required" and not c.get("accepted")
                for c in props)
     # the prose model never sees the candidates
