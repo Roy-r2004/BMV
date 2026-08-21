@@ -212,6 +212,32 @@ def _sanitize_financial_model(business_case: dict) -> None:
             repairs.append({"scenario": sc.get("name"), "added": clause.strip(), "for": u["value"]})
     if repairs:
         fm["assumption_repairs"] = repairs
+    # A scenario's arithmetic field is DERIVED from its verified components
+    # (fraction x line = figure) — never the model's own, which run 47 wrote
+    # as 127,750 x 0.20 beside an impact that said 51,100 (40%).
+    line_items = []
+    for line in fm.get("lines") or []:
+        if isinstance(line, dict):
+            nums = _numbers_in(str(line.get("annual") or ""))
+            if nums:
+                line_items.append((nums[0], str(line.get("item") or "")))
+    for sc in fm.get("scenarios") or []:
+        if not isinstance(sc, dict) or not sc.get("impact_verified"):
+            continue
+        fracs = [v for v in _numbers_in(str(sc.get("assumption") or "")) if 0 < v < 1]
+        parts = []
+        for v in _numbers_in(str(sc.get("impact") or "")):
+            if v <= 1:
+                continue
+            hit = next(((f, base, item) for f in fracs for base, item in line_items
+                        if base and abs(base * f - v) / max(v, 1e-9) <= 0.005), None)
+            if hit:
+                f, base, item = hit
+                parts.append(f"{base:,.0f} x {f:.0%} = {v:,.0f} ({item})")
+        if parts:
+            sc["arithmetic"] = "; ".join(parts)
+        else:
+            sc.pop("arithmetic", None)
 
 
 def _format_owner_numbers(req: Request) -> str:

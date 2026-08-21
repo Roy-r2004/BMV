@@ -710,6 +710,24 @@ def ai_consistency_findings(technical_md: str, modules: list) -> list[dict]:
     return out
 
 
+_PHASE_LINE = re.compile(r"(?im)^\s*[-*]\s*\*\*Phase\s+(\d+)\s*[—–-]\s*([^*:]+?):?\*\*")
+
+
+def phase_name_findings(blueprint_md: str, modules: list) -> list[dict]:
+    """A phase is named for a capability, never as a list of modules
+    (run 47: 'Phase 2 — A, B, C, D' with four module names)."""
+    out = []
+    names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or []) if isinstance(m, dict)]
+    for m in _PHASE_LINE.finditer(blueprint_md or ""):
+        label = m.group(2).strip()
+        hits = [n for n in names if n and n in label]
+        if len(hits) >= 2 or (len(hits) == 1 and "," in label and m.group(1) != "1"):
+            out.append({"severity": "high", "source": "structural", "where": f"The decision, Phase {m.group(1)}",
+                        "issue": f"Phase {m.group(1)} is named as a list of modules ('{label[:90]}') instead of one capability.",
+                        "fix": "name the phase for what it delivers; list its modules in the sentence, not the name"})
+    return out
+
+
 def proposals(reg: dict) -> list[dict]:
     """Every consultant-proposed numeric claim still awaiting acceptance —
     the list the client signs off, and nothing a document may state as fact."""

@@ -160,11 +160,18 @@ def _matches(value: float, verified: dict[float, str]) -> str | None:
 def _label_check(fragment: str, corpus: str) -> tuple[bool | None, str]:
     """(all labeled?, evidence). None when the fragment isn't found."""
     nums = [m.group(0) for m in _NUM_RE.finditer(fragment) if any(c.isdigit() for c in m.group(0))]
-    probe = fragment.strip() if len(fragment.strip()) <= 40 else (nums[0].strip() if nums else fragment[:40])
-    hits = [m.start() for m in re.finditer(re.escape(probe), corpus)]
-    if not hits and nums:
-        probe = nums[0].strip()
-        hits = [m.start() for m in re.finditer(re.escape(probe), corpus)]
+    frag = re.sub(r"\s+", " ", fragment.strip())
+    corpus = re.sub(r"\s+", " ", corpus)
+    # the most specific probe that exists in the text wins — a bare "50%"
+    # would count every unrelated 50% on the page (run 47, F10)
+    hits, probe = [], frag
+    for cand in (frag, frag[:60].strip(), frag[:40].strip()) + ((nums[0].strip(),) if nums else ()):
+        if not cand:
+            continue
+        hits = [m.start() for m in re.finditer(re.escape(cand), corpus)]
+        if hits:
+            probe = cand
+            break
     if not hits:
         return None, f"'{probe}' not found in rendered text"
     bare = sum(1 for h in hits if "(proposed" not in corpus[h:h + _LABEL_WINDOW])
@@ -267,6 +274,17 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                        f"R12: {monthly_cited[0]:,.0f} is the package's 30-day operating-month identity and the package "
                        "states that convention; 'per month' means that month throughout",
                        "machine-proven false positive")
+                continue
+        # R26 — structural corroboration: the machine finds the same defect in the structured layer
+        from app.pipeline.structural import inline_product_findings
+
+        scen_names = [str(sc.get("name")) for sc in (fm.get("scenarios") or []) if isinstance(sc, dict) and sc.get("name")]
+        named_scen = [n for n in scen_names if n and n in issue]
+        if named_scen:
+            corroborating = [sf for sf in inline_product_findings(bc if isinstance(bc, dict) else {})
+                             if any(n in sf["issue"] for n in named_scen)]
+            if corroborating:
+                _close("confirmed", "R26: " + corroborating[0]["issue"][:220], "real defect")
                 continue
         # R25 — the auditor quotes arithmetic the document never contains
         quoted_arith = re.findall(r"\(\s*\d[\d,]*(?:\.\d+)?\s*[x×*]\s*\d*\.?\d+\s*\)", issue)

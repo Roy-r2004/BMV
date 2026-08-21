@@ -179,6 +179,43 @@ def inline_product_findings(business_case: dict) -> list[dict]:
     return out
 
 
+_NAME_NOISE = {"module", "handler", "bot", "assistant", "system", "engine", "workflow", "integration", "automated",
+               "smart", "the", "and", "for", "of", "with", "via", "tool", "service", "portal", "manager", "ai",
+               "reply", "agent", "pilot", "layer", "hub", "center", "centre", "platform"}
+_PURPOSE_NOISE = _NAME_NOISE | {"this", "that", "from", "into", "their", "your", "which", "when", "then", "than",
+                                "using", "based", "about", "after", "before", "each", "every", "provides", "provide",
+                                "enables", "enable", "allows", "allow", "helps", "help", "through", "within", "across",
+                                "customers", "customer", "business", "clients", "client", "data", "information"}
+
+
+def _words(text: str, noise: set) -> set:
+    return {w.lower().strip("'\"") for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", text or "")
+            if w.lower() not in noise}
+
+
+def module_overlap_findings(modules: list) -> list[dict]:
+    """Two modules whose names share two distinctive words and whose purposes
+    share three are one job split in two — a decomposition defect."""
+    out = []
+    mods = [m for m in (modules or []) if isinstance(m, dict) and m.get("id")]
+    for i, a in enumerate(mods):
+        for b in mods[i + 1:]:
+            na, nb = _words(str(a.get("name") or ""), _NAME_NOISE), _words(str(b.get("name") or ""), _NAME_NOISE)
+            shared_name = na & nb
+            if len(shared_name) < 2:
+                continue
+            pa = _words(" ".join(str(a.get(k) or "") for k in ("purpose", "pain_point_addressed")), _PURPOSE_NOISE)
+            pb = _words(" ".join(str(b.get(k) or "") for k in ("purpose", "pain_point_addressed")), _PURPOSE_NOISE)
+            shared_purpose = pa & pb
+            if len(shared_purpose) >= 3:
+                out.append({"severity": "high", "source": "structural", "where": f"modules.{a['id']}+{b['id']}",
+                            "issue": (f"'{a.get('name')}' and '{b.get('name')}' overlap: their names share "
+                                      f"{', '.join(sorted(shared_name))} and their purposes share "
+                                      f"{', '.join(sorted(shared_purpose)[:4])} — one capability split into two modules."),
+                            "fix": "merge them into one module, or give each a distinct job and name"})
+    return out
+
+
 def structural_findings(business_case: dict, modules: list, registry: dict | None = None) -> list[dict]:
     """High findings a machine can prove — appended to the QA report and
     counted by the release gate like any other."""
@@ -289,6 +326,11 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
                                   f"flow backward only."),
                         "fix": "describe the earlier module's interim rules-based behavior instead",
                     })
+
+    # two modules for one job: overlapping names AND overlapping purposes
+    # (run 47: 'Automated COD Settlement Inquiry Handler' beside 'COD
+    # Settlement Inquiry Bot', each claiming to answer settlement inquiries)
+    findings += module_overlap_findings(mods)
 
     # pilot-phase modules: honest names, no AI automation
     from app.pipeline.registry import _AI_NAME, validate_registry

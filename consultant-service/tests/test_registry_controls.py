@@ -1173,6 +1173,69 @@ def test_inline_arithmetic_in_business_case_prose_must_compute_on_scenario_fract
     assert inline_product_findings(bc) == []
 
 
+def test_scenario_arithmetic_is_derived_from_verified_components_never_the_models():
+    from app.pipeline.decompose import _sanitize_financial_model
+    from app.pipeline.structural import inline_product_findings
+
+    bc = {"financial_model": {
+        "lines": [{"item": "re-attempt costs", "arithmetic": "900 * 365 * 0.12 * $1.80", "annual": "$70,956/year"},
+                  {"item": "'where is my order' inquiries", "arithmetic": "350 * 365", "annual": "127,750 inquiries/year"}],
+        "scenarios": [{"name": "Conservative",
+                       "assumption": "prevents 20% of failed first attempts and resolves 40% of 'where is my order' inquiries",
+                       "arithmetic": "(127750 * 0.20) for 'where is my order' inquiries.",
+                       "impact": "$14,191/year saved + 51,100 fewer 'where is my order' inquiries/year"}]}}
+    _sanitize_financial_model(bc)
+    sc = bc["financial_model"]["scenarios"][0]
+    assert sc["impact_verified"] and "0.20" not in sc["arithmetic"]
+    assert "70,956 x 20% = 14,191" in sc["arithmetic"] and "127,750 x 40% = 51,100" in sc["arithmetic"]
+    assert inline_product_findings(bc) == []
+
+
+def test_overlapping_modules_and_list_named_phases_are_rejected_and_label_probes_are_specific():
+    from app.pipeline.adjudicate import _label_check
+    from app.pipeline.structural import module_overlap_findings, preflight
+
+    mods = [{"id": "automated-cod-settlement-inquiry-handler", "name": "Automated COD Settlement Inquiry Handler",
+             "purpose": "Answers business clients' COD settlement inquiries from the settlement records and escalates disputes.",
+             "pain_point_addressed": "manual COD settlement inquiry handling", "depends_on": []},
+            {"id": "cod-settlement-inquiry-bot", "name": "COD Settlement Inquiry Bot",
+             "purpose": "Resolves COD settlement inquiries for business clients using settlement records, escalating disputes to finance.",
+             "pain_point_addressed": "manual COD settlement inquiry handling", "depends_on": []},
+            {"id": "driver-directions", "name": "Driver Directions Module", "purpose": "guides couriers to the confirmed pin",
+             "pain_point_addressed": "drivers lost", "depends_on": []}]
+    found = module_overlap_findings(mods)
+    assert len(found) == 1 and "one capability split into two modules" in found[0]["issue"]
+    assert any("split into two" in f["issue"] for f in preflight({"build_order": [m["id"] for m in mods]}, mods))
+    assert module_overlap_findings(mods[1:]) == []
+    md = ("- **Phase 1 — Pre-Dispatch Customer Confirmation Workflow:** proves it.\n"
+          "- **Phase 2 — Location Verification & Availability Assistant, Driver 'Assisted Directions' Module, COD Settlement Inquiry Bot:** later.\n"
+          "- **Phase 3 — Automated support replies:** last.\n")
+    reg_mods = [{"client_facing_name": n} for n in ("Pre-Dispatch Customer Confirmation Workflow", "Location Verification & Availability Assistant",
+                                                     "Driver 'Assisted Directions' Module", "COD Settlement Inquiry Bot")]
+    found = rg.phase_name_findings(md, reg_mods)
+    assert len(found) == 1 and "Phase 2" in found[0]["where"]
+    corpus = ("the pilot covers 50% of eligible orders; resolves 50% of the top 10 most common COD settlement inquiry types "
+              "(proposed — client approval required); another 50% of eligible orders.")
+    labeled, evidence = _label_check("50% of the top 10 most common COD settlement inquiry types", corpus)
+    assert labeled is True and "all 1 occurrence" in evidence
+
+
+def test_r26_structural_corroboration_confirms_a_scenario_arithmetic_finding(client):
+    from app.pipeline.adjudicate import adjudicate
+
+    bc = {"financial_model": {"lines": [{"item": "Annual support inquiries for 'where is my order'", "arithmetic": "350 * 365",
+                                         "annual": "127,750 inquiries/year"}],
+                              "scenarios": [{"name": "Conservative", "assumption": "resolves 40% of 'where is my order' inquiries",
+                                             "arithmetic": "(127750 * 0.20) for 'where is my order' inquiries.",
+                                             "impact": "51,100 fewer 'where is my order' inquiries/year"}]}}
+    db = SessionLocal()
+    row = _seed(db, business_case_json=json.dumps(bc), qa_report_json=json.dumps({"checks": [], "findings": [
+        _finding("scenarios -> impact", "The 'Conservative' scenario impact arithmetic is given as '(127750 * 0.20)', leading to 25,550, but the impact states '51,100'.")]}))
+    result = adjudicate(row, {"blueprint": "x"})
+    assert result["ledger"][0]["classification"] == "real defect" and "R26" in result["ledger"][0]["evidence"]
+    db.close()
+
+
 def test_prose_thresholds_in_hand_off_sentences_are_labeled():
     bc, mods, reg = _skeleton()
     line = ("**Where it stops and hands to you:** it hands off when a customer doesn't respond quickly enough "

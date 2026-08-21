@@ -90,6 +90,7 @@ def machine_findings(req: Request, registry: dict | None, texts: dict[str, str] 
         out += timebasis.identity_findings(scope, annuals)
     out += _registry.policy_findings(texts, registry.get("claims") or [])
     out += _registry.ai_consistency_findings(req.technical_plan or "", modules)
+    out += _registry.phase_name_findings(req.mvp_blueprint or "", modules)
     return out
 
 
