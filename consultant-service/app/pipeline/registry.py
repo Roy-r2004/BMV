@@ -107,10 +107,12 @@ def client_facing_region(text: str) -> str:
     """The text a client reads as prose: Volume II's module appendix is
     declared engineering detail (data models, APIs, tools) and is excluded."""
     t = text or ""
-    m = _APPENDIX_START.search(t)
-    if not m:
+    starts = list(_APPENDIX_START.finditer(t))
+    if not starts:
         return t
-    e = _APPENDIX_END.search(t, m.end())
+    m = starts[-1]  # the section itself, not its table-of-contents entry
+    ends = [e for e in _APPENDIX_END.finditer(t) if e.start() > m.end()]
+    e = ends[-1] if ends else None
     return t[:m.start()] + " " + (t[e.start():] if e else "")
 
 
@@ -396,13 +398,16 @@ def identifier_artifacts(text: str, module_ids: list[str] | None = None) -> list
     # "For your build team" lines and the module appendix ("the engineering
     # detail") are the sanctioned homes of technical identifiers; ordinary
     # hyphenated English is not a slug
-    t = client_facing_region(text or "")
+    raw = client_facing_region(text or "")
+    hits += [m.group(1) for m in _SLUG_ITEM.finditer(_BUILD_TEAM_LINE.sub(" ", raw))]
+    # rendered pages wrap a build-team line across lines: judge on collapsed whitespace
+    t = re.sub(r"\s+", " ", raw)
+    t = re.sub(r"For your build team:.*?(?=\s(?:•|-|\*\*|##|Applying it)|$)", " ", t, flags=re.IGNORECASE)
     t = _BUILD_TEAM_LINE.sub(" ", t)
     t = _SLUG_ALLOW.sub(" ", t)
     for mid in module_ids or []:
         if mid and ("-" in mid or "_" in mid) and re.search(r"(?<![\w-])" + re.escape(mid) + r"(?![\w-])", t):
             hits.append(mid)
-    hits += [m.group(1) for m in _SLUG_ITEM.finditer(t)]
     hits += [m.group(0) for m in _TECH_SLUG.finditer(t)]
     return sorted(set(hits))
 
@@ -946,6 +951,8 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
                               approval=gate.get("approval_status") or "consultant_proposed — client approval required",
                               source="pilot_gate", sections=["module_kpi", "decision", "scoreboard"],
                               text=sentence, maps_to="PG"))
+            # the pilot module's success IS the gate — nothing sits beside it
+            candidates = []
         for cand in candidates:
             n += 1
             if isinstance(cand, dict):

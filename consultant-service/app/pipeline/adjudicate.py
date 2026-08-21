@@ -572,6 +572,31 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                        "the approval label in the rendered text — the threshold law requires provenance OR proposed status",
                        "semantic false positive resolved by structured threshold typing")
                 continue
+        # R28 — a scenario fraction is a LABELED assumption of ours by design:
+        # "not tied to client input" is its definition, not a defect
+        if registry and re.search(r"assumption|reduction", issue, re.IGNORECASE) and \
+                re.search(r"not (?:explicitly )?tied to|no client input|without client input|not a client input|unverified", issue, re.IGNORECASE):
+            sa = [c for c in registry.get("claims") or [] if c.get("type") == "scenario_assumption"
+                  and isinstance(c.get("value"), (int, float))]
+            cited_fracs = [v for v in _numbers_in(issue) if 0 < v < 1]
+            hit = [c for c in sa if any(abs(float(c["value"]) - v) < 1e-6 for v in cited_fracs)]
+            if hit and "scenario" in issue.lower():
+                _close("false_positive",
+                       f"R28: {hit[0]['value']:.0%} is the registered {hit[0].get('scenario') or ''} scenario assumption — "
+                       "labeled as ours and requiring the client's approval in the financial case; a scenario fraction is "
+                       "by definition not a client input",
+                       "semantic false positive resolved by structured threshold typing")
+                continue
+        # R12c — the 30-day operating month is the package convention, stated in the document
+        if re.search(r"30.day|30 operating days|operating_30_day", issue, re.IGNORECASE) and \
+                re.search(r"not (?:a )?client input|without (?:explicit )?client input|internal definition|assumption", issue, re.IGNORECASE) and \
+                re.search(r"30-day operating month", corpus, re.IGNORECASE) and \
+                not [v for v in _numbers_in(issue) if v > 1 and v not in (30, 365, 12) and not _matches(v, verified)]:
+            _close("false_positive",
+                   "R12: the 30-day operating month is the package's stated convention (printed in the financial case); "
+                   "it is a unit definition, not a figure needing client input",
+                   "machine-proven false positive")
+            continue
         # R16 — the auditor's own text reports no defect
         if re.search(r"no fix (?:is )?needed|no change (?:is )?needed|no correction (?:is )?needed|formatting only|"
                      r"this is a minor|cosmetic", fix + " " + issue, re.IGNORECASE) and \

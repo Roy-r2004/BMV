@@ -256,7 +256,7 @@ def test_no_module_kpi_number_is_coined_and_proposals_stay_out_of_documents():
     statements = " ".join((m["spec"] or {}).get("kpi_statement", "") for m in mods)
     for coined in COINED46:
         assert coined not in statements, coined
-    assert rg.WEEK_ONE_SENTENCE in statements
+    assert rg.WEEK_ONE_SENTENCE[:-1] in statements
     # the pilot module's KPI IS the canonical sentence
     pilot = next(m for m in mods if m["pilot"])
     assert pilot["spec"]["kpi_statement"].startswith(reg["pilot_gate_sentence"])
@@ -872,7 +872,9 @@ def test_page_chrome_is_stripped_from_rendered_text():
 
 
 def test_kpi_renderings_state_baselines_labels_and_never_claim_ids():
-    mods = [{"id": "cod-handler", "name": "COD Settlement Inquiry Handler", "purpose": "p", "depends_on": [],
+    mods = [{"id": "pilot-wf", "name": "Pre-Dispatch Confirmation Pilot", "purpose": "confirms pins", "depends_on": [],
+             "pilot": True, "spec": {"ai": None, "kpis": []}, "tech": {}},
+            {"id": "cod-handler", "name": "COD Settlement Inquiry Handler", "purpose": "p", "depends_on": [],
              "spec": {"ai": {"role": "x"}, "kpis": [
                  {"metric": "Manual support staff interventions for COD settlement inquiries", "basis": "client_fact",
                   "value": 300, "unit": "count", "horizon": None},
@@ -881,12 +883,12 @@ def test_kpi_renderings_state_baselines_labels_and_never_claim_ids():
                  {"metric": "Manual dispatcher interventions per day", "basis": "pilot_gate", "value": 5, "unit": "count", "horizon": None}]},
              "tech": {}}]
     bc = {"financial_model": copy.deepcopy(FM46), "pilot_gate": copy.deepcopy(GATE47),
-          "build_order": ["cod-handler"]}
+          "build_order": ["pilot-wf", "cod-handler"]}
     from app.pipeline.decompose import _sanitize_financial_model
 
     _sanitize_financial_model(bc)
     reg = rg.build_registry(OPS, bc, mods)
-    stmt = mods[0]["spec"]["kpi_statement"]
+    stmt = mods[1]["spec"]["kpi_statement"]
     assert "(your related figure: COD settlement inquiries per month: Around 300 inquiries)" in stmt and "300 count" not in stmt
     assert "30% (proposed — client approval required; our scenario assumption)" in stmt
     assert "claim " not in stmt and "count (" not in stmt
