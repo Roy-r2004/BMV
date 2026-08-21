@@ -212,6 +212,9 @@ def derived_claims(fm: dict) -> list[dict]:
             continue
         tok, v, unit, _, _ = nums[0]
         u, _ = _infer_unit(tok, unit, annual + " " + str(line.get("item") or ""))
+        if u != "USD" and re.search(r"\$|\busd\b", str(line.get("arithmetic") or ""), re.IGNORECASE) \
+                and re.search(r"cost|saving|revenue|fee|spend|loss", str(line.get("item") or ""), re.IGNORECASE):
+            u = "USD"  # the figure lost its sign; its arithmetic and item say money
         cid = f"DV-{i:02d}"
         claims.append(_claim(
             cid, "derived_value", v, u, time_basis="year", provenance="machine_computed",
@@ -515,6 +518,45 @@ def label_prose_thresholds(text: str, claims: list[dict], counter: dict, *,
     return "\n".join(out_lines), new
 
 
+_POLICY_WORDS = re.compile(r"settle|settlement|remit|remittance|payout|pay out|disburse|invoice cycle|billing cycle",
+                           re.IGNORECASE)
+_POLICY_PERIOD = re.compile(r"(\d+)\s*(?:-|\s)?(business |working |calendar )?(days?)\b|(\d+)\s*-?\s*hours?\b|"
+                            r"\b(weekly|bi-weekly|fortnightly|daily|twice a month|every two weeks)\b",
+                            re.IGNORECASE)
+
+
+def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
+    """NO INVENTED POLICIES, deterministically: a sentence that states a
+    settlement / remittance / payout period must state the client's own
+    period (a client fact in days) — any other period is a fabrication."""
+    out = []
+    client_days = {int(c["value"]) for c in claims
+                   if c.get("type") == "client_fact" and str(c.get("unit") or "").startswith("day")
+                   and isinstance(c.get("value"), (int, float))
+                   and re.search(r"settle|remit|payout|month-end", str(c.get("question") or c.get("source") or ""), re.IGNORECASE)}
+    if not client_days:
+        return out
+    for label, text in (texts or {}).items():
+        flat = re.sub(r"\s+", " ", text or "")
+        for sentence in re.split(r"(?<=[.!?])\s+|•", flat):
+            if not _POLICY_WORDS.search(sentence):
+                continue
+            for m in _POLICY_PERIOD.finditer(sentence):
+                if m.group(1) and int(m.group(1)) in client_days:
+                    continue
+                if m.group(1) is None and not (m.group(4) or m.group(5)):
+                    continue
+                stated = m.group(0)
+                if re.search(r"\(proposed", sentence[m.end():m.end() + 130]):
+                    continue
+                out.append({"severity": "high", "source": "structural", "where": f"{label}: operational policy",
+                            "issue": (f"A settlement/remittance period of '{stated}' is stated, but the client's "
+                                      f"stated period is {sorted(client_days)[0]} days — a policy the client never gave: "
+                                      f"\"{sentence.strip()[:160]}\""),
+                            "fix": f"state the client's own period ({sorted(client_days)[0]} days) or remove the policy claim"})
+    return out
+
+
 def proposals(reg: dict) -> list[dict]:
     """Every consultant-proposed numeric claim still awaiting acceptance —
     the list the client signs off, and nothing a document may state as fact."""
@@ -654,7 +696,8 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
         spec = m.get("spec") if isinstance(m.get("spec"), dict) else {}
         if m.get("spec") is None:
             m["spec"] = spec = {}
-        candidates = spec.get("kpis") or []
+        # idempotent: a rebuild reads the model's candidates, never its own renderings
+        candidates = spec.get("kpi_candidates") if "kpi_candidates" in spec else (spec.get("kpis") or [])
         rendered: list[str] = []
         n = 0
         if m.get("pilot") and sentence:

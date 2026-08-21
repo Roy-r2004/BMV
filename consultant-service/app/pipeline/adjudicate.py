@@ -274,6 +274,14 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                        f"than the canonical sentence (e.g. \"{paraphrases[0]['issue'].split(chr(34))[1][:120]}\")",
                        "real defect")
                 continue
+            canon = re.sub(r"\s+", " ", _pg.canonical_sentence(gate))
+            if canon and canon in re.sub(r"\s+", " ", corpus) and re.search(
+                    r"not (?:precisely |exactly )?match|differs from|deviates|does not match", issue, re.IGNORECASE):
+                _close("false_positive",
+                       "R8: the canonical gate sentence is present verbatim in the rendered text and zero "
+                       "paraphrases exist — the auditor's mismatch claim has no textual basis",
+                       "machine-proven false positive")
+                continue
         # R11 — module KPIs: coined numbers that map to no registered claim
         if registry and _KPI_TALK.search(issue):
             unmapped = _registry.kpi_number_findings((texts or {}).get("blueprint") or corpus, registry,
@@ -329,6 +337,15 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
         if _LABEL_TALK.search(issue):
             quoted = [q for q in _QUOTED.findall(issue)
                       if any(ch.isdigit() for ch in q) and not re.fullmatch(r"\s*\d{1,2}\s*", q)]
+            # R13 — the label law governs NUMERIC thresholds; a qualitative
+            # trigger ("fraud or major service problems") carries no number to approve
+            if not quoted and _QUOTED.findall(issue) and re.search(r"qualitative|newly introduced|trigger", issue, re.IGNORECASE) \
+                    and not any(ch.isdigit() for ch in issue.replace("(proposed", "")):
+                _close("false_positive",
+                       "R13: the approval label applies to numeric thresholds; the quoted trigger is qualitative "
+                       "and states no value to approve",
+                       "semantic false positive resolved by structured threshold typing")
+                continue
             if quoted:
                 fragment = quoted[0]
                 if _functional_fragment(fragment, corpus) and not re.search(r"\(proposed", fragment):

@@ -347,13 +347,21 @@ def find_artifacts(text: str) -> list[str]:
     return [name for name, rx in _GATE_ARTIFACTS if rx.search(cleaned)]
 
 
-def _strings_of(obj) -> list[str]:
+# structured fields that hold identifiers BY DESIGN (resolved to names at
+# render time) — never scanned as client prose
+_ID_KEYS = {"id", "enabled_by", "backstage_modules", "depends_on", "build_order", "module_id",
+            "maps_to", "source", "scope", "original_name", "kpi_candidates", "tools", "apis",
+            "name_by_id", "renames"}
+
+
+def _strings_of(obj, skip_keys: set | None = None) -> list[str]:
+    skip = _ID_KEYS if skip_keys is None else skip_keys
     if isinstance(obj, str):
         return [obj]
     if isinstance(obj, dict):
-        return [s for v in obj.values() for s in _strings_of(v)]
+        return [s for k, v in obj.items() if k not in skip for s in _strings_of(v, skip)]
     if isinstance(obj, list):
-        return [s for v in obj for s in _strings_of(v)]
+        return [s for v in obj for s in _strings_of(v, skip)]
     return []
 
 
@@ -428,6 +436,9 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
         n = len(_tb.identity_findings(scope, annuals))
         if n:
             reasons.append(f"{n} monthly-identity violation(s)")
+    n = len(_reg.policy_findings(texts, reg.get("claims") or []))
+    if n:
+        reasons.append(f"{n} invented operational policy statement(s)")
     return reasons
 
 

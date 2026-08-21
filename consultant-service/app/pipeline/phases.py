@@ -19,9 +19,12 @@ PHASES = {
     "pilot": "executable during the pilot without any unbuilt future module",
     "future": "usable only after the relevant module is built and approved",
 }
+# present-execution language about the PROCEDURE's availability — not an
+# adverb inside a step ("escalate immediately", "today's orders")
 _NOW = re.compile(
-    r"\b(today|immediately|starting now|from today|right away|as of now|effective immediately|"
-    r"from day one|starting this week|begin now|now in force)\b", re.IGNORECASE)
+    r"\b(starting today|from today|as of today|starting now|as of now|effective immediately|"
+    r"from day one|starting this week|begin today|begins today|in force now|now in force|"
+    r"can be run today|run this today|use this today|available today)\b", re.IGNORECASE)
 _UNBUILT_TOOLING = re.compile(
     r"\b(dashboard|portal|the module|the system automatically|the ai|the agent|automatically "
     r"(?:sends|flags|routes|scores|predicts)|in the app|the new system)\b", re.IGNORECASE)

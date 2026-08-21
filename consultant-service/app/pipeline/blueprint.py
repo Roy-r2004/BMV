@@ -15,6 +15,7 @@ identity; threshold sentences in the technical plan are typed and labeled.
 """
 
 import json
+import re
 
 from sqlalchemy.orm import Session
 
@@ -67,12 +68,13 @@ def _prompt_modules(modules: list) -> list:
 
 
 def _annual_claims(business_case: dict) -> list[float]:
+    from app.pipeline.decompose import _is_money_line
     from app.pipeline.decompose import _numbers_in as _nums
 
     fm = (business_case or {}).get("financial_model") or {}
     claims = []
     for l in (fm.get("lines") or []) if isinstance(fm, dict) else []:
-        if isinstance(l, dict) and l.get("arithmetic_verified") and "$" in str(l.get("annual") or ""):
+        if isinstance(l, dict) and l.get("arithmetic_verified") and _is_money_line(l):
             vals = _nums(str(l.get("annual") or ""))
             if vals:
                 claims.append(vals[0])
@@ -97,6 +99,25 @@ def _monthly_identity_note(business_case: dict) -> str:
             "The only monthly and daily figures permitted: " + "; ".join(parts) + ".")
 
 
+_COST_LINE = re.compile(r"(\*\*What staying manual costs:\*\*[^\n]*)")
+_MONTHLY = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?(?=\s*(?:per month|/\s*month|a month|monthly))", re.IGNORECASE)
+
+
+def _align_cost_line(content: str, business_case: dict) -> str:
+    """'What staying manual costs' restates business_case.cost_of_inaction —
+    its monthly figure must BE that figure. Run 47 borrowed the Upside
+    scenario's $2,333 (a verified number attached to the wrong claim); the
+    canonical cost line is the one anchor, so the figure snaps to it."""
+    coi = str((business_case or {}).get("cost_of_inaction") or "")
+    canon = _MONTHLY.search(coi)
+    m = _COST_LINE.search(content or "")
+    if not canon or not m:
+        return content
+    line = m.group(1)
+    fixed = _MONTHLY.sub(canon.group(0), line, count=1)
+    return content.replace(line, fixed, 1)
+
+
 def finish_document(content: str | None, *, modules: list, business_case: dict,
                     registry: dict | None, kind: str) -> tuple[str | None, dict]:
     """Every deterministic pass a finished volume goes through. Returns the
@@ -117,6 +138,8 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     content = _reg.resolve_module_ids(content, modules)
     content, _ = timebasis.check_restatements(content, _annual_claims(business_case))
     content = timebasis.round_counts(content)
+    if kind == "blueprint":
+        content = _align_cost_line(content, business_case)
     if kind == "technical" and registry:
         counter = {"n": sum(1 for c in registry.get("claims") or [] if str(c.get("id", "")).startswith("TH-"))}
         content, new = _reg.label_prose_thresholds(content, registry.get("claims") or [], counter,

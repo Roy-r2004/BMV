@@ -642,3 +642,167 @@ def test_preflight_fixture_for_run_47_has_zero_structural_findings(client):
     bc, mods, reg = preflight_fixture.intended_skeleton(row)
     assert preflight(bc, mods, reg) == [] and reg["errors"] == []
     db.close()
+
+
+# ── run 47's classes ────────────────────────────────────────────────────────
+
+GATE47_RAW = {
+    "duration": "6 weeks (proposed — client approval required)", "population": "All cash-on-delivery orders",
+    "geography": "Beirut",
+    "control_method": "Random assignment of 50% of eligible orders to pilot group, 50% to control group.",
+    "primary_metric": "First-attempt delivery success rate",
+    "numerator": "Deliveries successfully completed on the first attempt within the pilot group",
+    "denominator": "All delivery attempts within the pilot group",
+    "baseline": "12% of deliveries fail first attempt, meaning 88% first-attempt success rate (by your own figures)",
+    "target": "A 5 percentage-point rise in first-attempt delivery success rate (proposed — client approval required)",
+    "target_value": 0.93, "change_kind": "percentage_point",
+    "guardrails": ["Increase in average delivery time by more than 10% for pilot orders"],
+    "approvals_required": ["Pilot duration"],
+}
+
+
+def test_gate_text_governs_a_contradicting_numeric_field_and_strings_are_clean():
+    """Run 47: the model's target_value (0.93, the resulting rate) contradicted
+    its own labeled text ('5 percentage-point rise'); the text governs and the
+    conflict is a preflight error. Strings lose trailing periods and the
+    model's own attribution parentheticals."""
+    claims = rg.client_fact_claims(json.loads(OPS), [])
+    g = pg.normalize_gate(GATE47_RAW, claims)
+    assert g["target_value"] == 5 and g["target_value_conflict"] is True
+    assert "target_value contradicts the target text" in pg.gate_errors(g)
+    assert not g["control_method"].endswith(".") and "by your own figures" not in g["baseline"]
+    s = pg.canonical_sentence(g)
+    assert "must rise by 5 percentage points" in s and "0.93" not in s
+    assert "group., " not in s and "(by your own figures) (your figure)" not in s
+    assert "(your figure)" in s
+    clean = {**GATE47_RAW, "target_value": 5}
+    assert pg.gate_errors(pg.normalize_gate(clean, claims)) == []
+
+
+def test_money_line_without_a_dollar_sign_still_anchors_monthly_restatements():
+    """Run 47: annual '70,956' (no $) — every monthly restatement lost its
+    anchor, '$4,730 per month' stayed 'unverifiable' and the blueprint
+    borrowed the Upside scenario's $2,333 for 'what staying manual costs'."""
+    from app.pipeline.blueprint import _align_cost_line, _monthly_identity_note
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    bc = {"cost_of_inaction": "Continuing with 12% failed first attempts costs approximately $4,730 per month in re-attempt costs alone.",
+          "financial_model": {"lines": [{"item": "Annual re-attempt costs from failed first deliveries",
+                                         "arithmetic": "900 deliveries/day * 365 days/year * 12% failed first attempts * $1.80 re-attempt cost",
+                                         "annual": "70,956"}],
+                              "scenarios": [{"name": "Upside", "assumption": "prevents 40% of failed attempts",
+                                             "impact": "$28,382/year saved in re-attempt costs"}]}}
+    _sanitize_financial_model(bc)
+    assert "$5,832 per month" in bc["cost_of_inaction"] and "$4,730" not in bc["cost_of_inaction"]
+    note = _monthly_identity_note(bc)
+    assert note.index("$70,956/year = $5,832") < note.index("$28,382")
+    reg = rg.build_registry(OPS, bc, [])
+    assert any(c["id"] == "TB-01-month" and c["value"] == 5832.0 for c in reg["claims"])
+    md = "## How this makes money\n\n**What staying manual costs:** Continuing with 12% failed first attempts costs approximately $2,333 per month in re-attempt costs alone.\n"
+    out = _align_cost_line(md, bc)
+    assert "$5,832 per month" in out and "$2,333" not in out
+
+
+def test_operations_layers_are_corrected_in_place_for_run47_shapes():
+    from app.pipeline.extras import canonicalize_layers
+    from app.pipeline.phases import phase_findings
+
+    bc, mods, reg = _skeleton()
+    procedures = [
+        {"name": "Managing Pre-Dispatch Customer Confirmation", "phase": "pilot", "module": "Pre-Dispatch WhatsApp Pilot",
+         "trigger": "order created", "steps": [{"actor": "ai", "step": "Delivery Incident Predictor scores the order."}]},
+        {"name": "Assisting the driver", "phase": "future", "module": "Driver Clarification Assistant", "trigger": "dispatch",
+         "steps": [{"actor": "driver-clarification-assistant", "step": "Displays confirmed location details."},
+                   {"actor": "support agent", "step": "Escalate immediately to the dispatcher if the driver is lost."}]},
+    ]
+    by_name = {"organization": {"roles": [{"role": "COD Settlement Inquiry Bot", "type": "ai", "responsibilities": ["answers"],
+                                           "decides_alone": "Null", "hands_off": "When a dispute is raised."}]}}
+    canonicalize_layers(procedures, by_name, mods, reg, reg["pilot_gate"])
+    assert procedures[0]["phase"] == "future" and "re-phased" in procedures[0]["phase_note"]
+    assert procedures[1]["steps"][0]["actor"] == "Driver Clarification Assistant"
+    assert by_name["organization"]["roles"][0]["decides_alone"].startswith("Does not decide autonomously")
+    # an adverb inside a step is not present-execution language; the phase model agrees
+    assert not [f for f in phase_findings(procedures, mods) if "execute it now" in f["issue"]]
+    from app.pipeline import export_pdf as ep
+
+    assert ep.release_status(_seed_row(by_name, procedures, bc, mods, reg))["reasons"] == []
+
+
+def _seed_row(by_name, procedures, bc, mods, reg):
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="## The decision\nfine\n", technical_plan="## How your system works\nfine\n",
+                org_json=json.dumps(by_name["organization"]), procedures_json=json.dumps({"procedures": procedures}),
+                business_case_json=json.dumps(bc), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                journey_json=json.dumps({"stages": [{"stage": "Order", "backstage_modules": ["delivery-incident-predictor"]}]}),
+                qa_report_json=json.dumps({"checks": [], "findings": []}))
+    db.close()
+    return row
+
+
+def test_invented_settlement_policy_is_a_structural_finding():
+    claims = rg.client_fact_claims(json.loads(OPS), [])
+    texts = {"technical": "This AI understands that COD collections are settled with clients within 5 business days of month-end. "
+                          "Settlement statements follow your 10 days after month-end cycle."}
+    found = rg.policy_findings(texts, claims)
+    assert len(found) == 1 and "5 business days" in found[0]["issue"] and "10 days" in found[0]["issue"]
+    assert rg.policy_findings({"t": "Settlements are remitted weekly to every client."}, claims)
+    assert rg.policy_findings({"t": "Settlement happens 10 days after month-end, on monthly cycles."}, claims) == []
+    assert rg.policy_findings({"t": "a settlement reminder is sent within 48 hours (proposed — client approval required)"}, claims) == []
+
+
+def test_bullets_are_their_own_sentences_for_paraphrase_detection():
+    bc, mods, reg = _skeleton()
+    g = reg["pilot_gate"]
+    text = ("- **Pricing levers:**\n- Reduced failed delivery costs leading to higher profitability per delivery at existing rates\n"
+            "- Enhanced first-attempt delivery success supports premium same-day pricing for 350 daily inquiries\n")
+    assert pg.restatement_findings(text, g) == []
+    assert len(pg.restatement_findings("- " + VARIANT_MODULE + "\n- another bullet\n", g)) == 1
+
+
+def test_r13_qualitative_trigger_and_r8_verbatim_presence(client):
+    from app.pipeline.adjudicate import adjudicate
+
+    bc, mods, reg = _skeleton()
+    canon = reg["pilot_gate_sentence"]
+    db = SessionLocal()
+    row = _seed(db, business_case_json=json.dumps(bc), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                qa_report_json=json.dumps({"checks": [], "findings": [
+                    _finding("THE BLUEPRINT DOCUMENT: 'Where it stops and hands to you'",
+                             "This threshold or trigger ('fraud or major service problems') is newly introduced, qualitative, and lacks the required '(proposed — client approval required)' attribution."),
+                    _finding("The decision",
+                             "The 'Pre-Dispatch Customer Confirmation Workflow' description within 'The decision' section includes a pilot decision gate that does not precisely match the canonical gate sentence.",
+                             source="qa_completeness"),
+                ]}))
+    result = adjudicate(row, {"blueprint": "The decision gate: " + canon + " It hands off on fraud or major service problems."})
+    kinds = [e["classification"] for e in result["ledger"]]
+    assert kinds[0] == "semantic false positive resolved by structured threshold typing" and "R13" in result["ledger"][0]["evidence"]
+    assert kinds[1] == "machine-proven false positive" and "verbatim" in result["ledger"][1]["evidence"]
+    db.close()
+
+
+def test_partial_extras_rebuild_merges_the_pilot_sop_into_the_existing_library(client, monkeypatch):
+    from app.pipeline import extras
+
+    bc, mods, reg = _skeleton()
+    db = SessionLocal()
+    existing = [{"name": "Handling a settlement inquiry", "phase": "future", "module": "Settlement Inquiry Resolver",
+                 "trigger": "client message", "steps": [{"actor": "finance", "step": "Check the statement."}]}]
+    row = _seed(db, business_case_json=json.dumps(bc), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                procedures_json=json.dumps({"procedures": existing}),
+                scoreboard_json=json.dumps([{"metric": "x", "baseline": "measure in week 1", "target": "down"}]),
+                org_json=json.dumps({"roles": [{"role": "Owner", "type": "human", "responsibilities": ["runs it"]}]}))
+
+    def chat(model, messages, **kwargs):
+        payload = {"procedures": [{"name": "Running the gate review", "phase": "pilot", "trigger": "end of the pilot",
+                                   "steps": [{"actor": "you", "step": "Judge the pilot against [[PILOT_GATE]]"}],
+                                   "exceptions": []}]}
+        return {"choices": [{"message": {"content": json.dumps(payload)}}], "usage": {}}
+
+    monkeypatch.setattr(extras.provider, "chat", chat)
+    extras.build_extras(db, row.id, {}, {"modules": mods, "business_case": bc, "registry": reg}, only={"procedures:pilot"})
+    db.refresh(row)
+    procs = json.loads(row.procedures_json)["procedures"]
+    assert [p["module"] for p in procs] == ["The pilot", "Settlement Inquiry Resolver"]
+    assert procs[0]["steps"][0]["step"].endswith(reg["pilot_gate_sentence"])
+    assert json.loads(row.scoreboard_json)[0]["metric"] == "x" and json.loads(row.org_json)["roles"][0]["role"] == "Owner"
+    db.close()

@@ -52,6 +52,8 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
         s, _ = _pg.enforce(s, gate)
         return _registry.resolve_module_ids(s, modules)
 
+    ai_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
+                if isinstance(m, dict) and (m.get("automation_level") == "ai" or (m.get("spec") or {}).get("ai"))]
     for p in procedures or []:
         if not isinstance(p, dict):
             continue
@@ -60,9 +62,20 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
         for st in p.get("steps") or []:
             if isinstance(st, dict):
                 st["step"] = _fix(st.get("step"))
+                # run 47 put a module id in the actor field — resolve it too
+                st["actor"] = _fix(st.get("actor"))
         for ex in p.get("exceptions") or []:
             if isinstance(ex, dict):
                 ex["when"], ex["then"] = _fix(ex.get("when")), _fix(ex.get("then"))
+        # a "pilot" procedure that needs an AI actor or an AI module cannot run
+        # in the pilot — it is honestly a FUTURE procedure
+        if str(p.get("phase") or "").lower() == "pilot" and p.get("module") != "The pilot":
+            text = " ".join([str(p.get("trigger") or "")] + [str(s.get("step") or "") + " " + str(s.get("actor") or "")
+                                                              for s in p.get("steps") or [] if isinstance(s, dict)])
+            actors = [str(s.get("actor") or "").strip().lower() for s in p.get("steps") or [] if isinstance(s, dict)]
+            if "ai" in actors or any(n and n in text for n in ai_names):
+                p["phase"] = "future"
+                p["phase_note"] = "re-phased from pilot: depends on an AI actor or module that must be built first"
     new_claims = _registry.type_procedures(procedures or [], claims, counter) if registry is not None else []
 
     checklists = (by_name.get("checklists") or {})
@@ -106,13 +119,25 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
         if isinstance(r, dict):
             r["responsibilities"] = [_fix(x) for x in (r.get("responsibilities") or [])]
             r["decides_alone"], r["hands_off"] = _fix(r.get("decides_alone")), _fix(r.get("hands_off"))
+            # an AI role's empty decision right is stated as the constraint it
+            # is — never the literal "Null" (the renderer's rule, applied to the data)
+            if r.get("type") == "ai":
+                for key, default in (("decides_alone", "Does not decide autonomously — proposes, a human approves."),
+                                     ("hands_off", "Hands every action to a human for approval.")):
+                    v = str(r.get(key) or "").strip()
+                    if not v or v.lower() in ("null", "none", "n/a", "-", "nothing"):
+                        r[key] = default
     if registry is not None and new_claims:
         registry.setdefault("claims", []).extend(new_claims)
         registry["errors"] = _registry.validate_registry(registry)
     return procedures
 
 
-def build_extras(db: Session, request_id: int, analysis: dict, decomposition: dict | None) -> None:
+def build_extras(db: Session, request_id: int, analysis: dict, decomposition: dict | None,
+                 only: set[str] | None = None) -> None:
+    """Build the consultancy layers. With `only` (task names such as
+    {"procedures:pilot"}), run just those calls and merge their output into
+    the layers already on the row — the retry path for one failed layer."""
     req = db.get(Request, request_id)
     if req is None:
         return
@@ -334,6 +359,11 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         for i, m in enumerate(modules)
     ]
 
+    if only:
+        tasks = [t for t in tasks if t[0] in only]
+        if not tasks:
+            return
+
     def _guarded(item):
         name, fn = item
         try:
@@ -361,6 +391,18 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     for name, result, _ in results:
         if name.startswith("procedures:") and result:
             procedure_library.extend(result["payload"]["procedures"])
+    if only:
+        # a partial rebuild keeps every existing layer and splices the new
+        # procedures in front of the library already on the row
+        existing = (json.loads(req.procedures_json) if req.procedures_json else {}).get("procedures") or []
+        fresh_modules = {p.get("module") for p in procedure_library}
+        procedure_library = procedure_library + [p for p in existing if p.get("module") not in fresh_modules]
+        for layer, attr in (("journey", "journey_json"), ("organization", "org_json"), ("checklists", "checklists_json")):
+            if not by_name.get(layer) and getattr(req, attr, None):
+                by_name[layer] = json.loads(getattr(req, attr))
+        if not by_name.get("governance") and req.scoreboard_json:
+            by_name["governance"] = {"scoreboard": json.loads(req.scoreboard_json),
+                                     "risks": json.loads(req.risks_json) if req.risks_json else []}
     # The registry's deterministic passes over the operations layers: the
     # canonical gate sentence replaces the token and every paraphrase, raw
     # ids resolve to names, waits/retries/cut-offs are typed and labeled,

@@ -30,7 +30,9 @@ _STOP = {"rate", "the", "and", "for", "per", "of", "with", "from", "that", "this
 
 
 def _strip_label(s: str) -> str:
-    return re.sub(r"\s*\(proposed[^)]*\)", "", s or "").strip()
+    out = re.sub(r"\s*\(proposed[^)]*\)", "", s or "")
+    out = re.sub(r"\s*\((?:by )?your own figures?\)|,?\s*by your own figures", "", out, flags=re.IGNORECASE)
+    return out.strip().rstrip(".;,").strip()
 
 
 def _num_in(s: str) -> float | None:
@@ -61,25 +63,31 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
     if eg:
         pop = _EG.sub("", pop).strip()
         pop = re.sub(r"\s{2,}", " ", pop).rstrip(" ,")
-    g["population"] = pop or None
-    g["geography"] = geo or None
-    g["control_method"] = str(raw.get("control_method") or raw.get("control") or "").strip() or None
-    # target
+    g["population"] = _strip_label(pop) or None
+    g["geography"] = _strip_label(geo) or None
+    g["control_method"] = _strip_label(str(raw.get("control_method") or raw.get("control") or "")) or None
+    # target — the labeled TEXT governs; a numeric field that contradicts it
+    # (run 47: text "5 percentage-point rise", target_value 0.93 = the
+    # resulting rate) is recorded as a conflict, never silently preferred
     tgt = str(raw.get("target") or "")
     kind = str(raw.get("change_kind") or raw.get("target_kind") or "").lower() or None
-    tv = raw.get("target_value") if isinstance(raw.get("target_value"), (int, float)) else None
+    field = raw.get("target_value") if isinstance(raw.get("target_value"), (int, float)) else None
+    tv = None
     if _PP.search(tgt):
-        tv = tv if tv is not None else float(_PP.search(tgt).group(1))
+        tv = float(_PP.search(tgt).group(1))
         kind = kind or "percentage_point"
     elif _PCT.search(tgt):
-        tv = tv if tv is not None else float(_PCT.search(tgt).group(1))
+        tv = float(_PCT.search(tgt).group(1))
         if kind is None:
             kind = "relative" if re.search(r"relative", tgt, re.IGNORECASE) else None
     elif _ONE_IN.search(tgt):
         n = float(_ONE_IN.search(tgt).group(1))
-        tv = tv if tv is not None else round(100.0 / n, 1)
+        tv = round(100.0 / n, 1)
         kind = kind or "relative"
+    if tv is None:
+        tv = field
     g["target_value"] = tv
+    g["target_value_conflict"] = (field is not None and tv is not None and abs(field - tv) > 0.01 * max(tv, 1))
     g["change_kind"] = kind
     g["target_unit"] = "percentage points" if kind == "percentage_point" else ("% relative" if kind == "relative" else (kind or ""))
     g["direction"] = "fall" if _DOWN.search(tgt) and not _UP.search(tgt) else ("rise" if _UP.search(tgt) else None)
@@ -125,6 +133,8 @@ def gate_errors(g: dict) -> list[str]:
         errors.append("missing pilot duration")
     if g.get("target_value") is None:
         errors.append("missing numeric target")
+    if g.get("target_value_conflict"):
+        errors.append("target_value contradicts the target text")
     if g.get("change_kind") not in ("percentage_point", "relative"):
         errors.append("target must be explicitly percentage-point or relative")
     if g.get("direction") is None:
@@ -252,7 +262,10 @@ def restatement_findings(text: str, g: dict) -> list[dict]:
     out = []
     if not g or not text:
         return out
-    # rendered PDF text wraps sentences across lines: judge on collapsed whitespace
+    # rendered PDF text wraps sentences across lines: judge on collapsed
+    # whitespace — but a bullet or list item is its own sentence
+    text = re.sub(r"\n\s*(?:[-*•]|\d+\.)\s+", ". ", text)
+    text = re.sub(r"\s*•\s*", ". ", text)
     text = re.sub(r"[ \t\r]*\n[ \t\r]*", " ", text)
     text = re.sub(r"\s{2,}", " ", text)
     for sentence in _SPLIT.split(text):

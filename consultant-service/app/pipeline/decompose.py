@@ -46,6 +46,17 @@ def _numbers_in(text: str) -> list[float]:
     return vals
 
 
+_MONEY_WORDS = re.compile(r"\$|\busd\b|cost|saving|revenue|fee|spend|loss|margin|price", re.IGNORECASE)
+
+
+def _is_money_line(line: dict) -> bool:
+    """A financial line is currency when its figure, its arithmetic or its
+    item says so — run 47 printed '70,956' without the sign and every
+    monthly restatement lost its anchor."""
+    return bool(_MONEY_WORDS.search(str(line.get("annual") or "") + " " + str(line.get("arithmetic") or ""))
+                or re.search(r"cost|saving|revenue|fee|spend|loss", str(line.get("item") or ""), re.IGNORECASE))
+
+
 def _sanitize_financial_model(business_case: dict) -> None:
     bc_dict = business_case if isinstance(business_case, dict) else {}
     """Deterministic arithmetic check on the financial model's annualized
@@ -115,7 +126,7 @@ def _sanitize_financial_model(business_case: dict) -> None:
 
     claims = []
     for l in fm.get("lines") or []:
-        if isinstance(l, dict) and l.get("arithmetic_verified") and "$" in str(l.get("annual") or ""):
+        if isinstance(l, dict) and l.get("arithmetic_verified") and _is_money_line(l):
             vals = _numbers_in(str(l.get("annual") or ""))
             if vals:
                 claims.append(vals[0])

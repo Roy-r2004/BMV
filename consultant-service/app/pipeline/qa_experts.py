@@ -88,6 +88,7 @@ def machine_findings(req: Request, registry: dict | None, texts: dict[str, str] 
         bc = req.business_case_json or ""
         scope["business_case"] = bc
         out += timebasis.identity_findings(scope, annuals)
+    out += _registry.policy_findings(texts, registry.get("claims") or [])
     return out
 
 
