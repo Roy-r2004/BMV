@@ -112,9 +112,13 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
         [raw.get("guardrail")] if raw.get("guardrail") else [])
     g["guardrails"] = [_strip_label(str(x)) for x in guards if x]
     g["guardrail_value"] = _num_in(g["guardrails"][0]) if g["guardrails"] else None
-    g["numerator"] = str(raw.get("numerator") or "").strip() or None
-    g["denominator"] = str(raw.get("denominator") or "").strip() or None
+    g["numerator"] = _strip_label(str(raw.get("numerator") or "")) or None
+    g["denominator"] = _strip_label(str(raw.get("denominator") or "")) or None
     g["primary_metric"] = _strip_label(str(raw.get("primary_metric") or "")) or None
+    # legacy keys stay populated — an auditor reading the structured object
+    # must never see a null beside a filled sibling
+    g["control"] = g["control_method"]
+    g["guardrail"] = "; ".join(g["guardrails"]) if g["guardrails"] else None
     g["approval_status"] = APPROVAL_REQUIRED
     g["secondary_metrics"] = [str(x) for x in (raw.get("secondary_metrics") or []) if x]
     g["approvals_required"] = [str(x) for x in (raw.get("approvals_required") or []) if x]

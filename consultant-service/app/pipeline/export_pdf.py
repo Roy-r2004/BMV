@@ -803,7 +803,7 @@ def _financial_model_flowables(business_case: dict) -> list:
     flows = _h1("The financial case, quantified")
     flows.append(Paragraph(
         "Convention: a 365-day year; every monthly figure in this engagement is a 30-day operating "
-        "month (the annual figure ÷ 365 × 30) — never the annual figure ÷ 12.", _S["meta"]))
+        "month (the annual figure ÷ 365 × 30), never one twelfth of the year.", _S["meta"]))
     if lines:
         flows.append(Paragraph(
             "What the current way of working costs, annualized from your own figures:", _S["body"]))

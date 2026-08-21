@@ -292,7 +292,8 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 continue
             canon = re.sub(r"\s+", " ", _pg.canonical_sentence(gate))
             if canon and canon in re.sub(r"\s+", " ", corpus) and re.search(
-                    r"not (?:\w+\s+)?match|differs from|deviates|does not match|do not match", issue, re.IGNORECASE):
+                    r"not (?:\w+\s+)?match|differs? from|deviat|does not match|do not match|discrepanc|"
+                    r"formatting difference|inconsisten|but the struct", issue, re.IGNORECASE):
                 _close("false_positive",
                        "R8: the canonical gate sentence is present verbatim in the rendered text and zero "
                        "paraphrases exist — the auditor's mismatch claim has no textual basis",
@@ -401,6 +402,39 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                        f"R15: Phase 1 is named after its pilot module '{pilot.get('client_facing_name')}', which the "
                        f"registry types as PILOT / {pilot.get('automation_level')} / no AI — one capability, one name",
                        "semantic false positive resolved by structured phase data")
+                continue
+        # R17 — a percentage and its complement of a client fact (12% failed = 88% success)
+        pct_facts = [c["value"] for c in (registry or {}).get("claims") or []
+                     if c.get("type") == "client_fact" and c.get("unit") == "%" and isinstance(c.get("value"), (int, float))]
+        cited_pcts = [v for v in _numbers_in(issue) if 0 < v < 1]
+        if pct_facts and cited_pcts and re.search(r"impl(?:y|ies)|100\s*-\s*\d|derived|complement|baseline", issue, re.IGNORECASE):
+            pairs = [(p, 1 - p) for p in pct_facts
+                     if any(abs(v - p) < 1e-9 for v in cited_pcts) and any(abs(v - (1 - p)) < 1e-9 for v in cited_pcts)]
+            if pairs:
+                p, q = pairs[0]
+                _close("false_positive",
+                       f"R17: {q:.0%} is the arithmetic complement of the client's own {p:.0%} — both are the client's figure",
+                       "machine-proven false positive")
+                continue
+        # R18 — a typed, labeled consultant-proposed threshold needs no client input:
+        # the law requires provenance OR proposed status, and the registry holds it
+        if registry and re.search(r"even with the approval tag|while (?:they have|tagged for|it has|carrying) (?:the )?approval|"
+                                  r"despite (?:the|its|their) (?:approval )?(?:tag|label)|arbitrary|lacking (?:any )?client input",
+                                  issue, re.IGNORECASE):
+            quoted_nums = [v for v in _numbers_in(issue) if v > 0]
+            typed = [c for c in registry.get("claims") or []
+                     if c.get("type") in ("performance_target", "timing_sla", "sampling_requirement",
+                                          "capacity_assumption", "proposed_threshold", "operational_policy", "module_kpi")
+                     and c.get("provenance") in ("consultant_proposed", "canonical_gate")
+                     and isinstance(c.get("value"), (int, float))]
+            matched = [c for c in typed if any(abs(float(c["value"]) - v) <= 0.005 * max(v, 1e-9)
+                                              or abs(float(c["value"]) * 100 - v) <= 0.005 * max(v, 1e-9) for v in quoted_nums)]
+            if matched and _label_check(str(quoted_nums[0]), corpus)[0] is not False:
+                kinds = sorted({c["type"] for c in matched})
+                _close("false_positive",
+                       f"R18: the cited figure(s) are registered, typed consultant proposals ({', '.join(kinds)}) carrying "
+                       "the approval label in the rendered text — the threshold law requires provenance OR proposed status",
+                       "semantic false positive resolved by structured threshold typing")
                 continue
         # R16 — the auditor's own text reports no defect
         if re.search(r"no fix (?:is )?needed|no change (?:is )?needed|no correction (?:is )?needed|formatting only|"

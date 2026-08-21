@@ -943,6 +943,42 @@ def test_r14_r15_r16_and_ai_consistency(client):
     db.close()
 
 
+def test_r17_complement_r18_labeled_typed_thresholds_and_convention_line(client):
+    from app.pipeline.adjudicate import adjudicate
+    from app.pipeline import timebasis as tb
+
+    bc, mods, reg = _skeleton()
+    db = SessionLocal()
+    row = _seed(db, business_case_json=json.dumps(bc), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                qa_report_json=json.dumps({"checks": [], "findings": [
+                    _finding("Pilot decision gate",
+                             "The baseline is stated as '88%' when the client input implies 12% failed, so 100-12=88% success rate; the derived figure is not a client input."),
+                    _finding("TECHNICAL PLAN DOCUMENT: Delivery Incident Predictor",
+                             "The '90%' accuracy and '100,000' historical orders are arbitrary figures lacking any client input or proposed assumption, even with the approval tag."),
+                    _finding("The decision",
+                             "The pilot decision gate is stated multiple times and while mostly consistent there are minor discrepancies and formatting differences compared to the canonical gate sentence.",
+                             source="qa_completeness"),
+                ]}))
+    rendered = {"technical": "aiming for over 90% accuracy (proposed — client approval required) on 100,000 historical orders (proposed — client approval required). " + reg["pilot_gate_sentence"]}
+    result = adjudicate(row, rendered)
+    kinds = [e["classification"] for e in result["ledger"]]
+    assert kinds[0] == "machine-proven false positive" and "R17" in result["ledger"][0]["evidence"]
+    assert kinds[1] == "semantic false positive resolved by structured threshold typing" and "R18" in result["ledger"][1]["evidence"]
+    assert kinds[2] == "machine-proven false positive" and "verbatim" in result["ledger"][2]["evidence"]
+    # the convention sentence the financial case prints is not a mixed-identity sentence
+    line = ("Convention: a 365-day year; every monthly figure in this engagement is a 30-day operating month "
+            "(the annual figure ÷ 365 × 30), never one twelfth of the year.")
+    assert tb.identity_findings({"b": line}, [70956.0]) == []
+    fixed, _ = rg.policy_pass("settled within 2 days of collection", rg.client_fact_claims(json.loads(OPS), []))
+    assert "within 10 days (your stated cycle)" in fixed
+    fixed2, _ = rg.policy_pass("Get your remittance within 10-day (your stated cycle) (proposed — client approval required) of collection",
+                               rg.client_fact_claims(json.loads(OPS), []))
+    assert "within 10 days (your stated cycle) of collection" in fixed2 and "(proposed" not in fixed2
+    g = pg.normalize_gate(GATE47_RAW, rg.client_fact_claims(json.loads(OPS), []))
+    assert g["control"] == g["control_method"] and g["guardrail"]
+    db.close()
+
+
 def test_prose_thresholds_in_hand_off_sentences_are_labeled():
     bc, mods, reg = _skeleton()
     line = ("**Where it stops and hands to you:** it hands off when a customer doesn't respond quickly enough "

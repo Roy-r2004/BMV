@@ -53,6 +53,7 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
         s, _ = _pg.enforce(s, gate)
         for old, new in renames:
             s = s.replace(old, new)
+        s, _ = _registry.policy_pass(s, claims)
         return _registry.resolve_module_ids(s, modules)
 
     ai_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])

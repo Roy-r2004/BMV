@@ -617,12 +617,23 @@ def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
     if not client_days:
         return text, notes
     out = text
+    # an earlier correction's phrasing is normalized, and the client's own
+    # cycle never carries an approval label
+    out = re.sub(r"\b(within|in|after|every)\s+(\d+)-day \(your stated cycle\)", r"\1 \2 days (your stated cycle)", out)
+    out = re.sub(r"\(your stated cycle\)\s*\(proposed — client approval required\)", "(your stated cycle)", out)
     for f in policy_findings({"s": text}, claims):
         stated = re.search(r"period of '([^']+)'", f["issue"])
         if not stated:
             continue
         token = stated.group(1)
-        replacement = f"{client_days[0]}-day (your stated cycle)"
+        # keep the grammar of the phrase it replaces: "within 2 days" -> "within 10 days (…)",
+        # "2-day policy" -> "10-day (…) policy", "weekly" -> "every 10 days (…)"
+        if re.fullmatch(r"\d+\s*-\s*day", token, re.IGNORECASE):
+            replacement = f"{client_days[0]}-day (your stated cycle)"
+        elif re.search(r"\d", token):
+            replacement = f"{client_days[0]} days (your stated cycle)"
+        else:
+            replacement = f"every {client_days[0]} days (your stated cycle)"
         if re.search(re.escape(token), out):
             out = re.sub(re.escape(token), replacement, out, count=1)
             notes.append(f"'{token}' -> '{replacement}'")
