@@ -268,6 +268,39 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                        "states that convention; 'per month' means that month throughout",
                        "machine-proven false positive")
                 continue
+        # R25 — the auditor quotes arithmetic the document never contains
+        quoted_arith = re.findall(r"\(\s*\d[\d,]*(?:\.\d+)?\s*[x×*]\s*\d*\.?\d+\s*\)", issue)
+        doc_text = re.sub(r"\s+", " ", corpus + " " + (req.business_case_json or ""))
+        if quoted_arith and not any(re.sub(r"\s+", "", q) in re.sub(r"\s+", "", doc_text) for q in quoted_arith) and cited_verified:
+            _close("false_positive",
+                   f"R25: the arithmetic the auditor quotes ({quoted_arith[0]}) appears nowhere in the document or its "
+                   f"structured layers — the stated figure is machine-verified ({cited_verified[0][1]})",
+                   "machine-proven false positive")
+            continue
+        # R24 — the auditor's own recompute drifts from the document's exactly-verified
+        # value by less than the verification tolerance ("5828.60, not 5832.00"): the
+        # machine product equals the document value; the auditor's arithmetic is off
+        exact = {}
+        for line in (fm.get("lines") or []) if isinstance(fm, dict) else []:
+            if isinstance(line, dict):
+                rv = _recomputed_value(str(line.get("arithmetic") or ""), str(line.get("annual") or ""))
+                if rv:
+                    exact[round(rv, 2)] = f"{line.get('arithmetic')} = {rv:,.2f}"
+                    exact[round(rv / 365 * 30, 2)] = f"{rv:,.0f}/year / 365 x 30 = {rv / 365 * 30:,.2f}"
+                    exact[round(rv / 365, 2)] = f"{rv:,.0f}/year / 365 = {rv / 365:,.2f}"
+        nums_issue = [v for v in _numbers_in(issue) if v > 1]
+        if re.search(r"\bnot\b|should be|instead of|rather than|error", issue, re.IGNORECASE):
+            drift = next(((a, b) for a in nums_issue for b in nums_issue
+                          if a != b and abs(a - b) / max(a, b) <= 0.005
+                          and any(abs(b - e) < 0.006 for e in exact) and not any(abs(a - e) < 0.006 for e in exact)), None)
+            if drift:
+                a, b = drift
+                why = next(w for e, w in exact.items() if abs(b - e) < 0.006)
+                _close("false_positive",
+                       f"R24: the machine product is exactly {b:,.2f} ({why}); the auditor's {a:,.2f} is its own "
+                       "arithmetic drift, not the document's",
+                       "machine-proven false positive")
+                continue
         # R20 — whole-dollar rounding of a verified product is verification, not a discrepancy
         if re.search(r"rounding", issue, re.IGNORECASE) and cited_verified:
             near = [v for v, why in cited if not why and any(abs(v - cv) / max(cv, 1e-9) <= 0.005 for cv, _ in cited_verified)]
@@ -311,7 +344,8 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
             canon = re.sub(r"\s+", " ", _pg.canonical_sentence(gate))
             if canon and canon in re.sub(r"\s+", " ", corpus) and re.search(
                     r"not (?:\w+\s+)?match|differs? from|deviat|does not match|do not match|discrepanc|"
-                    r"formatting difference|inconsisten|but the struct|varies|variation|slightly", issue, re.IGNORECASE):
+                    r"formatting difference|inconsisten|but the struct|varies|variation|slightly|not used verbatim|"
+                    r"not (?:\w+\s+){0,2}verbatim", issue, re.IGNORECASE):
                 _close("false_positive",
                        "R8: the canonical gate sentence is present verbatim in the rendered text and zero "
                        "paraphrases exist — the auditor's mismatch claim has no textual basis",
@@ -463,7 +497,8 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 continue
         # R15 — the Phase 1 bullet carries the pilot module's client-facing name BY DESIGN
         if registry and re.search(r"phase 1", issue, re.IGNORECASE) and \
-                re.search(r"module name|refers? to the pilot as|instead of describing|uses? the module", issue, re.IGNORECASE):
+                re.search(r"module name|refers? to the pilot as|instead of describing|uses? the module|human-supervised|"
+                          r"uses the phrase|describ(?:es|ed) (?:it|the pilot|the workflow) as|rules-based", issue, re.IGNORECASE):
             pilot = next((m for m in registry.get("modules") or [] if m.get("pilot")), None)
             if pilot and pilot.get("automation_level") in ("manual", "rules") and not pilot.get("ai_involvement"):
                 _close("false_positive",

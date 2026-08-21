@@ -1075,6 +1075,51 @@ def test_pass5_classes_merged_sentences_future_week_one_no_ai_repair_and_quote_o
     db.close()
 
 
+def test_pass6_classes_unpromised_components_auditor_arithmetic_and_current_state_sentences(client):
+    from app.pipeline.adjudicate import adjudicate
+    from app.pipeline.decompose import _sanitize_financial_model
+    from app.pipeline.structural import scenario_component_map, unpromised_components
+
+    lines = [{"item": "Annual re-attempt costs from failed first deliveries",
+              "arithmetic": "900 deliveries/day * 365 days/year * 12% failed first attempts * $1.80 re-attempt cost", "annual": "$70,956/year"},
+             {"item": "Annual support inquiries for 'where is my order'", "arithmetic": "350 inquiries/day * 365 days/year", "annual": "127,750 inquiries/year"},
+             {"item": "Annual COD settlement inquiries", "arithmetic": "300 inquiries/month * 12 months/year", "annual": "3,600 inquiries/year"}]
+    sc = {"name": "Conservative",
+          "assumption": "The LVA AI prevents 20% of current failed first attempts and CSI Bot resolves 40% of COD inquiries.",
+          "impact": "$14,191/year saved in re-attempt costs + 51,100 fewer 'where is my order' inquiries/year + 1,440 fewer COD inquiries/year"}
+    un = unpromised_components(sc, lines)
+    assert len(un) == 1 and un[0]["subject"] == "where is my order" and abs(un[0]["fraction"] - 0.4) < 1e-9
+    assert scenario_component_map(sc, lines)["complete"] is False
+    bc = {"financial_model": {"lines": copy.deepcopy(lines), "scenarios": [copy.deepcopy(sc)]}}
+    _sanitize_financial_model(bc)
+    fixed = bc["financial_model"]["scenarios"][0]
+    assert "resolves 40% of 'where is my order' inquiries" in fixed["assumption"]
+    assert bc["financial_model"]["assumption_repairs"][0]["for"] == "51,100"
+    assert scenario_component_map(fixed, bc["financial_model"]["lines"])["complete"] is True
+    # the current-state sentence quoting the client's own figures is not a gate paraphrase
+    bc2, mods, reg = _skeleton()
+    g = reg["pilot_gate"]
+    current = ("You report 12% of your deliveries fail on the first attempt, costing you $5,832 per 30-day operating month "
+               "in re-attempt costs alone, alongside 350 'where is my order' messages a day your support staff answer by hand.")
+    assert not pg.is_paraphrase(current, g)
+    for variant in (VARIANT_DECISION, VARIANT_KPI, VARIANT_MODULE):
+        assert pg.is_paraphrase(variant, g)
+    # the auditor's own arithmetic drift, and arithmetic it invented
+    db = SessionLocal()
+    row = _seed(db, business_case_json=json.dumps(bc2), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                qa_report_json=json.dumps({"checks": [], "findings": [
+                    _finding("restatements", "The formula '70,956/year / 365 x 30 = 5,832.00' contains a numerical error. 70,956 / 365 * 30 = 5828.60, not 5832.00.",
+                             fix="70,956/year / 365 x 30 = 5,828.60"),
+                    _finding("scenarios -> impact", "The Conservative impact arithmetic for 'where is my order' inquiries is given as '(127750 * 0.20)', leading to 25,550 fewer inquiries. However, the machine-verified claim states '51,100 fewer inquiries/year'.",
+                             fix="The arithmetic should be '(127750 * X)' where X is 0.40"),
+                ]}))
+    result = adjudicate(row, {"blueprint": "51,100 fewer 'where is my order' inquiries a year, by your own figures."})
+    kinds = [e["classification"] for e in result["ledger"]]
+    assert kinds[0] == "machine-proven false positive" and "R24" in result["ledger"][0]["evidence"]
+    assert kinds[1] == "machine-proven false positive" and "R25" in result["ledger"][1]["evidence"]
+    db.close()
+
+
 def test_prose_thresholds_in_hand_off_sentences_are_labeled():
     bc, mods, reg = _skeleton()
     line = ("**Where it stops and hands to you:** it hands off when a customer doesn't respond quickly enough "

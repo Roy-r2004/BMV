@@ -258,9 +258,12 @@ _SCOREBOARD_TABLE = re.compile(r"Metric Baseline Target Owner Review .*?(?:How e
 _SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[*(\-•\d])|\n")
 
 
+# a restatement of the GATE speaks of its target: percentage points, a
+# decision gate, a target, the pilot's horizon — a current-state sentence
+# quoting the client's 12% and $5,832 does not
 _GATE_SIGNAL = re.compile(
-    r"percentage.point|\bpp\b|decision gate|pilot gate|unlock phase|\btarget|baseline|success rate|"
-    r"within \d+ weeks? of (the )?pilot|\b1 in \d+\b", re.IGNORECASE)
+    r"percentage.point|\bpp\b|decision gate|pilot gate|unlock phase|\btarget|"
+    r"within \d+ weeks? of (the )?pilot|\b1 in \d+\b|must (?:rise|fall) by", re.IGNORECASE)
 _BOLD_LABEL = re.compile(r"\s+(?=\*\*[A-Z][^*\n]{2,60}:\*\*)")
 
 

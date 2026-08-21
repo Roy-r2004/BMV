@@ -192,6 +192,26 @@ def _sanitize_financial_model(business_case: dict) -> None:
         _records += recs
     if _records:
         fm["restatements"] = _records
+    # An impact component the assumption never promised is stated INTO the
+    # assumption with the exact fraction it used — the figure already stands
+    # in the impact; the assumption must own it (run 47: 51,100 'where is my
+    # order' inquiries at 40% with no 40% promised for them).
+    from app.pipeline.structural import unpromised_components
+
+    repairs = []
+    for sc in fm.get("scenarios") or []:
+        if not isinstance(sc, dict):
+            continue
+        for u in unpromised_components(sc, fm.get("lines") or []):
+            clause = f" and {u['fraction']:.0%} of {u['subject']}"
+            if "inquir" in u["subject"] or "order" in u["subject"]:
+                clause = f" and resolves {u['fraction']:.0%} of '{u['subject']}' inquiries" if "inquir" not in u["subject"] \
+                    else f" and resolves {u['fraction']:.0%} of {u['subject']}"
+            assumption = str(sc.get("assumption") or "").rstrip(". ")
+            sc["assumption"] = assumption + clause + "."
+            repairs.append({"scenario": sc.get("name"), "added": clause.strip(), "for": u["value"]})
+    if repairs:
+        fm["assumption_repairs"] = repairs
 
 
 def _format_owner_numbers(req: Request) -> str:

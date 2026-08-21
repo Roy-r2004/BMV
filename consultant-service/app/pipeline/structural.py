@@ -15,17 +15,84 @@ _QUANT = re.compile(r"\d[\d,]*(?:\.\d+)?")
 _CANNOT = re.compile(r"cannot yet quantify|not yet monetized|needs your|pending your", re.IGNORECASE)
 
 
-def scenario_component_map(scenario: dict) -> dict:
+def scenario_component_map(scenario: dict, lines: list | None = None) -> dict:
     """How many impact mechanisms the assumption promises vs how many the
-    impact delivers (a quantified figure or an explicit cannot-quantify)."""
+    impact delivers (a quantified figure or an explicit cannot-quantify) —
+    and, when the financial lines are given, whether every quantified
+    component's SUBJECT is promised by the assumption (run 47: the
+    assumption promised failed attempts and COD inquiries, the impact
+    quantified 'where is my order' inquiries nobody promised)."""
     assumption = str(scenario.get("assumption") or "")
     impact = str(scenario.get("impact") or "")
     promised = len(_FRACTION.findall(assumption))
     quantified = len([v for v in _QUANT.findall(impact) if float(v.replace(",", "")) > 1])
     unquantified_notes = len(_CANNOT.findall(impact))
+    unpromised = unpromised_components(scenario, lines or [])
     return {"promised": promised, "delivered": quantified + unquantified_notes,
             "quantified": quantified, "cannot_quantify_notes": unquantified_notes,
-            "complete": promised == 0 or (quantified + unquantified_notes) >= promised}
+            "unpromised": unpromised,
+            "complete": (promised == 0 or (quantified + unquantified_notes) >= promised) and not unpromised}
+
+
+_GENERIC = {"annual", "total", "current", "inquiries", "inquiry", "costs", "cost", "from", "hours", "staff",
+            "volume", "year", "month", "support", "team", "time", "number", "rate", "with", "that", "this",
+            "per", "the", "and", "for"}
+
+
+def _subjects_of(item: str) -> tuple[str | None, list[str]]:
+    """The subject a financial line is about: a quoted phrase when the item
+    carries one ('where is my order' — matched as a phrase), else its
+    distinctive content words (matched by 5-letter prefix, so 'attempts'
+    meets 're-attempt' and 'COD' meets 'COD')."""
+    q = re.search(r"['\"‘’“”]([^'\"‘’“”]{3,40})['\"‘’“”]", item or "")
+    phrase = q.group(1).lower() if q else None
+    words = [w for w in re.findall(r"[A-Za-z][A-Za-z-]{2,}", item or "")
+             if w.lower() not in _GENERIC]
+    return phrase, words
+
+
+def _promised(assumption: str, phrase: str | None, words: list[str]) -> bool:
+    a = assumption.lower()
+    if phrase:
+        return phrase in a
+    for w in words:
+        parts = [p for p in re.split(r"-", w) if len(p) >= 3]
+        for p in parts:
+            key = p.lower()[:5] if len(p) > 5 else p.lower()
+            if key in a:
+                return True
+    return False
+
+
+def unpromised_components(scenario: dict, lines: list) -> list[dict]:
+    """Quantified impact components whose base line's subject the
+    assumption never names."""
+    out = []
+    assumption = str(scenario.get("assumption") or "").lower()
+    impact = str(scenario.get("impact") or "")
+    fracs = [float(x.rstrip("%")) / 100 for x in re.findall(r"(\d[\d.]*)\s*%", assumption)]
+    fracs += [1 / float(n) for n in re.findall(r"\b1 in (\d+)\b", assumption)]
+    bases = []
+    for line in lines or []:
+        if not isinstance(line, dict):
+            continue
+        nums = [float(v.replace(",", "")) for v in _QUANT.findall(str(line.get("annual") or ""))]
+        if nums:
+            bases.append((nums[0], str(line.get("item") or "")))
+    for tok in _QUANT.findall(impact):
+        v = float(tok.replace(",", ""))
+        if v <= 1:
+            continue
+        hit = next(((f, item) for f in fracs for base, item in bases
+                    if base and abs(base * f - v) / max(v, 1e-9) <= 0.005), None)
+        if not hit:
+            continue
+        f, item = hit
+        phrase, words = _subjects_of(item)
+        if (phrase or words) and not _promised(assumption, phrase, words):
+            subject = phrase or max(words, key=len).lower()
+            out.append({"value": tok, "fraction": f, "subject": subject})
+    return out
 
 
 def structural_findings(business_case: dict, modules: list, registry: dict | None = None) -> list[dict]:
@@ -38,8 +105,17 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
     for sc in (fm.get("scenarios") or []) if isinstance(fm, dict) else []:
         if not isinstance(sc, dict):
             continue
-        m = scenario_component_map(sc)
-        if not m["complete"]:
+        m = scenario_component_map(sc, (fm.get("lines") or []) if isinstance(fm, dict) else [])
+        if m["unpromised"]:
+            u = m["unpromised"][0]
+            findings.append({
+                "severity": "high", "source": "structural",
+                "where": f"financial_model.scenarios.{sc.get('name')}",
+                "issue": (f"The impact quantifies '{u['value']}' for '{u['subject']}' ({u['fraction']:.0%} of its "
+                          f"line) but the assumption never promises a mechanism for '{u['subject']}'."),
+                "fix": f"state the {u['fraction']:.0%} assumption for '{u['subject']}' in the assumption, or drop the component",
+            })
+        elif not m["complete"]:
             findings.append({
                 "severity": "high", "source": "structural",
                 "where": f"financial_model.scenarios.{sc.get('name')}",
