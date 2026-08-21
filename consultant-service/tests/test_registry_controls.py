@@ -1120,6 +1120,28 @@ def test_pass6_classes_unpromised_components_auditor_arithmetic_and_current_stat
     db.close()
 
 
+def test_failed_regeneration_never_erases_an_existing_volume(client, monkeypatch):
+    from app.pipeline import blueprint as bp
+
+    bc, mods, reg = _skeleton()
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="## The decision\nkept\n", technical_plan="## How your system works\nkept\n",
+                modules_json=json.dumps(mods), business_case_json=json.dumps(bc), registry_json=json.dumps(reg))
+
+    def chat(model, messages, **kwargs):
+        raise RuntimeError("OpenRouter 402: Insufficient credits")
+
+    monkeypatch.setattr(bp.provider, "chat", chat)
+    out = bp.write_blueprint(db, row.id, {}, {}, {"concept_name": "C", "roles": []},
+                             {"modules": mods, "business_case": bc, "registry": reg})
+    out2 = bp.write_technical_plan(db, row.id, {}, {"concept_name": "C", "roles": []},
+                                   {"modules": mods, "business_case": bc, "registry": reg})
+    db.refresh(row)
+    assert row.mvp_blueprint == "## The decision\nkept\n" == out
+    assert row.technical_plan == "## How your system works\nkept\n" == out2
+    db.close()
+
+
 def test_prose_thresholds_in_hand_off_sentences_are_labeled():
     bc, mods, reg = _skeleton()
     line = ("**Where it stops and hands to you:** it hands off when a customer doesn't respond quickly enough "
