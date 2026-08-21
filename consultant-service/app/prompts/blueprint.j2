@@ -29,19 +29,27 @@ Modules, each with its deep spec:
 Business case:
 {{ business_case }}
 
+THE CANONICAL PILOT-GATE SENTENCE (rendered by the system; you never rewrite it — wherever the gate belongs, write the literal token [[PILOT_GATE]] on its own and the system substitutes this exact sentence):
+{{ pilot_gate_sentence | default("(no pilot gate defined — write no pilot criteria)") }}
+
+BUILD ORDER (client-facing names, in the exact order to restate):
+{{ build_order_names | default("(derive from the modules' dependencies)") }}
+
+{{ monthly_identity_note | default("MONTHLY IDENTITY (binding): monthly figures use the 30-day operating month only (annual / 365 x 30); never divide a year by 12.") }}
+
 TASK
 Write the Blueprint in Markdown. Structure (exactly these ## headings, in this order):
 
 ## The decision
 The one-page executive decision memo — the first thing the owner reads, and the sharpest. State ONE unmistakable recommendation in 3-5 sentences: what to do now, what we would deliberately NOT build yet, and why this sequence reduces risk. Then lay out the sequence as phases (as many as the engagement genuinely needs, usually 2-3):
-- **Phase 1 — <a plain-language pilot name>:** a rules-based or manually-run pilot of the core workflow. Name what it proves, the control group it runs against, a proposed duration EXPLICITLY labeled as a proposal requiring the client's approval, and the decision gate — the specific evidence that unlocks Phase 2. Phase 1 must contain NO predictive component, and its name must never contain "AI", "engine", "predictive", "scoring" or "Automated" — it is a manual or rules-based pilot and its name must say so.
+- **Phase 1 — <the pilot module's exact client-facing name>:** a rules-based or manually-run pilot of the core workflow. Name what it proves, then end the bullet with "The decision gate: [[PILOT_GATE]]" — the literal token; the substituted sentence already carries the control group, the proposed duration EXPLICITLY labeled as a proposal requiring the client's approval, the baseline and the target, so write nothing about durations, baselines, targets or metrics in your own words. Phase 1 must contain NO predictive component, and its name must never contain "AI", "engine", "predictive", "scoring" or "Automated" — it is a manual or rules-based pilot and its name must say so.
 - **Phase 2 — <the data-driven component>:** built only from Phase 1's recorded data.
 - **Phase 3 — <the automation>:** built only after Phases 1-2 demonstrate measured value.
 Close with two bold one-line verdicts:
 - **Now:** the Phase 1 pilot, in one line.
 - **Not yet:** the tempting build to defer, and the evidence that would unlock it.
 PROVE-THEN-AUTOMATE: when the decomposition contains a predictive, scoring or ML-style module, the decision must sequence a piloted workflow FIRST — the pilot is what generates the data the predictive module needs. Recommending the predictive engine before the pilot, or describing the Phase 1 pilot as AI, is a failure.
-ONE GATE: the pilot's duration, population, control method, primary metric, baseline and target come VERBATIM from business_case.pilot_gate — those are the ONLY pilot success criteria permitted anywhere in this document. Never invent an alternate threshold, never conflate two of its metrics into one, and keep each criterion's approval label.
+ONE GATE: the pilot's duration, population, control method, primary metric, baseline and target exist ONLY as the canonical sentence above, inserted via the [[PILOT_GATE]] token — those are the ONLY pilot success criteria permitted anywhere in this document. Never restate the gate's numbers in your own words, never invent an alternate threshold, never conflate two of its metrics into one. A sentence of yours that mentions the primary metric together with a number is a defect.
 
 ## Executive summary
 3-4 sentences in the classic consulting arc — Situation (who they are), Complication (the specific problem or ambition, in their facts), Resolution ({{ concept_name }} and the single strongest business reason to act). Written for an owner deciding whether to spend money.
@@ -68,11 +76,11 @@ One ### subsection PER MODULE, in the decomposition's order. Each subsection:
 - Opens with 1-2 sentences: what this module is and who uses it (from the module's purpose/users)
 - **What it does:** the module's exact features from its spec, as a bullet list — their names and one-line descriptions, verbatim in spirit
 - **Where the AI works:** the module's AI role, what it decides alone, and when it hands off — only if the spec has a non-null "ai"; omit this line entirely for modules without one
-- **You'll know it's working when:** the module's KPIs, in one sentence
+- **You'll know it's working when:** the module's spec.kpi_statement EXACTLY as given — never reworded, never a number of your own; for the pilot module it is the canonical gate sentence, so write [[PILOT_GATE]] there
 SELECTIVITY: only the module(s) named in The decision's "First" verdict get the full treatment above. Compress every OTHER module to 2-3 sentences — what it is, the single strongest thing it does, its one KPI. Uniform exhaustiveness reads as machine output; the full depth lives in the Technical Plan.
 
 ## What we'd build first
-Which modules belong in version one and which come later, with one honest sentence of reasoning per choice — sequencing by dependency and by fastest path to the money mechanisms above.
+A numbered list restating BUILD ORDER above — each item is the module's client-facing NAME in bold exactly as listed (never an id, never a slug), followed by one honest sentence of reasoning for its position.
 
 ## What success looks like
 4-6 measurable outcomes drawn from the modules' KPIs — each under 12 words, no invented numbers.
@@ -87,13 +95,14 @@ Rules:
 - Amounts and percentages may appear ONLY when the business case computed them from the owner's own inputs — keep their attribution. Never any other currency figure, and never OUR pricing.
 - NO ROI: never state an ROI percentage or assume an investment amount — the build price is quoted separately and is unknown to this document. Payback is expressed only as the divide-it-yourself instruction.
 - NO INVENTED POLICIES: operational policy facts (settlement periods, remittance timing, operating hours, service windows) come ONLY from the client's stated inputs — a policy the client never stated is a fabrication.
-- A module's success metric may ONLY restate the pilot gate's target, a scenario assumption fraction, or a client figure — coining a NEW percentage target in a module section is a defect.
+- A module's success metric is its registry-rendered kpi_statement — coining ANY number in a module section is a defect, labeled or not.
+- Module ids (kebab-case slugs such as "order-intake-portal") are internal and NEVER appear in this document — only client-facing names.
 - SCOPE GUARD: every recommendation stays inside the engagement's stated scope and geography (see the register — if the client scoped one country or one operation, so does this document). Other markets the business operates in may appear ONLY under an explicit "future extensibility" label, never in current implementation instructions.
 - Judgment over coverage: cut any sentence that describes without deciding. A shorter, sharper document beats a complete one. Paragraphs stay under ~5 lines.
 - ONE CAPABILITY, ONE NAME: call every module by its EXACT name from the decomposition, everywhere — never a synonym, shorthand, or rebrand. A reader must be able to match every mention across all three volumes by name alone.
 - DEPENDENCIES FLOW BACKWARD: a module's description may never rely on a module scheduled LATER in "What we'd build first" — an early module that consumes a later module's output describes its interim rules-based behavior instead.
-- "What we'd build first" restates business_case.build_order in ITS EXACT ORDER, one reasoning line each — never reordered.
-- CANONICAL STATEMENTS: a module's purpose sentence and any pilot criterion keep their meaning, numerator, denominator, population, time basis and relative-vs-percentage-point interpretation IDENTICAL in every restatement; adapt grammar, never substance.
+- "What we'd build first" restates BUILD ORDER by NAME in ITS EXACT ORDER, one reasoning line each — never reordered.
+- CANONICAL STATEMENTS: a module's purpose sentence keeps its meaning IDENTICAL in every restatement; the pilot gate is never restated except via [[PILOT_GATE]].
 - ATTRIBUTION WITHOUT REPETITION: the phrase "by your own figures" appears AT MOST once in the whole document. Attribution is carried by naming the input inline ("at your $1.80 re-attempt cost"), not by repeating the formula phrase.
 - No vague intensifiers ("drastically", "significantly", "greatly improve") — name the mechanism or the computed figure instead.
 - CAPACITY IS NOT CASH: hours saved are capacity released, stated in hours; staffing claims restate the client's facts ("these inquiries currently involve five support staff"), never inferred conclusions ("requires five full-time staff").

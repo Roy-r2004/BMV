@@ -6,6 +6,12 @@ Both are raw Markdown (no JSON envelope — long documents survive better
 without escaping), and both fail OPEN: a missing document degrades the
 deliverable, it doesn't kill the request. The frontend only marks the
 Blueprint/Technical sections ready when the field is non-null.
+
+Both are written FROM the typed claim registry and validated AGAINST it
+after generation: the canonical pilot-gate sentence replaces the
+[[PILOT_GATE]] token and every paraphrase of the gate; raw module ids
+resolve to client-facing names; monthly restatements snap to the package
+identity; threshold sentences in the technical plan are typed and labeled.
 """
 
 import json
@@ -44,6 +50,81 @@ def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str, *, m
         return None
 
 
+def _prompt_modules(modules: list) -> list:
+    """The modules as the prose model may see them: registry-rendered KPI
+    statements only — a coined candidate never reaches a prompt."""
+    out = []
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+        mm = json.loads(json.dumps(m))
+        spec = mm.get("spec")
+        if isinstance(spec, dict):
+            spec.pop("kpi_candidates", None)
+        mm.pop("original_name", None)
+        out.append(mm)
+    return out
+
+
+def _annual_claims(business_case: dict) -> list[float]:
+    from app.pipeline.decompose import _numbers_in as _nums
+
+    fm = (business_case or {}).get("financial_model") or {}
+    claims = []
+    for l in (fm.get("lines") or []) if isinstance(fm, dict) else []:
+        if isinstance(l, dict) and l.get("arithmetic_verified") and "$" in str(l.get("annual") or ""):
+            vals = _nums(str(l.get("annual") or ""))
+            if vals:
+                claims.append(vals[0])
+    for sc in (fm.get("scenarios") or []) if isinstance(fm, dict) else []:
+        if isinstance(sc, dict) and sc.get("impact_verified"):
+            vals = [v for v in _nums(str(sc.get("impact") or "")) if v > 1]
+            if vals:
+                claims.append(vals[0])
+    return claims
+
+
+def _monthly_identity_note(business_case: dict) -> str:
+    from app.pipeline import timebasis
+
+    claims = _annual_claims(business_case)
+    if not claims:
+        return "No verified annual claims exist; state no monthly figures."
+    parts = [f"${c:,.0f}/year = ${c / 365 * 30:,.0f} per 30-day operating month = ${c / 365:,.2f} per day"
+             for c in claims[:6]]
+    return ("MONTHLY IDENTITY (binding): this package uses the 30-day operating month ONLY "
+            f"(annual / {timebasis.YEAR_DAYS} x {timebasis.MONTH_DAYS}); never divide a year by 12. "
+            "The only monthly and daily figures permitted: " + "; ".join(parts) + ".")
+
+
+def finish_document(content: str | None, *, modules: list, business_case: dict,
+                    registry: dict | None, kind: str) -> tuple[str | None, dict]:
+    """Every deterministic pass a finished volume goes through. Returns the
+    corrected text and the new threshold claims the prose pass registered."""
+    from app.pipeline import pilot_gate as _pg
+    from app.pipeline import registry as _reg
+    from app.pipeline import timebasis
+
+    report = {"new_claims": [], "gate": {}}
+    if not content:
+        return content, report
+    gate = (registry or {}).get("pilot_gate") or (
+        (business_case or {}).get("pilot_gate") if isinstance((business_case or {}).get("pilot_gate"), dict)
+        and "canonical_sentence" in (business_case or {}).get("pilot_gate", {}) else None)
+    content, report["gate"] = _pg.enforce(content, gate)
+    if kind == "blueprint":
+        content = _pg.ensure_in_decision(content, gate)
+    content = _reg.resolve_module_ids(content, modules)
+    content, _ = timebasis.check_restatements(content, _annual_claims(business_case))
+    content = timebasis.round_counts(content)
+    if kind == "technical" and registry:
+        counter = {"n": sum(1 for c in registry.get("claims") or [] if str(c.get("id", "")).startswith("TH-"))}
+        content, new = _reg.label_prose_thresholds(content, registry.get("claims") or [], counter,
+                                                   source="technical_plan", module_id="tp")
+        report["new_claims"] = new
+    return content, report
+
+
 def write_blueprint(
     db: Session,
     request_id: int,
@@ -56,10 +137,12 @@ def write_blueprint(
     if req is None:
         raise ValueError(f"Request {request_id} not found")
 
+    from app.pipeline import registry as _reg
     from app.pipeline.analyze import _format_site_research
 
     modules = (decomposition or {}).get("modules") or []
     business_case = (decomposition or {}).get("business_case") or {}
+    registry = (decomposition or {}).get("registry") or _reg.registry_for(req) or {}
     prompt = render(
         "blueprint.j2",
         business_name=req.business_name or "",
@@ -75,34 +158,22 @@ def write_blueprint(
         recommended_ai_employees=json.dumps(consult_result.get("recommended_ai_employees", [])),
         concept_name=plan_result.get("concept_name", req.business_name or ""),
         roles=json.dumps(plan_result.get("roles", [])),
-        modules=json.dumps(modules, indent=1) if modules else "(empty)",
+        modules=json.dumps(_prompt_modules(modules), indent=1) if modules else "(empty)",
         business_case=json.dumps(business_case, indent=1) if business_case else "(empty)",
         modules_present=bool(modules),
         engagement_register=build_engagement_register(
             req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
         ),
+        pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
+        build_order_names="\n".join(f"{i}. {n}" for i, n in enumerate(registry.get("build_order_names") or [], 1))
+        or "(derive from the modules' dependencies)",
+        monthly_identity_note=_monthly_identity_note(business_case),
     )
     # Four front-matter sections joined the document (engagement scope,
     # current state, opportunity) — give it room to finish them all.
     content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
-    if content:
-        from app.pipeline import timebasis
-        from app.pipeline.decompose import _numbers_in as _nums
-
-        fm = (business_case or {}).get("financial_model") or {}
-        claims = []
-        for l in (fm.get("lines") or []) if isinstance(fm, dict) else []:
-            if isinstance(l, dict) and l.get("arithmetic_verified") and "$" in str(l.get("annual") or ""):
-                vals = _nums(str(l.get("annual") or ""))
-                if vals:
-                    claims.append(vals[0])
-        for sc in (fm.get("scenarios") or []) if isinstance(fm, dict) else []:
-            if isinstance(sc, dict) and sc.get("impact_verified"):
-                vals = [v for v in _nums(str(sc.get("impact") or "")) if v > 1]
-                if vals:
-                    claims.append(vals[0])
-        content, _ = timebasis.check_restatements(content, claims)
-        content = timebasis.round_counts(content)
+    content, _ = finish_document(content, modules=modules, business_case=business_case,
+                                 registry=registry, kind="blueprint")
     req.mvp_blueprint = content
     db.commit()
     return content
@@ -119,7 +190,11 @@ def write_technical_plan(
     if req is None:
         raise ValueError(f"Request {request_id} not found")
 
+    from app.pipeline import registry as _reg
+
     modules = (decomposition or {}).get("modules") or []
+    business_case = (decomposition or {}).get("business_case") or {}
+    registry = (decomposition or {}).get("registry") or _reg.registry_for(req) or {}
     prompt = render(
         "technical_plan.j2",
         business_name=req.business_name or "",
@@ -127,15 +202,22 @@ def write_technical_plan(
         concept_name=plan_result.get("concept_name", req.business_name or ""),
         roles=json.dumps(plan_result.get("roles", [])),
         recommended_ai_employees=json.dumps(consult_result.get("recommended_ai_employees", [])),
-        modules=json.dumps(modules, indent=1) if modules else "(empty)",
+        modules=json.dumps(_prompt_modules(modules), indent=1) if modules else "(empty)",
         modules_present=bool(modules),
         engagement_register=build_engagement_register(
             req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
         ),
+        pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
     )
     # Per-module anatomy (data model, agent brain/tools/guardrails, APIs)
     # makes this the longest document — give it the budget to finish.
     content = _markdown_call(db, request_id, "technical_plan", prompt, max_tokens=8000)
+    content, report = finish_document(content, modules=modules, business_case=business_case,
+                                      registry=registry, kind="technical")
+    if report["new_claims"] and registry:
+        registry.setdefault("claims", []).extend(report["new_claims"])
+        registry["errors"] = _reg.validate_registry(registry)
+        req.registry_json = json.dumps(registry)
     req.technical_plan = content
     db.commit()
     return content

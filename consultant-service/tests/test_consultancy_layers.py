@@ -1606,13 +1606,15 @@ def test_monthly_drift_snaps_to_the_verified_annual(client):
     assert "$19,440" not in bc["cost_of_inaction"]
     # a correct monthly restatement survives untouched
     assert "$1,478" in bc["financial_model"]["payback_note"] or "$5,9" in bc["financial_model"]["payback_note"] or True
+    # run 46: the calendar-month identity ($70,956 / 12 = $5,913) is NOT a
+    # valid restatement in this package — it snaps to the 30-day month
     bc2 = {
         "cost_of_inaction": "about $5,913 per month, by your own figures.",
         "financial_model": {"lines": [{"item": "x", "arithmetic": "900 * 0.12 * $1.80 * 365",
                                        "annual": "$70,956 / year"}], "scenarios": []},
     }
     _sanitize_financial_model(bc2)
-    assert "$5,913" in bc2["cost_of_inaction"]
+    assert "$5,832" in bc2["cost_of_inaction"] and "$5,913" not in bc2["cost_of_inaction"]
 
 
 def test_dependency_and_pilot_alignment_prompt_pins():
@@ -1659,9 +1661,10 @@ def test_time_basis_identities_hold_bidirectionally():
     assert abs(tb.candidates(annual, "per day")[0][0] - 194.4) < 0.01
     assert abs(tb.candidates(annual, "per day")[0][0] * 30 - 5832.0) < 0.01
     assert abs(tb.candidates(annual, "per month")[0][0] - 5832.0) < 0.01     # 30-day operating month
-    assert abs(tb.candidates(annual, "per month")[1][0] - 5913.0) < 0.01     # calendar month
-    # the two month identities are distinct and never silently equal
-    assert tb.candidates(annual, "per month")[0][0] != tb.candidates(annual, "per month")[1][0]
+    # ONE monthly identity per package: the calendar month is not a candidate
+    assert len(tb.candidates(annual, "per month")) == 1
+    assert all(abs(c - 5913.0) > 1 for c, _ in tb.candidates(annual, "per month"))
+    assert tb.MONTHLY_IDENTITY == "operating_30_day_month"
     assert abs(tb.candidates(2340.0, "per week")[0][0] * 52 - 2340.0) < 0.01
 
 
@@ -1676,10 +1679,13 @@ def test_run43_daily_drift_is_the_fixture(client):
     assert "365" in records[0]["formula"]
     # correct restatements verify untouched, on every basis
     for good in ("$194.40 per day", "$1,364.54 per week", "$5,832 per month",
-                 "$5,913 a month", "$70,956 per year"):
+                 "$5,800 a month", "$70,956 per year"):
         out, recs = tb.check_restatements(f"costing {good} today", [70956.0])
         assert good.split()[0] in out, good
         assert recs[0]["status"] == "verified", (good, recs)
+    # the calendar-month identity is not a restatement of this package
+    out, recs = tb.check_restatements("costing $5,913 a month today", [70956.0])
+    assert "$5,832" in out and recs[0]["status"] == "snapped"
     # a figure with no candidate within factor 20 is left, recorded honestly
     _, recs = tb.check_restatements("about $9,999,999 per day", [70956.0])
     assert recs[0]["status"].startswith("unverifiable")

@@ -359,7 +359,19 @@ def decompose_business(
             usage=usage, success=error is None, error=error,
         )
 
+    # The typed claim registry: client facts, verified derivations, the
+    # canonical pilot gate, typed/labeled technical thresholds, registry-
+    # rendered module KPI statements and honest pilot-module names — applied
+    # to the structures BEFORE any prose is written from them.
+    from app.pipeline import registry as _registry
+
+    reg = _registry.build_registry(
+        req.ops_numbers_json, business_case, modules,
+        free_texts=[req.business_description or "", req.main_problem or "",
+                    req.desired_outcome or "", req.revenue_today or ""],
+    )
+    req.registry_json = json.dumps(reg)
     req.modules_json = json.dumps(modules)
     req.business_case_json = json.dumps(business_case)
     db.commit()
-    return {"modules": modules, "business_case": business_case}
+    return {"modules": modules, "business_case": business_case, "registry": reg}

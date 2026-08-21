@@ -37,7 +37,17 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
     "hands_off": "<when it must hand off to a human>"
   },
   "integrations": ["<external system or other module it connects to>"],
-  "kpis": ["<the 1-3 numbers the owner would watch to know this module is working>"]
+  "kpis": [
+    {
+      "metric": "<what the owner watches to know this module is working — the quantity, WITHOUT a number>",
+      "basis": "client_fact|pilot_gate|scenario_assumption|measure_in_week_1|proposed",
+      "value": <a number ONLY when basis is client_fact, pilot_gate or scenario_assumption and the number IS that source's figure; otherwise null>,
+      "unit": "<% | minutes | count | hours | ...>",
+      "horizon": "<'within N months of launch' or null>"
+    }
+  ]
 }
+
+KPI LAW — absolute: you do not coin KPI numbers. A KPI carries a value ONLY when it restates a client figure, the pilot gate's target, or a labeled scenario assumption — exactly that number, with the matching basis. A target you would like to propose is a structured candidate with basis "proposed" and value set; the system registers it as "consultant_proposed — client approval required" and it is NOT printed in any document until the client accepts it. Every other KPI has basis "measure_in_week_1" and value null — the document will say "Baseline and target to be established during week-one measurement." 1-3 KPIs per module.
 
 If this module genuinely has no AI component, set "ai" to null rather than inventing one. 4-7 features; every one specific to this business.

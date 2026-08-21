@@ -21,6 +21,7 @@ kill the request.
 
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy.orm import Session
@@ -33,6 +34,82 @@ from app.pipeline.decompose import _format_owner_numbers
 from app.templating import render
 
 logger = logging.getLogger("consultant.extras")
+
+
+def canonicalize_layers(procedures: list, by_name: dict, modules: list,
+                        registry: dict | None, gate: dict | None) -> list:
+    """Apply the registry to the operations layers in place. Pure data
+    transformation — no model call — so it is testable on fixtures."""
+    from app.pipeline import pilot_gate as _pg
+    from app.pipeline import registry as _registry
+
+    claims = (registry or {}).get("claims") or []
+    counter = {"n": sum(1 for c in claims if str(c.get("id", "")).startswith("TH-"))}
+
+    def _fix(s):
+        if not isinstance(s, str):
+            return s
+        s, _ = _pg.enforce(s, gate)
+        return _registry.resolve_module_ids(s, modules)
+
+    for p in procedures or []:
+        if not isinstance(p, dict):
+            continue
+        for key in ("name", "trigger"):
+            p[key] = _fix(p.get(key))
+        for st in p.get("steps") or []:
+            if isinstance(st, dict):
+                st["step"] = _fix(st.get("step"))
+        for ex in p.get("exceptions") or []:
+            if isinstance(ex, dict):
+                ex["when"], ex["then"] = _fix(ex.get("when")), _fix(ex.get("then"))
+    new_claims = _registry.type_procedures(procedures or [], claims, counter) if registry is not None else []
+
+    checklists = (by_name.get("checklists") or {})
+    for c in checklists.get("checklists") or []:
+        if isinstance(c, dict):
+            items = []
+            for it in c.get("items") or []:
+                it = _fix(it)
+                it, more = _registry.threshold_pass(it, claims, source="checklists.items",
+                                                    module_id="checklist", counter=counter)
+                for cc in more:
+                    cc["type"] = "operational_policy" if cc["type"] in ("proposed_threshold", "timing_sla") else cc["type"]
+                new_claims += more
+                items.append(it)
+            c["items"] = items
+    for f in checklists.get("forms") or []:
+        if isinstance(f, dict):
+            f["purpose"] = _fix(f.get("purpose"))
+
+    gov = by_name.get("governance") or {}
+    if gate and gov.get("scoreboard"):
+        metric_terms = {w for w in re.findall(r"[a-z]+", str(gate.get("primary_metric") or "").lower()) if len(w) > 3}
+        canon = _pg.canonical_sentence(gate)
+        for row in gov["scoreboard"]:
+            if not isinstance(row, dict):
+                continue
+            for key in ("metric", "baseline", "target", "formula"):
+                row[key] = _fix(row.get(key))
+            words = set(re.findall(r"[a-z]+", str(row.get("metric") or "").lower()))
+            if metric_terms and len(metric_terms & words) >= max(2, len(metric_terms) - 1):
+                row["target"] = canon
+                row["baseline"] = (str(gate.get("baseline") or "measure in week 1")
+                                   + (" (your figure)" if gate.get("baseline_source") == "client" else ""))
+    journey = by_name.get("journey") or {}
+    for s in journey.get("stages") or []:
+        if isinstance(s, dict):
+            for key in ("customer_action", "frontstage", "fail_point_removed"):
+                s[key] = _fix(s.get(key))
+    org = by_name.get("organization") or {}
+    for r in org.get("roles") or []:
+        if isinstance(r, dict):
+            r["responsibilities"] = [_fix(x) for x in (r.get("responsibilities") or [])]
+            r["decides_alone"], r["hands_off"] = _fix(r.get("decides_alone")), _fix(r.get("hands_off"))
+    if registry is not None and new_claims:
+        registry.setdefault("claims", []).extend(new_claims)
+        registry["errors"] = _registry.validate_registry(registry)
+    return procedures
 
 
 def build_extras(db: Session, request_id: int, analysis: dict, decomposition: dict | None) -> None:
@@ -78,6 +155,10 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     )
     bc_json = json.dumps(business_case, indent=1)
     pilot_gate = business_case.get("pilot_gate") if isinstance(business_case, dict) else None
+    from app.pipeline import registry as _registry
+
+    registry = (decomposition or {}).get("registry") or _registry.registry_for(req) or {}
+    gate_sentence = registry.get("pilot_gate_sentence") or ""
 
     def _pilot() -> dict | None:
         prompt = render(
@@ -85,6 +166,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             business_name=biz_name,
             business_description=biz_desc,
             pilot_gate=json.dumps(pilot_gate, indent=1),
+            pilot_gate_sentence=gate_sentence,
             modules=slim,
             engagement_register=register,
         )
@@ -141,6 +223,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             modules=slim,
             business_case=bc_json,
             engagement_register=register,
+            pilot_gate_sentence=gate_sentence,
         )
         # Seven scoreboard rows + five risks occasionally truncated at 1600.
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2400)
@@ -278,8 +361,17 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     for name, result, _ in results:
         if name.startswith("procedures:") and result:
             procedure_library.extend(result["payload"]["procedures"])
+    # The registry's deterministic passes over the operations layers: the
+    # canonical gate sentence replaces the token and every paraphrase, raw
+    # ids resolve to names, waits/retries/cut-offs are typed and labeled,
+    # and the scoreboard's gate row is the canonical sentence itself.
+    gate_obj = registry.get("pilot_gate") if registry else None
+    procedure_library = canonicalize_layers(
+        procedure_library, by_name, modules, registry, gate_obj)
     if procedure_library:
         by_name["procedures"] = {"procedures": procedure_library}
+    if registry:
+        req.registry_json = json.dumps(registry)
     if by_name.get("journey"):
         req.journey_json = json.dumps(by_name["journey"])
     gov = by_name.get("governance") or {}

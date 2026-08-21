@@ -324,6 +324,18 @@ _GATE_ARTIFACTS = [
     ("currency sign on a count",
      re.compile(r"[$\u20ac\u00a3]\s?\d[\d,]*(?:\.\d+)?\s*(?:inquiries|hours|deliveries|orders|messages|calls|attempts)\b",
                 re.IGNORECASE)),
+    # run 46: "1. pre-dispatch-whatsapp-engine: ..." \u2014 an internal id as a
+    # client-facing list label, and technical slugs anywhere in prose
+    ("internal identifier in client-facing text",
+     re.compile(r"(?m)^\s*(?:\d+\.|[-*\u2022])\s*\**[a-z0-9]+(?:-[a-z0-9]+)+\**\s*:|"
+                r"\b[a-z0-9]+(?:-[a-z0-9]+)*-(?:engine|predictor|assistant|concierge|resolver|notifier|"
+                r"service|api|module|handler|worker|queue|store|ledger|agent|bot|portal|tracker|planner|"
+                r"router|sync|feed|manager|dashboard|console|gateway|scheduler|optimizer)\b")),
+    ("unsubstituted gate token", re.compile(r"\[\[[A-Z_]+\]\]")),
+    # run 46: one sentence computing the same month two ways
+    ("mixed monthly identity",
+     re.compile(r"(?:[x\u00d7*]\s*30\s*days?)[^.\n]{0,120}(?:(?:/|\u00f7)\s*12\b|12 months)|"
+                r"(?:(?:/|\u00f7)\s*12\b|12 months)[^.\n]{0,120}(?:[x\u00d7*]\s*30\s*days?)", re.IGNORECASE)),
 ]
 
 
@@ -374,7 +386,49 @@ def release_status(req: Request) -> dict:
     hits = sorted({h for part in corpus_parts for h in find_artifacts(part)})
     if hits:
         reasons.append("client-unsafe artifacts: " + ", ".join(hits))
+    reasons += registry_reasons(req, corpus_parts)
     return {"status": "draft" if reasons else "final", "reasons": reasons}
+
+
+def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
+                     texts: dict[str, str] | None = None) -> list[str]:
+    """Release blockers proven against the typed claim registry: paraphrased
+    gate restatements, KPI/acceptance numbers mapping to no claim, internal
+    identifiers in client text, and monthly-identity drift. `texts` lets the
+    audit tools check the EXACT rendered PDF text instead of the markdown."""
+    from app.pipeline import pilot_gate as _pg
+    from app.pipeline import registry as _reg
+    from app.pipeline import timebasis as _tb
+
+    reg = _reg.registry_for(req)
+    if not reg:
+        return []
+    reasons = []
+    texts = texts or {"blueprint": req.mvp_blueprint or "", "technical": req.technical_plan or ""}
+    gate = reg.get("pilot_gate")
+    if gate:
+        n = sum(len(_pg.restatement_findings(t, gate)) for t in texts.values())
+        if n:
+            reasons.append(f"{n} paraphrased pilot-gate restatement(s)")
+    n = sum(len(_reg.kpi_number_findings(t, reg, strict_kpi=(label == "blueprint")))
+            for label, t in texts.items())
+    if n:
+        reasons.append(f"{n} KPI/acceptance number(s) map to no registered claim")
+    ids = [m["id"] for m in reg.get("modules") or []]
+    parts = list(corpus_parts or []) + list(texts.values())
+    idhits = sorted({h for part in parts for h in _reg.identifier_artifacts(part, ids)})
+    if idhits:
+        reasons.append("internal identifiers in client-facing text: " + ", ".join(idhits[:6]))
+    annuals = [c["value"] for c in reg.get("claims") or []
+               if c.get("type") == "derived_value" and c.get("unit") == "USD"
+               and isinstance(c.get("value"), (int, float))]
+    if annuals:
+        scope = dict(texts)
+        scope["business_case"] = " ".join(_strings_of(_loads(getattr(req, "business_case_json", None), None)))
+        n = len(_tb.identity_findings(scope, annuals))
+        if n:
+            reasons.append(f"{n} monthly-identity violation(s)")
+    return reasons
 
 
 def _is_draft(req: Request) -> bool:
@@ -667,12 +721,39 @@ def _pilot_gate_flowables(business_case: dict) -> list:
     flows = [Spacer(1, 4), Paragraph("The pilot decision gate", _S["h2toc"]),
              Paragraph(
                  "One gate governs the pilot. Every criterion elsewhere in this engagement "
-                 "restates this table — nothing else counts as pilot success.", _S["meta"])]
-    rows = [(label, gate.get(key)) for label, key in (
-        ("Duration", "duration"), ("Population", "population"),
-        ("Control group", "control"), ("Primary metric", "primary_metric"),
-        ("Baseline", "baseline"), ("Target", "target"), ("Guardrail", "guardrail"),
-    ) if gate.get(key)]
+                 "restates the sentence below verbatim — nothing else counts as pilot success.", _S["meta"])]
+    if gate.get("canonical_sentence"):
+        # the typed gate: ONE sentence, then its components
+        flows.append(_callout(_rich(str(gate["canonical_sentence"])), ACCENT, TINT))
+        flows.append(Spacer(1, 4))
+        unit = ("percentage points" if gate.get("change_kind") == "percentage_point"
+                else "% relative" if gate.get("change_kind") == "relative" else "")
+        rows = [(label, v) for label, v in (
+            ("Duration", f"{gate.get('duration_value'):g} {gate.get('duration_unit')}s (proposed — client approval required)"
+             if gate.get("duration_value") else None),
+            ("Population", gate.get("population")),
+            ("Geography", gate.get("geography")),
+            ("Control-group method", gate.get("control_method")),
+            ("Primary metric", gate.get("primary_metric")),
+            ("Numerator", gate.get("numerator")),
+            ("Denominator", gate.get("denominator")),
+            ("Baseline", (str(gate.get("baseline") or "") + (" (your figure)" if gate.get("baseline_source") == "client"
+                                                              else " (measured in week 1)" if gate.get("baseline_source") == "measure in week 1" else ""))
+             if gate.get("baseline") or gate.get("baseline_source") else None),
+            ("Target", f"{'rise' if gate.get('direction') == 'rise' else 'fall'} by {gate.get('target_value'):g} {unit} "
+                       "(proposed — client approval required)" if gate.get("target_value") is not None else None),
+            ("Change kind", "percentage-point change" if gate.get("change_kind") == "percentage_point"
+             else "relative change" if gate.get("change_kind") == "relative" else None),
+            ("Guardrails", "; ".join(gate.get("guardrails") or []) + " (proposed — client approval required)"
+             if gate.get("guardrails") else None),
+            ("Approval status", gate.get("approval_status")),
+        ) if v]
+    else:
+        rows = [(label, gate.get(key)) for label, key in (
+            ("Duration", "duration"), ("Population", "population"),
+            ("Control group", "control"), ("Primary metric", "primary_metric"),
+            ("Baseline", "baseline"), ("Target", "target"), ("Guardrail", "guardrail"),
+        ) if gate.get(key)]
     flows.append(_table(["Parameter", "Value"],
                         [[label, str(v)] for label, v in rows], [34 * mm, 134 * mm]))
     approvals = [a for a in (gate.get("approvals_required") or []) if a]
@@ -823,6 +904,35 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
         flows.append(Paragraph("To be measured in week 1", _S["h2toc"]))
         for m in to_measure:
             flows.append(Paragraph(_rich(m), _S["bullet"], bulletText="•"))
+
+    # The typed registry's open approvals: proposals the client signs off —
+    # listed here as proposals, stated nowhere as facts.
+    try:
+        from app.pipeline import registry as _reg
+
+        reg = _reg.registry_for(req)
+    except Exception:
+        reg = None
+    if reg:
+        gate = reg.get("pilot_gate") or {}
+        kpi_props = [c for c in _reg.proposals(reg) if c.get("type") == "module_kpi"]
+        th_props = [c for c in _reg.proposals(reg) if c.get("type") != "module_kpi"]
+        flows.append(Paragraph("Awaiting your approval", _S["h2toc"]))
+        flows.append(Paragraph(
+            "Nothing below is in force. Each item is a proposal of ours registered for your decision; "
+            "the documents state client facts and verified arithmetic only.", _S["meta"]))
+        for a in gate.get("approvals_required") or []:
+            flows.append(Paragraph("<b>Pilot gate:</b> " + _rich(str(a)), _S["bullet"], bulletText="•"))
+        if th_props:
+            flows.append(Paragraph(
+                f"<b>{len(th_props)} operational thresholds, SLAs, sample sizes and capacity assumptions</b> "
+                "— each marked '(proposed — client approval required)' where it appears in Volumes II and III.",
+                _S["bullet"], bulletText="•"))
+        for c in kpi_props:
+            flows.append(Paragraph(
+                f"<b>Module KPI candidate ({_rich(str(c.get('scope') or ''))}):</b> "
+                + _rich(str(c.get("text") or "")) + " — not printed as a target until you approve it.",
+                _S["bullet"], bulletText="•"))
 
     flows.append(Paragraph(
         "Method rule this engagement was produced under: a figure may appear only when it is one "

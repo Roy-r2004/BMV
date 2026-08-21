@@ -1,25 +1,31 @@
 """Deterministic time-basis conversion for financial restatements.
 
-Run 43 shipped "$1,944 per day" where the verified annual implies $194.40 —
-a 10x drift born of the model doing period conversion in prose. This layer
-makes every restatement of a canonical annual claim a computation, not a
-paraphrase:
+Run 43 shipped "$1,944 per day" where the verified annual implies $194.40;
+run 46 shipped "$5,913/month" in Volume I and "$5,832/month" in the business
+case for the SAME claim and the SAME "x 30 days" formula — one package, two
+monthly identities. This layer makes every restatement of a canonical
+annual claim a computation on ONE package identity:
 
-    per day               = annual / 365
-    per week              = annual / 52
-    per 30-day month      = annual / 365 * 30   (the operating month)
-    per calendar month    = annual / 12
-    per year              = annual
+    per day                        = annual / 365
+    per week                       = annual / 52
+    per month (operating_30_day)   = annual / 365 x 30      <- the package identity
+    per year                       = annual
 
-A stated "per month" verifies against EITHER month identity (both are
-legitimate conventions) but a snap always uses the 30-day operating month
-and records which identity it applied — the two are never silently mixed.
-Verification accepts a 5% tolerance (prose rounding); a failed verification
-snaps to the computed value when exactly one canonical currency claim
-exists, and every action is recorded with its formula for the audit trail.
+The calendar-month identity (annual / 12) is NOT a valid restatement in this
+package: a stated figure matching it is snapped, and a formula fragment
+declaring it ("/ 12 months") is rewritten to the package formula. A sentence
+that declares its own formula ("x 30 days") must print the value of THAT
+formula. Verification accepts only round-trip rounding (0.5%, or the
+candidate rounded to two significant figures) — "$1,977" against a
+$1,924.52 truth is not rounding, it is a different number.
 """
 
+import math
 import re
+
+MONTHLY_IDENTITY = "operating_30_day_month"
+YEAR_DAYS = 365
+MONTH_DAYS = 30
 
 _MONEY_BASIS = re.compile(
     r"(\$\s?\d[\d,]*(?:\.\d+)?)\s*(per day|/\s*day|a day|daily|per week|/\s*week|a week|weekly|"
@@ -27,6 +33,10 @@ _MONEY_BASIS = re.compile(
     re.IGNORECASE,
 )
 _NUM = re.compile(r"\d[\d,]*\.?\d*")
+_DECL_30 = re.compile(r"(?:[x×*]\s*30\s*days?|30-day)", re.IGNORECASE)
+_DECL_12 = re.compile(r"(?:/|÷|divided by)\s*12(?:\s*months?)?\b|calendar month", re.IGNORECASE)
+_DIV12_FRAGMENT = re.compile(r"(\$\s?\d[\d,]*(?:\.\d+)?\s*(?:/\s*year|per year|a year|annually)?)\s*(?:/|÷)\s*12(\s*months?)?\b",
+                             re.IGNORECASE)
 
 
 def _value(token: str) -> float | None:
@@ -40,45 +50,73 @@ def _value(token: str) -> float | None:
 
 
 def candidates(annual: float, basis: str) -> list[tuple[float, str]]:
-    """(value, formula) pairs a stated figure may legitimately be."""
+    """(value, formula) for a stated figure on `basis` — exactly one per
+    basis; the month is ALWAYS the package identity."""
     b = basis.lower()
     if "annu" in b or "year" in b:
         return [(annual, f"{annual:,.0f}/year (as stated)")]
     if "day" in b or "daily" in b:
-        return [(annual / 365, f"{annual:,.0f}/year / 365 = {annual / 365:,.2f}/day")]
+        return [(annual / YEAR_DAYS, f"{annual:,.0f}/year / {YEAR_DAYS} = {annual / YEAR_DAYS:,.2f}/day")]
     if "week" in b:
         return [(annual / 52, f"{annual:,.0f}/year / 52 = {annual / 52:,.2f}/week")]
     if "month" in b:
-        return [
-            (annual / 365 * 30, f"{annual:,.0f}/year / 365 x 30 = {annual / 365 * 30:,.2f}/30-day month"),
-            (annual / 12, f"{annual:,.0f}/year / 12 = {annual / 12:,.2f}/calendar month"),
-        ]
+        v = annual / YEAR_DAYS * MONTH_DAYS
+        return [(v, f"{annual:,.0f}/year / {YEAR_DAYS} x {MONTH_DAYS} = {v:,.2f}/{MONTHLY_IDENTITY}")]
     return [(annual, f"{annual:,.0f}/year (as stated)")]
 
 
+def _rounds_to(stated: float, cand: float) -> bool:
+    """Round-trip tolerance: 0.5% relative, or the candidate rounded to two
+    significant figures — prose rounding, never a different number."""
+    if cand <= 0:
+        return False
+    if abs(cand - stated) / cand <= 0.005:
+        return True
+    mag = 10 ** (math.floor(math.log10(cand)) - 1)
+    return abs(round(cand / mag) * mag - stated) < 1e-9
+
+
+def _format(v: float) -> str:
+    return f"${v:,.2f}" if v < 1000 else f"${v:,.0f}"
+
+
 def check_restatements(text: str, annual_claims: list[float]) -> tuple[str, list[dict]]:
-    """Verify every '$X per <basis>' in `text` against the canonical annual
-    claims; snap a failed figure to the computed value when exactly one
-    currency claim exists. Returns (corrected_text, records)."""
+    """Verify every '$X per <basis>' against the canonical annual claims on
+    the package identity; snap what fails; rewrite calendar-month formula
+    fragments. Returns (corrected_text, records)."""
     records: list[dict] = []
     if not text:
         return text, records
+    claims = [c for c in annual_claims if isinstance(c, (int, float)) and c > 0]
+
+    # 1. a declared calendar-month formula on a known annual claim is rewritten
+    def _div12(m: re.Match) -> str:
+        v = _value(m.group(1))
+        if v is None or not any(_rounds_to(v, c) for c in claims):
+            return m.group(0)
+        records.append({"original": m.group(0), "status": "identity_corrected",
+                        "identity": MONTHLY_IDENTITY,
+                        "formula": f"{v:,.0f}/year / {YEAR_DAYS} x {MONTH_DAYS}"})
+        return f"{m.group(1).strip()} / {YEAR_DAYS} x {MONTH_DAYS} days"
+
+    text = _DIV12_FRAGMENT.sub(_div12, text)
 
     def _repl(m: re.Match) -> str:
         stated_tok, basis = m.group(1), m.group(2)
         stated = _value(stated_tok)
         if stated is None:
             return m.group(0)
-        for annual in annual_claims:
+        window = text[max(0, m.start() - 160): m.end() + 160]
+        declared = "calendar" if (_DECL_12.search(window) and not _DECL_30.search(window)) else (
+            MONTHLY_IDENTITY if _DECL_30.search(window) else None)
+        for annual in claims:
             for cand, formula in candidates(annual, basis):
-                if cand and abs(cand - stated) / max(cand, 1e-9) <= 0.05:
-                    records.append({"original": stated_tok, "basis": basis,
-                                    "status": "verified", "formula": formula})
+                if cand and _rounds_to(stated, cand):
+                    records.append({"original": stated_tok, "basis": basis, "status": "verified",
+                                    "identity": MONTHLY_IDENTITY if "month" in basis.lower() else basis.lower(),
+                                    "formula": formula})
                     return m.group(0)
-        import math
-
-        pool = [(cand, formula) for annual in annual_claims
-                for cand, formula in candidates(annual, basis)[:1]]
+        pool = [(cand, formula) for annual in claims for cand, formula in candidates(annual, basis)]
         pool = [(c, f) for c, f in pool if c > 0]
         if not pool:
             records.append({"original": stated_tok, "basis": basis, "status": "unverifiable"})
@@ -88,13 +126,48 @@ def check_restatements(text: str, annual_claims: list[float]) -> tuple[str, list
             records.append({"original": stated_tok, "basis": basis,
                             "status": "unverifiable (no candidate within factor 20)"})
             return m.group(0)
-        snapped = f"${cand:,.2f}" if cand < 1000 else f"${cand:,.0f}"
-        records.append({"original": stated_tok, "basis": basis, "status": "snapped",
-                        "converted": snapped, "formula": formula,
-                        "rounding": "2dp under $1,000, whole dollars above"})
+        snapped = _format(cand)
+        rec = {"original": stated_tok, "basis": basis, "status": "snapped", "converted": snapped,
+               "formula": formula, "identity": MONTHLY_IDENTITY if "month" in basis.lower() else basis.lower(),
+               "rounding": "2dp under $1,000, whole dollars above"}
+        if declared == "calendar":
+            rec["note"] = "the sentence declared the calendar-month identity; the package identity governs"
+        records.append(rec)
         return m.group(0).replace(stated_tok, snapped)
 
     return _MONEY_BASIS.sub(_repl, text), records
+
+
+def identity_findings(texts: dict[str, str], annual_claims: list[float]) -> list[dict]:
+    """Package-wide check: for each annual claim, every monthly restatement
+    across all texts must be the SAME figure on the package identity; a
+    calendar-month figure or a mixed-formula sentence is a high finding."""
+    out = []
+    claims = [c for c in annual_claims if isinstance(c, (int, float)) and c > 0]
+    for label, text in (texts or {}).items():
+        text = re.sub(r"\s+", " ", text or "")  # rendered PDF text wraps lines mid-sentence
+        for m in _MONEY_BASIS.finditer(text or ""):
+            basis = m.group(2).lower()
+            if "month" not in basis:
+                continue
+            stated = _value(m.group(1))
+            if stated is None:
+                continue
+            for annual in claims:
+                cal = annual / 12
+                op = annual / YEAR_DAYS * MONTH_DAYS
+                if _rounds_to(stated, cal) and not _rounds_to(stated, op):
+                    out.append({"severity": "high", "source": "structural", "where": f"{label}: monthly restatement",
+                                "issue": (f"'{m.group(1)}{m.group(2)}' is the calendar-month identity of "
+                                          f"{annual:,.0f}/year ({cal:,.2f}); this package's monthly identity "
+                                          f"is the 30-day operating month ({op:,.2f})."),
+                                "fix": f"restate as {_format(op)}/month ({annual:,.0f}/year / {YEAR_DAYS} x {MONTH_DAYS})"})
+        for sentence in re.split(r"(?<=[.!?])\s+|\n", text or ""):
+            if _DECL_30.search(sentence) and _DECL_12.search(sentence):
+                out.append({"severity": "high", "source": "structural", "where": f"{label}: mixed monthly identity",
+                            "issue": f"One sentence declares both 'x 30 days' and '/ 12': \"{sentence.strip()[:160]}\"",
+                            "fix": "use the 30-day operating month only"})
+    return out
 
 
 def round_counts(text: str) -> str:

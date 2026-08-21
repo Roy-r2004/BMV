@@ -41,6 +41,7 @@ def inspect(path: str, expect: str | None = None) -> dict:
         failures.append("brand fonts not embedded (Helvetica fallback rendered)")
 
     page_texts: list[str] = []
+    inspected = 0
     for i in range(n):
         page = doc[i]
         try:
@@ -53,6 +54,7 @@ def inspect(path: str, expect: str | None = None) -> dict:
         if hi - lo < 8:
             failures.append(f"page {i + 1} is blank")
         page_texts.append(page.get_textpage().get_text_range())
+        inspected += 1
 
     full = "\n".join(page_texts)
     for hit in find_artifacts(full):
@@ -76,9 +78,16 @@ def inspect(path: str, expect: str | None = None) -> dict:
     if expect == "final" and drafted:
         failures.append("final package still carries the DRAFT watermark")
 
+    stamped = sum(1 for t in page_texts if "DRAFT — REQUIRES VALIDATION" in t)
+    if expect == "draft" and drafted and stamped != n:
+        failures.append(f"DRAFT stamp on {stamped} of {n} pages — every page must carry it")
+
     return {
-        "file": os.path.basename(path), "pages": n, "draft_watermark": drafted,
+        "file": os.path.basename(path), "pages": n, "inspected_pages": inspected,
+        "every_page_inspected": inspected == n, "draft_watermark": drafted,
+        "draft_stamped_pages": stamped,
         "numbered_pages": numbered, "failures": failures, "ok": not failures,
+        "text": "\n".join(page_texts),
     }
 
 
@@ -96,7 +105,7 @@ def main(argv: list[str]) -> int:
     ok = True
     for path in argv:
         result = inspect(path, expect)
-        print(json.dumps(result, indent=1))
+        print(json.dumps({k: v for k, v in result.items() if k != "text"}, indent=1))
         ok = ok and result["ok"]
     print(
         "\nHuman review still required (not auto-detectable): clipped/overflowing text, "

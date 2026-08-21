@@ -7,8 +7,10 @@ BUSINESS
 Name: {{ business_name }}
 Description: {{ business_description }}
 
-THE PILOT DECISION GATE (the pilot these procedures serve — its metrics are the ONLY success criteria you may reference, verbatim)
+THE PILOT DECISION GATE (the pilot these procedures serve — its metrics are the ONLY success criteria you may reference)
 {{ pilot_gate }}
+Its canonical sentence: {{ pilot_gate_sentence | default("(none)") }}
+Wherever a step states the success criteria or the gate review, write the literal token [[PILOT_GATE]] — the system substitutes the sentence; never restate the gate's numbers in your own words.
 
 THE MODULES PLANNED FOR LATER (context only — the pilot must NOT depend on any of them)
 {{ modules }}

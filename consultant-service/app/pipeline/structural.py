@@ -3,11 +3,11 @@
 The generator's structural promises — every scenario assumption produces an
 impact or an explicit cannot-quantify note, modules depend only backward,
 the build order is a valid topological order, the pilot gate is one whole
-object — are checked here by code, before prose is generated (preflight)
+typed object, the claim registry validates, pilot-phase modules are named
+honestly — are checked here by code, before prose is generated (preflight)
 and again at audit time. Model quality may vary; structure may not.
 """
 
-import json
 import re
 
 _FRACTION = re.compile(r"\d[\d.]*\s*%|\b1 in \d+\b")
@@ -28,7 +28,7 @@ def scenario_component_map(scenario: dict) -> dict:
             "complete": promised == 0 or (quantified + unquantified_notes) >= promised}
 
 
-def structural_findings(business_case: dict, modules: list) -> list[dict]:
+def structural_findings(business_case: dict, modules: list, registry: dict | None = None) -> list[dict]:
     """High findings a machine can prove — appended to the QA report and
     counted by the release gate like any other."""
     findings: list[dict] = []
@@ -50,17 +50,29 @@ def structural_findings(business_case: dict, modules: list) -> list[dict]:
             })
 
     gate = bc.get("pilot_gate") or {}
-    if isinstance(gate, dict) and gate and not (gate.get("primary_metric") and gate.get("target")):
-        findings.append({
-            "severity": "high", "source": "structural", "where": "pilot_gate",
-            "issue": "The pilot gate is missing its primary metric or target — the single source "
-                     "of pilot criteria must be whole before any document restates it.",
-            "fix": "regenerate the decomposition with a complete pilot_gate",
-        })
+    if isinstance(gate, dict) and gate:
+        from app.pipeline import pilot_gate as _pg
+
+        typed = gate if "canonical_sentence" in gate else _pg.normalize_gate(gate)
+        errors = _pg.gate_errors(typed)
+        if errors:
+            findings.append({
+                "severity": "high", "source": "structural", "where": "pilot_gate",
+                "issue": ("The pilot gate is not a whole typed object — " + "; ".join(errors) +
+                          ". The single source of pilot criteria must be complete before any document restates it."),
+                "fix": "regenerate the decomposition with a complete pilot_gate (numerator, denominator, "
+                       "geography, control method, explicit percentage-point or relative target, baseline, guardrail)",
+            })
 
     mods = [m for m in (modules or []) if isinstance(m, dict) and m.get("id")]
     by_id = {m["id"]: m for m in mods}
     order = [x for x in (bc.get("build_order") or []) if x in by_id]
+    if mods and order and sorted(order) != sorted(by_id):
+        findings.append({
+            "severity": "high", "source": "structural", "where": "build_order",
+            "issue": "build_order does not list every module exactly once.",
+            "fix": "regenerate build_order as a permutation of the module ids",
+        })
 
     # dependency sanity: declared depends_on must exist and be acyclic
     def _cycle() -> bool:
@@ -115,11 +127,37 @@ def structural_findings(business_case: dict, modules: list) -> list[dict]:
                                   f"flow backward only."),
                         "fix": "describe the earlier module's interim rules-based behavior instead",
                     })
+
+    # pilot-phase modules: honest names, no AI automation
+    from app.pipeline.registry import _AI_NAME, validate_registry
+
+    for m in mods:
+        if m.get("pilot") and _AI_NAME.search(str(m.get("client_facing_name") or m.get("name") or "")):
+            findings.append({
+                "severity": "high", "source": "structural", "where": f"modules.{m['id']}",
+                "issue": (f"Pilot-phase module '{m.get('name')}' carries a name implying predictive "
+                          "intelligence — a Phase 1 pilot is manual or rules-based and its name must say so."),
+                "fix": "use the canonical pilot name (e.g. '... Pilot') everywhere",
+            })
+        if m.get("pilot") and str(m.get("automation_level") or "").lower() == "ai":
+            findings.append({
+                "severity": "high", "source": "structural", "where": f"modules.{m['id']}",
+                "issue": f"Pilot-phase module '{m.get('name')}' is declared AI-automated — a pilot runs without AI.",
+                "fix": "set automation_level to manual or rules for the pilot module",
+            })
+
+    if registry:
+        for err in validate_registry(registry):
+            findings.append({
+                "severity": "high", "source": "structural", "where": "claim registry",
+                "issue": f"The claim registry does not validate: {err}.",
+                "fix": "repair the decomposition so every release-critical claim is typed and complete",
+            })
     return findings
 
 
-def preflight(business_case: dict, modules: list) -> list[dict]:
+def preflight(business_case: dict, modules: list, registry: dict | None = None) -> list[dict]:
     """The pre-generation check: the same structural findings, computed
     BEFORE any prose call spends money. A failed preflight means the
     decomposition is retried or the run stops — never a blind spend."""
-    return structural_findings(business_case, modules)
+    return structural_findings(business_case, modules, registry)

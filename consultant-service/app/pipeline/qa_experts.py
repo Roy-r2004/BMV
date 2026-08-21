@@ -50,6 +50,47 @@ def _sanitize_report(result: dict) -> dict:
     return {"checks": checks, "findings": findings}
 
 
+def machine_findings(req: Request, registry: dict | None, texts: dict[str, str] | None = None) -> list[dict]:
+    """Findings the registry proves on the finished text: phase semantics,
+    paraphrased gate restatements, unmapped KPI/acceptance numbers, and
+    monthly-identity drift. `texts` substitutes exact rendered PDF text."""
+    from app.pipeline import pilot_gate as _pg
+    from app.pipeline import registry as _registry
+    from app.pipeline import timebasis
+    from app.pipeline.phases import phase_findings
+
+    out: list[dict] = []
+    modules = json.loads(req.modules_json) if req.modules_json else []
+    procedures = (json.loads(req.procedures_json) if req.procedures_json else {}).get("procedures") or []
+    out += phase_findings(procedures, modules)
+    if not registry:
+        return out
+    texts = texts or {"blueprint": req.mvp_blueprint or "", "technical": req.technical_plan or ""}
+    gate = registry.get("pilot_gate")
+    if gate:
+        for label, text in texts.items():
+            for f in _pg.restatement_findings(text, gate):
+                out.append({**f, "where": f"{label}: {f['where']}"})
+    for label, text in texts.items():
+        for f in _registry.kpi_number_findings(text, registry, strict_kpi=(label == "blueprint")):
+            out.append({**f, "where": f"{label}: {f['where']}"})
+    ids = [m.get("id") for m in registry.get("modules") or []]
+    for label, text in texts.items():
+        hits = _registry.identifier_artifacts(text, ids)
+        if hits:
+            out.append({"severity": "high", "source": "structural", "where": f"{label}: client-facing text",
+                        "issue": "Internal identifiers appear in client-facing text: " + ", ".join(hits[:6]),
+                        "fix": "render module names from the registry, never ids"})
+    annuals = [c["value"] for c in registry.get("claims") or []
+               if c.get("type") == "derived_value" and c.get("unit") == "USD" and isinstance(c.get("value"), (int, float))]
+    if annuals:
+        scope = dict(texts)
+        bc = req.business_case_json or ""
+        scope["business_case"] = bc
+        out += timebasis.identity_findings(scope, annuals)
+    return out
+
+
 def review_quality(db: Session, request_id: int) -> None:
     req = db.get(Request, request_id)
     if req is None or not req.mvp_blueprint:
@@ -98,6 +139,11 @@ def review_quality(db: Session, request_id: int) -> None:
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3000)
         return _sanitize_report(extract_json_from_text(body["choices"][0]["message"]["content"])), body.get("usage")
 
+    from app.pipeline import registry as _registry
+    from app.pipeline.phases import semantics_for_prompt
+
+    registry = _registry.registry_for(req) or {}
+
     def _completeness():
         prompt = render(
             "qa_completeness.j2",
@@ -105,6 +151,8 @@ def review_quality(db: Session, request_id: int) -> None:
             blueprint=blueprint,
             module_names=json.dumps([m.get("name") for m in modules]),
             pilot_gate=json.dumps((json.loads(business_case) if business_case.strip().startswith("{") else {}).get("pilot_gate") or "none defined"),
+            pilot_gate_sentence=registry.get("pilot_gate_sentence") or "(no pilot gate defined)",
+            phase_semantics=semantics_for_prompt(),
             journey_stages=json.dumps([s.get("stage") for s in journey.get("stages") or []]),
             org_count=len(org.get("roles") or []),
             scoreboard_count=len(scoreboard),
@@ -151,7 +199,9 @@ def review_quality(db: Session, request_id: int) -> None:
         _bc_parsed = json.loads(business_case) if business_case.strip().startswith("{") else {}
     except Exception:
         _bc_parsed = {}
-    findings += [{**f, "source": "structural"} for f in structural_findings(_bc_parsed, modules)]
+    findings += [{**f, "source": "structural"}
+                 for f in structural_findings(_bc_parsed, modules, registry or None)]
+    findings += [{**f, "source": "structural"} for f in machine_findings(req, registry)]
 
     polish_applied = False
     # The red pen only ever acts on the NUMBERS auditor's findings —

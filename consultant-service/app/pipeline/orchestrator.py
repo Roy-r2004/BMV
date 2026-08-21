@@ -16,6 +16,7 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
         issues = _structural_preflight(
             (decomposition or {}).get("business_case") or {},
             (decomposition or {}).get("modules") or [],
+            (decomposition or {}).get("registry"),
         ) if decomposition else []
         if decomposition and not issues:
             return decomposition

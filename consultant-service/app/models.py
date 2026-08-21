@@ -107,6 +107,12 @@ class Request(Base):
     # "polish_applied": bool}. Shown in full to the reviewer; the client's
     # pending page sees only the check labels and pass marks.
     qa_report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The typed claim registry (app/pipeline/registry.py): every release-
+    # critical number as a record — client facts, verified derivations,
+    # the canonical pilot gate, typed thresholds, module KPI statements,
+    # module metadata. Documents are rendered FROM it and validated AGAINST
+    # it. Null on runs generated before the registry existed.
+    registry_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)

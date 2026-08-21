@@ -48,7 +48,10 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "purpose": "<one sentence: what this part of the system does — never described in terms of a module built after it>",
       "users": ["<who touches it: owner / staff role / customer>"],
       "pain_point_addressed": "<the specific pain point or revenue stream this exists for>",
-      "depends_on": ["<ids of modules this one requires, [] if none — the graph must be acyclic>"]
+      "depends_on": ["<ids of modules this one requires, [] if none — the graph must be acyclic>"],
+      "automation_level": "manual|rules|ai",
+      "ai_involvement": true|false,
+      "pilot": true|false
     }
   ],
   "business_case": {
@@ -80,13 +83,18 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
     },
     "pilot_gate": {
       "duration": "<proposed pilot length, labeled: '6 weeks (proposed — client approval required)'>",
-      "population": "<which orders/customers enter the pilot>",
-      "control": "<how the control group is formed>",
+      "population": "<which orders/customers enter the pilot — no geography here>",
+      "geography": "<the one place the pilot runs: a named zone, branch or city>",
+      "control_method": "<how the control group is formed>",
       "primary_metric": "<exactly ONE outcome metric, in their vocabulary>",
+      "numerator": "<what is counted on top, e.g. 'deliveries completed on the first attempt'>",
+      "denominator": "<what it is divided by, e.g. 'all delivery attempts in the pilot population'>",
       "baseline": "<an owner number cited as given, or exactly: measure in week 1>",
-      "target": "<exactly ONE target for the primary metric, EXPLICITLY relative ('a 25% relative reduction') or percentage-point ('3 percentage points'), labeled (proposed — client approval required)>",
+      "target": "<exactly ONE target for the primary metric, EXPLICITLY relative ('a 25% relative reduction') or percentage-point ('3 percentage points'), stating rise or fall, labeled (proposed — client approval required)>",
+      "target_value": <the target as a number>,
+      "change_kind": "percentage_point|relative",
       "secondary_metrics": ["<supporting metric, each one distinct — never conflate two different measurements>"],
-      "guardrail": "<the opt-out or complaint ceiling that pauses the pilot, labeled proposed>",
+      "guardrails": ["<the opt-out, complaint or delay ceiling that pauses the pilot>"],
       "approvals_required": ["<each pilot parameter the client must approve before launch>"]
     },
     "build_order": ["<every module id exactly once, in build sequence — a valid topological order of depends_on>"]
@@ -96,6 +104,11 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
 PILOT GATE rules — absolute:
 - The pilot_gate is the ONLY source of pilot success criteria for the entire engagement. Exactly one primary metric, one baseline, one target. Never two competing thresholds for the same outcome; never conflate distinct measurements (pins captured ≠ deliveries confirmed).
 - Every numeric pilot parameter that is not an owner number carries "(proposed — client approval required)".
+- Every field above is required: numerator, denominator, geography and control_method are what make the metric measurable; a gate missing any of them is rejected before any document is written.
+
+MODULE METADATA rules — absolute:
+- Exactly ONE module is the subject of the Phase 1 pilot when a pilot gate exists: set its "pilot" to true, its "automation_level" to "manual" or "rules", and give it a client-facing NAME that says what it is — a manual or rules-based pilot (e.g. "Pre-Dispatch WhatsApp Pilot"). A pilot module's name must never contain "AI", "Engine", "Predictive", "Predictor", "Scoring", "Smart" or "Automated"; a name that does is rewritten by the system, so write the honest one yourself.
+- "automation_level" is "ai" only for modules with a genuine AI component; "ai_involvement" is true for exactly those.
 
 FINANCIAL MODEL rules — absolute:
 - UNIT DISCIPLINE: every figure carries its unit AND period (per day / per week / per month / per year). Use a 365-day year and a 30-day operating month, and keep each figure's frequency identical everywhere it appears. If the client's inputs are ambiguous or conflicting about a figure's frequency (a number that could be weekly or monthly), do NOT compute with it — add "confirm whether <the figure> is per week or per month" to missing_inputs instead.

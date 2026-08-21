@@ -13,8 +13,11 @@ Roles/screens: {{ roles }}
 Recommended AI employees: {{ recommended_ai_employees }}
 
 THE DECOMPOSITION (your source of truth — specify THESE modules, do not invent others)
-Modules, each with its business spec ("spec": features, data, screens, ai, integrations, kpis) and its technical anatomy ("tech": data_model, ai_agent with brain/tools/memory/guardrails/escalation/evaluation, apis, integration_details, security, build_sequence, done_when):
+Modules, each with its business spec ("spec": features, data, screens, ai, integrations, kpi_statement) and its technical anatomy ("tech": data_model, ai_agent with brain/tools/memory/guardrails/escalation/evaluation, apis, integration_details, security, build_sequence, done_when):
 {{ modules }}
+
+THE CANONICAL PILOT-GATE SENTENCE (never rewrite it; where pilot success criteria belong, write the literal token [[PILOT_GATE]] and the system substitutes this sentence):
+{{ pilot_gate_sentence | default("(no pilot gate defined — write no pilot criteria)") }}
 
 TASK
 Write the Technical Plan in Markdown. Structure (exactly these ## headings):
@@ -31,9 +34,9 @@ One ### subsection PER MODULE, in the decomposition's order. Each subsection res
 - **What it knows:** the agent's brain in plain words — the knowledge of YOUR business it is grounded in
 - **Where it stops and hands to you:** decides_alone vs escalation, as one honest sentence naming who picks it up
 - **What it will never do:** the guardrails, plainly
-- **How you'll know it's working:** evaluation + the module's KPIs as things the owner can watch
+- **How you'll know it's working:** the evaluation items VERBATIM (every number with the label it already carries), then the module's spec.kpi_statement VERBATIM — never a number of your own; for the pilot module write [[PILOT_GATE]]
 - **How this part gets built, in order:** tech.build_sequence translated into numbered plain steps ("first the records it keeps, then the workflow, then the AI wired in, then the screens" — but specific to this module)
-- **It's finished when:** tech.done_when verbatim in spirit — checks the owner can personally verify
+- **It's finished when:** tech.done_when VERBATIM — every check exactly as written, every number with its label; these are checks the owner can personally verify
 - **For your build team:** ONE compact line with the technical identifiers a developer needs: record names, tool names, connection points (from tech.data_model/tools/apis/integration_details). This is the only place technical notation is allowed.
 
 ## Applying it, step by step
@@ -59,7 +62,8 @@ When any module touches payments, settlements, payouts or other sensitive financ
 
 Rules:
 - ONE CAPABILITY, ONE NAME: call every module by its EXACT name from the decomposition, everywhere — never a synonym, shorthand, or rebrand.
-- THRESHOLD LAW: every accuracy %, SLA, window or rate that is not the client's own figure carries "(proposed — client approval required)".
+- THRESHOLD LAW: every accuracy %, SLA, window, sample size or rate that is not the client's own figure carries "(proposed — client approval required)" — the specs above already carry the labels; copy them, never drop them, never add a number the specs do not contain. "Every eligible order" is written in words, never as "100% of".
+- Module ids (kebab-case slugs) never appear in this document — client-facing names only.
 - Write directly to the business owner ("you", "your clients").
 - FORBIDDEN outside the "For your build team" lines: API, endpoint, entity, schema, database table, backend, frontend, CRUD, JSON, snake_case identifiers. Say what things ARE, not what they're called in engineering.
 - Grounded and specific to THIS business — their services, their workflow, their words.
