@@ -1288,6 +1288,30 @@ def test_run49_classes_prose_formulas_compute_acceptance_checks_exist_future_ai_
     db.close()
 
 
+def test_run49_round_two_gate_reads_on_the_page_as_stored_and_business_case_prose_is_arithmetic():
+    from app.pipeline import export_pdf as ep
+    from app.pipeline.decompose import _sanitize_financial_model
+
+    claims = rg.client_fact_claims(json.loads(OPS), [])
+    raw = {**GATE47, "guardrails": ["complaint rate increase > 2% relative to control group",
+                                   "delivery delay increase >= 5% relative to control group"],
+           "control_method": "50% of the pilot population will be randomly assigned to a control_group receiving standard notifications"}
+    g = pg.normalize_gate(raw, claims)
+    s = pg.canonical_sentence(g)
+    assert ">" not in s and "more than 2%" in s and "at least 5%" in s and "control group receiving" in s
+    # what the renderer prints is exactly what is stored
+    assert ep._strip_artifacts(s) == s
+    assert pg.restatement_findings("The decision gate: " + s, g) == []
+    bc = {"payback_logic": "Reducing failed first attempts by even 25% (a conservative estimate) would save ~$490 per month in re-attempt costs, by your own figures.",
+          "financial_model": {"lines": [{"item": "re-attempt costs", "arithmetic": "900 * 365 * 0.12 * $1.80", "annual": "$70,956/year"}],
+                              "scenarios": [{"name": "Conservative", "assumption": "prevents 25% of failed first attempts",
+                                             "impact": "$17,739/year saved in re-attempt costs"}]}}
+    _sanitize_financial_model(bc)
+    assert "$1,458 per month" in bc["payback_logic"] and "$490" not in bc["payback_logic"]
+    fixed, notes = rg.policy_pass("status enum: remittance_due_in_2_days | remittance_confirmed", claims)
+    assert "remittance_due_in_10_days" in fixed and notes
+
+
 def test_r26_structural_corroboration_confirms_a_scenario_arithmetic_finding(client):
     from app.pipeline.adjudicate import adjudicate
 

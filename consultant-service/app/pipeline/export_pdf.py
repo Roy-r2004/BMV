@@ -344,11 +344,16 @@ def find_artifacts(text: str) -> list[str]:
     AFTER the renderer's own deterministic cleanup — only what would truly
     reach the page counts. 'For your build team' lines are the sanctioned
     home of technical identifiers; ordinary hyphenated English is not a slug."""
-    from app.pipeline.registry import _BUILD_TEAM_LINE, _SLUG_ALLOW
+    from app.pipeline.registry import _BUILD_TEAM_LINE, _SLUG_ALLOW, client_facing_region
 
     cleaned = _strip_artifacts(text or "")
-    cleaned = _SLUG_ALLOW.sub(" ", _BUILD_TEAM_LINE.sub(" ", cleaned))
-    return [name for name, rx in _GATE_ARTIFACTS if rx.search(cleaned)]
+    prose = _SLUG_ALLOW.sub(" ", _BUILD_TEAM_LINE.sub(" ", client_facing_region(cleaned)))
+    hits = []
+    for name, rx in _GATE_ARTIFACTS:
+        scope = prose if name == "internal identifier in client-facing text" else cleaned
+        if rx.search(scope):
+            hits.append(name)
+    return hits
 
 
 # structured fields that hold identifiers BY DESIGN (resolved to names at

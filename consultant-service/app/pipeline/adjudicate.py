@@ -426,11 +426,12 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                       if any(ch.isdigit() for ch in q) and not re.fullmatch(r"\s*\d{1,2}\s*", q)]
             # R13 — the label law governs NUMERIC thresholds; a qualitative
             # trigger ("fraud or major service problems") carries no number to approve
-            if not quoted and _QUOTED.findall(issue) and re.search(r"qualitative|newly introduced|trigger", issue, re.IGNORECASE) \
+            if not quoted and _QUOTED.findall(issue) and \
+                    re.search(r"qualitative|newly introduced|trigger|frequency|cadence|review|weekly|monthly|daily", issue, re.IGNORECASE) \
                     and not any(ch.isdigit() for ch in issue.replace("(proposed", "")):
                 _close("false_positive",
-                       "R13: the approval label applies to numeric thresholds; the quoted trigger is qualitative "
-                       "and states no value to approve",
+                       "R13: the approval label applies to numeric thresholds; the quoted fragment is a qualitative "
+                       "trigger or a review cadence and states no value to approve",
                        "semantic false positive resolved by structured threshold typing")
                 continue
             if quoted:

@@ -99,6 +99,19 @@ _TECH_SLUG = re.compile(
 _SLUG_ALLOW = re.compile(r"\b\w+-to-\w+\b|\bself-service\b|\bfull-service\b|\bmulti-agent\b|\bsingle-agent\b|"
                          r"\bfirst-party\b|\bthird-party\b|\bin-app\b|\bback-office\b|\bon-demand\b", re.IGNORECASE)
 _BUILD_TEAM_LINE = re.compile(r"For your build team:[^\n•]*", re.IGNORECASE)
+_APPENDIX_START = re.compile(r"Module appendix\s*[—–-]\s*the engineering detail", re.IGNORECASE)
+_APPENDIX_END = re.compile(r"Three ways forward", re.IGNORECASE)
+
+
+def client_facing_region(text: str) -> str:
+    """The text a client reads as prose: Volume II's module appendix is
+    declared engineering detail (data models, APIs, tools) and is excluded."""
+    t = text or ""
+    m = _APPENDIX_START.search(t)
+    if not m:
+        return t
+    e = _APPENDIX_END.search(t, m.end())
+    return t[:m.start()] + " " + (t[e.start():] if e else "")
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -380,9 +393,11 @@ def identifier_artifacts(text: str, module_ids: list[str] | None = None) -> list
     slug-shaped list labels ('1. pre-dispatch-whatsapp-engine:') and
     technical slugs ('...-engine', '...-resolver')."""
     hits = []
-    # "For your build team" lines are the one sanctioned home of technical
-    # identifiers; ordinary hyphenated English is not a slug
-    t = _BUILD_TEAM_LINE.sub(" ", text or "")
+    # "For your build team" lines and the module appendix ("the engineering
+    # detail") are the sanctioned homes of technical identifiers; ordinary
+    # hyphenated English is not a slug
+    t = client_facing_region(text or "")
+    t = _BUILD_TEAM_LINE.sub(" ", t)
     t = _SLUG_ALLOW.sub(" ", t)
     for mid in module_ids or []:
         if mid and ("-" in mid or "_" in mid) and re.search(r"(?<![\w-])" + re.escape(mid) + r"(?![\w-])", t):
@@ -622,6 +637,16 @@ def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
     if not client_days:
         return text, notes
     out = text
+    # an invented period hiding in an identifier ('remittance_due_in_2_days'
+    # — the renderer prints it as words) is corrected in place
+    def _snake(m: re.Match) -> str:
+        n = int(m.group(2))
+        if n in client_days:
+            return m.group(0)
+        notes.append(f"'{m.group(0)}' -> '{m.group(1)}{client_days[0]}{m.group(3)}'")
+        return f"{m.group(1)}{client_days[0]}{m.group(3)}"
+
+    out = re.sub(r"\b((?:settle|settlement|remit|remittance|payout|disburse)\w*_(?:[a-z]+_){0,3})(\d+)(_days?\b)", _snake, out)
     # an earlier correction's phrasing is normalized, and the client's own
     # cycle never carries an approval label
     out = re.sub(r"\b(within|in|after|every)\s+(\d+)-day \(your stated cycle\)", r"\1 \2 days (your stated cycle)", out)

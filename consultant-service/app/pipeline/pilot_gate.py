@@ -32,6 +32,15 @@ _STOP = {"rate", "the", "and", "for", "per", "of", "with", "from", "that", "this
 def _strip_label(s: str) -> str:
     out = re.sub(r"\s*\(proposed[^)]*\)", "", s or "")
     out = re.sub(r"\s*\((?:by )?your own figures?\)|,?\s*by your own figures", "", out, flags=re.IGNORECASE)
+    # the canonical sentence must read on the page exactly as it is stored:
+    # comparison notation becomes the words the renderer would print anyway
+    out = re.sub(r"(?<![\w<>])>=\s*(\d)", r"at least \1", out)
+    out = re.sub(r"(?<![\w<>])<=\s*(\d)", r"at most \1", out)
+    out = re.sub(r"(?<![\w<>])≥\s*(\d)", r"at least \1", out)
+    out = re.sub(r"(?<![\w<>])≤\s*(\d)", r"at most \1", out)
+    out = re.sub(r"(?<![\w<>])>\s*(\d)", r"more than \1", out)
+    out = re.sub(r"(?<![\w<>])<\s*(\d)", r"fewer than \1", out)
+    out = re.sub(r"\b([a-z0-9]+(?:_[a-z0-9]+)+)\b", lambda m: m.group(1).replace("_", " "), out)
     return out.strip().rstrip(".;,").strip()
 
 

@@ -136,7 +136,6 @@ def _sanitize_financial_model(business_case: dict) -> None:
         fixed, recs = timebasis.check_restatements(coi, claims)
         bc_dict["cost_of_inaction"] = timebasis.round_counts(fixed)
         _records += recs
-
     for sc in fm.get("scenarios") or []:
         if not isinstance(sc, dict):
             continue
@@ -190,6 +189,26 @@ def _sanitize_financial_model(business_case: dict) -> None:
     if isinstance(pn, str) and pn:
         fm["payback_note"], recs = timebasis.check_restatements(pn, claims)
         _records += recs
+    # every other business-case prose field is held to the same arithmetic,
+    # against the FULL claim set (lines + verified scenario impacts): a
+    # formula announces the figure it computes, and monthly restatements sit
+    # on the package identity (run 49: payback_logic's "25% … ≈ $490")
+    if isinstance(bc_dict, dict):
+        for key in ("payback_logic",):
+            if isinstance(bc_dict.get(key), str) and bc_dict[key]:
+                fixed, recs = timebasis.repair_expressions(bc_dict[key])
+                _records += recs
+                fixed, recs = timebasis.check_restatements(fixed, claims)
+                _records += recs
+                bc_dict[key] = timebasis.round_counts(fixed)
+        for key, field in (("costs_removed", "how"), ("revenue_streams", "description")):
+            for it in bc_dict.get(key) or []:
+                if isinstance(it, dict) and isinstance(it.get(field), str) and it[field]:
+                    fixed, recs = timebasis.repair_expressions(it[field])
+                    _records += recs
+                    fixed, recs = timebasis.check_restatements(fixed, claims)
+                    _records += recs
+                    it[field] = timebasis.round_counts(fixed)
     if _records:
         fm["restatements"] = _records
     # An impact component the assumption never promised is stated INTO the
