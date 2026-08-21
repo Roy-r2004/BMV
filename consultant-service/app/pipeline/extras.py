@@ -216,7 +216,9 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             modules=slim,
             engagement_register=register,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2600)
+        # four procedures x eight steps x exceptions ran past 2600 tokens twice
+        # (runs 47 and 49: JSON cut mid-object at ~10.8k characters)
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=4200)
         result = extract_json_from_text(body["choices"][0]["message"]["content"])
         procs = []
         for p in result.get("procedures") or []:

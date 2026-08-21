@@ -449,13 +449,27 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                     _close("confirmed", f"R2: {evidence}", "real defect")
                     continue
         # R21 — week-one measurement on a FUTURE module: its first week live, by the statement itself
-        if registry and re.search(r"week.one|week 1", issue, re.IGNORECASE) and re.search(r"phase [23]|future|later phase|not (?:yet )?built", issue, re.IGNORECASE):
+        if registry and re.search(r"week.one|week 1", issue, re.IGNORECASE) and \
+                re.search(r"phase [23]|future|later phase|not (?:yet )?built|immedia|deferred|defer", issue, re.IGNORECASE):
             named = [m for m in registry.get("modules") or []
                      if m.get("client_facing_name") and m["client_facing_name"] in issue and m.get("phase") == "FUTURE"]
             if named and "once this module is live" in corpus:
                 _close("false_positive",
                        f"R21: '{named[0]['client_facing_name']}' is FUTURE; its KPI statement reads 'week-one measurement once "
                        "this module is live' — the baseline is measured when the module launches, not during the pilot",
+                       "semantic false positive resolved by structured phase data")
+                continue
+        # R27 — FUTURE modules may be AI and may measure the pilot population: the
+        # decision defers AI to later phases, and these modules ARE the later phases
+        if registry and re.search(r"\bAI\b|pilot group|pilot-related|pilot metric", issue, re.IGNORECASE) and \
+                re.search(r"defer|despite|even though|contradict|not part of the pilot|phase [23]|later phase", issue, re.IGNORECASE):
+            named = [m for m in registry.get("modules") or []
+                     if m.get("client_facing_name") and m["client_facing_name"] in issue and m.get("phase") == "FUTURE"]
+            if named and all(not m.get("pilot") for m in named):
+                _close("false_positive",
+                       f"R27: {', '.join(repr(m['client_facing_name']) for m in named[:2])} is/are FUTURE in the registry — "
+                       "the later phases the decision defers AI to; AI in their names and pilot-population metrics are "
+                       "consistent with that phasing",
                        "semantic false positive resolved by structured phase data")
                 continue
         # R22 — an 'inconsistency' between two identical names is no inconsistency

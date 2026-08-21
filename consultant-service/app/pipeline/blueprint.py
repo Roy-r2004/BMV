@@ -203,6 +203,7 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     if kind == "technical":
         content = _repair_no_ai_lines(content, modules)
     content = _reg.resolve_module_ids(content, modules)
+    content, _ = timebasis.repair_expressions(content)
     content, _ = timebasis.check_restatements(content, _annual_claims(business_case))
     content = timebasis.round_counts(content)
     if kind == "blueprint":

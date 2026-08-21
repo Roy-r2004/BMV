@@ -116,7 +116,8 @@ MODULES46 = [
          "The module achieves 80% accuracy for the top 3 predicted failure reasons (proposed — client approval required) identified.",
          "An A/B test (proposed — client approval required) demonstrates that orders flagged by the predictor for intervention have a 10% higher first-attempt success rate compared to a control group."]},
      "tech": {"done_when": [
-         "The `/predict-delivery-incident` API successfully returns a risk score and predicted reasons for 100% of new e-commerce COD and express on-demand orders within 500ms (proposed — client approval required) for pilot regions."],
+         "The `/predict-delivery-incident` API successfully returns a risk score and predicted reasons for 100% of new e-commerce COD and express on-demand orders within 500ms (proposed — client approval required) for pilot regions.",
+         "Operations staff can open any flagged order and see its predicted failure reason in the incident queue."],
          "ai_agent": {"evaluation": [
              "Offline backtesting: Compare model predictions against actual outcomes for 100,000 historical orders, measuring precision, recall, and F1-score.",
              "Human-in-the-loop: For the first 1,000 flagged incidents, an operations supervisor manually reviews each flagged order.",
@@ -127,7 +128,8 @@ MODULES46 = [
          "A 15% reduction in driver's average phone call time per delivery (proposed — client approval required) is observed within 3 months of launch.",
          "A 20% decrease in \"high re-attempt risk\" orders needing a second dispatch (proposed — client approval required) due to address confusion is achieved."]},
      "tech": {"done_when": [
-         "The 'Pre-Dispatch Location Refinement Display' section appears in the driver app for 100% of orders having refined address details from the Pre-Dispatch WhatsApp Engine."],
+         "The 'Pre-Dispatch Location Refinement Display' section appears in the driver app for 100% of orders having refined address details from the Pre-Dispatch WhatsApp Engine.",
+         "A driver can open the refined address and landmark notes for an assigned order before leaving the hub."],
          "ai_agent": None}},
     {"id": "client-portal-notifier", "name": "Client Portal Notifier", "purpose": "notifies clients",
      "depends_on": [],
@@ -135,7 +137,9 @@ MODULES46 = [
          "The engagement rate with portal notifications (proposed — client approval required) increases by 25% within 3 months of launch.",
          "Notifications achieve a click-through rate of at least 20% (proposed — client approval required) for linked detailed reports.",
          "Finance team time spent on manual COD inquiries reduces by 50%."]},
-     "tech": {"done_when": [], "ai_agent": None}},
+     "tech": {"done_when": ["A business client receives a portal notification when an order is marked delivered.",
+                            "A business client receives a portal notification when a COD settlement statement is issued."],
+              "ai_agent": None}},
 ]
 BUILD_ORDER46 = ["pre-dispatch-whatsapp-engine", "delivery-incident-predictor",
                  "driver-clarification-assistant", "client-portal-notifier"]
@@ -1249,6 +1253,39 @@ def test_preflight_retries_with_targeted_feedback_and_metric_direction_is_checke
                     max_modules=7, operating_stage="operating", owner_numbers="x", engagement_register="reg",
                     preflight_feedback="- pilot_gate: missing numerator")
     assert "PREVIOUS ATTEMPT WAS REJECTED" in prompt and "missing numerator" in prompt
+
+
+def test_run49_classes_prose_formulas_compute_acceptance_checks_exist_future_ai_is_consistent(client):
+    from app.pipeline import timebasis as tb
+    from app.pipeline.adjudicate import adjudicate
+    from app.pipeline.structural import preflight
+
+    text = ("Even a conservative estimate — ($70,956/year / 365 days/year * 30 operating days/month) * 25% for saving "
+            "~$490 per month in re-attempt costs — pays for itself.")
+    out, recs = tb.repair_expressions(text)
+    assert "$1,458" in out and "$490" not in out and recs[0]["status"] == "snapped"
+    ok = "(350 inquiries/day * 365 days/year) = 127,750 inquiries a year"
+    assert tb.repair_expressions(ok)[0] == ok
+    assert tb.repair_expressions("(900 x 12%) = 108 failed deliveries a day")[0].startswith("(900 x 12%) = 108")
+    mods = copy.deepcopy(MODULES46)
+    mods[1]["tech"]["done_when"] = ["To be established after the pilot, depending on its data."]
+    found = [f for f in preflight({"build_order": BUILD_ORDER46}, mods) if "acceptance check" in f["issue"]]
+    assert len(found) == 1 and "Delivery Incident Predictor" in found[0]["issue"]
+    bc, mods2, reg = _skeleton()
+    db = SessionLocal()
+    row = _seed(db, business_case_json=json.dumps(bc), modules_json=json.dumps(mods2), registry_json=json.dumps(reg),
+                qa_report_json=json.dumps({"checks": [], "findings": [
+                    _finding("The product, module by module",
+                             "The 'Delivery Incident Predictor' and 'Driver Clarification Assistant' modules are mentioned as 'AI' in their names, despite the decision explicitly stating 'deliberately defer full AI automation'.",
+                             source="qa_completeness"),
+                    _finding("The product, module by module > Delivery Incident Predictor",
+                             "The 'You'll know it's working when' section for 'Delivery Incident Predictor' includes 'Baseline and target to be established during week-one measurement once this module is live.' implying immediate availability.",
+                             source="qa_completeness"),
+                ]}))
+    result = adjudicate(row, {"blueprint": "once this module is live"})
+    assert [e["classification"] for e in result["ledger"]] == ["semantic false positive resolved by structured phase data"] * 2
+    assert "R27" in result["ledger"][0]["evidence"] and "R21" in result["ledger"][1]["evidence"]
+    db.close()
 
 
 def test_r26_structural_corroboration_confirms_a_scenario_arithmetic_finding(client):

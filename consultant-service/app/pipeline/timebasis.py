@@ -170,6 +170,58 @@ def identity_findings(texts: dict[str, str], annual_claims: list[float]) -> list
     return out
 
 
+_EXPR = re.compile(
+    r"\(([^()]*\d[^()]*)\)\s*(?:[x×*]\s*(\d+(?:\.\d+)?)\s*%\s*)?"
+    r"(?:=|≈|~|→|->|for (?:a )?saving(?: of)?|saving|saves|gives|yields?|is|comes to|equals)\s*(?:~|about |approximately |roughly )?"
+    r"(\$?\s?\d[\d,]*(?:\.\d+)?)", re.IGNORECASE)
+_UNIT_WORDS = re.compile(
+    r"\b(?:per|a|each)?\s*(?:year|month|day|week|days|months|weeks|years|operating days|working days|deliveries|"
+    r"inquiries|orders|attempts|hours|staff|days/year|days/month|/year|/month|/day|/week)\b", re.IGNORECASE)
+
+
+def _evaluate(expr: str) -> float | None:
+    """Safely evaluate a formula the model wrote in prose: numbers, + - * /
+    x ×, percentages and currency signs; unit words are stripped."""
+    s = expr.replace("×", "*").replace("x", "*").replace("X", "*").replace("$", "").replace(",", "")
+    s = re.sub(r"(\d+(?:\.\d+)?)\s*%", r"(\1/100)", s)
+    s = _UNIT_WORDS.sub(" ", s)
+    s = re.sub(r"/\s*(?=[*/]|$)", " ", s)           # a dangling '/' left by '/year'
+    s = re.sub(r"[A-Za-z_]+", " ", s)               # any other word
+    s = re.sub(r"\s+", "", s)
+    if not s or not re.fullmatch(r"[\d.+\-*/()]+", s) or not re.search(r"\d", s):
+        return None
+    try:
+        return float(eval(s, {"__builtins__": {}}, {}))  # noqa: S307 — sanitized to digits/operators only
+    except Exception:
+        return None
+
+
+def repair_expressions(text: str) -> tuple[str, list[dict]]:
+    """A formula the prose writes must produce the figure it announces:
+    '($70,956 / 365 x 30) x 25% ≈ $490' (run 49) becomes $1,458. The
+    announced figure snaps to the computed one; the formula stays."""
+    records: list[dict] = []
+    if not text:
+        return text, records
+
+    def _repl(m: re.Match) -> str:
+        value = _evaluate(m.group(1))
+        if value is None:
+            return m.group(0)
+        if m.group(2):
+            value *= float(m.group(2)) / 100
+        stated_tok = m.group(3)
+        stated = _value(stated_tok)
+        if stated is None or value <= 0 or _rounds_to(stated, value):
+            return m.group(0)
+        money = "$" in stated_tok
+        new = (_format(value) if money else (f"{value:,.0f}" if value >= 100 else f"{value:,.2f}"))
+        records.append({"expression": m.group(1), "stated": stated_tok, "computed": new, "status": "snapped"})
+        return m.group(0)[: m.start(3) - m.start()] + new
+
+    return _EXPR.sub(_repl, text), records
+
+
 def round_counts(text: str) -> str:
     """Counts of discrete things are whole numbers — '31,937.5 inquiries'
     is not a quantity any operation ever handles."""

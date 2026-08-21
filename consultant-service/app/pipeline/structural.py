@@ -327,6 +327,21 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
                         "fix": "describe the earlier module's interim rules-based behavior instead",
                     })
 
+    # every module ships with acceptance checks the owner can verify — "to
+    # be established later" is not an acceptance criterion (run 49)
+    for m in mods:
+        tech = m.get("tech") if isinstance(m.get("tech"), dict) else None
+        if tech is None:
+            continue  # the tech call failed open; the bench sees the gap
+        done = [d for d in (tech.get("done_when") or []) if isinstance(d, str) and len(d.strip()) > 12
+                and not re.search(r"to be (?:defined|established|determined)|later|TBD|depends on the pilot", d, re.IGNORECASE)]
+        if len(done) < 2:
+            findings.append({
+                "severity": "high", "source": "structural", "where": f"modules.{m['id']}.tech.done_when",
+                "issue": f"'{m.get('name')}' has {len(done)} verifiable acceptance check(s); every module needs at least two concrete 'finished when' checks.",
+                "fix": "state 2-4 checks a non-technical owner can verify once the module exists",
+            })
+
     # two modules for one job: overlapping names AND overlapping purposes
     # (run 47: 'Automated COD Settlement Inquiry Handler' beside 'COD
     # Settlement Inquiry Bot', each claiming to answer settlement inquiries)
