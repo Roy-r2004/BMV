@@ -235,7 +235,20 @@ def _mentions_metric(sentence: str, g: dict) -> bool:
 
 
 def _has_number(sentence: str) -> bool:
-    return bool(re.search(r"\d", sentence)) or "percentage point" in sentence.lower()
+    """A GATE-shaped number: a percentage, percentage points, a '1 in N'
+    fraction or a week/day horizon — a bare count ('350 inquiries') does not
+    make a sentence a gate restatement."""
+    return bool(re.search(r"\d[\d.]*\s*(?:%|percent|percentage[- ]points?|pp\b)|\b1 in \d+\b|"
+                          r"\d+\s*(?:weeks?|days?)\b|percentage point", sentence, re.IGNORECASE))
+
+
+# our own deterministic gate-components table, as it reads in extracted PDF
+# text — it is the gate's rendering, never a paraphrase of it
+_GATE_TABLE = re.compile(r"Parameter Value Duration .*?(?:Approval status consultant_proposed — client approval required|"
+                         r"Before launch, you approve:)", re.DOTALL)
+# the scoreboard table likewise: its gate row IS the canonical sentence and
+# its other rows are registry-governed; flattened cells are not prose
+_SCOREBOARD_TABLE = re.compile(r"Metric Baseline Target Owner Review .*?(?:How each is measured:|SECTION \d+)", re.DOTALL)
 
 
 _SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[*(\-•\d])|\n")
@@ -263,11 +276,15 @@ def restatement_findings(text: str, g: dict) -> list[dict]:
     if not g or not text:
         return out
     # rendered PDF text wraps sentences across lines: judge on collapsed
-    # whitespace — but a bullet or list item is its own sentence
+    # whitespace — but a bullet or list item (also an inline " - Item") is
+    # its own sentence, and our gate-components table is the gate itself
     text = re.sub(r"\n\s*(?:[-*•]|\d+\.)\s+", ". ", text)
     text = re.sub(r"\s*•\s*", ". ", text)
+    text = re.sub(r"\s-\s+(?=[A-Z*])", ". ", text)
     text = re.sub(r"[ \t\r]*\n[ \t\r]*", " ", text)
     text = re.sub(r"\s{2,}", " ", text)
+    text = _GATE_TABLE.sub(" [gate components table] ", text)
+    text = _SCOREBOARD_TABLE.sub(" [scoreboard table] ", text)
     for sentence in _SPLIT.split(text):
         if is_paraphrase(sentence, g):
             out.append({"severity": "high", "source": "structural", "where": "pilot gate restatement",

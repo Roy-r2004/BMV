@@ -86,6 +86,35 @@ def write_playbook(
         )
         return None
 
+    # The playbook restates the gate only as the canonical sentence, names
+    # modules by their client-facing names, never by id.
+    try:
+        from app.pipeline import pilot_gate as _pg
+        from app.pipeline import registry as _registry
+
+        registry = (decomposition or {}).get("registry") or _registry.registry_for(req) or {}
+        gate = registry.get("pilot_gate")
+
+        def _fix(s):
+            if not isinstance(s, str):
+                return s
+            s, _ = _pg.enforce(s, gate)
+            return _registry.resolve_module_ids(s, modules)
+
+        for step in result.get("steps") or []:
+            for key in ("title", "detail"):
+                step[key] = _fix(step.get(key))
+        for w in result.get("quick_wins") or []:
+            for key in ("title", "detail"):
+                w[key] = _fix(w.get(key))
+        people = result.get("people_plan") or {}
+        people["ai_covers"] = [_fix(x) for x in (people.get("ai_covers") or [])]
+        for h in people.get("humans_needed") or []:
+            if isinstance(h, dict):
+                for key in ("role", "when", "why"):
+                    h[key] = _fix(h.get(key))
+    except Exception:  # the playbook stays fail-open
+        pass
     req.playbook_json = json.dumps(result)
     db.commit()
     return result

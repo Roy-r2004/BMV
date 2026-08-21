@@ -26,10 +26,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pypdfium2 as pdfium
 
-from app.pipeline.export_pdf import find_artifacts
+from app.pipeline.export_pdf import find_artifacts, strip_page_chrome
 
 
-def inspect(path: str, expect: str | None = None) -> dict:
+def inspect(path: str, expect: str | None = None, concept: str | None = None) -> dict:
     failures: list[str] = []
     doc = pdfium.PdfDocument(path)
     n = len(doc)
@@ -87,7 +87,9 @@ def inspect(path: str, expect: str | None = None) -> dict:
         "every_page_inspected": inspected == n, "draft_watermark": drafted,
         "draft_stamped_pages": stamped,
         "numbered_pages": numbered, "failures": failures, "ok": not failures,
-        "text": "\n".join(page_texts),
+        # the text as a reader reads it: page chrome removed so a sentence
+        # split by a page break is one sentence again
+        "text": strip_page_chrome("\n".join(page_texts), concept),
     }
 
 

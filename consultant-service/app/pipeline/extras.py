@@ -96,19 +96,35 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
             f["purpose"] = _fix(f.get("purpose"))
 
     gov = by_name.get("governance") or {}
-    if gate and gov.get("scoreboard"):
-        metric_terms = {w for w in re.findall(r"[a-z]+", str(gate.get("primary_metric") or "").lower()) if len(w) > 3}
-        canon = _pg.canonical_sentence(gate)
+    if gov.get("scoreboard"):
+        metric_terms = {w for w in re.findall(r"[a-z]+", str((gate or {}).get("primary_metric") or "").lower()) if len(w) > 3}
+        canon = _pg.canonical_sentence(gate) if gate else ""
+        vals = _registry.claim_values(registry) if registry else []
+        kpi_vals = [(v, c, cid) for v, c, cid in vals
+                    if cid == "PG" or "*" in (c.get("allowed_sections") or []) or str(c.get("type")) in ("pilot_gate", "module_kpi")]
         for row in gov["scoreboard"]:
             if not isinstance(row, dict):
                 continue
             for key in ("metric", "baseline", "target", "formula"):
                 row[key] = _fix(row.get(key))
             words = set(re.findall(r"[a-z]+", str(row.get("metric") or "").lower()))
-            if metric_terms and len(metric_terms & words) >= max(2, len(metric_terms) - 1):
+            if gate and metric_terms and len(metric_terms & words) >= max(2, len(metric_terms) - 1):
                 row["target"] = canon
                 row["baseline"] = (str(gate.get("baseline") or "measure in week 1")
                                    + (" (your figure)" if gate.get("baseline_source") == "client" else ""))
+                continue
+            # the scoreboard's targets obey the module-KPI law: a number that
+            # is not a client figure, a scenario assumption or the gate is
+            # coinage — the row keeps its direction and measures in week one
+            target = str(row.get("target") or "")
+            coined = [tok + (unit if unit == "%" else (" " + unit if unit else ""))
+                      for tok, v, unit, _, _ in _registry._numbers(target)
+                      if registry and not _registry._value_registered(v, unit, kpi_vals)]
+            if coined:
+                direction = re.match(r"\s*(down|up|lower|higher|fewer|more|decrease|increase|reduce)\w*", target, re.IGNORECASE)
+                row["target"] = ((direction.group(1).capitalize() + " — ") if direction else "") + \
+                    "target to be established during week-one measurement"
+                row["target_note"] = f"coined figure(s) removed: {', '.join(coined)}"
     journey = by_name.get("journey") or {}
     for s in journey.get("stages") or []:
         if isinstance(s, dict):
@@ -361,7 +377,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
 
     if only:
         tasks = [t for t in tasks if t[0] in only]
-        if not tasks:
+        if not tasks and "__canonicalize__" not in only:
             return
 
     def _guarded(item):
@@ -371,8 +387,10 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         except Exception as exc:  # each layer fails open alone
             return name, None, str(exc)[:500]
 
-    with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
-        results = list(pool.map(_guarded, tasks))
+    results = []
+    if tasks:
+        with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
+            results = list(pool.map(_guarded, tasks))
 
     for name, result, error in results:
         log_usage(

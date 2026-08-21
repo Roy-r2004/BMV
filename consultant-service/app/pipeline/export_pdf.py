@@ -342,8 +342,12 @@ _GATE_ARTIFACTS = [
 def find_artifacts(text: str) -> list[str]:
     """Names of client-unsafe artifact classes present in `text`, checked
     AFTER the renderer's own deterministic cleanup — only what would truly
-    reach the page counts."""
+    reach the page counts. 'For your build team' lines are the sanctioned
+    home of technical identifiers; ordinary hyphenated English is not a slug."""
+    from app.pipeline.registry import _BUILD_TEAM_LINE, _SLUG_ALLOW
+
     cleaned = _strip_artifacts(text or "")
+    cleaned = _SLUG_ALLOW.sub(" ", _BUILD_TEAM_LINE.sub(" ", cleaned))
     return [name for name, rx in _GATE_ARTIFACTS if rx.search(cleaned)]
 
 
@@ -939,9 +943,10 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
                 f"<b>{len(th_props)} operational thresholds, SLAs, sample sizes and capacity assumptions</b> "
                 "— each marked '(proposed — client approval required)' where it appears in Volumes II and III.",
                 _S["bullet"], bulletText="•"))
+        name_of = {m.get("id"): m.get("client_facing_name") for m in reg.get("modules") or []}
         for c in kpi_props:
             flows.append(Paragraph(
-                f"<b>Module KPI candidate ({_rich(str(c.get('scope') or ''))}):</b> "
+                f"<b>Module KPI candidate ({_rich(str(name_of.get(c.get('scope')) or c.get('scope') or ''))}):</b> "
                 + _rich(str(c.get("text") or "")) + " — not printed as a target until you approve it.",
                 _S["bullet"], bulletText="•"))
 
@@ -1281,6 +1286,28 @@ def _procedures_flowables(procedures: list) -> list:
 
 
 # ── assembly ─────────────────────────────────────────────────────────────
+
+
+_CHROME_HEAD = re.compile(
+    r"\s*(?:THE BLUEPRINT|THE TECHNICAL PLAN|THE OPERATIONS MANUAL)\s*(?:DRAFT — REQUIRES VALIDATION\s*)?"
+    r"[^\n]{0,80}?\n")
+_CHROME_FOOT = re.compile(r"\s*Build My Version · buildmyversion\.com · consulting@buildmyversion\.com\s*(?:Page \d+\s*)?")
+_CHROME_PAGE = re.compile(r"(?m)^\s*Page \d+\s*$\n?")
+
+
+def strip_page_chrome(text: str, concept: str | None = None) -> str:
+    """Remove the running header/footer a PDF page carries from extracted
+    text, so a sentence split by a page break reads as one sentence. The
+    header line is 'THE TECHNICAL PLAN [DRAFT — REQUIRES VALIDATION] <concept>';
+    the footer is the studio line and 'Page N'."""
+    out = text or ""
+    if concept:
+        out = re.sub(r"\s*(?:THE BLUEPRINT|THE TECHNICAL PLAN|THE OPERATIONS MANUAL)\s*(?:DRAFT — REQUIRES VALIDATION\s*)?"
+                     + re.escape(concept) + r"\s*", " ", out)
+    out = _CHROME_HEAD.sub(" ", out)
+    out = _CHROME_FOOT.sub(" ", out)
+    out = _CHROME_PAGE.sub("", out)
+    return out
 
 
 def _page_chrome(label: str, concept: str, draft: bool = False):

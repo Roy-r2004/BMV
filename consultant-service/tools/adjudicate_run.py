@@ -38,7 +38,8 @@ def main(argv: list[str]) -> int:
         except ValueError:
             continue
         doc = pdfium.PdfDocument(path)
-        texts[kind] = "\n".join(p.get_textpage().get_text_range() for p in doc)
+        texts[kind] = export_pdf.strip_page_chrome(
+            "\n".join(p.get_textpage().get_text_range() for p in doc), row.concept_name or row.business_name)
         doc.close()
     result = adjudicate(row, texts)
     db.commit()

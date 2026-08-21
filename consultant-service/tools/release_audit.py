@@ -141,7 +141,7 @@ def audit_run(row, out_dir: str | None = None) -> dict:
         except ValueError as exc:
             record["volumes"][kind] = {"error": str(exc)}
             continue
-        result = inspect_pdf.inspect(path, expect=expect)
+        result = inspect_pdf.inspect(path, expect=expect, concept=row.concept_name or row.business_name)
         texts[kind] = result.pop("text", "")
         record["volumes"][kind] = {
             "file": os.path.basename(path),
@@ -230,7 +230,7 @@ def reaudit_revision(rev_dir: str, row) -> dict:
             continue
         path = os.path.join(rev_dir, vol["file"])
         expect = "final" if original.get("status") == "final" else "draft"
-        result = inspect_pdf.inspect(path, expect=expect)
+        result = inspect_pdf.inspect(path, expect=expect, concept=row.concept_name or row.business_name)
         texts[kind] = result.pop("text", "")
         doc = pdfium.PdfDocument(path)
         doc.close()

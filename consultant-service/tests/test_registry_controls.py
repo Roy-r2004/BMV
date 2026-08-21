@@ -780,6 +780,87 @@ def test_r13_qualitative_trigger_and_r8_verbatim_presence(client):
     db.close()
 
 
+def test_abbreviated_module_names_resolve_to_one_name():
+    mods = [{"id": "location-verification-availability-assistant-ai",
+             "name": "Location Verification & Availability Assistant (LVA)", "purpose": "p", "depends_on": [],
+             "spec": {"ai": {"role": "x"}, "kpis": []}, "tech": {"done_when": ["LVA confirms the pin for all orders."]}},
+            {"id": "cod-settlement-inquiry-bot", "name": "COD Settlement Inquiry Bot (CSI Bot)", "purpose": "p",
+             "depends_on": [], "spec": {"ai": None, "kpis": []}, "tech": {}}]
+    bc = {"build_order": [m["id"] for m in mods], "revenue_streams": [{"description": "handled by the LVA and the CSI Bot"}]}
+    reg = rg.build_registry(OPS, bc, mods)
+    names = [m["client_facing_name"] for m in reg["modules"]]
+    assert names == ["Location Verification & Availability Assistant", "COD Settlement Inquiry Bot"]
+    assert [m["alias"] for m in reg["modules"]] == ["LVA", "CSI Bot"]
+    prose = "The LVA hands off to the COD Settlement Inquiry Bot (CSI Bot); non-LVA orders skip it. LVA-processed orders."
+    out = rg.resolve_module_ids(prose, mods)
+    assert "LVA" not in out.replace("Location Verification & Availability Assistant", "") and "(CSI Bot)" not in out
+    assert out.count("Location Verification & Availability Assistant") == 3
+    assert rg.identifier_artifacts("all internal APIs use service-to-service mTLS and an end-to-end check", []) == []
+    assert rg.identifier_artifacts("For your build team: order-intake-service, pin-capture-handler", []) == []
+    assert rg.identifier_artifacts("wire the pin-capture-handler to the queue", []) == ["pin-capture-handler"]
+
+
+def test_gate_renderings_and_counts_are_not_paraphrases_but_stale_specs_are():
+    bc, mods, reg = _skeleton()
+    g = reg["pilot_gate"]
+    table = ("Parameter Value Duration 6 weeks (proposed — client approval required) Population all new customer orders "
+             "Geography Beirut Central District Baseline 12% failed first attempts (88% success rate) Target rise by 5 "
+             "percentage points (proposed — client approval required) Approval status consultant_proposed — client approval required")
+    assert pg.restatement_findings(table, g) == []
+    board = ("Metric Baseline Target Owner Review First-attempt delivery success rate 12% " + reg["pilot_gate_sentence"] +
+             " you weekly Daily inquiries 350 a day (your figure) Down, by 30% within 3 months ops weekly How each is measured: x")
+    assert pg.restatement_findings(board, g) == []
+    assert pg.restatement_findings("Your support team manually handles 350 first-attempt delivery success inquiries daily.", g) == []
+    stale = "Target: more than 0.93 first-attempt delivery success rate for AI-processed orders after 2 weeks (proposed — client approval required)."
+    assert len(pg.restatement_findings(stale, g)) == 1
+    mods2 = copy.deepcopy(mods)
+    mods2[1]["tech"]["ai_agent"]["evaluation"].append(stale)
+    assert rg.enforce_gate_in_specs(mods2, g) == 1
+    assert mods2[1]["tech"]["ai_agent"]["evaluation"][-1] == reg["pilot_gate_sentence"]
+
+
+def test_policy_periods_must_be_about_settling_and_are_corrected_in_specs():
+    claims = rg.client_fact_claims(json.loads(OPS), [])
+    assert rg.policy_findings({"o": "COD Settlement Inquiry Review Checklist (Weekly) When: Every Monday morning"}, claims) == []
+    assert rg.policy_findings({"b": "Monitor COD inquiry resolution weekly — track COD settlement inquiries automatically resolved"}, claims) == []
+    assert rg.policy_findings({"b": "Head of Operations Weekly Daily inquiries 350 a day Down, by 30% COD settlement"}, claims) == []
+    found = rg.policy_findings({"t": "What it knows: iCARRY's 2-day remittance policy for individual COD order deliveries."}, claims)
+    assert len(found) == 1 and "'2-day'" in found[0]["issue"]
+    fixed, notes = rg.policy_pass("iCARRY's 2-day remittance policy for individual COD order deliveries.", claims)
+    assert "10-day (your stated cycle) remittance policy" in fixed and notes
+    assert rg.policy_findings({"t": fixed}, claims) == []
+
+
+def test_scoreboard_targets_obey_the_kpi_law():
+    from app.pipeline.extras import canonicalize_layers
+
+    bc, mods, reg = _skeleton()
+    by_name = {"governance": {"scoreboard": [
+        {"metric": "Daily 'where is my order' inquiries", "baseline": "350 a day (your figure)",
+         "target": "Down, by 35% reduction in inquiries within 3 months", "owner": "you", "review": "weekly"},
+        {"metric": "Failed first attempts prevented", "baseline": "measure in week 1",
+         "target": "Up to 20% (scenario assumption — requires your approval)", "owner": "ops", "review": "weekly"}]}}
+    canonicalize_layers([], by_name, mods, reg, reg["pilot_gate"])
+    rows = by_name["governance"]["scoreboard"]
+    assert rows[0]["target"] == "Down — target to be established during week-one measurement"
+    assert "35%" in rows[0]["target_note"] and "3 months" in rows[0]["target_note"]
+    # a scenario assumption's fraction is a registered claim and may stand
+    assert rows[1]["target"].startswith("Up to 20%")
+
+
+def test_page_chrome_is_stripped_from_rendered_text():
+    from app.pipeline.export_pdf import strip_page_chrome
+
+    bc, mods, reg = _skeleton()
+    canon = reg["pilot_gate_sentence"]
+    cut = canon.index("measured against")
+    page_text = (canon[:cut] + "THE TECHNICAL PLAN DRAFT — REQUIRES VALIDATION iCARRY Lebanon\r\n" + canon[cut:]
+                 + "\r\nBuild My Version · buildmyversion.com · consulting@buildmyversion.com\r\nPage 7\r\n")
+    clean = " ".join(strip_page_chrome(page_text, "iCARRY Lebanon").split())
+    assert canon in clean and "Page 7" not in clean
+    assert pg.restatement_findings(strip_page_chrome(page_text, "iCARRY Lebanon"), reg["pilot_gate"]) == []
+
+
 def test_partial_extras_rebuild_merges_the_pilot_sop_into_the_existing_library(client, monkeypatch):
     from app.pipeline import extras
 

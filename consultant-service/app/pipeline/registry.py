@@ -89,6 +89,10 @@ _TECH_SLUG = re.compile(
     r"\b[a-z0-9]+(?:-[a-z0-9]+)*-(?:engine|predictor|assistant|concierge|resolver|notifier|"
     r"service|api|module|handler|worker|queue|store|ledger|agent|bot|portal|tracker|planner|"
     r"router|sync|feed|manager|dashboard|console|gateway|scheduler|optimizer)\b")
+# ordinary hyphenated English that happens to end in a technical noun
+_SLUG_ALLOW = re.compile(r"\b\w+-to-\w+\b|\bself-service\b|\bfull-service\b|\bmulti-agent\b|\bsingle-agent\b|"
+                         r"\bfirst-party\b|\bthird-party\b|\bin-app\b|\bback-office\b|\bon-demand\b", re.IGNORECASE)
+_BUILD_TEAM_LINE = re.compile(r"For your build team:[^\n•]*", re.IGNORECASE)
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -300,17 +304,28 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
         is_pilot = m["id"] in pilot_ids
         original = str(m.get("name") or m["id"])
         name = original
-        if is_pilot and _AI_NAME.search(original):
-            name = canonical_pilot_name(original)
+        # a parenthetical abbreviation ("... Assistant (LVA)") invites the
+        # prose to use two names for one thing — the full name is THE name,
+        # the abbreviation an alias that resolves back to it
+        alias = None
+        am = re.search(r"\s*\(([A-Z][A-Za-z0-9 .&'-]{1,16})\)\s*$", name)
+        if am and len(am.group(1).split()) <= 3 and am.group(1).upper() != am.group(1).lower():
+            alias = am.group(1).strip()
+            name = name[:am.start()].strip()
+        if is_pilot and _AI_NAME.search(name):
+            name = canonical_pilot_name(name)
+        if name != original:
             renames.append({"id": m["id"], "from": original, "to": name})
             m["original_name"] = original
             m["name"] = name
+        if alias:
+            m["alias"] = alias
         m["client_facing_name"] = name
         m["automation_level"] = level
         m["ai_involvement"] = has_ai
         m["pilot"] = is_pilot
         m["phase"] = "PILOT" if is_pilot else "FUTURE"
-        out.append({"id": m["id"], "client_facing_name": name, "original_name": original,
+        out.append({"id": m["id"], "client_facing_name": name, "original_name": original, "alias": alias,
                     "phase": m["phase"], "automation_level": level, "ai_involvement": has_ai,
                     "pilot": is_pilot, "depends_on": list(m.get("depends_on") or [])})
     # the rename must reach every string that carried the old name — in the
@@ -342,8 +357,14 @@ def resolve_module_ids(text: str, modules: list) -> str:
     out = text or ""
     for m in sorted((modules or []), key=lambda x: -len(str(x.get("id") or ""))):
         mid, name = str(m.get("id") or ""), str(m.get("client_facing_name") or m.get("name") or "")
-        if mid and name and "-" in mid or "_" in mid:
+        if mid and name and ("-" in mid or "_" in mid):
             out = re.sub(r"(?<![\w-])" + re.escape(mid) + r"(?![\w-])", name, out)
+        alias = str(m.get("alias") or "")
+        if alias and name:
+            # "the LVA" / "(LVA)" -> the one name; the parenthetical form disappears
+            out = re.sub(r"\s*\(" + re.escape(alias) + r"\)", "", out)
+            out = re.sub(r"(?<![\w'])" + re.escape(alias) + r"(?![\w'])", name, out)
+            out = out.replace(name + " " + name, name)
     return out
 
 
@@ -352,7 +373,10 @@ def identifier_artifacts(text: str, module_ids: list[str] | None = None) -> list
     slug-shaped list labels ('1. pre-dispatch-whatsapp-engine:') and
     technical slugs ('...-engine', '...-resolver')."""
     hits = []
-    t = text or ""
+    # "For your build team" lines are the one sanctioned home of technical
+    # identifiers; ordinary hyphenated English is not a slug
+    t = _BUILD_TEAM_LINE.sub(" ", text or "")
+    t = _SLUG_ALLOW.sub(" ", t)
     for mid in module_ids or []:
         if mid and ("-" in mid or "_" in mid) and re.search(r"(?<![\w-])" + re.escape(mid) + r"(?![\w-])", t):
             hits.append(mid)
@@ -537,7 +561,8 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
     if not client_days:
         return out
     for label, text in (texts or {}).items():
-        flat = re.sub(r"\s+", " ", text or "")
+        flat = re.sub(r"\s-\s+(?=[A-Z*])", ". ", text or "")
+        flat = re.sub(r"\s+", " ", flat)
         for sentence in re.split(r"(?<=[.!?])\s+|•", flat):
             if not _POLICY_WORDS.search(sentence):
                 continue
@@ -545,6 +570,22 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
                 if m.group(1) and int(m.group(1)) in client_days:
                     continue
                 if m.group(1) is None and not (m.group(4) or m.group(5)):
+                    continue
+                # the period must be ABOUT settling — adjacent to the policy
+                # verb/noun ("remitted weekly", "settled within 5 days",
+                # "2-day remittance policy") — a review cadence in the same
+                # sentence ("Settlement Inquiry Review Checklist (Weekly)") is not
+                before = sentence[max(0, m.start() - 60): m.start()]
+                after = sentence[m.end(): m.end() + 40]
+                near = before + " " + after
+                tied = (re.search(r"(?:" + _POLICY_WORDS.pattern + r")\w*\s+(?:\w+\s+){0,2}(?:within|in|after|every|of|on|per|at)?\s*$",
+                                  before, re.IGNORECASE)
+                        or re.match(r"\s*(?:\w+\s+){0,1}(?:settlement|remittance|payout|disbursement)\s+(?:cycle|policy|period|terms|window)",
+                                    after, re.IGNORECASE))
+                if not tied:
+                    continue
+                # the 30-day operating month and "x 30 days" are identity formulas, not policies
+                if re.search(r"\b30[- ]day\s*(?:operating\s*)?month|[x×*]\s*30\s*days", near, re.IGNORECASE):
                     continue
                 stated = m.group(0)
                 if re.search(r"\(proposed", sentence[m.end():m.end() + 130]):
@@ -555,6 +596,69 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
                                       f"\"{sentence.strip()[:160]}\""),
                             "fix": f"state the client's own period ({sorted(client_days)[0]} days) or remove the policy claim"})
     return out
+
+
+def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
+    """Rewrite an invented settlement period in a structured string to the
+    client's stated one, marked as theirs — the least-invention deterministic
+    correction ('2-day remittance policy' -> '10-day (your stated cycle)
+    remittance policy'). Returns (text, notes)."""
+    notes = []
+    if not text:
+        return text, notes
+    client_days = sorted({int(c["value"]) for c in claims
+                          if c.get("type") == "client_fact" and str(c.get("unit") or "").startswith("day")
+                          and isinstance(c.get("value"), (int, float))
+                          and re.search(r"settle|remit|payout|month-end", str(c.get("question") or c.get("source") or ""), re.IGNORECASE)})
+    if not client_days:
+        return text, notes
+    out = text
+    for f in policy_findings({"s": text}, claims):
+        stated = re.search(r"period of '([^']+)'", f["issue"])
+        if not stated:
+            continue
+        token = stated.group(1)
+        replacement = f"{client_days[0]}-day (your stated cycle)"
+        if re.search(re.escape(token), out):
+            out = re.sub(re.escape(token), replacement, out, count=1)
+            notes.append(f"'{token}' -> '{replacement}'")
+    return out, notes
+
+
+def enforce_gate_in_specs(modules: list, gate: dict | None) -> int:
+    """The canonical sentence replaces any gate paraphrase living in the
+    structured specs the volumes are written from (run 47: an evaluation
+    item restated the gate with the model's stale 0.93 endpoint)."""
+    if not gate:
+        return 0
+    n = 0
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+        tech = m.get("tech") if isinstance(m.get("tech"), dict) else {}
+        spec = m.get("spec") if isinstance(m.get("spec"), dict) else {}
+        targets = []
+        for key in ("done_when", "build_sequence"):
+            if isinstance(tech.get(key), list):
+                targets.append(tech[key])
+        agent = tech.get("ai_agent") if isinstance(tech.get("ai_agent"), dict) else {}
+        for key in ("evaluation", "guardrails", "brain"):
+            if isinstance(agent.get(key), list):
+                targets.append(agent[key])
+        for f in spec.get("features") or []:
+            if isinstance(f, dict) and isinstance(f.get("description"), str):
+                fixed, rep = _pg.enforce(f["description"], gate)
+                if rep["paraphrases_replaced"] or rep["paraphrases_removed"]:
+                    f["description"] = fixed
+                    n += 1
+        for items in targets:
+            for i, it in enumerate(items):
+                if isinstance(it, str):
+                    fixed, rep = _pg.enforce(it, gate)
+                    if rep["paraphrases_replaced"] or rep["paraphrases_removed"] or rep["token_substitutions"]:
+                        items[i] = fixed
+                        n += 1
+    return n
 
 
 def proposals(reg: dict) -> list[dict]:
@@ -791,6 +895,20 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         gate = _pg.normalize_gate(bc["pilot_gate"], claims)
         bc["pilot_gate"] = gate
         claims += _pg.gate_claims(gate)
+    enforce_gate_in_specs(modules, gate)
+    policy_notes = []
+    for m in modules or []:
+        tech = m.get("tech") if isinstance(m, dict) and isinstance(m.get("tech"), dict) else {}
+        agent = tech.get("ai_agent") if isinstance(tech.get("ai_agent"), dict) else {}
+        for items in (agent.get("brain"), agent.get("evaluation"), tech.get("done_when"), tech.get("security")):
+            if isinstance(items, list):
+                for i, it in enumerate(items):
+                    if isinstance(it, str):
+                        items[i], notes = policy_pass(it, claims)
+                        policy_notes += notes
+        if isinstance(agent.get("memory"), str):
+            agent["memory"], notes = policy_pass(agent["memory"], claims)
+            policy_notes += notes
     counter = {"n": 0}
     claims += type_technical_specs(modules, claims, counter)
     if procedures:
@@ -805,6 +923,7 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         "claims": claims,
         "modules": reg_modules,
         "renames": renames,
+        "policy_corrections": policy_notes,
         "pilot_gate": gate,
         "pilot_gate_sentence": _pg.canonical_sentence(gate) if gate else "",
         "build_order_names": [
