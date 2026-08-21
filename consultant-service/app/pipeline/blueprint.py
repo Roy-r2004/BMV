@@ -118,6 +118,42 @@ def _align_cost_line(content: str, business_case: dict) -> str:
     return content.replace(line, fixed, 1)
 
 
+_KPI_LINE = re.compile(r"(?im)^(\s*(?:[-*•]\s*)?\*\*(?:You.ll|How you.ll) know it.s working(?: when)?:?\*\*)[^\n]*(?:\n(?![\s]*(?:[-*•]\s*)?\*\*|\s*###|\s*##|\s*$)[^\n]*)*")
+_NULL_LINE = re.compile(r"(\*\*What the AI does on its own:\*\*)\s*(?:Null|None|N/A|null|none|-)\s*$", re.MULTILINE)
+_ANY_NULL = re.compile(r"(\*\*[^*\n]{2,60}:\*\*)\s*(?:Null|null)\b")
+
+
+def _pin_kpi_lines(content: str, modules: list) -> str:
+    """Volume I's 'You'll know it's working when' line for each module IS the
+    registry's KPI statement — the model may neither reword it nor append
+    evaluation bullets to it (run 47 pass 4 did both)."""
+    if not content or not modules:
+        return content
+    by_name = {str(m.get("client_facing_name") or m.get("name") or ""): m for m in modules if isinstance(m, dict)}
+    parts = re.split(r"(?m)^(### [^\n]+)$", content)
+    # parts: [pre, heading, body, heading, body, ...]
+    for i in range(1, len(parts), 2):
+        name = parts[i][4:].strip().strip("*").strip()
+        m = by_name.get(name)
+        if not m:
+            continue
+        statement = str(((m.get("spec") or {}).get("kpi_statement")) or "").strip()
+        if not statement:
+            continue
+        body = parts[i + 1]
+        if _KPI_LINE.search(body):
+            body = _KPI_LINE.sub(lambda mm: f"{mm.group(1)} {statement}", body, count=1)
+        else:
+            body = body.rstrip("\n") + f"\n- **You'll know it's working when:** {statement}\n"
+        parts[i + 1] = body
+    return "".join(parts)
+
+
+def _no_null_lines(content: str) -> str:
+    out = _NULL_LINE.sub(r"\1 No AI in this part — deliberately.", content or "")
+    return _ANY_NULL.sub(r"\1 none", out)
+
+
 def finish_document(content: str | None, *, modules: list, business_case: dict,
                     registry: dict | None, kind: str) -> tuple[str | None, dict]:
     """Every deterministic pass a finished volume goes through. Returns the
@@ -135,6 +171,8 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     content, report["gate"] = _pg.enforce(content, gate)
     if kind == "blueprint":
         content = _pg.ensure_in_decision(content, gate)
+        content = _pin_kpi_lines(content, modules)
+    content = _no_null_lines(content)
     content = _reg.resolve_module_ids(content, modules)
     content, _ = timebasis.check_restatements(content, _annual_claims(business_case))
     content = timebasis.round_counts(content)

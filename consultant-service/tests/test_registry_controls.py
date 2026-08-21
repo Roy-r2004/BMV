@@ -979,6 +979,60 @@ def test_r17_complement_r18_labeled_typed_thresholds_and_convention_line(client)
     db.close()
 
 
+def test_volume_i_kpi_lines_are_pinned_and_null_lines_rewritten():
+    from app.pipeline.blueprint import _no_null_lines, _pin_kpi_lines, finish_document
+
+    bc, mods, reg = _skeleton()
+    canon = reg["pilot_gate_sentence"]
+    dip = next(m for m in mods if m["id"] == "delivery-incident-predictor")
+    md = ("## The product, module by module\n\n### Pre-Dispatch WhatsApp Pilot\nIntro.\n"
+          "- **You'll know it's working when:** " + canon.replace("12% of deliveries fail first attempt, meaning 88% first-attempt success rate (your figure)",
+                                                                    "88% first-attempt success rate (derived from your figure of 12% failed)") + "\n"
+          "### Delivery Incident Predictor\nIntro.\n- **What it does:** scores risk\n"
+          "- **You'll know it's working when:** A 15% reduction in failures (proposed — client approval required).\n"
+          "  • Offline: A human expert will review 500 (proposed — client approval required) random entries, aiming for 90% accuracy.\n\n"
+          "### Client Portal Notifier\nIntro only.\n\n## What we'd build first\n1. x\n")
+    out, _ = finish_document(md, modules=mods, business_case=bc, registry=reg, kind="blueprint")
+    assert out.count(canon) >= 1 and "derived from your figure" not in out
+    assert "15% reduction" not in out and "500 (proposed" not in out
+    assert dip["spec"]["kpi_statement"] in out
+    assert "**You'll know it's working when:** " in out.split("### Client Portal Notifier")[1]
+    assert pg.restatement_findings(out, reg["pilot_gate"]) == [] and rg.kpi_number_findings(out, reg, strict_kpi=True) == []
+    tech = "- **What the AI does on its own:** Null\n- **Memory:** Null\n"
+    fixed = _no_null_lines(tech)
+    assert "No AI in this part — deliberately." in fixed and "Null" not in fixed
+
+
+def test_polish_rewrite_goes_through_the_deterministic_passes(client, monkeypatch):
+    from app.pipeline import qa_experts
+
+    bc, mods, reg = _skeleton()
+    canon = reg["pilot_gate_sentence"]
+    md = ("## The decision\n- **Phase 1 — Pre-Dispatch WhatsApp Pilot:** proves it. The decision gate: " + canon + "\n\n"
+          "## Executive summary\nfine\n\n## How this makes money\nfine\n\n## The product, module by module\n"
+          "### Pre-Dispatch WhatsApp Pilot\n- **You'll know it's working when:** " + canon + "\n")
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint=md, technical_plan="## How your system works\nfine\n", modules_json=json.dumps(mods),
+                business_case_json=json.dumps(bc), registry_json=json.dumps(reg), ops_numbers_json=OPS)
+    edited = md.replace("12% of deliveries fail first attempt, meaning 88% first-attempt success rate (your figure)",
+                        "88% success (derived from your 12% failed figure)")
+
+    def chat(model, messages, **kwargs):
+        prompt = messages[0]["content"]
+        if "NUMBERS AUDITOR" in prompt:
+            payload = {"checks": [], "findings": [{"severity": "high", "where": "x", "issue": "attribution missing on $70,956", "fix": "add it"}]}
+            return {"choices": [{"message": {"content": json.dumps(payload)}}], "usage": {}}
+        if "STRUCTURE AUDITOR" in prompt:
+            return {"choices": [{"message": {"content": json.dumps({"checks": [], "findings": []})}}], "usage": {}}
+        return {"choices": [{"message": {"content": edited}}], "usage": {}}  # the polish "tidies" the gate
+
+    monkeypatch.setattr(qa_experts.provider, "chat", chat)
+    qa_experts.review_quality(db, row.id)
+    db.refresh(row)
+    assert row.mvp_blueprint.count(canon) == 2 and "derived from your 12%" not in row.mvp_blueprint
+    db.close()
+
+
 def test_prose_thresholds_in_hand_off_sentences_are_labeled():
     bc, mods, reg = _skeleton()
     line = ("**Where it stops and hands to you:** it hands off when a customer doesn't respond quickly enough "

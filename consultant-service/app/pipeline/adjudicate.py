@@ -261,17 +261,29 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
             unverified_cited = [v for v in _numbers_in(issue) if v > 1 and not _matches(v, verified)
                                 and v not in (30, 365, 12)]
             if monthly_cited and not unverified_cited and \
-                    re.search(r"operating.30.day|30-day month|identity|convention|'per month'", issue, re.IGNORECASE):
+                    re.search(r"30-day (?:operating )?month|operating month|operating_30_day|identity|convention|per month'",
+                              issue, re.IGNORECASE):
                 _close("false_positive",
                        f"R12: {monthly_cited[0]:,.0f} is the package's 30-day operating-month identity and the package "
                        "states that convention; 'per month' means that month throughout",
                        "machine-proven false positive")
                 continue
+        # R20 — whole-dollar rounding of a verified product is verification, not a discrepancy
+        if re.search(r"rounding", issue, re.IGNORECASE) and cited_verified:
+            near = [v for v, why in cited if not why and any(abs(v - cv) / max(cv, 1e-9) <= 0.005 for cv, _ in cited_verified)]
+            if near:
+                _close("false_positive",
+                       f"R20: {near[0]:,.1f} rounds to the machine-verified {cited_verified[0][0]:,.0f} "
+                       "(whole dollars by convention) — the figure is verified, not discrepant",
+                       "machine-proven false positive")
+                continue
         # R1 (confirming direction) — the auditor disputes an UNverified value
-        # and proposes the verified derivation: the recompute agrees with the auditor
-        dollar_cited = [float(x.replace(",", "")) for x in re.findall(r"\$\s?([\d,]+(?:\.\d+)?)", issue)]
+        # and proposes the verified derivation: the recompute agrees with the auditor.
+        # Operands inside a quoted formula are not "stated values".
+        issue_wo_formula = re.sub(r"\([^()]*[x×*/][^()]*\)", " ", issue)
+        dollar_cited = [float(x.replace(",", "")) for x in re.findall(r"\$\s?([\d,]+(?:\.\d+)?)", issue_wo_formula)]
         cited_unverified = [v for v in dollar_cited if v > 1 and not _matches(v, verified)] or \
-            [v for v, why in cited if not why]
+            [v for v in _numbers_in(issue_wo_formula) if v > 1 and not _matches(v, verified) and v not in (30, 365, 12, 52)]
         fix_verified = [(v, _matches(v, verified)) for v in fix_nums if _matches(v, verified)]
         if cited_unverified and fix_verified and re.search(r"discrepanc|incorrect|wrong|does not equal|evaluates to|invented",
                                                              issue, re.IGNORECASE):
@@ -283,6 +295,12 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
             continue
         # R8 — gate restatement: the rendered text carries paraphrases of the canonical gate
         if gate and _GATE_TALK.search(issue):
+            if re.search(r"repeated verbatim|repeated multiple times|redundan|repetiti", issue, re.IGNORECASE):
+                _close("false_positive",
+                       "R8: verbatim repetition of the canonical sentence is the law — the gate is restated only as "
+                       "that sentence wherever it is restated",
+                       "machine-proven false positive")
+                continue
             paraphrases = _pg.restatement_findings(corpus, gate)
             if paraphrases:
                 _close("confirmed",
@@ -391,6 +409,18 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 _close("false_positive",
                        f"R14: the client extended the capability in the briefing chat (shared terms: {', '.join(sorted(shared)[:4])}) — "
                        "the register carries that correction; this is scope, not scope creep",
+                       "semantic false positive resolved by structured phase data")
+                continue
+        # R19 — build order is sequence, phase is availability: a FUTURE module's
+        # position in "What we'd build first" implies nothing about immediacy
+        if registry and re.search(r"build first|build order|second build item|build item", issue, re.IGNORECASE) and \
+                re.search(r"impl(?:y|ies|ying)|contradict|immediate", issue, re.IGNORECASE):
+            named = [m for m in registry.get("modules") or []
+                     if m.get("client_facing_name") and m["client_facing_name"] in issue and m.get("phase") == "FUTURE"]
+            if named:
+                _close("false_positive",
+                       f"R19: '{named[0]['client_facing_name']}' is phased FUTURE in the registry; its place in the build "
+                       "order is sequence, not a claim of immediate construction",
                        "semantic false positive resolved by structured phase data")
                 continue
         # R15 — the Phase 1 bullet carries the pilot module's client-facing name BY DESIGN
