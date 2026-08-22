@@ -1086,9 +1086,10 @@ _POLICY_PERIOD = re.compile(r"(\d+)\s*(?:-|\s)?(business |working |calendar )?(d
 # "<n> days (your stated cycle) of order delivery" — the period with the event
 # it is counted from
 _PERIOD_ORIGIN = re.compile(
-    r"(\d+)\s*(?:-|\s)?days?\s*(?:\(your stated cycle\)\s*)?(?:of|after|from|following|post|since)\s+(?:the\s+)?"
+    r"(\d+)\s*(?:-|\s)?days?\s*(?:\((?:your stated cycle|proposed[^)]*)\)\s*)*(?:of|after|from|following|post|since)\s+(?:the\s+)?"
     r"([a-z][a-z\-]*(?:\s+[a-z][a-z\-]*){0,3}?)(?=[,.;:'\")]|\s+(?:policy|for|to|and|or|is|must|will|has|have)\b|\s*$)",
     re.IGNORECASE)
+_LABEL_TXT = "(proposed — client approval required)"
 
 
 def _policy_day_claims(claims: list[dict]) -> list[dict]:
@@ -1135,6 +1136,15 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
                                           f"but the client stated it as '{n} days {origins[n]}' — the event origin is part of "
                                           f"the policy: \"{sentence.strip()[:160]}\""),
                                 "fix": f"state '{n} days {origins[n]} (your stated cycle)'"})
+            # the client's own cycle is a stated fact: an approval label on it
+            # misattributes the provenance
+            for n, origin in origins.items():
+                if re.search(rf"\b{n} days {re.escape(origin)}[^().;]{{0,60}}?\s*\(proposed — client approval required\)",
+                             sentence, re.IGNORECASE):
+                    out.append({"severity": "high", "source": "structural", "where": f"{label}: operational policy",
+                                "issue": (f"The client's own settlement cycle ('{n} days {origin}') carries an approval label — "
+                                          f"a client-stated fact is never a proposal: \"{sentence.strip()[:160]}\""),
+                                "fix": f"state '{n} days {origin} (your stated cycle)' without the approval label"})
             for m in _POLICY_PERIOD.finditer(sentence):
                 if m.group(1) and int(m.group(1)) in client_days:
                     continue
@@ -1181,6 +1191,9 @@ def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
     if not client_days:
         return text, notes
     out = text
+    # labels are normalized BEFORE the origin pass so a "(proposed …)" sitting
+    # between the period and its origin cannot hide the moved origin
+    out = re.sub(r"\(your stated cycle\)\s*\(proposed — client approval required\)", "(your stated cycle)", out)
 
     # the client's number counted from the wrong event: the origin is restored
     def _origin(m: re.Match) -> str:
@@ -1191,7 +1204,19 @@ def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
         notes.append(f"'{m.group(0)}' -> '{fixed}' (event origin restored)")
         return fixed
 
-    out = _PERIOD_ORIGIN.sub(_origin, out)
+    def _restore_origin(s: str) -> str:
+        s = _PERIOD_ORIGIN.sub(_origin, s)
+        # the client's own cycle never carries an approval label
+        for n, origin in origins.items():
+            def _unlabel(m: re.Match, n=n, origin=origin) -> str:
+                notes.append(f"'{m.group(0)[:80]}' -> approval label removed from the client's own {n}-day cycle ({origin})")
+                return m.group(1) + " (your stated cycle)"
+            s = re.sub(rf"(\b{n} days {re.escape(origin)}[^().;]{{0,60}}?)\s*\(proposed — client approval required\)",
+                       _unlabel, s, flags=re.IGNORECASE)
+            s = re.sub(r"\(your stated cycle\)(?:\s*\(your stated cycle\))+", "(your stated cycle)", s)
+        return s
+
+    out = _restore_origin(out)
     # an invented period hiding in an identifier ('remittance_due_in_2_days'
     # — the renderer prints it as words) is corrected in place
     def _snake(m: re.Match) -> str:
@@ -1222,6 +1247,9 @@ def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
         if re.search(re.escape(token), out):
             out = re.sub(re.escape(token), replacement, out, count=1)
             notes.append(f"'{token}' -> '{replacement}'")
+    # an invented period corrected to the client's number still has to count
+    # from the client's event ("2 days of collection" -> "10 days after month-end")
+    out = _restore_origin(out)
     return out, notes
 
 

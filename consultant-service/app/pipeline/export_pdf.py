@@ -154,20 +154,34 @@ _WRAPPED_VALUE = re.compile(r"<\s*([^<>\n]*\(proposed[^<>]*)\s*>")
 
 
 def _strip_artifacts(text: str) -> str:
+    from app.pipeline.registry import _CODE_SPAN, _URL_PATH, plain_language
+
     out = _WRAPPED_VALUE.sub(r"\1", str(text))
     out = re.sub(r"(?<!\.)\.\.(?!\.)", ".", out)
     out = out.replace(".;", ".").replace(".,", ".")
+    # code spans and URL paths are identifiers BY DESIGN — masked so the
+    # renderer's own normalizations never put a space in them (53-r1 printed
+    # "/api/v1/pre dispatch confirmations/{delivery id}")
+    masks: dict[str, str] = {}
+
+    def _mask(m: re.Match) -> str:
+        key = f"\x00R{len(masks)}\x00"
+        masks[key] = m.group(0)
+        return key
+
+    out = _CODE_SPAN.sub(_mask, out)
+    out = _URL_PATH.sub(_mask, out)
     # engineering identifiers leaking into client prose read as residue:
     # "failed_first_attempt_rate" becomes "failed first attempt rate"
     out = re.sub(r"\b([a-z0-9]+(?:_[a-z0-9]+)+)\b",
                  lambda m: m.group(1).replace("_", " "), out)
     # comparison notation is engineering shorthand, not client prose:
     # "<30 minutes" reads as a placeholder — say the words
-    from app.pipeline.registry import plain_language
-
     out = plain_language(out)
     out = re.sub(r"(?<![\w<>])<\s*(\d)", r"fewer than \1", out)
     out = re.sub(r"(?<![\w<>])>\s*(\d)", r"more than \1", out)
+    for key, original in masks.items():
+        out = out.replace(key, original)
     return out
 
 
@@ -319,7 +333,11 @@ def _cover_painter(kind: str, req: Request):
 _GATE_ARTIFACTS = [
     ("template token", re.compile(r"\{\{|\{%|%\}")),
     ("literal Null", re.compile(r"\bNull\b")),
-    ("unresolved placeholder", re.compile(r"\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR |CLIENT_INPUT)[^\]]*\]|\[[A-Z][A-Z_]{4,}\]", re.IGNORECASE)),
+    # a template token is a KEYWORD placeholder in any case ("[Insert name]")
+    # or an ALL-CAPS token ("[CLIENT_INPUT]"); a merge field in a message
+    # script ("Hello [CustomerName]") and a bracketed lowercase word are not
+    ("unresolved placeholder", re.compile(r"\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR |CLIENT_INPUT)[^\]]*\]", re.IGNORECASE)),
+    ("unresolved placeholder", re.compile(r"\[[A-Z][A-Z_]{4,}\]")),
     ("duplicate approval label",
      re.compile(r"\(proposed — client approval required\)[^()]{0,12}\(proposed — client approval required\)")),
     ("invented ROI figure",
@@ -396,7 +414,7 @@ def find_artifacts(text: str, registry: dict | None = None) -> list[str]:
             if identifier_artifacts(prose, ids, (registry or {}).get("technical_identifiers")):
                 hits.append(name)
             continue
-        if rx.search(cleaned):
+        if rx.search(cleaned) and name not in hits:
             hits.append(name)
     return hits
 
@@ -1369,10 +1387,13 @@ def _procedures_flowables(procedures: list) -> list:
         if p.get("trigger"):
             flows.append(Paragraph("<b>Starts when:</b> " + _rich(p["trigger"]), _S["body"]))
         for i, step in enumerate(p.get("steps") or [], start=1):
-            actor = step.get("actor") or ""
+            actor = str(step.get("actor") or "").strip().strip("[]").strip()
             if actor:
                 color = HEX_ACCENT if actor.lower().startswith("ai") else "#52607a"
-                label = f'<font color="{color}"><b>[{_rich(actor)}]</b></font> '
+                # a role name, never a bracketed tag: "[customer]" reads as a
+                # placeholder; "Customer:" reads as the person who acts
+                shown = actor if actor[:1].isupper() else actor[0].upper() + actor[1:]
+                label = f'<font color="{color}"><b>{_rich(shown)}:</b></font> '
             else:
                 label = ""
             flows.append(Paragraph(label + _rich(step.get("step") or ""), _S["bullet"], bulletText=f"{i}."))

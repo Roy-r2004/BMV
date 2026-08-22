@@ -994,11 +994,12 @@ def test_r17_complement_r18_labeled_typed_thresholds_and_convention_line(client)
     line = ("Convention: a 365-day year; every monthly figure in this engagement is a 30-day operating month "
             "(the annual figure ÷ 365 × 30), never one twelfth of the year.")
     assert tb.identity_findings({"b": line}, [70956.0]) == []
+    # run 52 law: the client's number AND the client's event origin ("after month-end")
     fixed, _ = rg.policy_pass("settled within 2 days of collection", rg.client_fact_claims(json.loads(OPS), []))
-    assert "within 10 days (your stated cycle)" in fixed
+    assert "within 10 days after month-end (your stated cycle)" in fixed and "collection" not in fixed
     fixed2, _ = rg.policy_pass("Get your remittance within 10-day (your stated cycle) (proposed — client approval required) of collection",
                                rg.client_fact_claims(json.loads(OPS), []))
-    assert "within 10 days (your stated cycle) of collection" in fixed2 and "(proposed" not in fixed2
+    assert "within 10 days after month-end (your stated cycle)" in fixed2 and "(proposed" not in fixed2 and "collection" not in fixed2
     g = pg.normalize_gate(GATE47_RAW, rg.client_fact_claims(json.loads(OPS), []))
     assert g["control"] == g["control_method"] and g["guardrail"]
     db.close()

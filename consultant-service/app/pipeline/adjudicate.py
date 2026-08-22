@@ -53,7 +53,9 @@ from app.models import Request
 
 _NUM_RE = re.compile(r"\d[\d,]*\.?\d*\s*%?")
 _LABEL_WINDOW = 130
-_QUOTED = re.compile(r"'([^']{2,90})'")
+# a quoted fragment may be a whole labeled sentence (53-r1: 120 characters);
+# the cap only guards against two quotes being read as one
+_QUOTED = re.compile(r"'([^']{2,300})'")
 _DOC_DATE = re.compile(
     r"(generated|prepared exclusively|reviewed and released on)[^.]{0,60}"
     r"(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},\s+\d{4}",
@@ -437,6 +439,23 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 _close("false_positive",
                        f"R31: '{shown[0]}' is printed with its derivation '({shown[1]})' in the rendered text, and the "
                        f"value is machine-verified ({shown[2]})",
+                       "machine-proven false positive")
+                continue
+        # R32 — a policy objection whose quoted wording no longer appears on the
+        # page, while the policy check on the rendered text is clean: the
+        # statement was restored to the client's own cycle and origin
+        if registry and re.search(r"settle|remit|payout|month-end", issue, re.IGNORECASE) and \
+                re.search(r"inconsisten|contradict|policy|cycle|period|origin", issue, re.IGNORECASE):
+            frags = [re.sub(r"\s+", " ", q) for q in _QUOTED.findall(issue) if len(q) > 20]
+            # the objection must quote a PERIOD statement ("within 10 days of collection"),
+            # not a capability or a name
+            period_frags = [q for q in frags if _registry._POLICY_PERIOD.search(q)]
+            flat_corpus = re.sub(r"\s+", " ", corpus)
+            if period_frags and all(q not in flat_corpus for q in period_frags) and \
+                    not _registry.policy_findings({"page": flat_corpus}, registry.get("claims") or []):
+                _close("false_positive",
+                       "R32: the quoted policy wording no longer appears in the rendered text, and every settlement-period "
+                       "statement on the page carries the client's own cycle and event origin (policy check clean)",
                        "machine-proven false positive")
                 continue
         # R29 — the pilot IS registered as a module by design: pilot=true, its only

@@ -34,12 +34,12 @@ _STOP = {"rate", "the", "and", "for", "per", "of", "with", "from", "that", "this
 # randomized between treatment and control. A control drawn from other
 # clients, zones, periods or an alternating rule is not a control.
 _BAD_CONTROL = re.compile(
-    r"other (?:zones?|regions?|areas?|cities|districts?|branches?|clients?|business clients|customers|merchants|"
+    r"\b(?:other (?:zones?|regions?|areas?|cities|districts?|branches?|clients?|business clients|customers|merchants|"
     r"accounts?|teams?|drivers?|couriers?)|all other (?:orders|deliveries|customers)|not (?:from|in) the (?:selected|pilot|chosen)|"
     r"different (?:zone|region|client|branch|city|period)|alternat\w+|every other (?:order|day|week)|predetermined|"
     r"odd[- /]even|by day of (?:the )?week|historical (?:baseline|period|data)|the (?:previous|prior|last) (?:month|year|period|quarter)|"
     r"before the pilot|pre-pilot period|outside (?:of )?(?:the )?(?:pilot |selected |chosen )?(?:zone|area|region|district|city|branch)|"
-    r"existing customer orders", re.IGNORECASE)
+    r"existing customer orders)\b", re.IGNORECASE)
 _RANDOM = re.compile(r"random|lottery|coin[- ]flip|50/50|50-50", re.IGNORECASE)
 _DESIGN_TALK = re.compile(r"control group|control arm|treatment group|treatment and control|treatment vs\.? control|"
                           r"serve as (?:the )?control|assigned to (?:treatment|control)", re.IGNORECASE)
@@ -72,9 +72,9 @@ def design_findings(text: str, g: dict | None) -> list[dict]:
     if not text or not g:
         return out
     flat = re.sub(r"\s+", " ", text)
-    canon = assignment_sentence(g)
+    canon = assignment_sentence(g).lower()
     for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•])|•", flat):
-        if canon in sentence:
+        if canon in sentence.lower():  # the gate box prints it sentence-internal, lower-cased
             continue
         if _DESIGN_TALK.search(sentence) and _BAD_CONTROL.search(sentence):
             out.append({"severity": "high", "source": "structural", "where": "pilot design",

@@ -330,7 +330,9 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
                     })
 
     # a template placeholder in a spec is a skeleton defect, retried with feedback
-    _PLACEHOLDER = re.compile(r"\[[A-Z][A-Z_]{4,}\]|CLIENT_INPUT_OR_ARITHMET", re.IGNORECASE)
+    # keyword placeholders in any case; ALL-CAPS tokens case-sensitively — a
+    # merge field such as "[CustomerName]" in a message script is legitimate
+    _PLACEHOLDER = re.compile(r"(?i:\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR |CLIENT_INPUT)[^\]]*\]|CLIENT_INPUT_OR_ARITHMET)|\[[A-Z][A-Z_]{4,}\]")
     for m in mods:
         blob = json.dumps({k: m.get(k) for k in ("spec", "tech", "purpose")})
         hit = _PLACEHOLDER.search(blob)
