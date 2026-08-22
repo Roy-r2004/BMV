@@ -2106,7 +2106,7 @@ export default function StudioPage() {
                   </div>
 
                   {!authLoading && !isAuthenticated && (
-                    <div className="studio-panel p-6 sm:p-8 studio-authwall">
+                    <div id="studio-form" className="studio-panel p-6 sm:p-8 studio-authwall">
                       <p className="studio-kicker mb-3">Private to your account</p>
                       <h2 className="studio-display text-2xl font-bold text-navy mb-3">
                         Sign in to start your engagement
