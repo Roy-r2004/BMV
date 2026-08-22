@@ -161,6 +161,9 @@ def audit_run(row, out_dir: str | None = None) -> dict:
         record["status"] = "draft"
     record["reasons"] = sorted(set(blockers))
     record["totals"] = totals_from(record["volumes"])
+    from app.pipeline import registry as _registry
+
+    record["corrections"] = _registry.corrections(_registry.registry_for(row))
     record["validation_errors"] = validate_record(record)
     if record["validation_errors"]:
         raise RuntimeError("release record does not validate: " + "; ".join(record["validation_errors"]))
@@ -261,7 +264,10 @@ def reaudit_revision(rev_dir: str, row) -> dict:
                  "scoreboard_json", "org_json", "journey_json", "playbook_json", "ops_numbers_json"):
         setattr(shadow, attr, getattr(row, attr, None))
     shadow.registry_json = json.dumps(reg)
+    from app.pipeline.structural import structural_findings
+
     machine = qa_experts.machine_findings(shadow, reg, texts=texts)
+    machine += [{**f, "source": "structural"} for f in structural_findings(bc, mods, reg)]
     text_blockers = export_pdf.registry_reasons(shadow, texts=texts)
     artifacts = sorted({h for t in texts.values() for h in export_pdf.find_artifacts(t)})
 

@@ -292,8 +292,8 @@ def derived_claims(fm: dict) -> list[dict]:
 
 def canonical_pilot_name(name: str) -> str:
     """A Phase-1 module's client-facing name must say what it is: a manual
-    or rules-based pilot. 'Pre-Dispatch WhatsApp Engine' -> 'Pre-Dispatch
-    WhatsApp Pilot'. Deterministic, so the same name lands in all volumes."""
+    or rules-based pilot. '<Workflow> Engine' -> '<Workflow> Pilot'.
+    Deterministic, so the same name lands in all volumes."""
     stripped = _AI_NAME.sub("", name or "").strip()
     stripped = re.sub(r"\s{2,}", " ", stripped).strip(" -—:")
     if not stripped:
@@ -325,14 +325,29 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
         is_pilot = m["id"] in pilot_ids
         original = str(m.get("name") or m["id"])
         name = original
-        # a parenthetical abbreviation ("... Assistant (LVA)") invites the
+        # a parenthetical abbreviation ("... Assistant (XYZ)") invites the
         # prose to use two names for one thing — the full name is THE name,
         # the abbreviation an alias that resolves back to it
         alias = None
         am = re.search(r"\s*\(([A-Z][A-Za-z0-9 .&'-]{1,16})\)\s*$", name)
         if am and len(am.group(1).split()) <= 3 and am.group(1).upper() != am.group(1).lower():
-            alias = am.group(1).strip()
+            candidate = am.group(1).strip()
             name = name[:am.start()].strip()
+            # an alias is an ABBREVIATION of the name (its initials, or words
+            # of the name) — never a generic tag such as "(AI)": run 50 took
+            # "AI" as an alias and rewrote every "AI" in every volume
+            initials = "".join(w[0] for w in re.findall(r"[A-Za-z]+", name)).upper()
+            words = {w.lower() for w in re.findall(r"[A-Za-z]+", name)}
+            letters = re.sub(r"[^A-Za-z]", "", candidate).upper()
+            cand_words = [w.lower() for w in re.findall(r"[A-Za-z]+", candidate)]
+            generic = {"AI", "ML", "UI", "API", "COD", "OMS", "CRM", "ERP", "SMS", "KPI", "V1", "V2", "MVP", "BOT"}
+            def _abbrev(w: str) -> bool:  # initials of the name's words, or a word of the name
+                return w in words or w in ("bot", "agent", "tool") or (len(w) >= 2 and w.upper() in initials)
+
+            if candidate.upper() not in generic and (
+                    (len(letters) >= 2 and letters in initials) or
+                    (len(cand_words) >= 2 and all(_abbrev(w) for w in cand_words))):
+                alias = candidate
         if is_pilot and _AI_NAME.search(name):
             name = canonical_pilot_name(name)
         if name != original:
@@ -350,13 +365,76 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
         out.append({"id": m["id"], "client_facing_name": name, "original_name": original, "alias": alias,
                     "phase": m["phase"], "automation_level": level, "ai_involvement": has_ai,
                     "pilot": is_pilot, "depends_on": list(m.get("depends_on") or [])})
+    # Module.phase / workstream from the dependency graph: the pilot is
+    # phase 1; a module is phase 1 + the deepest phase it depends on; a
+    # module with no dependency path to the pilot is a PARALLEL workstream
+    by_id = {m["id"]: m for m in mods}
+    phase_no: dict[str, int | None] = {}
+
+    def _phase(mid: str, seen: frozenset = frozenset()) -> int | None:
+        if mid in phase_no:
+            return phase_no[mid]
+        m = by_id.get(mid)
+        if m is None or mid in seen:
+            return None
+        if m.get("pilot"):
+            phase_no[mid] = 1
+            return 1
+        deps = [d for d in (m.get("depends_on") or []) if d in by_id]
+        dep_phases = [p for p in (_phase(d, seen | {mid}) for d in deps) if p is not None]
+        phase_no[mid] = (max(dep_phases) + 1) if dep_phases else None
+        return phase_no[mid]
+
+    for m in mods:
+        _phase(m["id"])
+    for m, rm in zip(mods, out):
+        p = phase_no.get(m["id"])
+        m["phase_number"] = rm["phase_number"] = p
+        m["workstream"] = rm["workstream"] = "delivery" if p else "parallel"
+        m["display_name"] = rm["display_name"] = m["client_facing_name"]
+        m.setdefault("human_owner", None)
+        rm["human_owner"] = m.get("human_owner")
+        rm["dependencies"] = list(m.get("depends_on") or [])
+    # the Phase-1 pilot may not lean on any later-phase module: its strings
+    # name the lightweight Pilot Review Queue instead
+    later = [m["client_facing_name"] for m in mods if (m.get("phase_number") or 0) > 1]
+    pilot_mods = [m for m in mods if m.get("pilot")]
+    if pilot_mods and later:
+        removed: list[dict] = []
+
+        def _detach(obj, path=""):
+            if isinstance(obj, str):
+                for name in later:
+                    if name in obj:
+                        removed.append({"field": path, "later_phase_module": name, "replaced_with": _pg.PILOT_TOOLING})
+                        obj = obj.replace(name, _pg.PILOT_TOOLING)
+                return obj
+            if isinstance(obj, dict):
+                return {k: (_detach(v, f"{path}.{k}") if k not in ("id", "depends_on") else v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [_detach(v, f"{path}[{i}]") for i, v in enumerate(obj)]
+            return obj
+        for pm in pilot_mods:
+            for key in ("purpose", "pain_point_addressed", "spec", "tech"):
+                if key in pm:
+                    pm[key] = _detach(pm[key], key)
+            pruned = [d for d in (pm.get("depends_on") or []) if (by_id.get(d, {}).get("phase_number") or 0) > 1]
+            for d in pruned:
+                removed.append({"field": "depends_on", "later_phase_module": by_id[d]["client_facing_name"],
+                                "replaced_with": "(dependency removed)"})
+            pm["depends_on"] = [d for d in (pm.get("depends_on") or []) if d not in pruned]
+            pm["pilot_tooling"] = _pg.PILOT_TOOLING
+        # the log lives on the registry, never on the module object that the
+        # prompts read — the later-phase name must not re-enter the pilot
+        renames.append({"kind": "forward_dependencies_removed", "module": pilot_mods[0]["id"], "entries": removed})
     # the rename must reach every string that carried the old name — in the
     # business case and in every OTHER module's spec and tech anatomy
-    if renames:
+    if any("from" in r for r in renames):
         def _walk(obj):
             if isinstance(obj, str):
                 for r in renames:
-                    obj = obj.replace(r["from"], r["to"])
+                    if "from" in r:
+                        obj = obj.replace(r["from"], r["to"])
                 return obj
             if isinstance(obj, dict):
                 return {k: _walk(v) for k, v in obj.items()}
@@ -373,6 +451,39 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
     return out, renames
 
 
+# only the hyphenated adjective form ("six-month staffing") — "after six
+# weeks" is prose and the canonical gate reference is written that way
+_WORD_DURATION = re.compile(
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)-(week|month|day|hour|year)(s?)\b", re.IGNORECASE)
+_WORD_TO_N = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+              "ten": 10, "eleven": 11, "twelve": 12}
+_CENTS = re.compile(r"\$(\d{1,3}(?:,\d{3})+)\.(\d{1,2})\b")
+
+
+def plain_language(text: str) -> str:
+    """Client-facing normalizations applied to data AND at render time:
+    'order_IDs' -> 'order IDs', '>=90%' -> 'at least 90%', 'N attempts' ->
+    'approved maximum number of attempts', '$42,573.60' -> '$42,574'
+    (half-up; amounts under $1,000 keep their cents — '$1.80' is a client
+    figure), word durations become digits so the label pass can see them."""
+    out = text or ""
+    # template placeholders first — before de-snaking can split them apart
+    out = re.sub(r">?\[(?:CLIENT_INPUT|OWNER_INPUT|ARITHMETIC)[A-Z_]*\]%?", "an approved threshold", out)
+    out = re.sub(r"\[[A-Z][A-Z_]{4,}\]", "an approved value", out)
+    out = re.sub(r"(?<![\w<>])>=\s*(\d)", r"at least \1", out)
+    out = re.sub(r"(?<![\w<>])<=\s*(\d)", r"at most \1", out)
+    out = re.sub(r"(?<![\w<>])≥\s*(\d)", r"at least \1", out)
+    out = re.sub(r"(?<![\w<>])≤\s*(\d)", r"at most \1", out)
+    out = re.sub(r"\b([A-Za-z0-9]+(?:_[A-Za-z0-9]+)+)\b", lambda m: m.group(1).replace("_", " "), out)
+    out = re.sub(r"\bN\s+attempts\b", "approved maximum number of attempts", out)
+    out = re.sub(r"\b(?:after|up to|maximum of|max\.?)\s+N\b", lambda m: m.group(0).replace("N", "the approved maximum number"), out)
+    out = _CENTS.sub(lambda m: "$" + f"{int(float(m.group(1).replace(',', '') + '.' + m.group(2)) + 0.5):,}", out)
+    out = _WORD_DURATION.sub(lambda m: f"{_WORD_TO_N[m.group(1).lower()]}-{m.group(2).lower()}{m.group(3)}", out)
+    # never two approval labels back to back
+    out = re.sub(r"(\(proposed — client approval required\))(?:[\s,;]*\(proposed — client approval required\))+", r"\1", out)
+    return out
+
+
 def resolve_module_ids(text: str, modules: list) -> str:
     """Client-facing text never shows an internal id: every raw module id
     becomes its approved client-facing name."""
@@ -383,7 +494,7 @@ def resolve_module_ids(text: str, modules: list) -> str:
             out = re.sub(r"(?<![\w-])" + re.escape(mid) + r"(?![\w-])", name, out)
         alias = str(m.get("alias") or "")
         if alias and name:
-            # "the LVA" / "(LVA)" -> the one name; the parenthetical form disappears
+            # "the XYZ" / "(XYZ)" -> the one name; the parenthetical form disappears
             out = re.sub(r"\s*\(" + re.escape(alias) + r"\)", "", out)
             out = re.sub(r"(?<![\w'])" + re.escape(alias) + r"(?![\w'])", name, out)
             out = out.replace(name + " " + name, name)
@@ -392,7 +503,7 @@ def resolve_module_ids(text: str, modules: list) -> str:
 
 def identifier_artifacts(text: str, module_ids: list[str] | None = None) -> list[str]:
     """Internal identifiers found in client-facing text: known module ids,
-    slug-shaped list labels ('1. pre-dispatch-whatsapp-engine:') and
+    slug-shaped list labels ('1. some-module-engine:') and
     technical slugs ('...-engine', '...-resolver')."""
     hits = []
     # "For your build team" lines and the module appendix ("the engineering
@@ -493,12 +604,12 @@ def threshold_pass(text: str, claims: list[dict], *, source: str, module_id: str
     new: list[dict] = []
     if not text:
         return text, new
-    # the canonical gate sentence is opaque to every other pass: its numbers
-    # are the gate's, already typed and labeled
-    protected = [str(c.get("text") or "") for c in claims
-                 if c.get("type") == "pilot_gate" and len(str(c.get("text") or "")) > 40]
+    # the canonical gate sentence (and its full definition) is opaque to
+    # every other pass: its numbers are the gate's, already typed and labeled
+    protected = [s for c in claims if c.get("type") == "pilot_gate"
+                 for s in (str(c.get("text") or ""), str(c.get("full_definition") or "")) if len(s) > 40]
     masks: dict[str, str] = {}
-    out = text
+    out = plain_language(text)
     for i, sentence in enumerate(protected):
         if sentence in out:
             key = f"\x00GATE{i}\x00"
@@ -509,7 +620,16 @@ def threshold_pass(text: str, claims: list[dict], *, source: str, module_id: str
     out = re.sub(r"\bfor all (the )?(?=\w)", r"for all \1", out)
     pieces = []
     last = 0
-    for tok, v, unit, s, e in _numbers(out):
+    # '6-month staffing', '2-week monitoring': hyphenated durations are
+    # thresholds too — the number scanner skips hyphen-joined tokens, so
+    # they are handled here first
+    spans = list(_numbers(out))
+    for dm in re.finditer(r"(?<![\w.])(\d+)-(weeks?|months?|days?|hours?)\b", out):
+        spans.append((dm.group(1), float(dm.group(1)), dm.group(2).lower(), dm.start(), dm.end()))
+    spans.sort(key=lambda x: x[3])
+    for tok, v, unit, s, e in spans:
+        if s < last:
+            continue
         before, after = out[max(0, s - 80):s], out[e:e + 80]
         # inside an existing label, or a number the label already follows
         if "(proposed" in out[e:e + _LABEL_WINDOW]:
@@ -603,7 +723,7 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
                 # the period must be ABOUT settling — adjacent to the policy
                 # verb/noun ("remitted weekly", "settled within 5 days",
                 # "2-day remittance policy") — a review cadence in the same
-                # sentence ("Settlement Inquiry Review Checklist (Weekly)") is not
+                # sentence ("<Policy> Review Checklist (Weekly)") is not
                 before = sentence[max(0, m.start() - 60): m.start()]
                 after = sentence[m.end(): m.end() + 40]
                 near = before + " " + after
@@ -756,6 +876,17 @@ def phase_name_findings(blueprint_md: str, modules: list) -> list[dict]:
                         "issue": f"Phase {m.group(1)} is named as a list of modules ('{label[:90]}') instead of one capability.",
                         "fix": "name the phase for what it delivers; list its modules in the sentence, not the name"})
     return out
+
+
+CORRECTION_KEYS = ("renames", "policy_corrections", "pilot_ai_removed", "placeholder_replacements",
+                   "forward_dependencies_removed")
+
+
+def corrections(reg: dict | None) -> dict:
+    """Every deterministic correction the registry applied — recorded in the
+    QA report and the release record so nothing is silently rewritten."""
+    reg = reg or {}
+    return {k: reg.get(k) or [] for k in CORRECTION_KEYS}
 
 
 def proposals(reg: dict) -> list[dict]:
@@ -944,6 +1075,7 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
         candidates = spec.get("kpi_candidates") if "kpi_candidates" in spec else (spec.get("kpis") or [])
         rendered: list[str] = []
         n = 0
+        kpi_ids: list[str] = []
         if m.get("pilot") and sentence:
             rendered.append(sentence)
             out.append(_claim(f"MK-{mid}-gate", "module_kpi", gate.get("target_value"), gate.get("target_unit") or "",
@@ -951,6 +1083,7 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
                               approval=gate.get("approval_status") or "consultant_proposed — client approval required",
                               source="pilot_gate", sections=["module_kpi", "decision", "scoreboard"],
                               text=sentence, maps_to="PG"))
+            kpi_ids.append(f"MK-{mid}-gate")
             # the pilot module's success IS the gate — nothing sits beside it
             candidates = []
         for cand in candidates:
@@ -1001,6 +1134,7 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
                                   phase=m.get("phase") or "FUTURE", provenance=known["provenance"],
                                   approval=known["approval_status"], source=f"spec.kpis[{n - 1}]",
                                   sections=["module_kpi"], text=stmt, maps_to=known["id"]))
+                kpi_ids.append(f"MK-{mid}-{n:02d}")
             elif isinstance(value, (int, float)):
                 # a coined number: registered as a proposal, never rendered
                 out.append(_claim(f"MK-{mid}-{n:02d}", "module_kpi", value, unit or "count", scope=mid,
@@ -1027,6 +1161,7 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
         spec["kpi_candidates"] = candidates
         spec["kpis"] = rendered
         spec["kpi_statement"] = " ".join(rendered)
+        m["kpi_claim_ids"] = kpi_ids
     return out
 
 
@@ -1047,12 +1182,36 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
     claims = client_fact_claims(ops, free_texts or [])
     claims += derived_claims(fm)
     reg_modules, renames = module_registry(modules, bc)
+    forward_removed = [{"module": r["module"], **e} for r in renames
+                       if r.get("kind") == "forward_dependencies_removed" for e in r["entries"]]
+    renames = [r for r in renames if "from" in r]
     gate = None
     if isinstance(bc.get("pilot_gate"), dict) and bc["pilot_gate"]:
         gate = _pg.normalize_gate(bc["pilot_gate"], claims)
         bc["pilot_gate"] = gate
         claims += _pg.gate_claims(gate)
     enforce_gate_in_specs(modules, gate)
+    # placeholders the model left in the structures are recorded BEFORE the
+    # typing pass renders them as approved-threshold slots
+    placeholder_log: list[dict] = []
+    _PH = re.compile(r"\[[A-Z][A-Z_]{4,}\]|>?\[?CLIENT_INPUT[A-Z_]*\]?%?")
+
+    def _ph_walk(obj, mid, path):
+        if isinstance(obj, str):
+            for hit in _PH.findall(obj):
+                placeholder_log.append({"module": mid, "field": path, "placeholder": hit,
+                                        "replaced_with": "an approved threshold / an approved value"})
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                _ph_walk(v, mid, f"{path}.{k}")
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                _ph_walk(v, mid, f"{path}[{i}]")
+
+    for m in modules or []:
+        if isinstance(m, dict):
+            for key in ("spec", "tech", "purpose", "pain_point_addressed"):
+                _ph_walk(m.get(key), m.get("id"), key)
     # the Phase 1 pilot is manual or rules-based BY LAW: an AI component the
     # model specced into the pilot module is removed from it (the AI belongs
     # to the later modules the pilot's data will train)
@@ -1101,16 +1260,22 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
     if isinstance(fm, dict) and fm:
         fm["time_basis"] = {"monthly_identity": MONTHLY_IDENTITY, "year_days": YEAR_DAYS,
                             "month_days": MONTH_DAYS}
+    for rm in reg_modules:
+        src = next((m for m in modules if isinstance(m, dict) and m.get("id") == rm["id"]), {})
+        rm["kpi_claim_ids"] = list(src.get("kpi_claim_ids") or [])
     reg = {
-        "version": 1,
+        "version": 2,
         "monthly_identity": MONTHLY_IDENTITY,
         "claims": claims,
         "modules": reg_modules,
         "renames": renames,
         "policy_corrections": policy_notes,
         "pilot_ai_removed": pilot_ai_removed,
+        "placeholder_replacements": placeholder_log,
+        "forward_dependencies_removed": forward_removed,
         "pilot_gate": gate,
         "pilot_gate_sentence": _pg.canonical_sentence(gate) if gate else "",
+        "pilot_gate_definition": _pg.full_definition(gate) if gate else "",
         "build_order_names": [
             next((m["client_facing_name"] for m in reg_modules if m["id"] == mid), mid)
             for mid in (bc.get("build_order") or []) if isinstance(mid, str)],

@@ -32,8 +32,8 @@ def build_engagement_register(
     prompt. Two independent axes: whole-business vs one-capability, and
     how much AI the client actually asked for. One shared builder so the
     register can never drift between stages. The client's briefing-chat
-    corrections extend the capability (run 47: COD settlement inquiries
-    were read as a second capability because the register never said)."""
+    corrections extend the capability (a past run read a client-added
+    workstream as a second capability because the register never said)."""
     corrections = briefing_corrections(business_description)
     if engagement_type == "capability":
         focus = main_problem or desired_outcome or "the one problem stated in their brief"

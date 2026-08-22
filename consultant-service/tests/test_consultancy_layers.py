@@ -1141,8 +1141,9 @@ def test_artifact_detector_names_each_class(client):
     assert "template token" in ep.find_artifacts("hello {{ business_name }}")
     assert "literal Null" in ep.find_artifacts("decides alone: Null")
     assert "unresolved placeholder" in ep.find_artifacts("owner: [TODO fill in]")
-    assert "duplicate approval label" in ep.find_artifacts(
-        "2 hours (proposed — client approval required) (proposed — client approval required)")
+    # a doubled label is repaired by the renderer before it can reach a page
+    dup = "2 hours (proposed — client approval required) (proposed — client approval required)"
+    assert ep.find_artifacts(dup) == [] and ep._strip_artifacts(dup).count("(proposed") == 1
 
 
 def test_release_status_comes_from_the_runs_own_records(client):

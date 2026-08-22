@@ -58,11 +58,34 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
 
     ai_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
                 if isinstance(m, dict) and (m.get("automation_level") == "ai" or (m.get("spec") or {}).get("ai"))]
+    later_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
+                   if isinstance(m, dict) and not m.get("pilot")]
+
+    def _pilot_tooling(s):
+        # a pilot-state step runs with today's tools: a later-phase or AI
+        # module named in it becomes the lightweight Pilot Review Queue
+        if not isinstance(s, str):
+            return s
+        for n in sorted(set(ai_names + later_names), key=len, reverse=True):
+            if n:
+                s = s.replace(n, _pg.PILOT_TOOLING)
+        return s
+
     for p in procedures or []:
         if not isinstance(p, dict):
             continue
         for key in ("name", "trigger", "module"):
             p[key] = _fix(p.get(key))
+        if str(p.get("phase") or "").lower() == "pilot" and p.get("module") == "The pilot":
+            p["trigger"] = _pilot_tooling(p.get("trigger"))
+            for st in p.get("steps") or []:
+                if isinstance(st, dict):
+                    st["step"] = _pilot_tooling(st.get("step"))
+                    if str(st.get("actor") or "").strip().lower() in ("ai", "the ai") or st.get("actor") in ai_names:
+                        st["actor"] = _pg.PILOT_OPERATOR
+            for ex in p.get("exceptions") or []:
+                if isinstance(ex, dict):
+                    ex["when"], ex["then"] = _pilot_tooling(ex.get("when")), _pilot_tooling(ex.get("then"))
         for st in p.get("steps") or []:
             if isinstance(st, dict):
                 st["step"] = _fix(st.get("step"))
@@ -135,10 +158,23 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
             for key in ("customer_action", "frontstage", "fail_point_removed"):
                 s[key] = _fix(s.get(key))
     org = by_name.get("organization") or {}
+    pilot_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
+                   if isinstance(m, dict) and m.get("pilot")]
+    roles_out = []
     for r in org.get("roles") or []:
         if isinstance(r, dict):
             r["responsibilities"] = [_fix(x) for x in (r.get("responsibilities") or [])]
             r["decides_alone"], r["hands_off"] = _fix(r.get("decides_alone")), _fix(r.get("hands_off"))
+            # the Phase-1 pilot is not a person and not an AI: the role that
+            # runs it is the human Pilot Support Operator
+            if any(pn and pn in str(r.get("role") or "") for pn in pilot_names):
+                r["role"] = _pg.PILOT_OPERATOR
+                r["type"] = "human"
+                r["responsibilities"] = [re.sub(r"\b(?:the )?AI\b", "the operator", x) for x in r["responsibilities"]]
+                if str(r.get("decides_alone") or "").startswith("Does not decide autonomously"):
+                    r["decides_alone"] = "Which pilot conversations to escalate and how to log each outcome."
+                if str(r.get("hands_off") or "").startswith("Hands every action"):
+                    r["hands_off"] = "Any customer complaint or unresolved address after the approved maximum number of attempts — to the operations lead."
             # an AI role's empty decision right is stated as the constraint it
             # is — never the literal "Null" (the renderer's rule, applied to the data)
             if r.get("type") == "ai":
@@ -147,6 +183,30 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
                     v = str(r.get(key) or "").strip()
                     if not v or v.lower() in ("null", "none", "n/a", "-", "nothing"):
                         r[key] = default
+            roles_out.append(r)
+    seen_roles = set()
+    if org.get("roles") is not None:
+        org["roles"] = [r for r in roles_out if not (str(r.get("role")) in seen_roles or seen_roles.add(str(r.get("role"))))]
+    for c in org.get("change_impact") or []:
+        if isinstance(c, dict) and any(pn and pn in str(c.get("role") or "") for pn in pilot_names):
+            c["role"] = _pg.PILOT_OPERATOR
+    # Phase-1 risk language never speaks of AI: the pilot is rules-based and
+    # human-reviewed, so a risk about the pilot is a risk about its workflow
+    for rk in (gov.get("risks") or []):
+        if isinstance(rk, dict):
+            pilot_risk = any(pn and pn in (str(rk.get("risk") or "") + " " + str(rk.get("mitigation") or ""))
+                             for pn in pilot_names)
+            for key in ("risk", "mitigation", "who_feels_it"):
+                s = _fix(rk.get(key))
+                if isinstance(s, str) and pilot_risk:
+                    s = re.sub(r"\bAI-(?:handled|driven|powered|operated|generated)\b", "pilot-workflow", s)
+                    s = re.sub(r"\bthe AI\b", "the pilot workflow", s)
+                    s = re.sub(r"\bAI\b", "the rules-based workflow", s)
+                if isinstance(s, str) and key == "mitigation":
+                    # a proposed duration in a counter-move ("for the first 2 weeks") is labeled like any other
+                    s, more = _registry.threshold_pass(s, claims, source="risks.mitigation", module_id="risk", counter=counter)
+                    new_claims += more
+                rk[key] = s
     if registry is not None and new_claims:
         registry.setdefault("claims", []).extend(new_claims)
         registry["errors"] = _registry.validate_registry(registry)

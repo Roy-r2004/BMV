@@ -281,6 +281,10 @@ def review_quality(db: Session, request_id: int) -> None:
         "checks": checks,
         "findings": findings,
         "polish_applied": polish_applied,
+        # every deterministic correction the registry applied to this run —
+        # placeholders rendered as slots, forward dependencies removed from
+        # the pilot, renames, policy corrections, AI removed from the pilot
+        "corrections": _registry.corrections(_registry.registry_for(req) or registry),
     })
     db.commit()
 

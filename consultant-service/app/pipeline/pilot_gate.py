@@ -129,6 +129,20 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
     g["control"] = g["control_method"]
     g["guardrail"] = "; ".join(g["guardrails"]) if g["guardrails"] else None
     g["approval_status"] = APPROVAL_REQUIRED
+    # PilotGate: the comparison is treatment versus CONTROL — never the
+    # treatment versus its own week-one baseline
+    g["id"] = str(raw.get("id") or "PG-01")
+    cm = g.get("control_method") or ""
+    ratio = re.search(r"(\d{1,2})\s*%", cm)
+    g["control_ratio"] = (float(ratio.group(1)) / 100) if ratio else (0.5 if re.search(r"half|50/50|random", cm, re.IGNORECASE) else None)
+    tm = re.search(r"(?:while )?(?:the )?other \d{1,2}\s*%\s*(?:receives?|gets?|is given)\s*([^.;]+)", cm, re.IGNORECASE)
+    g["treatment"] = (tm.group(1).strip() if tm else
+                      (str(raw.get("treatment") or "").strip() or "the pilot workflow"))
+    g["target_vs_control"] = bool(g.get("control_method"))
+    if g["target_vs_control"] and g.get("primary_metric"):
+        g["comparison_metric"] = f"treatment {g['primary_metric']} minus control {g['primary_metric']}"
+        if not (g.get("denominator") and re.search(r"group|assigned|arm", g["denominator"], re.IGNORECASE)):
+            g["denominator"] = "eligible deliveries assigned to each group"
     g["secondary_metrics"] = [str(x) for x in (raw.get("secondary_metrics") or []) if x]
     g["approvals_required"] = [str(x) for x in (raw.get("approvals_required") or []) if x]
     g["canonical_sentence"] = canonical_sentence(g)
@@ -183,33 +197,70 @@ def _lc(s: str | None) -> str:
     return s
 
 
+_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine",
+          10: "ten", 11: "eleven", 12: "twelve"}
+
+
+def _duration_words(g: dict) -> str:
+    v = g.get("duration_value")
+    unit = g.get("duration_unit") or "week"
+    if v is None:
+        return "the pilot"
+    n = int(v) if float(v).is_integer() else v
+    word = _WORDS.get(n, str(n)) if isinstance(n, int) else str(n)
+    return f"{word} {unit}{'s' if n != 1 else ''}"
+
+
+def _unit_words(g: dict) -> str:
+    return ("percentage points" if g.get("change_kind") == "percentage_point" else
+            "percent (relative)" if g.get("change_kind") == "relative" else "points")
+
+
+def _metric_short(g: dict) -> str:
+    m = _lc(g.get("primary_metric")) or "the primary metric"
+    return re.sub(r"\s+rate$", "", m)
+
+
 def canonical_sentence(g: dict | None) -> str:
-    """THE sentence. Every restatement of the gate in every volume is this
-    string verbatim; sections may explain around it, never rewrite it."""
+    """THE short reference. Every restatement of the gate outside the gate
+    box is this string verbatim; sections may explain around it, never
+    rewrite it. The comparison is treatment versus control."""
+    if not g:
+        return ""
+    verb = "fall below" if g.get("direction") == "fall" else "exceed"
+    return (f"{g.get('id') or 'PG-01'}: treatment {_metric_short(g)} must {verb} control by "
+            f"{_fmt(g.get('target_value'))} {_unit_words(g)} after {_duration_words(g)}; guardrails apply. "
+            "Proposed — client approval required.")
+
+
+def full_definition(g: dict | None) -> str:
+    """The complete gate, printed ONCE (the gate box). Everywhere else the
+    short reference stands in for it."""
     if not g:
         return ""
     dur = f"{_fmt(g.get('duration_value'))}-{g.get('duration_unit') or 'week'}"
-    unit = "percentage points" if g.get("change_kind") == "percentage_point" else (
-        "percent (relative)" if g.get("change_kind") == "relative" else "points")
-    direction = g.get("direction") or "move"
-    if g.get("baseline_source") == "client":
-        base = f"from a baseline of {g.get('baseline')} (your figure)"
-    elif g.get("baseline_source") == "measure in week 1":
-        base = "from the baseline measured in week 1"
-    elif g.get("baseline"):
-        base = f"from a baseline of {g.get('baseline')} {LABEL}"
-    else:
-        base = "from the baseline measured in week 1"
     metric = _lc(g.get("primary_metric")) or "the primary metric"
+    ratio = g.get("control_ratio")
+    split = (f"{int(round((1 - ratio) * 100))}% treatment, {int(round(ratio * 100))}% control" if ratio else
+             (_lc(g.get("control_method")) or "a control group"))
     definition = ""
     if g.get("numerator") and g.get("denominator"):
-        definition = f" — {_lc(g['numerator'])} divided by {_lc(g['denominator'])} —"
+        definition = f" ({_lc(g['numerator'])}, divided by {_lc(g['denominator'])})"
+    verb = "fall below" if g.get("direction") == "fall" else "exceed"
     guard = ""
     if g.get("guardrails"):
-        guard = f"; the pilot pauses if {'; or if '.join(_lc(x) for x in g['guardrails'])} {LABEL}"
-    return (f"Pilot decision gate: over a {dur} pilot {LABEL} covering {_lc(g.get('population')) or 'the pilot population'}"
-            f" in {g.get('geography') or 'the pilot zone'}, measured against {_lc(g.get('control_method')) or 'the control group'},"
-            f" {metric}{definition} must {direction} by {_fmt(g.get('target_value'))} {unit} {base}{guard}.")
+        guard = f" Guardrails: the pilot pauses if {'; or if '.join(_lc(x) for x in g['guardrails'])} {LABEL}."
+    base = ""
+    if g.get("baseline_source") == "client":
+        base = f" Context only: today's {metric} is {g.get('baseline')} (your figure); the control group, not this baseline, is the comparison."
+    elif g.get("baseline_source") == "measure in week 1":
+        base = " Context only: the week-one measurement of both groups; the control group, not a baseline, is the comparison."
+    return (f"{g.get('id') or 'PG-01'} — the pilot decision gate. Duration: {dur} pilot {LABEL}. "
+            f"Population: {_lc(g.get('population')) or 'the pilot population'} in {g.get('geography') or 'the pilot zone'}. "
+            f"Assignment: {split}; the treatment group receives {_lc(g.get('treatment')) or 'the pilot workflow'}. "
+            f"Primary metric: {g.get('comparison_metric') or metric}{definition}. "
+            f"Target: treatment {metric} must {verb} the control group's by {_fmt(g.get('target_value'))} {_unit_words(g)} {LABEL}."
+            f"{guard}{base} Approval status: {(g.get('approval_status') or APPROVAL_REQUIRED).replace('_', ' ')}.")
 
 
 def gate_claims(g: dict) -> list[dict]:
@@ -220,7 +271,7 @@ def gate_claims(g: dict) -> list[dict]:
                                                                 "technical", "operations", "pilot_sop"]}
     claims = [{"id": "PG", "type": "pilot_gate", "value": g.get("target_value"),
                "unit": g.get("target_unit") or "", "time_basis": f"{_fmt(g.get('duration_value'))} {g.get('duration_unit') or ''}".strip(),
-               "text": canonical_sentence(g), **base_claim}]
+               "text": canonical_sentence(g), "full_definition": full_definition(g), **base_claim}]
     if g.get("duration_value") is not None:
         claims.append({"id": "PG-duration", "type": "pilot_gate", "value": g["duration_value"],
                        "unit": g.get("duration_unit") or "week", "time_basis": "pilot", "text": f"{_fmt(g['duration_value'])} {g.get('duration_unit')}s",
@@ -287,10 +338,12 @@ _BOLD_LABEL = re.compile(r"\s+(?=\*\*[A-Z][^*\n]{2,60}:\*\*)")
 
 def is_paraphrase(sentence: str, g: dict) -> bool:
     """A sentence that names the primary metric, carries a number and speaks
-    of a target/baseline/change — and is not the canonical sentence."""
+    of a target/baseline/change — and is neither the short reference nor
+    the once-printed full definition."""
     canon = canonical_sentence(g)
+    full = full_definition(g)
     s = sentence.strip()
-    if not s or (canon and canon in s) or TOKEN in s:
+    if not s or (canon and canon in s) or (full and (full in s or s in full)) or TOKEN in s:
         return False
     return _has_number(s) and _mentions_metric(s, g) and bool(_GATE_SIGNAL.search(s))
 
@@ -312,6 +365,12 @@ def restatement_findings(text: str, g: dict) -> list[dict]:
     text = re.sub(r"\s{2,}", " ", text)
     text = _GATE_TABLE.sub(" [gate components table] ", text)
     text = _SCOREBOARD_TABLE.sub(" [scoreboard table] ", text)
+    full = re.sub(r"\s+", " ", full_definition(g))
+    if full:
+        text = text.replace(full, " [full gate definition] ")
+    canon = re.sub(r"\s+", " ", canonical_sentence(g))
+    if canon:
+        text = text.replace(canon, " [canonical gate reference] ")
     for sentence in _SPLIT.split(text):
         if is_paraphrase(sentence, g):
             out.append({"severity": "high", "source": "structural", "where": "pilot gate restatement",
@@ -331,19 +390,26 @@ def enforce(text: str, g: dict | None) -> tuple[str, dict]:
     if not g:
         return text.replace(TOKEN, ""), report
     canon = canonical_sentence(g)
+    full = full_definition(g)
     report["token_substitutions"] = text.count(TOKEN)
     out = text.replace(TOKEN, canon)
+    # the canonical sentence carries an internal full stop ("apply. Proposed
+    # —"): it is masked as one token so no splitter cuts it in two
+    mask = "\x00CANON\x00"
+    out = out.replace(canon, mask)
     paragraphs = out.split("\n")
     fixed = []
     for para in paragraphs:
-        if not _has_number(para) or not _mentions_metric(para, g):
+        if not _has_number(para) or not _mentions_metric(para, g) or (full and full in para):
             fixed.append(para)
             continue
-        has_canon = canon in para
+        has_canon = mask in para
         sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z\[*(\-•\d])|\s+(?=\*\*[A-Z][^*\n]{2,60}:\*\*)|\s-\s+(?=[A-Z*])", para)
         rebuilt = []
         for s in sentences:
-            if is_paraphrase(s, g):
+            if mask in s:
+                rebuilt.append(s)
+            elif is_paraphrase(s, g):
                 if has_canon:
                     report["paraphrases_removed"] += 1
                     continue
@@ -353,7 +419,7 @@ def enforce(text: str, g: dict | None) -> tuple[str, dict]:
             else:
                 rebuilt.append(s)
         fixed.append(" ".join(rebuilt))
-    return "\n".join(fixed), report
+    return "\n".join(fixed).replace(mask, canon), report
 
 
 def ensure_in_decision(md: str, g: dict | None) -> str:
@@ -376,3 +442,12 @@ def ensure_in_decision(md: str, g: dict | None) -> str:
         return md[:insert_at] + f"\n  The decision gate — {canon}" + md[insert_at:]
     end = head + len(section)
     return md[:end].rstrip("\n") + f"\n\n**The decision gate:** {canon}\n" + md[end:]
+
+
+# Engagement-agnostic names for the Phase-1 pilot's tooling and its human
+# operator — settings, so an engagement may rename them; never a client's
+# module name
+from app.config import settings as _settings
+
+PILOT_TOOLING = getattr(_settings, "PILOT_TOOLING_NAME", None) or "Pilot Review Queue"
+PILOT_OPERATOR = getattr(_settings, "PILOT_OPERATOR_ROLE", None) or "Pilot Support Operator"

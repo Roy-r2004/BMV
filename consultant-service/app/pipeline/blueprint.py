@@ -189,9 +189,12 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     from app.pipeline import registry as _reg
     from app.pipeline import timebasis
 
-    report = {"new_claims": [], "gate": {}}
+    report = {"new_claims": [], "gate": {}, "placeholders": []}
     if not content:
         return content, report
+    # placeholders in prose are recorded before plain_language renders them
+    report["placeholders"] = [{"source": kind, "placeholder": h, "replaced_with": "an approved threshold / an approved value"}
+                              for h in re.findall(r"\[[A-Z][A-Z_]{4,}\]|>?\[?CLIENT_INPUT[A-Z_]*\]?%?", content)]
     gate = (registry or {}).get("pilot_gate") or (
         (business_case or {}).get("pilot_gate") if isinstance((business_case or {}).get("pilot_gate"), dict)
         and "canonical_sentence" in (business_case or {}).get("pilot_gate", {}) else None)
@@ -272,8 +275,11 @@ def write_blueprint(
     # Four front-matter sections joined the document (engagement scope,
     # current state, opportunity) — give it room to finish them all.
     content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
-    content, _ = finish_document(content, modules=modules, business_case=business_case,
-                                 registry=registry, kind="blueprint")
+    content, report = finish_document(content, modules=modules, business_case=business_case,
+                                      registry=registry, kind="blueprint")
+    if report.get("placeholders") and registry:
+        registry.setdefault("placeholder_replacements", []).extend(report["placeholders"])
+        req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume
     if content:
         req.mvp_blueprint = content
@@ -317,8 +323,9 @@ def write_technical_plan(
     content = _markdown_call(db, request_id, "technical_plan", prompt, max_tokens=8000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="technical")
-    if report["new_claims"] and registry:
+    if (report["new_claims"] or report.get("placeholders")) and registry:
         registry.setdefault("claims", []).extend(report["new_claims"])
+        registry.setdefault("placeholder_replacements", []).extend(report.get("placeholders") or [])
         registry["errors"] = _reg.validate_registry(registry)
         req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume

@@ -181,9 +181,11 @@ def test_gate_is_one_typed_object_and_one_sentence():
     assert g["baseline_source"] == "client" and g["baseline_value"] == 12
     assert g["numerator"] and g["denominator"] and g["control_method"] and g["guardrails"]
     s = pg.canonical_sentence(g)
-    assert s.startswith("Pilot decision gate: over a 6-week pilot (proposed — client approval required)")
-    assert "divided by" in s and "must rise by 5 percentage points" in s and "(your figure)" in s
-    assert "the pilot pauses if" in s and s.count("(proposed — client approval required)") == 2
+    assert s == ("PG-01: treatment first-attempt delivery success must exceed control by 5 percentage points after six weeks; "
+                 "guardrails apply. Proposed — client approval required.")
+    full = pg.full_definition(g)
+    assert "PG-01 — the pilot decision gate" in full and "divided by" in full and "(your figure)" in full
+    assert "Guardrails: the pilot pauses if" in full and "the control group, not this baseline, is the comparison" in full
     # the same object always renders the same sentence
     assert pg.canonical_sentence(pg.normalize_gate(GATE47, claims)) == s
 
@@ -193,7 +195,7 @@ def test_run46_gate_lacks_the_typed_components_and_is_rejected_before_prose():
 
     g = pg.normalize_gate(GATE46, [])
     errs = pg.gate_errors(g)
-    assert "missing numerator" in errs and "missing denominator" in errs
+    assert "missing numerator" in errs  # the denominator defaults to the control-group form
     findings = preflight({"pilot_gate": GATE46, "build_order": BUILD_ORDER46}, copy.deepcopy(MODULES46))
     assert any("pilot gate is not a whole typed object" in f["issue"] for f in findings)
 
@@ -381,10 +383,11 @@ def test_latent_1977_payback_value_is_corrected_in_the_structured_layer():
     _sanitize_financial_model(bc)
     fm = bc["financial_model"]
     assert all(sc.get("impact_verified") for sc in fm["scenarios"])
+    # the payback note is no longer the model's: it is derived from the Expected
+    # scenario's hard dollars on the 30-day month — the latent $1,977 is gone
     assert "$1,977" not in fm["payback_note"] and "$1,925" in fm["payback_note"]
-    rec = next(r for r in fm["restatements"] if r["original"] == "$1,977")
-    assert rec["status"] == "snapped" and "23,415/year / 365 x 30" in rec["formula"]
-    assert fm["time_basis"]["monthly_identity"] == "operating_30_day_month" if "time_basis" in fm else True
+    assert "$23,415/year ÷ 365 × 30" in fm["payback_note"] and "cannot yet be calculated" in fm["payback_note"]
+    assert fm["payback_monthly_hard_dollar"] == round(23415 / 365 * 30, 2)
 
 
 # ── §7 / §8 module names and build order ────────────────────────────────────
@@ -682,9 +685,10 @@ def test_gate_text_governs_a_contradicting_numeric_field_and_strings_are_clean()
     assert "target_value contradicts the target text" in pg.gate_errors(g)
     assert not g["control_method"].endswith(".") and "by your own figures" not in g["baseline"]
     s = pg.canonical_sentence(g)
-    assert "must rise by 5 percentage points" in s and "0.93" not in s
-    assert "group., " not in s and "(by your own figures) (your figure)" not in s
-    assert "(your figure)" in s
+    full = pg.full_definition(g)
+    assert "must exceed control by 5 percentage points" in s and "0.93" not in s and "0.93" not in full
+    assert "group., " not in full and "(by your own figures) (your figure)" not in full
+    assert "(your figure)" in full
     clean = {**GATE47_RAW, "target_value": 5}
     assert pg.gate_errors(pg.normalize_gate(clean, claims)) == []
 
@@ -863,7 +867,7 @@ def test_page_chrome_is_stripped_from_rendered_text():
 
     bc, mods, reg = _skeleton()
     canon = reg["pilot_gate_sentence"]
-    cut = canon.index("measured against")
+    cut = canon.index("must exceed")
     page_text = (canon[:cut] + "THE TECHNICAL PLAN DRAFT — REQUIRES VALIDATION iCARRY Lebanon\r\n" + canon[cut:]
                  + "\r\nBuild My Version · buildmyversion.com · consulting@buildmyversion.com\r\nPage 7\r\n")
     clean = " ".join(strip_page_chrome(page_text, "iCARRY Lebanon").split())
@@ -1300,9 +1304,11 @@ def test_run49_round_two_gate_reads_on_the_page_as_stored_and_business_case_pros
            "control_method": "50% of the pilot population will be randomly assigned to a control_group receiving standard notifications"}
     g = pg.normalize_gate(raw, claims)
     s = pg.canonical_sentence(g)
-    assert ">" not in s and "more than 2%" in s and "at least 5%" in s and "control group receiving" in s
+    full = pg.full_definition(g)
+    assert ">" not in full and "more than 2%" in full and "at least 5%" in full
+    assert "control group receiving" in g["control_method"] and "50% treatment, 50% control" in full
     # what the renderer prints is exactly what is stored
-    assert ep._strip_artifacts(s) == s
+    assert ep._strip_artifacts(s) == s and ep._strip_artifacts(full) == full
     assert pg.restatement_findings("The decision gate: " + s, g) == []
     bc = {"payback_logic": "Reducing failed first attempts by even 25% (a conservative estimate) would save ~$490 per month in re-attempt costs, by your own figures.",
           "financial_model": {"lines": [{"item": "re-attempt costs", "arithmetic": "900 * 365 * 0.12 * $1.80", "annual": "$70,956/year"}],

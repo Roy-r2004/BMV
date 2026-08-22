@@ -112,7 +112,7 @@ PILOT GATE rules — absolute:
 - Every field above is required: numerator, denominator, geography and control_method are what make the metric measurable; a gate missing any of them is rejected before any document is written.
 
 MODULE METADATA rules — absolute:
-- Exactly ONE module is the subject of the Phase 1 pilot when a pilot gate exists: set its "pilot" to true, its "automation_level" to "manual" or "rules", and give it a client-facing NAME that says what it is — a manual or rules-based pilot (e.g. "Pre-Dispatch WhatsApp Pilot"). A pilot module's name must never contain "AI", "Engine", "Predictive", "Predictor", "Scoring", "Smart" or "Automated"; a name that does is rewritten by the system, so write the honest one yourself.
+- Exactly ONE module is the subject of the Phase 1 pilot when a pilot gate exists: set its "pilot" to true, its "automation_level" to "manual" or "rules", and give it a client-facing NAME that says what it is — a manual or rules-based pilot (e.g. "<Workflow> Pilot"). A pilot module's name must never contain "AI", "Engine", "Predictive", "Predictor", "Scoring", "Smart" or "Automated"; a name that does is rewritten by the system, so write the honest one yourself.
 - "automation_level" is "ai" only for modules with a genuine AI component; "ai_involvement" is true for exactly those.
 
 FINANCIAL MODEL rules — absolute:

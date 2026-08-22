@@ -114,6 +114,24 @@ def write_playbook(
             if isinstance(h, dict):
                 for key in ("role", "when", "why"):
                     h[key] = _fix(h.get(key))
+        # Phase-1 work is human work: any "AI covers" line about the pilot
+        # module moves to the human Pilot Support Operator, and a module name
+        # is never a person
+        pilot_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
+                       if isinstance(m, dict) and m.get("pilot")]
+        if pilot_names:
+            kept, moved = [], []
+            for line in people["ai_covers"]:
+                (moved if any(pn in str(line) for pn in pilot_names) else kept).append(line)
+            people["ai_covers"] = kept
+            humans = people.setdefault("humans_needed", [])
+            for h in humans:
+                if isinstance(h, dict) and any(pn in str(h.get("role") or "") for pn in pilot_names):
+                    h["role"] = _pg.PILOT_OPERATOR
+            if moved and not any(isinstance(h, dict) and h.get("role") == _pg.PILOT_OPERATOR for h in humans):
+                humans.insert(0, {"role": _pg.PILOT_OPERATOR, "when": "from day one of the Phase-1 pilot",
+                                  "why": "runs the rules-based pilot by hand: " + "; ".join(str(x).rstrip(".") for x in moved) + "."})
+        result["people_plan"] = people
     except Exception:  # the playbook stays fail-open
         pass
     req.playbook_json = json.dumps(result)

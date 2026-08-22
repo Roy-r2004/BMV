@@ -163,6 +163,9 @@ def _strip_artifacts(text: str) -> str:
                  lambda m: m.group(1).replace("_", " "), out)
     # comparison notation is engineering shorthand, not client prose:
     # "<30 minutes" reads as a placeholder — say the words
+    from app.pipeline.registry import plain_language
+
+    out = plain_language(out)
     out = re.sub(r"(?<![\w<>])<\s*(\d)", r"fewer than \1", out)
     out = re.sub(r"(?<![\w<>])>\s*(\d)", r"more than \1", out)
     return out
@@ -316,7 +319,7 @@ def _cover_painter(kind: str, req: Request):
 _GATE_ARTIFACTS = [
     ("template token", re.compile(r"\{\{|\{%|%\}")),
     ("literal Null", re.compile(r"\bNull\b")),
-    ("unresolved placeholder", re.compile(r"\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR )[^\]]*\]", re.IGNORECASE)),
+    ("unresolved placeholder", re.compile(r"\[(?:TODO|TBD|PLACEHOLDER|INSERT|YOUR |CLIENT_INPUT)[^\]]*\]|\[[A-Z][A-Z_]{4,}\]", re.IGNORECASE)),
     ("duplicate approval label",
      re.compile(r"\(proposed — client approval required\)[^()]{0,12}\(proposed — client approval required\)")),
     ("invented ROI figure",
@@ -324,8 +327,8 @@ _GATE_ARTIFACTS = [
     ("currency sign on a count",
      re.compile(r"[$\u20ac\u00a3]\s?\d[\d,]*(?:\.\d+)?\s*(?:inquiries|hours|deliveries|orders|messages|calls|attempts)\b",
                 re.IGNORECASE)),
-    # run 46: "1. pre-dispatch-whatsapp-engine: ..." \u2014 an internal id as a
-    # client-facing list label, and technical slugs anywhere in prose
+    # "1. some-module-engine: ..." \u2014 an internal id as a client-facing list
+    # label, and technical slugs anywhere in prose
     ("internal identifier in client-facing text",
      re.compile(r"(?m)^\s*(?:\d+\.|[-*\u2022])\s*\**[a-z0-9]+(?:-[a-z0-9]+)+\**\s*:|"
                 r"\b[a-z0-9]+(?:-[a-z0-9]+)*-(?:engine|predictor|assistant|concierge|resolver|notifier|"
@@ -550,10 +553,10 @@ def _journey_flowables(journey: dict | None, name_by_id: dict | None = None) -> 
     stages = (journey or {}).get("stages") or []
     if not stages:
         return []
-    flows = _h1("The customer journey")
+    flows = _h1("The future-state customer journey")
     flows.append(Paragraph(
-        "What your customer does at every stage — and which parts of the system work for them "
-        "behind the scenes.", _S["meta"],
+        "The journey once the modules are built — what your customer does at every stage, and which "
+        "parts of the system work for them behind the scenes. Not today's journey.", _S["meta"],
     ))
     for i, s in enumerate(stages, start=1):
         flows.append(Paragraph(f"{i}. {_rich(s.get('stage') or '')}", _S["h2toc"]))
@@ -743,8 +746,13 @@ def _pilot_gate_flowables(business_case: dict) -> list:
                  "One gate governs the pilot. Every criterion elsewhere in this engagement "
                  "restates the sentence below verbatim — nothing else counts as pilot success.", _S["meta"])]
     if gate.get("canonical_sentence"):
-        # the typed gate: ONE sentence, then its components
-        flows.append(_callout(_rich(str(gate["canonical_sentence"])), ACCENT, TINT))
+        # the typed gate: the FULL definition printed once, its short
+        # reference (the form every other section uses), then its components
+        from app.pipeline import pilot_gate as _pg
+
+        flows.append(_callout(_rich(_pg.full_definition(gate)), ACCENT, TINT))
+        flows.append(Spacer(1, 3))
+        flows.append(Paragraph("<b>Referenced everywhere else as:</b> " + _rich(_pg.canonical_sentence(gate)), _S["body"]))
         flows.append(Spacer(1, 4))
         unit = ("percentage points" if gate.get("change_kind") == "percentage_point"
                 else "% relative" if gate.get("change_kind") == "relative" else "")
@@ -955,15 +963,17 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
         for c in kpi_props:
             flows.append(Paragraph(
                 f"<b>Module KPI candidate ({_rich(str(name_of.get(c.get('scope')) or c.get('scope') or ''))}):</b> "
-                + _rich(str(c.get("text") or "")) + " — not printed as a target until you approve it.",
+                + _rich(str(c.get("text") or "")) + " — shown as a proposal; not operational until approved.",
                 _S["bullet"], bulletText="•"))
 
     flows.append(Paragraph(
         "Method rule this engagement was produced under: a figure may appear only when it is one "
-        "of your inputs above, or plain arithmetic on them with the computation shown; scenario "
-        "fractions must be explicitly labeled assumptions; everything else must be stated as a "
-        "mechanism, never a number. Each numerical claim was checked against the client inputs "
-        "quoted above and the calculations shown in this report before release.", _S["meta"]))
+        "of your inputs above, plain arithmetic on them with the computation shown, or a registered "
+        "proposal of ours (a threshold, target or duration) carrying the label "
+        "'(proposed — client approval required)'; scenario fractions are explicitly labeled "
+        "assumptions; everything else is stated as a mechanism, never a number. Monthly figures use "
+        "a 30-day operating month (annual ÷ 365 × 30). Each numerical claim was checked against the "
+        "client inputs quoted above and the calculations shown in this report before release.", _S["meta"]))
     return flows
 
 

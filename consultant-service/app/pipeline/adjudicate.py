@@ -574,8 +574,9 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 continue
         # R28 — a scenario fraction is a LABELED assumption of ours by design:
         # "not tied to client input" is its definition, not a defect
-        if registry and re.search(r"assumption|reduction", issue, re.IGNORECASE) and \
-                re.search(r"not (?:explicitly )?tied to|no client input|without client input|not a client input|unverified", issue, re.IGNORECASE):
+        if registry and re.search(r"assum|reduction|automation", issue, re.IGNORECASE) and \
+                re.search(r"not (?:explicitly |fully )?(?:tied to|attributed|derived)|no client input|without client input|"
+                          r"not a client input|unverified", issue, re.IGNORECASE):
             sa = [c for c in registry.get("claims") or [] if c.get("type") == "scenario_assumption"
                   and isinstance(c.get("value"), (int, float))]
             cited_fracs = [v for v in _numbers_in(issue) if 0 < v < 1]

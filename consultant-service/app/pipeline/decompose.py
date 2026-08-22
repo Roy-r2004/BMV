@@ -185,10 +185,28 @@ def _sanitize_financial_model(business_case: dict) -> None:
                 claims.append(vals[0])
         if isinstance(sc.get("impact"), str):
             sc["impact"] = timebasis.round_counts(sc["impact"])
-    pn = fm.get("payback_note")
-    if isinstance(pn, str) and pn:
-        fm["payback_note"], recs = timebasis.check_restatements(pn, claims)
-        _records += recs
+    # Payback is a Claim-backed sentence, never the model's: months = build
+    # cost / expected monthly HARD-DOLLAR savings, monthly = annual / 365 x 30,
+    # dollars only (inquiry volumes and released hours are not money); the
+    # build cost is quoted separately, so the figure cannot yet be computed.
+    expected = next((sc for sc in (fm.get("scenarios") or [])
+                     if isinstance(sc, dict) and sc.get("impact_verified")
+                     and str(sc.get("name") or "").lower().startswith("expected")), None)
+    exp_dollars = None
+    if expected is not None:
+        m_usd = re.search(r"\$\s?(\d[\d,]*(?:\.\d+)?)", str(expected.get("impact") or ""))
+        if m_usd:
+            exp_dollars = float(m_usd.group(1).replace(",", ""))
+    if exp_dollars:
+        monthly = exp_dollars / 365 * 30
+        fm["payback_note"] = (
+            f"Payback (months) = build cost ÷ ${monthly:,.0f} — the Expected scenario's hard-dollar savings of "
+            f"${exp_dollars:,.0f}/year ÷ 365 × 30. Only dollars count: inquiry volumes and released hours are not "
+            "added. The build cost is quoted separately, so payback cannot yet be calculated.")
+        fm["payback_monthly_hard_dollar"] = round(monthly, 2)
+    else:
+        fm["payback_note"] = ("Payback cannot yet be calculated: it is the build cost ÷ the Expected scenario's monthly "
+                              "hard-dollar savings (annual ÷ 365 × 30), and no verified dollar saving or build cost exists yet.")
     # every other business-case prose field is held to the same arithmetic,
     # against the FULL claim set (lines + verified scenario impacts): a
     # formula announces the figure it computes, and monthly restatements sit
@@ -213,8 +231,8 @@ def _sanitize_financial_model(business_case: dict) -> None:
         fm["restatements"] = _records
     # An impact component the assumption never promised is stated INTO the
     # assumption with the exact fraction it used — the figure already stands
-    # in the impact; the assumption must own it (run 47: 51,100 'where is my
-    # order' inquiries at 40% with no 40% promised for them).
+    # in the impact; the assumption must own it (a past run quantified a
+    # component at 40% with no 40% promised for it).
     from app.pipeline.structural import unpromised_components
 
     repairs = []
@@ -231,6 +249,22 @@ def _sanitize_financial_model(business_case: dict) -> None:
             repairs.append({"scenario": sc.get("name"), "added": clause.strip(), "for": u["value"]})
     if repairs:
         fm["assumption_repairs"] = repairs
+    # client-facing normalization of every business-case string: half-up
+    # whole dollars above $1,000, plain comparison words, no identifiers
+    from app.pipeline.registry import plain_language
+
+    for line in fm.get("lines") or []:
+        if isinstance(line, dict) and isinstance(line.get("annual"), str):
+            line["annual"] = plain_language(line["annual"])
+    for sc in fm.get("scenarios") or []:
+        if isinstance(sc, dict):
+            for key in ("assumption", "impact"):
+                if isinstance(sc.get(key), str):
+                    sc[key] = plain_language(sc[key])
+    if isinstance(bc_dict, dict):
+        for key in ("payback_logic", "cost_of_inaction"):
+            if isinstance(bc_dict.get(key), str):
+                bc_dict[key] = plain_language(bc_dict[key])
     # A scenario's arithmetic field is DERIVED from its verified components
     # (fraction x line = figure) — never the model's own, which run 47 wrote
     # as 127,750 x 0.20 beside an impact that said 51,100 (40%).

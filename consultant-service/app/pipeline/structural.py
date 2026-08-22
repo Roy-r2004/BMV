@@ -8,6 +8,7 @@ honestly — are checked here by code, before prose is generated (preflight)
 and again at audit time. Model quality may vary; structure may not.
 """
 
+import json
 import re
 
 _FRACTION = re.compile(r"\d[\d.]*\s*%|\b1 in \d+\b")
@@ -19,9 +20,8 @@ def scenario_component_map(scenario: dict, lines: list | None = None) -> dict:
     """How many impact mechanisms the assumption promises vs how many the
     impact delivers (a quantified figure or an explicit cannot-quantify) —
     and, when the financial lines are given, whether every quantified
-    component's SUBJECT is promised by the assumption (run 47: the
-    assumption promised failed attempts and COD inquiries, the impact
-    quantified 'where is my order' inquiries nobody promised)."""
+    component's SUBJECT is promised by the assumption (a past run promised
+    two mechanisms and quantified a third nobody promised)."""
     assumption = str(scenario.get("assumption") or "")
     impact = str(scenario.get("impact") or "")
     promised = len(_FRACTION.findall(assumption))
@@ -41,9 +41,9 @@ _GENERIC = {"annual", "total", "current", "inquiries", "inquiry", "costs", "cost
 
 def _subjects_of(item: str) -> tuple[str | None, list[str]]:
     """The subject a financial line is about: a quoted phrase when the item
-    carries one ('where is my order' — matched as a phrase), else its
-    distinctive content words (matched by 5-letter prefix, so 'attempts'
-    meets 're-attempt' and 'COD' meets 'COD')."""
+    carries one (matched as a phrase), else its distinctive content words
+    (matched by 5-letter prefix, so a plural meets its singular and an
+    acronym meets itself)."""
     q = re.search(r"['\"‘’“”]([^'\"‘’“”]{3,40})['\"‘’“”]", item or "")
     phrase = q.group(1).lower() if q else None
     words = [w for w in re.findall(r"[A-Za-z][A-Za-z-]{2,}", item or "")
@@ -327,6 +327,18 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
                         "fix": "describe the earlier module's interim rules-based behavior instead",
                     })
 
+    # a template placeholder in a spec is a skeleton defect, retried with feedback
+    _PLACEHOLDER = re.compile(r"\[[A-Z][A-Z_]{4,}\]|CLIENT_INPUT_OR_ARITHMET", re.IGNORECASE)
+    for m in mods:
+        blob = json.dumps({k: m.get(k) for k in ("spec", "tech", "purpose")})
+        hit = _PLACEHOLDER.search(blob)
+        if hit:
+            findings.append({
+                "severity": "high", "source": "structural", "where": f"modules.{m['id']}",
+                "issue": f"'{m.get('name')}' carries a template placeholder ('{hit.group(0)}') where a value or a labeled proposal belongs.",
+                "fix": "state the value as a labeled proposal '(proposed — client approval required)' or describe it in words — never a placeholder",
+            })
+
     # every module ships with acceptance checks the owner can verify — "to
     # be established later" is not an acceptance criterion (run 49)
     for m in mods:
@@ -343,8 +355,7 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
             })
 
     # two modules for one job: overlapping names AND overlapping purposes
-    # (run 47: 'Automated COD Settlement Inquiry Handler' beside 'COD
-    # Settlement Inquiry Bot', each claiming to answer settlement inquiries)
+    # (a past run split one inquiry-handling job into two near-identical modules)
     findings += module_overlap_findings(mods)
 
     # pilot-phase modules: honest names, no AI automation

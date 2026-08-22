@@ -21,6 +21,11 @@ class Settings:
     # Everything routes through OpenRouter — one key, one place cost is tracked.
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "").strip()
     ANALYSIS_MODEL: str = _env_or("ANALYSIS_MODEL", "google/gemini-2.5-flash")
+    # The Phase-1 pilot's lightweight tooling and the human role that runs it —
+    # generic names applied to every engagement (a pilot module is never a
+    # person and never depends on a later-phase module).
+    PILOT_TOOLING_NAME: str = _env_or("PILOT_TOOLING_NAME", "Pilot Review Queue")
+    PILOT_OPERATOR_ROLE: str = _env_or("PILOT_OPERATOR_ROLE", "Pilot Support Operator")
     # Bake-off (2026-08-10, dashboard-image-v1 prompt, same input): gemini-3-pro
     # rendered a crisp true-16:9 desktop screenshot at $0.14; gpt-5.4-image-2 was
     # close but square/softer at $0.25; gpt-5-image bled content off both edges

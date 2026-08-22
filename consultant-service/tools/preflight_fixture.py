@@ -30,7 +30,7 @@ def intended_skeleton(row) -> tuple[dict, list, dict]:
     gate.setdefault("numerator", "deliveries completed on the first attempt")
     gate.setdefault("denominator", "all delivery attempts in the pilot population")
     if not gate.get("geography"):
-        gate["geography"] = "Beirut Central District"
+        gate["geography"] = "the pilot zone (to be named by the client)"
     gate.setdefault("control_method", gate.get("control") or "orders outside the pilot zone")
     gate.setdefault("change_kind", "percentage_point")
     gate.setdefault("target_value", 5)
