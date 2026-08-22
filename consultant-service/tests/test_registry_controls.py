@@ -33,6 +33,8 @@ def client():
 
 
 def _seed(db, **overrides):
+    overrides.setdefault("document_owner", "Operations Manager (client)")
+    overrides.setdefault("document_approver", "Head of Operations (client)")
     row = Request(business_name="iCARRY Lebanon", business_description="delivery platform",
                   email="t@example.com", status="done", is_generating=False)
     for k, v in overrides.items():
@@ -67,6 +69,9 @@ GATE46 = {
 }
 GATE47 = {**GATE46, "numerator": "deliveries completed on the first attempt",
           "denominator": "all delivery attempts in the pilot population",
+          # run 52 law: the control is comparable eligible orders randomized 50/50,
+          # never orders outside the zone (run 46's shape, kept in GATE46 as the defect)
+          "control_method": "Eligible orders are randomized 50/50 between treatment and control",
           "change_kind": "percentage_point", "target_value": 5}
 
 # the three run-46 restatements of one gate
@@ -683,7 +688,7 @@ def test_gate_text_governs_a_contradicting_numeric_field_and_strings_are_clean()
     g = pg.normalize_gate(GATE47_RAW, claims)
     assert g["target_value"] == 5 and g["target_value_conflict"] is True
     assert "target_value contradicts the target text" in pg.gate_errors(g)
-    assert not g["control_method"].endswith(".") and "by your own figures" not in g["baseline"]
+    assert not g["control_method_stated"].endswith(".") and "by your own figures" not in g["baseline"]
     s = pg.canonical_sentence(g)
     full = pg.full_definition(g)
     assert "must exceed control by 5 percentage points" in s and "0.93" not in s and "0.93" not in full
@@ -732,7 +737,10 @@ def test_operations_layers_are_corrected_in_place_for_run47_shapes():
     by_name = {"organization": {"roles": [{"role": "COD Settlement Inquiry Bot", "type": "ai", "responsibilities": ["answers"],
                                            "decides_alone": "Null", "hands_off": "When a dispute is raised."}]}}
     canonicalize_layers(procedures, by_name, mods, reg, reg["pilot_gate"])
-    assert procedures[0]["phase"] == "future" and "re-phased" in procedures[0]["phase_note"]
+    # run 52 law: a pilot procedure stays in the pilot — its AI actor becomes the
+    # human operator and the AI module it named becomes the pilot tooling
+    assert procedures[0]["phase"] == "pilot" and procedures[0]["steps"][0]["actor"] == pg.PILOT_OPERATOR
+    assert "Delivery Incident Predictor" not in procedures[0]["steps"][0]["step"]
     assert procedures[1]["steps"][0]["actor"] == "Driver Clarification Assistant"
     assert by_name["organization"]["roles"][0]["decides_alone"].startswith("Does not decide autonomously")
     # an adverb inside a step is not present-execution language; the phase model agrees
@@ -908,7 +916,7 @@ def test_pilot_module_is_ai_free_by_construction_and_policy_pass_reaches_every_s
     reg2 = rg.build_registry(OPS, bc2, mods2)
     pilot = next(m for m in mods2 if m["pilot"])
     assert pilot["spec"]["ai"] is None and pilot["tech"]["ai_agent"] is None and pilot["ai_involvement"] is False
-    assert reg2["pilot_ai_removed"] == [pilot["id"]] and reg2["errors"] == []
+    assert reg2["pilot_ai_removed"] and {r["module"] for r in reg2["pilot_ai_removed"]} == {pilot["id"]} and reg2["errors"] == []
     other = copy.deepcopy(MODULES46)
     other[1]["tech"]["ai_agent"]["tools"] = [{"name": "t", "does": "shows the expected remittance date under the 2-day remittance policy"}]
     reg3 = rg.build_registry(OPS, {"financial_model": copy.deepcopy(FM46), "pilot_gate": copy.deepcopy(GATE47),
@@ -1306,7 +1314,8 @@ def test_run49_round_two_gate_reads_on_the_page_as_stored_and_business_case_pros
     s = pg.canonical_sentence(g)
     full = pg.full_definition(g)
     assert ">" not in full and "more than 2%" in full and "at least 5%" in full
-    assert "control group receiving" in g["control_method"] and "50% treatment, 50% control" in full
+    assert "control group receiving" in g["control_method_stated"] and "randomized 50/50" in full
+    assert g["control_method"] == pg.assignment_sentence(g)
     # what the renderer prints is exactly what is stored
     assert ep._strip_artifacts(s) == s and ep._strip_artifacts(full) == full
     assert pg.restatement_findings("The decision gate: " + s, g) == []

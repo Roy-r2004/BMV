@@ -29,6 +29,80 @@ _WEEK1 = re.compile(r"measure[d]? in week[- ]?(1|one)", re.IGNORECASE)
 _STOP = {"rate", "the", "and", "for", "per", "of", "with", "from", "that", "this"}
 
 
+# ── the canonical pilot DESIGN ────────────────────────────────────────────────
+# One assignment rule for every engagement: comparable eligible units are
+# randomized between treatment and control. A control drawn from other
+# clients, zones, periods or an alternating rule is not a control.
+_BAD_CONTROL = re.compile(
+    r"other (?:zones?|regions?|areas?|cities|districts?|branches?|clients?|business clients|customers|merchants|"
+    r"accounts?|teams?|drivers?|couriers?)|all other (?:orders|deliveries|customers)|not (?:from|in) the (?:selected|pilot|chosen)|"
+    r"different (?:zone|region|client|branch|city|period)|alternat\w+|every other (?:order|day|week)|predetermined|"
+    r"odd[- /]even|by day of (?:the )?week|historical (?:baseline|period|data)|the (?:previous|prior|last) (?:month|year|period|quarter)|"
+    r"before the pilot|pre-pilot period|outside (?:of )?(?:the )?(?:pilot |selected |chosen )?(?:zone|area|region|district|city|branch)|"
+    r"existing customer orders", re.IGNORECASE)
+_RANDOM = re.compile(r"random|lottery|coin[- ]flip|50/50|50-50", re.IGNORECASE)
+_DESIGN_TALK = re.compile(r"control group|control arm|treatment group|treatment and control|treatment vs\.? control|"
+                          r"serve as (?:the )?control|assigned to (?:treatment|control)", re.IGNORECASE)
+
+
+def assignment_sentence(g: dict | None) -> str:
+    """THE pilot design, rendered identically everywhere."""
+    ratio = (g or {}).get("control_ratio") or 0.5
+    t, c = int(round((1 - ratio) * 100)), int(round(ratio * 100))
+    return (f"Comparable eligible orders are randomized {t}/{c} between treatment and control — the control group "
+            "keeps today's process and is never drawn from another client, zone or period.")
+
+
+def design_errors(g: dict | None) -> list[str]:
+    """Why a stated control method is not the canonical design."""
+    cm = str((g or {}).get("control_method_stated") or (g or {}).get("control_method") or "")
+    errs = []
+    if _BAD_CONTROL.search(cm):
+        errs.append("the control group must be comparable eligible orders randomized between treatment and control — "
+                    "never other clients, zones, time periods or an alternating rule")
+    elif cm and not _RANDOM.search(cm) and (g or {}).get("control_ratio") is None:
+        errs.append("assignment must be randomized (state the random 50/50 split between treatment and control)")
+    return errs
+
+
+def design_findings(text: str, g: dict | None) -> list[dict]:
+    """Rendered-text check: any sentence that describes the control or the
+    assignment differently from the canonical design is a high finding."""
+    out = []
+    if not text or not g:
+        return out
+    flat = re.sub(r"\s+", " ", text)
+    canon = assignment_sentence(g)
+    for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•])|•", flat):
+        if canon in sentence:
+            continue
+        if _DESIGN_TALK.search(sentence) and _BAD_CONTROL.search(sentence):
+            out.append({"severity": "high", "source": "structural", "where": "pilot design",
+                        "issue": ("The pilot design is restated with a control that is not the canonical design "
+                                  f"(randomized comparable orders): \"{sentence.strip()[:180]}\""),
+                        "fix": "state the canonical assignment: " + assignment_sentence(g)})
+    return out
+
+
+def enforce_design(text: str, g: dict | None) -> tuple[str, list[dict]]:
+    """In a structured string (an SOP step, a checklist item) a sentence that
+    assigns treatment/control by anything other than randomization is
+    replaced by the canonical assignment sentence."""
+    records: list[dict] = []
+    if not text or not g:
+        return text, records
+    # a sentence ends at . ! ? followed by a capital — "e.g. odd/even" is not a boundary
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•])", text)
+    out = []
+    for s in parts:
+        if _DESIGN_TALK.search(s) and _BAD_CONTROL.search(s):
+            records.append({"original": s.strip()[:160], "replaced_with": assignment_sentence(g)})
+            out.append(assignment_sentence(g))
+        else:
+            out.append(s)
+    return " ".join(out), records
+
+
 def _strip_label(s: str) -> str:
     out = re.sub(r"\s*\(proposed[^)]*\)", "", s or "")
     out = re.sub(r"\s*\((?:by )?your own figures?\)|,?\s*by your own figures", "", out, flags=re.IGNORECASE)
@@ -74,7 +148,9 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
         pop = re.sub(r"\s{2,}", " ", pop).rstrip(" ,")
     g["population"] = _strip_label(pop) or None
     g["geography"] = _strip_label(geo) or None
-    g["control_method"] = _strip_label(str(raw.get("control_method") or raw.get("control") or "")) or None
+    stated = _strip_label(str(raw.get("control_method_stated") or raw.get("control_method") or raw.get("control") or "")) or None
+    g["control_method_stated"] = stated
+    g["control_method"] = stated
     # target — the labeled TEXT governs; a numeric field that contradicts it
     # (run 47: text "5 percentage-point rise", target_value 0.93 = the
     # resulting rate) is recorded as a conflict, never silently preferred
@@ -134,10 +210,18 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
     g["id"] = str(raw.get("id") or "PG-01")
     cm = g.get("control_method") or ""
     ratio = re.search(r"(\d{1,2})\s*%", cm)
-    g["control_ratio"] = (float(ratio.group(1)) / 100) if ratio else (0.5 if re.search(r"half|50/50|random", cm, re.IGNORECASE) else None)
+    g["control_ratio"] = (float(ratio.group(1)) / 100) if ratio else (0.5 if re.search(r"half|50/50|50-50|random", cm, re.IGNORECASE) else None)
     tm = re.search(r"(?:while )?(?:the )?other \d{1,2}\s*%\s*(?:receives?|gets?|is given)\s*([^.;]+)", cm, re.IGNORECASE)
     g["treatment"] = (tm.group(1).strip() if tm else
                       (str(raw.get("treatment") or "").strip() or "the pilot workflow"))
+    # the canonical DESIGN: a valid stated method renders as the one
+    # assignment sentence; an invalid one stays as stated so gate_errors()
+    # names it and the decomposition is retried
+    g["design_errors"] = design_errors(g)
+    if stated and not g["design_errors"]:
+        g["control_method"] = assignment_sentence(g)
+    g["assignment"] = assignment_sentence(g) if not g["design_errors"] else None
+    g["control"] = g["control_method"]  # the legacy key mirrors the rendered method
     g["target_vs_control"] = bool(g.get("control_method"))
     if g["target_vs_control"] and g.get("primary_metric"):
         g["comparison_metric"] = f"treatment {g['primary_metric']} minus control {g['primary_metric']}"
@@ -179,6 +263,7 @@ def gate_errors(g: dict) -> list[str]:
         errors.append("baseline must be a client figure or 'measure in week 1'")
     if not g.get("guardrails"):
         errors.append("missing guardrail")
+    errors += design_errors(g)
     return errors
 
 
@@ -241,8 +326,8 @@ def full_definition(g: dict | None) -> str:
     dur = f"{_fmt(g.get('duration_value'))}-{g.get('duration_unit') or 'week'}"
     metric = _lc(g.get("primary_metric")) or "the primary metric"
     ratio = g.get("control_ratio")
-    split = (f"{int(round((1 - ratio) * 100))}% treatment, {int(round(ratio * 100))}% control" if ratio else
-             (_lc(g.get("control_method")) or "a control group"))
+    split = (_lc(assignment_sentence(g)).rstrip(".") if (ratio or not g.get("design_errors")) and g.get("control_method")
+             else (_lc(g.get("control_method")) or "a control group"))
     definition = ""
     if g.get("numerator") and g.get("denominator"):
         definition = f" ({_lc(g['numerator'])}, divided by {_lc(g['denominator'])})"
@@ -271,7 +356,8 @@ def gate_claims(g: dict) -> list[dict]:
                                                                 "technical", "operations", "pilot_sop"]}
     claims = [{"id": "PG", "type": "pilot_gate", "value": g.get("target_value"),
                "unit": g.get("target_unit") or "", "time_basis": f"{_fmt(g.get('duration_value'))} {g.get('duration_unit') or ''}".strip(),
-               "text": canonical_sentence(g), "full_definition": full_definition(g), **base_claim}]
+               "text": canonical_sentence(g), "full_definition": full_definition(g),
+               "assignment": assignment_sentence(g), **base_claim}]
     if g.get("duration_value") is not None:
         claims.append({"id": "PG-duration", "type": "pilot_gate", "value": g["duration_value"],
                        "unit": g.get("duration_unit") or "week", "time_basis": "pilot", "text": f"{_fmt(g['duration_value'])} {g.get('duration_unit')}s",

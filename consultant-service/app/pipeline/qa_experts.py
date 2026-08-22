@@ -91,6 +91,14 @@ def machine_findings(req: Request, registry: dict | None, texts: dict[str, str] 
     out += _registry.policy_findings(texts, registry.get("claims") or [])
     out += _registry.ai_consistency_findings(req.technical_plan or "", modules)
     out += _registry.phase_name_findings(req.mvp_blueprint or "", modules)
+    # cross-volume laws: one pilot design, the authentication floor, URL-safe
+    # API paths, a rules-based pilot that depends on no module
+    for label, text in texts.items():
+        if gate:
+            out += [{**f, "where": f"{label}: {f['where']}"} for f in _pg.design_findings(text, gate)]
+        out += _registry.auth_text_findings(text, label)
+        out += [{**f, "where": f"{label}: {f['where']}"} for f in _registry.api_text_findings(text, registry.get("api_paths") or [])]
+    out += _registry.pilot_isolation_findings(modules, procedures)
     return out
 
 

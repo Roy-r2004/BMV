@@ -32,6 +32,10 @@ def client():
 
 
 def _seed(db, **overrides):
+    # a FINAL needs the client's document owner and approver — the fixture
+    # row carries them so release tests exercise the other gates
+    overrides.setdefault("document_owner", "Clinic Manager (client)")
+    overrides.setdefault("document_approver", "Practice Owner (client)")
     row = Request(
         business_name="Beacon Physiotherapy", business_description="clinic",
         email="t@example.com", status="done", is_generating=False,

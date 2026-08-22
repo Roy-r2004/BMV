@@ -90,7 +90,7 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "duration": "<proposed pilot length, labeled: '6 weeks (proposed — client approval required)'>",
       "population": "<which orders/customers enter the pilot — no geography here>",
       "geography": "<the one place the pilot runs: a named zone, branch or city>",
-      "control_method": "<how the control group is formed>",
+      "control_method": "<comparable eligible orders randomized 50/50 between treatment and control — never other clients, zones, time periods or an alternating rule>",
       "primary_metric": "<exactly ONE outcome metric, in their vocabulary>",
       "numerator": "<what is counted on top, e.g. 'deliveries completed on the first attempt'>",
       "denominator": "<what it is divided by, e.g. 'all delivery attempts in the pilot population'>",
@@ -110,6 +110,10 @@ PILOT GATE rules — absolute:
 - The pilot_gate is the ONLY source of pilot success criteria for the entire engagement. Exactly one primary metric, one baseline, one target. Never two competing thresholds for the same outcome; never conflate distinct measurements (pins captured ≠ deliveries confirmed).
 - Every numeric pilot parameter that is not an owner number carries "(proposed — client approval required)".
 - Every field above is required: numerator, denominator, geography and control_method are what make the metric measurable; a gate missing any of them is rejected before any document is written.
+- ONE PILOT DESIGN: the control group is formed by randomizing comparable eligible orders 50/50 between treatment and control inside the pilot population. A control made of other clients, other zones, a previous period or an alternating rule is rejected by the system.
+- The pilot module is rules-based and human-supervised: no AI agent, model, classifier or confidence score anywhere in its spec, and it depends on no other module (its "depends_on" is empty).
+- FINANCIAL UNITS: a line computed from hours is hours, never inquiries or dollars. Never state "hours released" from an inquiry-automation share — the share of staff hours spent on inquiries is a client input; until given, write "hours released: not yet calculable — needs <that share>" and list it in missing_inputs.
+- POLICY FACTS: a client-stated period keeps the event it counts from ("10 days after month-end" never becomes "10 days after delivery").
 
 MODULE METADATA rules — absolute:
 - Exactly ONE module is the subject of the Phase 1 pilot when a pilot gate exists: set its "pilot" to true, its "automation_level" to "manual" or "rules", and give it a client-facing NAME that says what it is — a manual or rules-based pilot (e.g. "<Workflow> Pilot"). A pilot module's name must never contain "AI", "Engine", "Predictive", "Predictor", "Scoring", "Smart" or "Automated"; a name that does is rewritten by the system, so write the honest one yourself.

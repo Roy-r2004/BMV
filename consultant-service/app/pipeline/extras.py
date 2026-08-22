@@ -71,21 +71,42 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
                 s = s.replace(n, _pg.PILOT_TOOLING)
         return s
 
+    pilot_module_names = {str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
+                          if isinstance(m, dict) and m.get("pilot")} | {"The pilot"}
+    design_records: list[dict] = []
+    ai_records: list[dict] = []
+
+    def _pilot_scrub(s, where: str):
+        # a pilot-phase step runs with today's tools, the pilot's rules and its
+        # human operator, on the canonical randomized design
+        if not isinstance(s, str):
+            return s
+        fixed = _pilot_tooling(s)
+        scrubbed = _registry.scrub_ai_logic(fixed, _pg.PILOT_OPERATOR)
+        if scrubbed != fixed:
+            ai_records.append({"where": where, "original": fixed[:160], "replaced_with": scrubbed[:160]})
+        fixed = scrubbed
+        fixed, recs = _pg.enforce_design(fixed, gate)
+        design_records.extend({"where": where, **r} for r in recs)
+        return fixed
+
     for p in procedures or []:
         if not isinstance(p, dict):
             continue
         for key in ("name", "trigger", "module"):
             p[key] = _fix(p.get(key))
-        if str(p.get("phase") or "").lower() == "pilot" and p.get("module") == "The pilot":
-            p["trigger"] = _pilot_tooling(p.get("trigger"))
+        if str(p.get("phase") or "").lower() == "pilot" and p.get("module") in pilot_module_names:
+            where = f"procedures: {p.get('name')}"
+            p["trigger"] = _pilot_scrub(p.get("trigger"), where)
             for st in p.get("steps") or []:
                 if isinstance(st, dict):
-                    st["step"] = _pilot_tooling(st.get("step"))
-                    if str(st.get("actor") or "").strip().lower() in ("ai", "the ai") or st.get("actor") in ai_names:
+                    st["step"] = _pilot_scrub(st.get("step"), where)
+                    if str(st.get("actor") or "").strip().lower() in ("ai", "the ai", "ai agent", "the ai agent") \
+                            or st.get("actor") in ai_names:
                         st["actor"] = _pg.PILOT_OPERATOR
             for ex in p.get("exceptions") or []:
                 if isinstance(ex, dict):
-                    ex["when"], ex["then"] = _pilot_tooling(ex.get("when")), _pilot_tooling(ex.get("then"))
+                    ex["when"], ex["then"] = _pilot_scrub(ex.get("when"), where), _pilot_scrub(ex.get("then"), where)
         for st in p.get("steps") or []:
             if isinstance(st, dict):
                 st["step"] = _fix(st.get("step"))
@@ -207,9 +228,14 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
                     s, more = _registry.threshold_pass(s, claims, source="risks.mitigation", module_id="risk", counter=counter)
                     new_claims += more
                 rk[key] = s
-    if registry is not None and new_claims:
-        registry.setdefault("claims", []).extend(new_claims)
-        registry["errors"] = _registry.validate_registry(registry)
+    if registry is not None:
+        if new_claims:
+            registry.setdefault("claims", []).extend(new_claims)
+            registry["errors"] = _registry.validate_registry(registry)
+        if design_records:
+            registry.setdefault("pilot_design_corrections", []).extend(design_records)
+        if ai_records:
+            registry.setdefault("pilot_ai_removed", []).extend(ai_records)
     return procedures
 
 

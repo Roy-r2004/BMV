@@ -25,6 +25,10 @@ class Request(Base):
     budget_range: Mapped[str | None] = mapped_column(String(100), nullable=True)
     timeline: Mapped[str | None] = mapped_column(String(100), nullable=True)
     whatsapp: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # document control for the operations manual — client-provided owner and
+    # approver (name and role); a FINAL manual requires both
+    document_owner: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    document_approver: Mapped[str | None] = mapped_column(String(200), nullable=True)
     # The owner's own site/profile — distinct from reference_url, which is a
     # tool they admire, not their own business. Optional; the research stage
     # fetches it before analysis when present.

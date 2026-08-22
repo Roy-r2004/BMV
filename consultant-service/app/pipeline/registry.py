@@ -227,6 +227,23 @@ def _infer_unit(tok: str, unit: str, context: str) -> tuple[str, str]:
     return u, basis
 
 
+# the EVENT a policy period counts from ("10 days after month-end") is part
+# of the fact — a document that keeps the number and moves the origin
+# ("10 days after order delivery") states a policy the client never gave
+_EVENT = re.compile(r"\b(?:after|from|following|since|post)\s+(?:the\s+)?([a-z][a-z\-]{2,}(?:\s+[a-z][a-z\-]{2,}){0,3}?)"
+                    r"(?=\s+(?:to|for|before|until)\b|\s*[?,.;:]|\s*$)", re.IGNORECASE)
+_POLICY_Q = re.compile(r"settle|remit|payout|pay out|disburse|invoice|billing|cycle", re.IGNORECASE)
+
+
+def event_origin(question: str, answer: str = "") -> str | None:
+    """'Days after month-end to fully settle COD?' -> 'after month-end'."""
+    for s in (answer or "", question or ""):
+        m = _EVENT.search(s)
+        if m:
+            return re.sub(r"\s+", " ", m.group(0).strip().lower())
+    return None
+
+
 def client_fact_claims(ops_numbers: list, free_texts: list[str]) -> list[dict]:
     claims = []
     n = 0
@@ -234,6 +251,7 @@ def client_fact_claims(ops_numbers: list, free_texts: list[str]) -> list[dict]:
         if not isinstance(pair, dict):
             continue
         q, a = str(pair.get("question") or ""), str(pair.get("answer") or "")
+        origin = event_origin(q, a) if _POLICY_Q.search(q) else None
         for tok, v, unit, s, e in _numbers(a):
             n += 1
             u, basis = _infer_unit(tok, unit, a[max(0, s - 30):e + 30] + " " + q)
@@ -241,7 +259,7 @@ def client_fact_claims(ops_numbers: list, free_texts: list[str]) -> list[dict]:
                 f"CF-{n:02d}", "client_fact", v, u, time_basis=basis,
                 provenance="client_input", approval="client_stated",
                 source=f"discovery: {q}", sections=["*"], text=a.strip(),
-                question=q))
+                question=q, **({"event": origin} if origin else {})))
     for t in free_texts:
         for tok, v, unit, s, e in _numbers(t or ""):
             n += 1
@@ -272,6 +290,8 @@ def derived_claims(fm: dict) -> list[dict]:
         if u != "USD" and re.search(r"\$|\busd\b", str(line.get("arithmetic") or ""), re.IGNORECASE) \
                 and re.search(r"cost|saving|revenue|fee|spend|loss", str(line.get("item") or ""), re.IGNORECASE):
             u = "USD"  # the figure lost its sign; its arithmetic and item say money
+        if line.get("unit"):
+            u = str(line["unit"])  # the unit the arithmetic itself declares (hours x weeks = hours)
         cid = f"DV-{i:02d}"
         claims.append(_claim(
             cid, "derived_value", v, u, time_basis="year", provenance="machine_computed",
@@ -427,9 +447,12 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
         m.setdefault("human_owner", None)
         rm["human_owner"] = m.get("human_owner")
         rm["dependencies"] = list(m.get("depends_on") or [])
-    # the Phase-1 pilot may not lean on any later-phase module: its strings
-    # name the lightweight Pilot Review Queue instead
-    later = [m["client_facing_name"] for m in mods if (m.get("phase_number") or 0) > 1]
+    # the Phase-1 pilot may not lean on ANY other module — later-phase or
+    # parallel workstream alike, none exists when the pilot runs: its strings
+    # name the lightweight pilot tooling instead
+    later = [m["client_facing_name"] for m in mods if not m.get("pilot")]
+    later += [str(m.get("original_name") or "") for m in mods if not m.get("pilot") and m.get("original_name")]
+    later = sorted({x for x in later if x}, key=len, reverse=True)
     pilot_mods = [m for m in mods if m.get("pilot")]
     if pilot_mods and later:
         removed: list[dict] = []
@@ -450,7 +473,7 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
             for key in ("purpose", "pain_point_addressed", "spec", "tech"):
                 if key in pm:
                     pm[key] = _detach(pm[key], key)
-            pruned = [d for d in (pm.get("depends_on") or []) if (by_id.get(d, {}).get("phase_number") or 0) > 1]
+            pruned = [d for d in (pm.get("depends_on") or []) if d in by_id and not by_id[d].get("pilot")]
             for d in pruned:
                 removed.append({"field": "depends_on", "later_phase_module": by_id[d]["client_facing_name"],
                                 "replaced_with": "(dependency removed)"})
@@ -499,6 +522,17 @@ def plain_language(text: str) -> str:
     (half-up; amounts under $1,000 keep their cents — '$1.80' is a client
     figure), word durations become digits so the label pass can see them."""
     out = text or ""
+    # code spans and URL paths are identifiers BY DESIGN: they are masked so
+    # no normalization below (de-snaking above all) can put a space in them
+    masks: dict[str, str] = {}
+
+    def _mask(m: re.Match) -> str:
+        key = f"\x00ID{len(masks)}\x00"
+        masks[key] = m.group(0)
+        return key
+
+    out = _CODE_SPAN.sub(_mask, out)
+    out = _URL_PATH.sub(_mask, out)
     # template placeholders first — before de-snaking can split them apart
     out = re.sub(r">?\[(?:CLIENT_INPUT|OWNER_INPUT|ARITHMETIC)[A-Z_]*\]%?", "an approved threshold", out)
     out = re.sub(r"\[[A-Z][A-Z_]{4,}\]", "an approved value", out)
@@ -513,7 +547,320 @@ def plain_language(text: str) -> str:
     out = _WORD_DURATION.sub(lambda m: f"{_WORD_TO_N[m.group(1).lower()]}-{m.group(2).lower()}{m.group(3)}", out)
     # never two approval labels back to back
     out = re.sub(r"(\(proposed — client approval required\))(?:[\s,;]*\(proposed — client approval required\))+", r"\1", out)
+    for key, original in masks.items():
+        out = out.replace(key, original)
     return out
+
+
+_CODE_SPAN = re.compile(r"`[^`\n]+`")
+_URL_PATH = re.compile(r"(?<![\w/.])/(?:api|webhooks?|v\d+|internal|public)/[A-Za-z0-9_{}\-./:]*|"
+                       r"(?<![\w/.])/(?:[A-Za-z0-9_{}\-.]+/){2,}[A-Za-z0-9_{}\-.]*")
+_API_PATH_OK = re.compile(r"^/[A-Za-z0-9/_\-{}.:]*$")
+
+
+def api_path_repair(modules: list) -> list[dict]:
+    """Every declared API path is a URL-safe slug: whitespace inside a path
+    or a {parameter} becomes a hyphen (recorded), so the identifier the
+    build team reads is the identifier the system serves."""
+    records = []
+    for m in modules or []:
+        tech = m.get("tech") if isinstance(m, dict) and isinstance(m.get("tech"), dict) else None
+        if not tech:
+            continue
+        for i, a in enumerate(tech.get("apis") or []):
+            if not isinstance(a, dict):
+                continue
+            name = str(a.get("name") or "").strip()
+            if not name.startswith("/") or _API_PATH_OK.match(name):
+                continue
+            fixed = re.sub(r"\s+", "-", name)
+            fixed = re.sub(r"\{([^}]*)\}", lambda mm: "{" + re.sub(r"[^A-Za-z0-9_]+", "_", mm.group(1).strip()) + "}", fixed)
+            fixed = re.sub(r"[^A-Za-z0-9/_\-{}.:]", "-", fixed)
+            if fixed != name:
+                records.append({"module": m.get("id"), "field": f"tech.apis[{i}].name", "original": name, "replaced_with": fixed})
+                a["name"] = fixed
+    return records
+
+
+def api_path_findings(modules: list) -> list[dict]:
+    out = []
+    for m in modules or []:
+        tech = m.get("tech") if isinstance(m, dict) and isinstance(m.get("tech"), dict) else None
+        for i, a in enumerate((tech or {}).get("apis") or []):
+            name = str(a.get("name") or "") if isinstance(a, dict) else ""
+            if name.startswith("/") and not _API_PATH_OK.match(name):
+                out.append({"severity": "high", "source": "structural", "where": f"modules.{m.get('id')}.tech.apis[{i}]",
+                            "issue": f"API path '{name}' is not a URL-safe slug (spaces or illegal characters).",
+                            "fix": "use lowercase words joined by hyphens or underscores, parameters in {braces}, never spaces"})
+    return out
+
+
+def api_paths(modules: list) -> list[str]:
+    return sorted({str(a.get("name")) for m in (modules or []) if isinstance(m, dict)
+                   for a in ((m.get("tech") or {}).get("apis") or []) if isinstance(a, dict)
+                   and str(a.get("name") or "").startswith("/")})
+
+
+def api_text_findings(text: str, paths: list[str]) -> list[dict]:
+    """Rendered-text check: a registered path printed with its underscores
+    turned into spaces, or any {parameter} carrying a space, is a defect."""
+    out = []
+    flat = re.sub(r"\s+", " ", text or "")
+    seen = set()
+    for p in paths or []:
+        spaced = p.replace("_", " ")
+        if spaced != p and spaced in flat and spaced not in seen:
+            seen.add(spaced)
+            out.append({"severity": "high", "source": "structural", "where": "technical identifiers",
+                        "issue": f"API path '{p}' is printed as '{spaced}' — an identifier with spaces is not a valid path.",
+                        "fix": "render API paths verbatim (code span), never through prose normalization"})
+    for m in re.finditer(r"/[A-Za-z0-9/_\-.]*\{[a-z]+(?: [a-z]+)+\}", flat):
+        if not any(m.group(0) in s for s in seen):
+            seen.add(m.group(0))
+            out.append({"severity": "high", "source": "structural", "where": "technical identifiers",
+                        "issue": f"API path parameter with a space: '{m.group(0)}'.",
+                        "fix": "parameters are single tokens in {braces}"})
+    return out
+
+
+# ── authentication floor for sensitive data over a messaging channel ─────────
+_SENSITIVE = re.compile(r"settlement|payout|remittance|balance|invoice|amount (?:owed|due)|financial (?:data|record|detail|information|status)|"
+                        r"payment (?:status|detail|schedule)|bank", re.IGNORECASE)
+_WEAK_AUTH = re.compile(r"(?:verif\w+|match\w*|check\w*|confirm\w*|validat\w+|authenticat\w+)[^.;]{0,40}?(?:whatsapp|phone|sender'?s?|caller)\s*(?:phone\s*)?number|"
+                        r"(?:whatsapp|phone)\s*number\s+(?:corresponds|matches|belongs|is (?:a )?known|is registered|is associated)|"
+                        r"known (?:whatsapp|phone) number|registered (?:whatsapp |phone )?number (?:match|check)|"
+                        r"based (?:solely |only )?on (?:the |their )?(?:whatsapp |phone )?number", re.IGNORECASE)
+_STRONG_AUTH = re.compile(r"one[- ]time (?:code|password|passcode|pin)|\bOTP\b|\bPIN\b|passcode|two[- ]factor|\b2FA\b|\bMFA\b|"
+                          r"signed[- ]in|sign[- ]in|log(?:ged)?[- ]in|login|authenticated (?:session|account|user)|magic link|"
+                          r"verified (?:account|identity) link|identity verification step", re.IGNORECASE)
+_CHANNEL = re.compile(r"whatsapp|sms|chat|messag|text message|telegram|messenger", re.IGNORECASE)
+AUTH_CLAUSE = ("Before any settlement or financial detail is shared, the requester completes a verification step "
+               "stronger than the sender's number — a one-time code to the registered contact or sign-in through "
+               "the client's existing account (proposed — client approval required).")
+
+
+def weak_auth_sentences(text: str) -> list[str]:
+    flat = re.sub(r"\s+", " ", text or "")
+    sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•])|•", flat)
+    out = []
+    for i, s in enumerate(sentences):
+        # the stronger step may be stated in the sentence that follows
+        context = s + " " + (sentences[i + 1] if i + 1 < len(sentences) else "")
+        if _SENSITIVE.search(s) and _WEAK_AUTH.search(s) and not _STRONG_AUTH.search(context):
+            out.append(s.strip())
+    return out
+
+
+def harden_auth_text(text: str) -> tuple[str, list[dict]]:
+    """A sentence that gates financial detail on a phone-number match alone
+    gets the canonical stronger step appended, in place."""
+    records = []
+    if not text:
+        return text, records
+    out = text
+    for s in weak_auth_sentences(text):
+        if s in out and AUTH_CLAUSE not in out[out.find(s): out.find(s) + len(s) + len(AUTH_CLAUSE) + 5]:
+            out = out.replace(s, s.rstrip() + " " + AUTH_CLAUSE, 1)
+            records.append({"original": s[:160], "appended": AUTH_CLAUSE})
+    return out, records
+
+
+def harden_auth(modules: list) -> list[dict]:
+    """Module level: every weak-auth string is hardened; a module that
+    exposes sensitive data over a messaging channel without any strong
+    method in its security bullets gets the canonical bullet."""
+    records = []
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+
+        def _walk(obj, path):
+            if isinstance(obj, str):
+                fixed, recs = harden_auth_text(obj)
+                for r in recs:
+                    records.append({"module": m.get("id"), "field": path, **r})
+                return fixed
+            if isinstance(obj, dict):
+                return {k: _walk(v, f"{path}.{k}") for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [_walk(v, f"{path}[{i}]") for i, v in enumerate(obj)]
+            return obj
+
+        for key in ("spec", "tech"):
+            if key in m:
+                m[key] = _walk(m[key], key)
+        tech = m.get("tech") if isinstance(m.get("tech"), dict) else None
+        blob = json.dumps({k: m.get(k) for k in ("spec", "tech", "purpose")})
+        if tech is not None and _SENSITIVE.search(blob) and _CHANNEL.search(blob):
+            sec = tech.get("security") if isinstance(tech.get("security"), list) else []
+            if not any(isinstance(s, str) and _STRONG_AUTH.search(s) for s in sec):
+                sec.append(AUTH_CLAUSE)
+                tech["security"] = sec
+                records.append({"module": m.get("id"), "field": "tech.security", "appended": AUTH_CLAUSE})
+    return records
+
+
+def auth_findings(modules: list) -> list[dict]:
+    out = []
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+        blob = json.dumps({k: m.get(k) for k in ("spec", "tech", "purpose")})
+        for s in weak_auth_sentences(" ".join(s for k in ("spec", "tech", "purpose") for s in _strings_in(m.get(k)))):
+            out.append({"severity": "high", "source": "structural", "where": f"modules.{m.get('id')}: authentication",
+                        "issue": f"Financial detail is gated on a phone-number match alone: \"{s[:160]}\"",
+                        "fix": "require a one-time code, PIN or sign-in before any settlement information is shared"})
+        tech = m.get("tech") if isinstance(m.get("tech"), dict) else None
+        if tech is not None and _SENSITIVE.search(blob) and _CHANNEL.search(blob):
+            sec = tech.get("security") if isinstance(tech.get("security"), list) else []
+            if not any(isinstance(s, str) and _STRONG_AUTH.search(s) for s in sec):
+                out.append({"severity": "high", "source": "structural", "where": f"modules.{m.get('id')}.tech.security",
+                            "issue": f"'{m.get('name')}' exposes settlement or financial information over a messaging channel "
+                                     "with no authentication stronger than the sender's number in its security bullets.",
+                            "fix": "add a one-time code / PIN / sign-in requirement before any financial detail is shared"})
+    return out
+
+
+def auth_text_findings(text: str, label: str = "") -> list[dict]:
+    return [{"severity": "high", "source": "structural", "where": f"{label}: authentication".strip(": "),
+             "issue": f"Financial detail is gated on a phone-number match alone: \"{s[:160]}\"",
+             "fix": "require a one-time code, PIN or sign-in before any settlement information is shared"}
+            for s in weak_auth_sentences(text)]
+
+
+def _strings_in(obj) -> list[str]:
+    if isinstance(obj, str):
+        return [obj]
+    if isinstance(obj, dict):
+        return [s for v in obj.values() for s in _strings_in(v)]
+    if isinstance(obj, list):
+        return [s for v in obj for s in _strings_in(v)]
+    return []
+
+
+# ── the Phase-1 pilot is rules-based and human-supervised ────────────────────
+_AI_LOGIC = re.compile(r"\b(?:the |an |our )?AI(?:[- ]agent| model| logic| classifier| assistant| module| rationale| confidence)?\b|"
+                       r"\bLLM\b|machine learning|\bNLP\b|\bML\b|classif(?:ier|ication)|intent (?:detection|extraction|classification)|"
+                       r"confidence score|model (?:training|inference)|natural language (?:understanding|processing)", re.IGNORECASE)
+_AI_FIELD = re.compile(r"(?:^|_)ai(?:_|$)|classification|confidence|llm|model_", re.IGNORECASE)
+
+
+def scrub_ai_logic(s: str, operator: str) -> str:
+    """An AI actor or AI logic in a pilot string becomes the pilot's human
+    operator or its rules — the string keeps its meaning as a manual step."""
+    if not isinstance(s, str) or not _AI_LOGIC.search(s):
+        return s
+    fixed = re.sub(r"\b(?:the |an |our )?AI[- ]agent\b", f"the {operator}", s, flags=re.IGNORECASE)
+    fixed = re.sub(r"\bby the AI\b", "by the pilot rules", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"\b(?:the |an |our )?AI(?: model| logic| classifier| assistant| module| rationale| confidence)?\b",
+                   "the pilot rules", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"\bLLM\b|machine learning|\bNLP\b|\bML\b|natural language (?:understanding|processing)",
+                   "rules-based handling", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"intent (?:detection|extraction|classification)|confidence score|model (?:training|inference)",
+                   "review by the " + operator, fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"classif(?:ier|ication)", "sorting by the pilot rules", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"\bthe the\b", "the", fixed)
+    return fixed
+
+
+def pilot_rules_only(modules: list, operator: str, tooling: str) -> list[dict]:
+    """Remove AI-agent logic from the pilot module's own specification:
+    build steps that implement AI logic are dropped, AI-labeled data fields
+    are dropped, and an AI actor in any remaining string becomes the pilot's
+    human operator or its rules. Every change is recorded."""
+    records = []
+    for m in modules or []:
+        if not (isinstance(m, dict) and m.get("pilot")):
+            continue
+        mid = m.get("id")
+        tech = m.get("tech") if isinstance(m.get("tech"), dict) else None
+        if tech:
+            kept = []
+            for i, step in enumerate(tech.get("build_sequence") or []):
+                if isinstance(step, str) and _AI_LOGIC.search(step):
+                    records.append({"module": mid, "field": f"tech.build_sequence[{i}]", "removed": step[:160]})
+                else:
+                    kept.append(step)
+            if "build_sequence" in tech:
+                tech["build_sequence"] = kept
+            for j, ent in enumerate(tech.get("data_model") or []):
+                if isinstance(ent, dict) and isinstance(ent.get("fields"), list):
+                    keep_f = [f for f in ent["fields"] if not (isinstance(f, str) and _AI_FIELD.search(f))]
+                    for f in ent["fields"]:
+                        if f not in keep_f:
+                            records.append({"module": mid, "field": f"tech.data_model[{j}].fields", "removed": str(f)})
+                    ent["fields"] = keep_f
+
+        def _rewrite(s: str, path: str) -> str:
+            fixed = scrub_ai_logic(s, operator)
+            if fixed != s:
+                records.append({"module": mid, "field": path, "original": s[:160], "replaced_with": fixed[:160]})
+            return fixed
+
+        def _walk(obj, path):
+            if isinstance(obj, str):
+                return _rewrite(obj, path)
+            if isinstance(obj, dict):
+                return {k: (_walk(v, f"{path}.{k}") if k not in ("id", "name", "entity") else v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [_walk(v, f"{path}[{i}]") for i, v in enumerate(obj)]
+            return obj
+
+        for key in ("purpose", "pain_point_addressed", "spec", "tech"):
+            if key in m:
+                m[key] = _walk(m[key], key)
+    return records
+
+
+def pilot_isolation_findings(modules: list, procedures: list | None = None) -> list[dict]:
+    """The pilot module and every pilot-phase procedure name no AI logic and
+    no other module — proven on the structures, not the prompt."""
+    out = []
+    mods = [m for m in (modules or []) if isinstance(m, dict)]
+    pilot = [m for m in mods if m.get("pilot")]
+    others = [str(m.get("client_facing_name") or m.get("name") or "") for m in mods if not m.get("pilot")]
+    others += [str(m.get("name") or "") for m in mods if not m.get("pilot")]
+    others = sorted({o for o in others if o}, key=len, reverse=True)
+    for pm in pilot:
+        for key in ("purpose", "pain_point_addressed", "spec", "tech"):
+            for s in _strings_in(pm.get(key)):
+                hit = _AI_LOGIC.search(s)
+                named = next((o for o in others if o in s), None)
+                if hit or named:
+                    out.append({"severity": "high", "source": "structural", "where": f"modules.{pm.get('id')}.{key}",
+                                "issue": (f"The pilot specification {'names AI logic (' + hit.group(0) + ')' if hit else ''}"
+                                          f"{' and ' if hit and named else ''}{'depends on ' + repr(named) if named else ''}: "
+                                          f"\"{s[:140]}\" — a Phase 1 pilot is rules-based, human-supervised and depends on no module."),
+                                "fix": "describe the rules and the human operator; move AI logic to the later module"})
+                    break
+    pilot_names = {str(m.get("client_facing_name") or m.get("name") or "") for m in pilot} | {"The pilot"}
+    for p in procedures or []:
+        if not isinstance(p, dict) or str(p.get("phase") or "").lower() != "pilot":
+            continue
+        if p.get("module") not in pilot_names:
+            continue
+        texts = [str(p.get("trigger") or "")] + [str(s.get("step") or "") + " " + str(s.get("actor") or "")
+                                                  for s in (p.get("steps") or []) if isinstance(s, dict)]
+        texts += [str(e.get("when") or "") + " " + str(e.get("then") or "") for e in (p.get("exceptions") or []) if isinstance(e, dict)]
+        for s in texts:
+            hit = _AI_LOGIC.search(s)
+            named = next((o for o in others if o in s), None)
+            if hit or named:
+                out.append({"severity": "high", "source": "structural", "where": f"procedures: {p.get('name')}",
+                            "issue": (f"A pilot procedure {'relies on AI logic (' + hit.group(0) + ')' if hit else ''}"
+                                      f"{' and ' if hit and named else ''}{'depends on ' + repr(named) if named else ''}: \"{s[:140]}\""),
+                            "fix": "run the step with today's tools and the pilot's human operator"})
+                break
+    return out
+
+
+def document_control(req) -> dict:
+    """The operations manual's owner and approver — client-provided intake
+    facts, never invented. Both are required for a FINAL manual."""
+    owner = str(getattr(req, "document_owner", None) or "").strip()
+    approver = str(getattr(req, "document_approver", None) or "").strip()
+    return {"owner": owner or None, "approver": approver or None, "complete": bool(owner and approver),
+            "source": "client intake (document_owner, document_approver)"}
 
 
 def resolve_module_ids(text: str, modules: list) -> str:
@@ -644,7 +991,8 @@ def threshold_pass(text: str, claims: list[dict], *, source: str, module_id: str
     # the canonical gate sentence (and its full definition) is opaque to
     # every other pass: its numbers are the gate's, already typed and labeled
     protected = [s for c in claims if c.get("type") == "pilot_gate"
-                 for s in (str(c.get("text") or ""), str(c.get("full_definition") or "")) if len(s) > 40]
+                 for s in (str(c.get("text") or ""), str(c.get("full_definition") or ""), str(c.get("assignment") or ""))
+                 if len(s) > 40]
     masks: dict[str, str] = {}
     out = plain_language(text)
     for i, sentence in enumerate(protected):
@@ -735,15 +1083,42 @@ _POLICY_PERIOD = re.compile(r"(\d+)\s*(?:-|\s)?(business |working |calendar )?(d
                             re.IGNORECASE)
 
 
+# "<n> days (your stated cycle) of order delivery" — the period with the event
+# it is counted from
+_PERIOD_ORIGIN = re.compile(
+    r"(\d+)\s*(?:-|\s)?days?\s*(?:\(your stated cycle\)\s*)?(?:of|after|from|following|post|since)\s+(?:the\s+)?"
+    r"([a-z][a-z\-]*(?:\s+[a-z][a-z\-]*){0,3}?)(?=[,.;:'\")]|\s+(?:policy|for|to|and|or|is|must|will|has|have)\b|\s*$)",
+    re.IGNORECASE)
+
+
+def _policy_day_claims(claims: list[dict]) -> list[dict]:
+    return [c for c in claims
+            if c.get("type") == "client_fact" and str(c.get("unit") or "").startswith("day")
+            and isinstance(c.get("value"), (int, float))
+            and re.search(r"settle|remit|payout|month-end", str(c.get("question") or c.get("source") or ""), re.IGNORECASE)]
+
+
+def _origin_words(origin: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]+", (origin or "").lower()) if len(w) > 2 and w not in ("the", "after", "from", "following", "since", "post")}
+
+
+def _origin_mismatch(stated: str, claim_origin: str) -> bool:
+    """'order delivery' against 'after month-end': no content word shared."""
+    want = _origin_words(claim_origin)
+    have = _origin_words(stated)
+    return bool(want) and not (want & have)
+
+
 def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
     """NO INVENTED POLICIES, deterministically: a sentence that states a
     settlement / remittance / payout period must state the client's own
-    period (a client fact in days) — any other period is a fabrication."""
+    period (a client fact in days) — any other period is a fabrication —
+    AND the client's own event origin ('after month-end'): the same number
+    counted from another event is a different policy."""
     out = []
-    client_days = {int(c["value"]) for c in claims
-                   if c.get("type") == "client_fact" and str(c.get("unit") or "").startswith("day")
-                   and isinstance(c.get("value"), (int, float))
-                   and re.search(r"settle|remit|payout|month-end", str(c.get("question") or c.get("source") or ""), re.IGNORECASE)}
+    day_claims = _policy_day_claims(claims)
+    client_days = {int(c["value"]) for c in day_claims}
+    origins = {int(c["value"]): c["event"] for c in day_claims if c.get("event")}
     if not client_days:
         return out
     for label, text in (texts or {}).items():
@@ -752,6 +1127,14 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
         for sentence in re.split(r"(?<=[.!?])\s+|•", flat):
             if not _POLICY_WORDS.search(sentence):
                 continue
+            for om in _PERIOD_ORIGIN.finditer(sentence):
+                n = int(om.group(1))
+                if n in origins and _origin_mismatch(om.group(2), origins[n]):
+                    out.append({"severity": "high", "source": "structural", "where": f"{label}: operational policy",
+                                "issue": (f"The client's {n}-day settlement period is counted from '{om.group(2).strip()}', "
+                                          f"but the client stated it as '{n} days {origins[n]}' — the event origin is part of "
+                                          f"the policy: \"{sentence.strip()[:160]}\""),
+                                "fix": f"state '{n} days {origins[n]} (your stated cycle)'"})
             for m in _POLICY_PERIOD.finditer(sentence):
                 if m.group(1) and int(m.group(1)) in client_days:
                     continue
@@ -792,13 +1175,23 @@ def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
     notes = []
     if not text:
         return text, notes
-    client_days = sorted({int(c["value"]) for c in claims
-                          if c.get("type") == "client_fact" and str(c.get("unit") or "").startswith("day")
-                          and isinstance(c.get("value"), (int, float))
-                          and re.search(r"settle|remit|payout|month-end", str(c.get("question") or c.get("source") or ""), re.IGNORECASE)})
+    day_claims = _policy_day_claims(claims)
+    client_days = sorted({int(c["value"]) for c in day_claims})
+    origins = {int(c["value"]): c["event"] for c in day_claims if c.get("event")}
     if not client_days:
         return text, notes
     out = text
+
+    # the client's number counted from the wrong event: the origin is restored
+    def _origin(m: re.Match) -> str:
+        n = int(m.group(1))
+        if n not in origins or not _origin_mismatch(m.group(2), origins[n]):
+            return m.group(0)
+        fixed = f"{n} days {origins[n]} (your stated cycle)"
+        notes.append(f"'{m.group(0)}' -> '{fixed}' (event origin restored)")
+        return fixed
+
+    out = _PERIOD_ORIGIN.sub(_origin, out)
     # an invented period hiding in an identifier ('remittance_due_in_2_days'
     # — the renderer prints it as words) is corrected in place
     def _snake(m: re.Match) -> str:
@@ -916,7 +1309,8 @@ def phase_name_findings(blueprint_md: str, modules: list) -> list[dict]:
 
 
 CORRECTION_KEYS = ("renames", "policy_corrections", "pilot_ai_removed", "placeholder_replacements",
-                   "forward_dependencies_removed", "derivations_shown", "null_values_replaced")
+                   "forward_dependencies_removed", "derivations_shown", "null_values_replaced",
+                   "identifier_corrections", "auth_hardening", "pilot_design_corrections", "unit_corrections")
 
 
 def corrections(reg: dict | None) -> dict:
@@ -1266,17 +1660,23 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
             spec = m.get("spec") if isinstance(m.get("spec"), dict) else None
             tech = m.get("tech") if isinstance(m.get("tech"), dict) else None
             if (spec and spec.get("ai")) or (tech and tech.get("ai_agent")):
-                pilot_ai_removed.append(m["id"])
+                pilot_ai_removed.append({"module": m["id"], "field": "spec.ai / tech.ai_agent", "removed": "AI component"})
                 if spec is not None:
                     spec["ai"] = None
                 if tech is not None:
                     tech["ai_agent"] = None
-                m["ai_involvement"] = False
-                m["automation_level"] = "rules" if m.get("automation_level") not in ("manual", "rules") else m["automation_level"]
-                for rm in reg_modules:
-                    if rm["id"] == m["id"]:
-                        rm["ai_involvement"] = False
-                        rm["automation_level"] = m["automation_level"]
+            m["ai_involvement"] = False
+            m["automation_level"] = "rules" if m.get("automation_level") not in ("manual", "rules") else m["automation_level"]
+            for rm in reg_modules:
+                if rm["id"] == m["id"]:
+                    rm["ai_involvement"] = False
+                    rm["automation_level"] = m["automation_level"]
+    # AI logic written INTO the pilot's build steps, fields and strings is
+    # removed too — the pilot is rules-based and human-supervised
+    pilot_ai_removed += pilot_rules_only(modules, _pg.PILOT_OPERATOR, _pg.PILOT_TOOLING)
+    # identifiers are URL-safe; financial detail needs more than a number match
+    identifier_corrections = api_path_repair(modules)
+    auth_hardening = harden_auth(modules)
     policy_notes = []
 
     def _policy_walk(obj, key=None):
@@ -1320,6 +1720,10 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         "forward_dependencies_removed": forward_removed,
         "null_values_replaced": counter.get("null_values_replaced") or [],
         "technical_identifiers": technical_identifiers(modules),
+        "api_paths": api_paths(modules),
+        "identifier_corrections": identifier_corrections,
+        "auth_hardening": auth_hardening,
+        "pilot_design": _pg.assignment_sentence(gate) if gate and not gate.get("design_errors") else None,
         "pilot_gate": gate,
         "pilot_gate_sentence": _pg.canonical_sentence(gate) if gate else "",
         "pilot_gate_definition": _pg.full_definition(gate) if gate else "",

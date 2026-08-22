@@ -225,11 +225,20 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     if kind == "blueprint":
         content = _align_cost_line(content, business_case)
     if registry:
-        # invented settlement/remittance periods in prose are corrected to the
-        # client's stated cycle exactly as they are in the specs
+        # invented settlement/remittance periods (and a moved event origin) in
+        # prose are corrected to the client's stated cycle exactly as they are
+        # in the specs; a restated pilot design becomes the canonical one; a
+        # phone-number-only gate on financial detail gets the stronger step
         lines = []
+        report["design_corrections"], report["auth_hardening"] = [], []
         for line in content.split("\n"):
             fixed, _ = _reg.policy_pass(line, registry.get("claims") or [])
+            if gate and not line.lstrip().startswith("|"):
+                fixed, recs = _pg.enforce_design(fixed, gate)
+                report["design_corrections"] += recs
+            if kind == "technical":
+                fixed, recs = _reg.harden_auth_text(fixed)
+                report["auth_hardening"] += recs
             lines.append(fixed)
         content = "\n".join(lines)
     if kind == "technical" and registry:

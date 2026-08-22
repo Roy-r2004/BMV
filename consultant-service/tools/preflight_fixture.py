@@ -31,7 +31,9 @@ def intended_skeleton(row) -> tuple[dict, list, dict]:
     gate.setdefault("denominator", "all delivery attempts in the pilot population")
     if not gate.get("geography"):
         gate["geography"] = "the pilot zone (to be named by the client)"
-    gate.setdefault("control_method", gate.get("control") or "orders outside the pilot zone")
+    # the intended skeleton carries the canonical design — run 46's zone-based
+    # control is the defect the fixture corrects
+    gate["control_method"] = "Eligible orders are randomized 50/50 between treatment and control"
     gate.setdefault("change_kind", "percentage_point")
     gate.setdefault("target_value", 5)
     gate.setdefault("guardrails", [gate.get("guardrail")] if gate.get("guardrail") else [])

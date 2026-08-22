@@ -175,6 +175,8 @@ def create_request(
     operating_stage: str | None = Form(None),
     engagement_type: str | None = Form(None),
     ops_numbers: str | None = Form(None),
+    document_owner: str | None = Form(None),
+    document_approver: str | None = Form(None),
     authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
@@ -213,6 +215,8 @@ def create_request(
         operating_stage=operating_stage if operating_stage in _ALLOWED_STAGES else None,
         engagement_type=engagement_type if engagement_type in _ALLOWED_ENGAGEMENTS else None,
         ops_numbers_json=_sanitize_ops_numbers(ops_numbers),
+        document_owner=(document_owner or "").strip()[:200] or None,
+        document_approver=(document_approver or "").strip()[:200] or None,
         owner_email=user["email"],
         public_id=secrets.token_urlsafe(9),
         status="new",

@@ -13,7 +13,7 @@ import re
 
 _FRACTION = re.compile(r"\d[\d.]*\s*%|\b1 in \d+\b")
 _QUANT = re.compile(r"\d[\d,]*(?:\.\d+)?")
-_CANNOT = re.compile(r"cannot yet quantify|not yet monetized|needs your|pending your", re.IGNORECASE)
+_CANNOT = re.compile(r"cannot yet quantify|not yet monetized|not yet calculable|needs your|pending your", re.IGNORECASE)
 
 
 def scenario_component_map(scenario: dict, lines: list | None = None) -> dict:
@@ -375,6 +375,46 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
                 "issue": f"Pilot-phase module '{m.get('name')}' is declared AI-automated — a pilot runs without AI.",
                 "fix": "set automation_level to manual or rules for the pilot module",
             })
+
+    # the pilot is rules-based, human-supervised and depends on no module;
+    # financial detail needs more than a number match; API paths are slugs
+    from app.pipeline.registry import api_path_findings, auth_findings, pilot_isolation_findings
+
+    findings += pilot_isolation_findings(mods)
+    findings += auth_findings(mods)
+    findings += api_path_findings(mods)
+
+    # a scenario that "releases" hours by applying an inquiry share to an
+    # hours pool asserts a client fact the client never gave
+    from app.pipeline.decompose import _numbers_in, line_unit
+
+    claims = (registry or {}).get("claims") or []
+    share_given = any(c.get("type") == "client_fact" and str(c.get("unit")) == "%"
+                      and re.search(r"hour|time", str(c.get("question") or ""), re.IGNORECASE)
+                      and re.search(r"share|inquir|handling|spent on", str(c.get("question") or ""), re.IGNORECASE)
+                      for c in claims)
+    if isinstance(fm, dict) and not share_given:
+        hour_bases = [(_numbers_in(str(l.get("annual") or ""))[0], str(l.get("item") or ""))
+                      for l in (fm.get("lines") or []) if isinstance(l, dict)
+                      and _numbers_in(str(l.get("annual") or "")) and str(l.get("unit") or line_unit(l)) == "hours"]
+        for sc in fm.get("scenarios") or []:
+            if not isinstance(sc, dict):
+                continue
+            fracs = [v for v in _numbers_in(str(sc.get("assumption") or "")) if 0 < v < 1]
+            for v in _numbers_in(str(sc.get("impact") or "")):
+                if v <= 1:
+                    continue
+                hit = next((item for f in fracs for base, item in hour_bases
+                            if base and abs(base * f - v) / max(v, 1e-9) <= 0.005), None)
+                if hit:
+                    findings.append({
+                        "severity": "high", "source": "structural",
+                        "where": f"financial_model.scenarios.{sc.get('name')}",
+                        "issue": (f"'{v:,.0f}' hours released is an inquiry share applied to the hours line '{hit}' — "
+                                  "the share of those hours spent on inquiries is a client input that was never given."),
+                        "fix": "state 'hours released: not yet calculable — needs <the client's share>' and add it to missing_inputs",
+                    })
+                    break
 
     if registry:
         for err in validate_registry(registry):

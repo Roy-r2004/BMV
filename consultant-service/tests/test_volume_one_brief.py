@@ -103,7 +103,7 @@ def test_pg01_is_one_object_compared_with_control_and_identical_everywhere():
     assert short == ("PG-01: treatment first-attempt delivery success must exceed control by 10 percentage points after six weeks; "
                      "guardrails apply. Proposed — client approval required.")
     full = pg.full_definition(g)
-    assert "50% treatment, 50% control" in full and "divided by eligible deliveries assigned to each group" in full
+    assert "randomized 50/50 between treatment and control" in full and "divided by eligible deliveries assigned to each group" in full
     assert "the control group, not a baseline, is the comparison" in full and "week-one baseline" not in short
     # every restatement site receives the SAME short reference
     text = "Decision: [[PILOT_GATE]]\nKPI: [[PILOT_GATE]]\nSOP: Refer to [[PILOT_GATE]]"

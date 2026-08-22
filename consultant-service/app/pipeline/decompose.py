@@ -57,7 +57,95 @@ def _is_money_line(line: dict) -> bool:
                 or re.search(r"cost|saving|revenue|fee|spend|loss", str(line.get("item") or ""), re.IGNORECASE))
 
 
-def _sanitize_financial_model(business_case: dict) -> None:
+_UNIT_MAP = (("hour", "hours"), ("inquir", "inquiries"), ("deliver", "deliveries"), ("order", "orders"),
+             ("message", "messages"), ("call", "calls"), ("attempt", "attempts"), ("ticket", "tickets"),
+             ("visit", "visits"), ("staff", "staff"), ("client", "clients"), ("customer", "customers"))
+_FIRST_OPERAND = re.compile(r"^\s*(\$)?\s*\d[\d,]*(?:\.\d+)?\s*(%|[A-Za-z][A-Za-z-]*)?")
+
+
+def line_unit(line: dict) -> str:
+    """The unit a financial line's figure carries — declared by its own
+    arithmetic ('45 hours/week * 52 weeks/year' is hours, whatever the item
+    mentions), money when a currency sign appears, else the item's head noun."""
+    arith = str(line.get("arithmetic") or "")
+    if "$" in arith or "$" in str(line.get("annual") or "") or re.search(r"\busd\b", arith, re.IGNORECASE):
+        return "USD"
+    m = _FIRST_OPERAND.match(arith)
+    word = (m.group(2) or "").lower() if m else ""
+    if word and word != "%":
+        for h, u in _UNIT_MAP:
+            if word.startswith(h):
+                return u
+    item = str(line.get("item") or "").lower()
+    head = re.split(r"\b(?:on|for|of|per|spent|handling|from)\b", item, maxsplit=1)[0]
+    for h, u in _UNIT_MAP:
+        if h in head:
+            return u
+    for h, u in _UNIT_MAP:
+        if h in item:
+            return u
+    return "count"
+
+
+_CANNOT_CALC = "not yet calculable"
+
+
+def unit_provenance(fm: dict, claims: list[dict] | None = None) -> list[dict]:
+    """A scenario may apply an 'automates X% of inquiries' share to an
+    INQUIRY line; applying it to an HOURS pool asserts that the same share of
+    every hour is inquiry handling — a fact only the client can give. Without
+    a client-stated share, the hours component is replaced by an explicit
+    cannot-calculate note and the input is added to missing_inputs."""
+    records = []
+    if not isinstance(fm, dict):
+        return records
+    lines = [l for l in (fm.get("lines") or []) if isinstance(l, dict)]
+    hour_lines = []
+    for l in lines:
+        nums = _numbers_in(str(l.get("annual") or ""))
+        if nums and str(l.get("unit") or line_unit(l)) == "hours":
+            hour_lines.append((nums[0], str(l.get("item") or "")))
+    if not hour_lines:
+        return records
+    share_given = any(c.get("type") == "client_fact" and str(c.get("unit")) == "%"
+                      and re.search(r"hour|time", str(c.get("question") or ""), re.IGNORECASE)
+                      and re.search(r"share|inquir|handling|spent on", str(c.get("question") or ""), re.IGNORECASE)
+                      for c in (claims or []))
+    if share_given:
+        return records
+    for sc in fm.get("scenarios") or []:
+        if not isinstance(sc, dict):
+            continue
+        assumption = str(sc.get("assumption") or "")
+        impact = str(sc.get("impact") or "")
+        fracs = [v for v in _numbers_in(assumption) if 0 < v < 1]
+        for tok in re.findall(r"\d[\d,]*(?:\.\d+)?", impact):
+            v = float(tok.replace(",", ""))
+            hit = next(((base, item) for f in fracs for base, item in hour_lines
+                        if base and abs(base * f - v) / max(v, 1e-9) <= 0.005), None)
+            if not hit:
+                continue
+            base, item = hit
+            # the clause carrying the figure: a parenthetical, else the comma/plus-delimited part
+            clause = re.search(r"\(?[^()+,;]*\b" + re.escape(tok) + r"\b[^()+,;]*\)?", impact)
+            if not clause:
+                continue
+            original = clause.group(0)
+            note = (f"(hours released: {_CANNOT_CALC} — needs your share of the {base:,.0f} hours spent on "
+                    "inquiries or handling time)")
+            impact = impact.replace(original, note, 1)
+            records.append({"scenario": sc.get("name"), "original": original.strip(), "replaced_with": note,
+                            "base_line": item, "base_unit": "hours"})
+        if impact != str(sc.get("impact") or ""):
+            sc["impact"] = impact
+            sc["arithmetic_note"] = "hours released not computed: the inquiry share of those hours is a client input"
+        needed = "the share of those staff hours spent on inquiries or handling time (to quantify hours released)"
+        if records and needed not in (fm.get("missing_inputs") or []):
+            fm.setdefault("missing_inputs", []).append(needed)
+    return records
+
+
+def _sanitize_financial_model(business_case: dict, claims: list[dict] | None = None) -> None:
     bc_dict = business_case if isinstance(business_case, dict) else {}
     """Deterministic arithmetic check on the financial model's annualized
     lines: when a line's arithmetic is a plain product of its numbers, the
@@ -104,6 +192,14 @@ def _sanitize_financial_model(business_case: dict) -> None:
             line["arithmetic_verified"] = True
         else:
             line["annual"] = ""
+    # every line carries the unit its own arithmetic declares
+    for line in fm.get("lines") or []:
+        if isinstance(line, dict):
+            line["unit"] = line_unit(line)
+    # hours are never "released" from an inquiry share the client did not give
+    unit_records = unit_provenance(fm, claims)
+    if unit_records:
+        fm["unit_corrections"] = unit_records
 
     # Scenario impacts must compute from the SAME canonical bases as the
     # lines — a scenario built on a drifted base ($71,064 where the line

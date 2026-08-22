@@ -452,6 +452,11 @@ def release_status(req: Request) -> dict:
     if hits:
         reasons.append("client-unsafe artifacts: " + ", ".join(hits))
     reasons += registry_reasons(req, corpus_parts)
+    # a FINAL operations manual has an assigned owner and approver — client
+    # intake facts, never invented
+    dc = _reg.document_control(req)
+    if not dc["complete"]:
+        reasons.append("operations manual has no assigned owner/approver (client intake: document_owner, document_approver)")
     return {"status": "draft" if reasons else "final", "reasons": reasons}
 
 
@@ -485,6 +490,24 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
                      for h in _reg.identifier_artifacts(part, ids, reg.get("technical_identifiers"))})
     if idhits:
         reasons.append("internal identifiers in client-facing text: " + ", ".join(idhits[:6]))
+    # cross-volume laws proven on the text: one pilot design, an
+    # authentication floor for financial detail, URL-safe API paths, a
+    # rules-based pilot, the client's own policy origin
+    if gate:
+        n = sum(len(_pg.design_findings(t, gate)) for t in texts.values())
+        if n:
+            reasons.append(f"{n} pilot-design restatement(s) that are not the canonical randomized design")
+    n = sum(len(_reg.auth_text_findings(t)) for t in texts.values())
+    if n:
+        reasons.append(f"{n} sentence(s) gate financial detail on a phone-number match alone")
+    n = sum(len(_reg.api_text_findings(t, reg.get("api_paths") or [])) for t in texts.values())
+    if n:
+        reasons.append(f"{n} API path(s) rendered with spaces")
+    modules = _loads(getattr(req, "modules_json", None), None) or []
+    procedures = (_loads(getattr(req, "procedures_json", None), None) or {}).get("procedures") or []
+    n = len(_reg.pilot_isolation_findings(modules, procedures))
+    if n:
+        reasons.append(f"{n} pilot specification(s)/procedure(s) depend on AI logic or another module")
     annuals = [c["value"] for c in reg.get("claims") or []
                if c.get("type") == "derived_value" and c.get("unit") == "USD"
                and isinstance(c.get("value"), (int, float))]
@@ -767,12 +790,16 @@ _UNIT_HINTS = (("inquir", "inquiries"), ("hour", "hours"), ("deliver", "deliveri
                ("attempt", "attempts"))
 
 
-def _quantity(v, context: str = "") -> str:
-    """Format a computed figure by its UNIT, inferred from its own label and
-    arithmetic. A count of inquiries or a number of hours must never wear a
-    currency sign — '$127,750 inquiries' was a released defect."""
+def _quantity(v, context: str = "", unit: str | None = None) -> str:
+    """Format a computed figure by its UNIT — the one the line's own
+    arithmetic declares when the sanitizer recorded it, else inferred from
+    its label and arithmetic. A count of inquiries or a number of hours must
+    never wear a currency sign — '$127,750 inquiries' was a released defect;
+    '2,340 inquiries' for 45 hours x 52 weeks was another."""
     if not isinstance(v, (int, float)) or isinstance(v, bool):
         return str(v or "")
+    if unit:
+        return f"${v:,.0f}" if unit == "USD" else (f"{v:,.0f} {unit}" if unit != "count" else f"{v:,.0f}")
     ctx = (context or "").lower()
     if _CURRENCY_HINT.search(ctx):
         return f"${v:,.0f}"
@@ -870,7 +897,8 @@ def _financial_model_flowables(business_case: dict) -> list:
             item = _rich(str(l.get("item") or ""))
             arith = _rich(str(l.get("arithmetic") or ""))
             annual = _rich(_quantity(l.get("annual"),
-                                     str(l.get("arithmetic") or "") + " " + str(l.get("item") or "")))
+                                     str(l.get("arithmetic") or "") + " " + str(l.get("item") or ""),
+                                     unit=l.get("unit")))
             # a figure may only print behind its shown computation
             text = f"<b>{item}</b>" + (f" — {arith}" if arith else "")
             if arith and annual:
@@ -1277,17 +1305,27 @@ def _checklists_flowables(checklists_data: dict | None) -> list:
 def _doc_control_flowables(req: Request) -> list:
     """Document control for the operations volume — the block a real
     manual opens with, from the run's own records (never invented)."""
+    from app.pipeline import registry as _reg
+
     status = release_status(req)["status"].upper()
-    owner = (settings.ENGAGEMENT_LEAD or "").strip() or "Unassigned — set before controlled distribution"
+    dc = _reg.document_control(req)
+    owner = dc["owner"] or "Unassigned — required before FINAL (client intake: document owner)"
+    approver = dc["approver"] or "Unassigned — required before FINAL (client intake: document approver)"
     date = datetime.utcnow().strftime("%B %d, %Y")
     flows = [Paragraph("Document control", _S["h2toc"])]
-    for label, value in (
+    rows = [
         ("Version", f"Engagement run {req.id} · generated {date}"),
         ("Status", status),
         ("Owner", owner),
+        ("Approver", approver),
+    ]
+    if (settings.ENGAGEMENT_LEAD or "").strip():
+        rows.append(("Prepared by", settings.ENGAGEMENT_LEAD.strip()))
+    rows += [
         ("Review", "A regenerated engagement supersedes this copy; review at each phase gate."),
         ("Copies", "Uncontrolled when printed."),
-    ):
+    ]
+    for label, value in rows:
         flows.append(Paragraph(f"<b>{label}:</b> " + _rich(value), _S["meta"]))
     flows.append(Spacer(1, 6))
     return flows
