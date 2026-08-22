@@ -33,10 +33,15 @@ def client():
 
 
 def _seed(db, **overrides):
+    from tests._integrity_stub import stamp_clean
+
+    stamp = overrides.pop("integrity_stamp", True)
     row = Request(business_name="iCARRY Lebanon", business_description="delivery platform",
                   email="t@example.com", status="done", is_generating=False)
     for k, v in overrides.items():
         setattr(row, k, v)
+    if stamp:
+        stamp_clean(row)  # fixture rows never ran the pipeline
     db.add(row)
     db.commit()
     db.refresh(row)

@@ -114,6 +114,13 @@ def _run_inner(db: Session, request_id: int) -> None:
     emit(db, request_id, "quality", "Expert auditors reviewing your documents...", 61)
     qa_experts.review_quality(db, request_id)
 
+    # the integrity layer: every engagement's structured content and prose
+    # are validated and corrected against the registry before rendering —
+    # the release gate refuses FINAL without its clean, current report
+    from app.pipeline import integrity
+
+    integrity.enforce(db, request_id)
+
     emit(db, request_id, "directing", "Designing your product screens...", 62)
     archetype_id, specs = ui_spec.build_ui_specs(db, request_id, consult_result, plan_result)
 

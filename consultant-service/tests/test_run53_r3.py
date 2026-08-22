@@ -41,8 +41,11 @@ def test_a_client_deadline_is_never_reused_as_a_monitoring_cadence():
 def test_release_states_and_the_bmv_statement():
     from app.pipeline import export_pdf as ep
 
+    from tests._integrity_stub import stamp_clean
+
     row = Request(id=9401, business_name="x", status="done", is_failed=False, mvp_blueprint="doc", technical_plan="doc",
                   qa_report_json=json.dumps({"checks": [], "findings": []}))
+    stamp_clean(row)
     assert ep.release_status(row)["status"] == "final"
     cover = " ".join(getattr(f, "text", "") for f in ep._cover("blueprint", "The Blueprint", "Volume I", row))
     assert "FINAL — CONSULTANCY DELIVERABLE" in cover and ep.BMV_STATEMENT in cover and "DRAFT" not in cover

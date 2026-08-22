@@ -481,6 +481,15 @@ def release_status(req: Request) -> dict:
     if hits:
         reasons.append("client-unsafe artifacts: " + ", ".join(hits))
     reasons += registry_reasons(req, corpus_parts)
+    # the integrity layer must have run on THIS content and found nothing
+    from app.pipeline import integrity as _integrity
+
+    if getattr(req, "mvp_blueprint", None) or getattr(req, "technical_plan", None):
+        rep = _integrity.current_report(req)
+        if rep is None:
+            reasons.append("integrity layer has not run on the current content")
+        elif rep.get("findings"):
+            reasons.append(f"integrity layer: {len(rep['findings'])} finding(s)")
     # client governance is the optional LATER state: a consultancy deliverable
     # is final on its quality checks alone; CLIENT APPROVED needs the client's
     # own owner and approver (intake facts, never invented)
@@ -1100,9 +1109,13 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
                 _S["bullet"], bulletText="•"))
         name_of = {m.get("id"): m.get("client_facing_name") for m in reg.get("modules") or []}
         for c in kpi_props:
+            text = str(c.get("text") or "")
+            # a '%' claim value is a fraction: it prints as a percentage
+            if c.get("unit") == "%" and isinstance(c.get("value"), (int, float)) and 0 < c["value"] <= 1:
+                text = re.sub(r"\b0?\.\d+\s*%", f"{c['value']:.0%}", text)
             flows.append(Paragraph(
                 f"<b>Module KPI candidate ({_rich(str(name_of.get(c.get('scope')) or c.get('scope') or ''))}):</b> "
-                + _rich(str(c.get("text") or "")) + " — shown as a proposal; not operational until approved.",
+                + _rich(text) + " — shown as a proposal; not operational until approved.",
                 _S["bullet"], bulletText="•"))
 
     flows.append(Paragraph(
@@ -1349,11 +1362,17 @@ def _checklists_flowables(checklists_data: dict | None) -> list:
         return []
     flows = _h1("Forms & checklists")
     flows.append(Paragraph(
-        "The artifacts your team holds in their hands — print them, laminate them, use them from day one.",
+        "The artifacts your team holds in their hands — print them, laminate them. A checklist tagged PILOT applies "
+        "from day one; one tagged FUTURE applies once the modules it names are built.",
         _S["meta"],
     ))
     for c in checklists:
         flows.append(Paragraph(_rich(c.get("name") or ""), _S["h2toc"]))
+        phase = str(c.get("phase") or "").lower()
+        if phase in ("pilot", "future", "current"):
+            flows.append(Paragraph(f"<b>{phase.upper()}</b> — " + _rich(c.get("phase_note") or
+                                   {"pilot": "runs during the pilot, with today's tools", "future": "usable once its modules are built",
+                                    "current": "runs today"}[phase]), _S["meta"]))
         if c.get("when"):
             flows.append(Paragraph("<b>When:</b> " + _rich(c["when"]), _S["body"]))
         for item in c.get("items") or []:

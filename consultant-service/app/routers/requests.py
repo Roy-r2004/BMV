@@ -587,7 +587,12 @@ def review_save_docs(
     if technical_plan and technical_plan.strip():
         req.technical_plan = technical_plan
     db.commit()
-    return {"id": req.id, "saved": True}
+    # an edited document goes back through the integrity layer: its report is
+    # bound to the content hash, so the release gate sees the edit either way
+    from app.pipeline import integrity
+
+    report = integrity.enforce(db, request_id)
+    return {"id": req.id, "saved": True, "integrity_clean": bool(report.get("clean")), "integrity_findings": len(report.get("findings") or [])}
 
 
 @router.get("/review-queue")

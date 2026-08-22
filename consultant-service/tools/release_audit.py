@@ -158,9 +158,15 @@ def cumulative_corrections(rev_dir: str | None) -> dict:
 
 
 def _registry_blockers(row, texts: dict[str, str]) -> list[str]:
-    from app.pipeline import export_pdf
+    from app.pipeline import export_pdf, integrity
 
-    return export_pdf.registry_reasons(row, texts=texts)
+    reasons = export_pdf.registry_reasons(row, texts=texts)
+    # the integrity layer's text laws on the EXACT rendered text
+    rendered = integrity.validate_rendered(row, texts)
+    if rendered:
+        kinds = sorted({f.get("kind", "finding") for f in rendered})
+        reasons.append(f"integrity layer on the rendered text: {len(rendered)} finding(s) ({', '.join(kinds)})")
+    return reasons
 
 
 def audit_run(row, out_dir: str | None = None) -> dict:

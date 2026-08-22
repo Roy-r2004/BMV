@@ -162,8 +162,10 @@ def _matches(value: float, verified: dict[float, str]) -> str | None:
 def _label_check(fragment: str, corpus: str) -> tuple[bool | None, str]:
     """(all labeled?, evidence). None when the fragment isn't found."""
     nums = [m.group(0) for m in _NUM_RE.finditer(fragment) if any(c.isdigit() for c in m.group(0))]
-    frag = re.sub(r"\s+", " ", fragment.strip())
-    corpus = re.sub(r"\s+", " ", corpus)
+    # the label has one form on the page; the auditor may quote a variant
+    _one_label = re.compile(r"\(proposed\s*[-–—]\s*client approval required\)")
+    frag = _one_label.sub("(proposed — client approval required)", re.sub(r"\s+", " ", fragment.strip()))
+    corpus = _one_label.sub("(proposed — client approval required)", re.sub(r"\s+", " ", corpus))
     # the most specific probe that exists in the text wins — a bare "50%"
     # would count every unrelated 50% on the page (run 47, F10)
     hits, probe = [], frag

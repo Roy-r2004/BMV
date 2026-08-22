@@ -179,8 +179,11 @@ def test_final_operations_manual_requires_owner_and_approver():
     # three states: DRAFT (open findings) / FINAL — CONSULTANCY DELIVERABLE (all
     # quality checks pass; no client approval needed) / CLIENT APPROVED (the
     # client supplied the document owner and approver — never invented)
+    from tests._integrity_stub import stamp_clean
+
     row = Request(id=9201, business_name="x", status="done", is_failed=False, mvp_blueprint="doc", technical_plan="doc",
                   qa_report_json=json.dumps({"checks": [], "findings": []}))
+    stamp_clean(row)
     gate = ep.release_status(row)
     assert gate["status"] == "final" and gate["status_label"] == "FINAL — CONSULTANCY DELIVERABLE" and gate["reasons"] == []
     assert not rg.document_control(row)["complete"]

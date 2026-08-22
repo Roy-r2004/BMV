@@ -375,7 +375,7 @@ def full_definition(g: dict | None) -> str:
     elif g.get("baseline_source") == "measure in week 1":
         base = " Context only: the week-one measurement of both groups; the control group, not a baseline, is the comparison."
     return (f"{g.get('id') or 'PG-01'} — the pilot decision gate. Duration: {dur} pilot {LABEL}. "
-            f"Population: {_lc(g.get('population')) or 'the pilot population'} in {g.get('geography') or 'the pilot zone'}. "
+            f"Population: {_lc(g.get('population')) or 'the pilot population'}. Geography: {g.get('geography') or 'the pilot zone'}. "
             f"Assignment: {split}; the treatment group receives {_lc(g.get('treatment')) or 'the pilot workflow'}. "
             f"Primary metric: {g.get('comparison_metric') or metric}{definition}. "
             f"Target: treatment {metric} must {verb} the control group's by {_fmt(g.get('target_value'))} {_unit_words(g)}"

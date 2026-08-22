@@ -32,12 +32,19 @@ def client():
 
 
 def _seed(db, **overrides):
+    # fixture rows never ran the pipeline: they carry a clean, current
+    # integrity report so the OTHER release laws are what each test exercises
+    stamp = overrides.pop("integrity_stamp", True)
     row = Request(
         business_name="Beacon Physiotherapy", business_description="clinic",
         email="t@example.com", status="done", is_generating=False,
     )
     for k, v in overrides.items():
         setattr(row, k, v)
+    if stamp:
+        from tests._integrity_stub import stamp_clean
+
+        stamp_clean(row)
     db.add(row)
     db.commit()
     db.refresh(row)

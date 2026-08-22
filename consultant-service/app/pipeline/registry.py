@@ -108,9 +108,11 @@ _NUM = re.compile(
     r"days?|weeks?|months?|years?))?", re.IGNORECASE)
 _SKIP_BEFORE = re.compile(
     r"((phase|section|page|volume|step|week|tier|level|version|part|top|chapter|figure|table|"
-    r"option|v|q|run|no\.|#)\s*|[A-Za-z0-9]-|claim\s+[A-Z]{2}-[\w-]*)$", re.IGNORECASE)
+    r"option|v|q|run|no\.|#|tls|ssl|oauth|https?/?|api\s?v|http status|status code|error code)\s*|[A-Za-z0-9]-|claim\s+[A-Z]{2}-[\w-]*)$",
+    re.IGNORECASE)
 _SKIP_AFTER = re.compile(
     r"^\s*(/7|x\b|×|am\b|pm\b|:\d|-\w|\.\s+[A-Z]|\(proposed[^)]*\)\.\s+[A-Z]|"  # "3. Then, we …" is an inline ordinal
+    r"(?:Forbidden|Not Found|Unauthorized|Bad Request|Internal Server Error|Conflict|Gone|Created|Accepted)\b|"  # HTTP codes
     r"(?:phases?|steps?|parts?|modules?|volumes?|sections?|pages?|records?|"
     r"screens?|tables?|fields?|roles?|types?|categories|options?|lists?|entities|tools?|integrations?|"
     r"scenarios?|stages?|layers?|columns?|rows?|reasons?|sentences?|questions?|items?)\b)", re.IGNORECASE)
@@ -387,10 +389,55 @@ def customer_facing_pass(text: str) -> tuple[str, list[dict]]:
 
 
 def _customer_meets_queue(clause: str) -> bool:
+    """The clause sends a customer into the queue: a customer acts on it
+    (before or after the mention), the queue is a link/URL a customer uses,
+    or the clause is about a customer's access to it."""
     if _pg.PILOT_TOOLING not in clause:
         return False
     before = clause.split(_pg.PILOT_TOOLING)[0]
-    return bool(_CUSTOMER_ACT.search(before) or _LINK_TO_QUEUE.search(before[-20:]))
+    if _CUSTOMER_ACT.search(clause) or _LINK_TO_QUEUE.search(before[-20:]):
+        return True
+    if re.search(r"\b(?:link|URL|web page|page)\b", clause, re.IGNORECASE) and re.search(r"\bcustomers?\b", clause, re.IGNORECASE):
+        return True
+    # something reached through a link is what the customer receives
+    return bool(re.search(r"\baccessed via\b|\b(?:via|through)\s+(?:a|an|the)?\s*(?:\w+\s+)?link\b|\blink contains\b|"
+                          r"\bunique URL\b", clause, re.IGNORECASE))
+
+
+def _integration_entries(module: dict):
+    tech = module.get("tech") if isinstance(module.get("tech"), dict) else {}
+    for key in ("integrations", "integration_details"):
+        for it in tech.get(key) or []:
+            if isinstance(it, dict):
+                yield key, it
+
+
+def _entry_is_customer_facing(entry: dict) -> bool:
+    text = " ".join(str(v) for k, v in entry.items() if k != "system" and isinstance(v, str))
+    return bool(_CUSTOMER_ACT.search(text) or (re.search(r"\b(?:link|URL|web page|page)\b", text, re.IGNORECASE)
+                                               and re.search(r"\bcustomers?\b", text, re.IGNORECASE)))
+
+
+def integration_channel_pass(module: dict) -> list[dict]:
+    """An integration entry whose own description says a customer opens,
+    receives or fills it is the customer-facing form, not the internal queue
+    — the entry's `system` field is corrected as one unit."""
+    records = []
+    for key, entry in _integration_entries(module):
+        if str(entry.get("system") or "") == _pg.PILOT_TOOLING and _entry_is_customer_facing(entry):
+            entry["system"] = _pg.PILOT_CUSTOMER_FORM
+            records.append({"module": module.get("id"), "field": f"tech.{key}", "replaced_with": _pg.PILOT_CUSTOMER_FORM,
+                            "original": " ".join(str(v) for v in entry.values())[:120]})
+    return records
+
+
+def integration_channel_findings(module: dict) -> list[dict]:
+    return [{"severity": "high", "source": "structural", "where": f"modules.{module.get('id')}.tech.{key}",
+             "issue": f"An integration the customer uses is named as the internal {_pg.PILOT_TOOLING}: "
+                      f"\"{' '.join(str(v) for v in entry.values())[:140]}\"",
+             "fix": f"the customer-facing integration is the {_pg.PILOT_CUSTOMER_FORM}"}
+            for key, entry in _integration_entries(module)
+            if str(entry.get("system") or "") == _pg.PILOT_TOOLING and _entry_is_customer_facing(entry)]
 
 
 def customer_queue_findings(text: str, label: str = "") -> list[dict]:
@@ -980,6 +1027,17 @@ def plain_language(text: str) -> str:
     # never two approval labels back to back; never a label on a list ordinal
     out = re.sub(r"(\(proposed — client approval required\))(?:[\s,;]*\(proposed — client approval required\))+", r"\1", out)
     out = _LABELED_ORDINAL.sub(r"\1\2", out)
+    # the label has one form; protocol/version numbers, HTTP codes and the
+    # bounds of a random draw are never thresholds
+    out = re.sub(r"\(proposed\s*[-–—]\s*client approval required\)", PROPOSED_LABEL, out)
+    out = re.sub(r"\b((?:TLS|SSL|OAuth|HTTP/?|API\s?v|version|v)\s?\d+(?:\.\d+)?)\s*\(proposed — client approval required\)", r"\1", out,
+                 flags=re.IGNORECASE)
+    out = re.sub(r"\b(\d{3})\s*\(proposed — client approval required\)(\s*(?:Forbidden|Not Found|Unauthorized|OK|Bad Request|"
+                 r"Internal Server Error|Conflict|Gone|Created|Accepted))", r"\1\2", out, flags=re.IGNORECASE)
+    if re.search(r"\brandom", out, re.IGNORECASE):
+        out = re.sub(r"(\bbetween\s+\d+(?:\.\d+)?)\s*\(proposed — client approval required\)(\s+and\s+\d+(?:\.\d+)?)", r"\1\2", out,
+                     flags=re.IGNORECASE)
+    out = re.sub(r"(?m)^(\s*\d{1,2}\.)\s*\(proposed — client approval required\)\s*", r"\1 ", out)
     for key, original in masks.items():
         out = out.replace(key, original)
     return out
@@ -1445,10 +1503,15 @@ def threshold_pass(text: str, claims: list[dict], *, source: str, module_id: str
     for dm in re.finditer(r"(?<![\w.])(\d+)-(weeks?|months?|days?|hours?)\b", out):
         spans.append((dm.group(1), float(dm.group(1)), dm.group(2).lower(), dm.start(), dm.end()))
     spans.sort(key=lambda x: x[3])
+    random_draw = bool(re.search(r"\brandom", out, re.IGNORECASE))
     for tok, v, unit, s, e in spans:
         if s < last:
             continue
         before, after = out[max(0, s - 80):s], out[e:e + 80]
+        # the bounds of a random draw ("a random number between 0 and 1") are
+        # an assignment mechanic, never thresholds
+        if random_draw and (re.search(r"\bbetween\s*$", before) or re.match(r"\s*and\s+\d", after) or re.search(r"\band\s*$", before)):
+            continue
         # inside an existing label, or a number the label already follows
         if "(proposed" in out[e:e + _LABEL_WINDOW]:
             labeled = True

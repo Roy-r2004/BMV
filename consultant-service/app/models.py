@@ -29,6 +29,8 @@ class Request(Base):
     # approver (name and role); a FINAL manual requires both
     document_owner: Mapped[str | None] = mapped_column(String(200), nullable=True)
     document_approver: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # the integrity layer's report on the content as it stands (content hash)
+    integrity_report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The owner's own site/profile — distinct from reference_url, which is a
     # tool they admire, not their own business. Optional; the research stage
     # fetches it before analysis when present.
