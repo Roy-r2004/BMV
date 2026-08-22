@@ -83,6 +83,7 @@ def test_only_thresholds_wear_the_label_and_it_has_one_form():
     cases = {
         "transmitted over TLS 1.2 (proposed — client approval required)+": "transmitted over TLS 1.2+",
         "returns a 403 (proposed — client approval required) Forbidden": "returns a 403 Forbidden",
+        "If the link is expired, returns a 403 (proposed — client approval required).": "If the link is expired, returns a 403.",
         "generate a random number between 0 (proposed — client approval required) and 1": "generate a random number between 0 and 1",
         "1. (proposed — client approval required) Pilot: first": "1. Pilot: first",
         "within 5 seconds (proposed - client approval required)": f"within 5 seconds {it.LABEL}",
@@ -112,6 +113,7 @@ def test_kpi_proposal_units_and_mutilated_names():
     c = content["registry"]["claims"][-1]
     assert c["text"] == "Percentage of escalated inquiries resolved by human support: 85%" and ledger["kpi_units_corrected"] and ledger["kpi_text_repaired"]
     assert it.kpi_unit_findings(content) == []
+    assert it.repair_kpi_text("Inquiries resolved by human support within 1 business day")[0] == "Inquiries resolved by human support"
 
 
 def test_standin_duplicates_collapse_to_one_entry():
@@ -178,6 +180,51 @@ def test_link_accessed_queue_is_the_customer_form_including_integration_entries(
     recs = rg.integration_channel_pass(module)
     assert module["tech"]["integrations"][0]["system"] == form and module["tech"]["integrations"][1]["system"] == q and recs
     assert rg.integration_channel_findings(module) == []
+
+
+def test_quoted_aliases_suffix_forms_and_narrative_duplicates():
+    content = _content()
+    facts = it.derive_facts(content)
+    full = content["modules"][1]["name"]                 # e.g. "Delivery Exception AI Coordinator"
+    suffix = " ".join(full.split()[1:])                  # drops the first word
+    humanized = it._humanize(content["modules"][2]["id"])
+    text = f"Review the '{humanized}' dashboard; the {suffix} flags orders; the {full} stays itself."
+    fixed, recs = it.resolve_names(text, facts)
+    assert f"'{content['modules'][2]['name']}' dashboard" in fixed and fixed.count(full) == 2 and f"the {suffix} flags" not in fixed
+    assert [f for f in it.validate_texts({"t": text}, content, facts) if f["kind"] == "drift"]
+    assert not [f for f in it.validate_texts({"t": fixed}, content, facts) if f["kind"] == "drift"]
+    q = pg.PILOT_TOOLING
+    md = (f"### {facts['pilot_names'][0]}\n- How this part gets built, in order:\n1. First, we set up the records.\n"
+          f"2. Next, we connect to WhatsApp.\n3. Then, we set up the \"{q}\" to process responses.\n4. Finally, we build the \"{q}\" to interact with records.\n")
+    out, recs = it.dedupe_standin_list_items(md, facts)
+    assert out.count(q) == 1 and "3. Then, we set up" in out and "4." not in out and recs
+    assert [f for f in it.validate_texts({"t": md}, content, facts) if "built twice" in f["issue"]]
+    assert not [f for f in it.validate_texts({"t": out}, content, facts) if "built" in f["issue"]]
+    content["registry"]["claims"].append({"id": "MK-y-03", "type": "module_kpi", "value": 0.2, "unit": "%", "scope": "y", "provenance": "consultant_proposed",
+                                          "metric": "Reduction in address issues", "text": "Reduction in address issues: Reduction in address issues 0.2 %"})
+    content["registry"]["claims"].append({"id": "MK-y-04", "type": "module_kpi", "value": 0.85, "unit": "%", "scope": "y", "provenance": "consultant_proposed",
+                                          "metric": "Inquiries resolved by human support within 1 business day",
+                                          "text": "Inquiries resolved by human support within 1 business day: Inquiries resolved by human support business day 0.85 %"})
+    it.correct_kpi_claims(content, {})
+    assert content["registry"]["claims"][-2]["text"] == "Reduction in address issues: 20%"
+    assert content["registry"]["claims"][-1]["text"] == "Inquiries resolved by human support: 85%"
+
+
+def test_r33_a_status_code_objection_closes_when_the_page_carries_no_label():
+    from app.pipeline.adjudicate import adjudicate
+
+    content = _content()
+    finding = {"severity": "high", "source": "qa_numbers_recheck", "where": "THE TECHNICAL PLAN -> Interface",
+               "issue": "The error response code '403 (proposed — client approval required) Forbidden' is introduced without derivation or labeling as proposed.",
+               "fix": "label it"}
+    row = Request(id=9501, business_name="x", status="done", modules_json=json.dumps(content["modules"]),
+                  business_case_json=json.dumps(content["business_case"]), registry_json=json.dumps(content["registry"]),
+                  qa_report_json=json.dumps({"checks": [], "findings": [finding]}))
+    page = {"technical": "Accessing an expired link consistently results in a '403 Forbidden' response or a similar error page."}
+    e = adjudicate(row, page, persist=False)["ledger"][0]
+    assert e["classification"] == "machine-proven false positive" and "R33" in e["evidence"]
+    row.qa_report_json = json.dumps({"checks": [], "findings": [dict(finding, issue="The threshold '5 minutes (proposed — client approval required)' is invented.")]})
+    assert "R33" not in adjudicate(row, {"technical": "within 5 minutes"}, persist=False)["ledger"][0]["evidence"]
 
 
 def test_the_guard_rejects_a_rewrite_beyond_its_floor_unless_canonical():

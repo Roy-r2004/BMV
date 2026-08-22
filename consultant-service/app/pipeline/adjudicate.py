@@ -424,6 +424,22 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 _close("false_positive", "R6: " + evidence,
                        "semantic false positive resolved by structured phase data")
                 continue
+        # R33 — the number the auditor wants labeled is not a threshold: an HTTP
+        # status code, a protocol/version number or a random-draw bound is an
+        # identifier; the label law does not apply and the page carries none
+        if _LABEL_TALK.search(issue):
+            for q in _QUOTED.findall(issue):
+                if _registry.NON_THRESHOLD_FRAGMENT.search(q):
+                    bare = re.sub(r"\s*\(proposed[^)]*\)", "", re.sub(r"\s+", " ", q)).strip()
+                    flat_corpus = re.sub(r"\s+", " ", corpus)
+                    if bare[:40] in flat_corpus and not re.search(re.escape(bare[:25]) + r"[^.]{0,30}\(proposed", flat_corpus):
+                        _close("false_positive",
+                               f"R33: '{bare[:60]}' is an identifier (status code / protocol version / random-draw bound), not a "
+                               "threshold — the label law does not apply and the rendered text carries no label on it",
+                               "machine-proven false positive")
+                        break
+            if entry.get("classification"):
+                continue
         # R31 — "the derivation is not shown": a machine-verified restatement that
         # the rendered text prints WITH its derivation ('$194.40 per day ($70,956 a
         # year ÷ 365)') is attributed — the objection is answered on the page

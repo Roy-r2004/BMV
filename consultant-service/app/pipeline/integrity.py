@@ -105,6 +105,25 @@ def _abbreviations(name: str) -> set[str]:
     return {a for a in out if len(a.split()) >= 2}
 
 
+def _suffix_forms(name: str) -> list[tuple[str, str]]:
+    """Forms that drop the first one or two words ('AI COD Settlement
+    Inquiry Resolver' -> 'Settlement Inquiry Resolver'), each with the word
+    that must NOT precede it (else it is the full name itself)."""
+    words = name.split()
+    out = []
+    for k in (1, 2):
+        if len(words) - k >= 3:
+            out.append((" ".join(words[k:]), words[k - 1]))
+    return out
+
+
+def _alias_pattern(alias: str, not_after: str | None = None) -> "re.Pattern[str]":
+    # a name inside quotes is still the name ('Support Escalation Handover');
+    # a possessive after it is fine; a suffix form is not the full name
+    guard = f"(?<!{re.escape(not_after)} )" if not_after else ""
+    return re.compile(guard + r"(?<!\w)" + re.escape(alias) + r"(?!\w)")
+
+
 def derive_facts(content: dict) -> dict:
     reg = content.get("registry") or {}
     modules = content.get("modules") or []
@@ -237,29 +256,79 @@ def correct_automation_class(content: dict, facts: dict, ledger: dict) -> None:
         t["automation_level"], t["has_ai"] = src.get("automation_level"), bool(src.get("ai_involvement"))
 
 
-def _name_map(facts: dict) -> list[tuple[str, str]]:
+def _name_map(facts: dict) -> list[tuple[str, str, str | None]]:
+    """(alias, registered name, word that must not precede the alias)."""
     pairs = []
     for t in facts["modules"]:
         for a in t["aliases"]:
             if a and a != t["name"] and len(a) > 5:
-                pairs.append((a, t["name"]))
+                pairs.append((a, t["name"], None))
+        for suffix, prev in _suffix_forms(t["name"]):
+            pairs.append((suffix, t["name"], prev))
     # "X module" on a stand-in names tooling as a module
     for s in facts["standins"]:
-        pairs.append((f"{s} module", s))
+        pairs.append((f"{s} module", s, None))
     return sorted(pairs, key=lambda p: -len(p[0]))
 
 
 def resolve_names(text: str, facts: dict) -> tuple[str, list[dict]]:
-    """Every alias, abbreviation or humanized id of a module reads as its
-    client-facing name; tooling is never called a module."""
+    """Every alias, abbreviation, suffix form or humanized id of a module
+    reads as its client-facing name; tooling is never called a module."""
     records = []
     out = text
-    for alias, name in _name_map(facts):
-        pat = re.compile(r"(?<![\w'])" + re.escape(alias) + r"(?![\w'])")
+    for alias, name, prev in _name_map(facts):
+        pat = _alias_pattern(alias, prev)
         if pat.search(out):
             out = pat.sub(name, out)
             records.append({"alias": alias, "resolved_to": name})
     return out, records
+
+
+_LIST_ITEM = re.compile(r"^(\s*)(\d{1,2})\.\s+(.*)$")
+
+
+def dedupe_standin_list_items(text: str, facts: dict) -> tuple[str, list[dict]]:
+    """In a numbered list about the pilot, two items that each build the
+    same stand-in are one item: the later one is dropped and the list is
+    renumbered (the narrative twin of the build-sequence dedupe)."""
+    records = []
+    lines = text.split("\n")
+    out = []
+    i = 0
+    terms = set(facts["pilot_terms"])
+    while i < len(lines):
+        m = _LIST_ITEM.match(lines[i])
+        if not m:
+            out.append(lines[i])
+            i += 1
+            continue
+        block = []
+        while i < len(lines) and _LIST_ITEM.match(lines[i]):
+            block.append(lines[i])
+            i += 1
+        # scope: the list sits in a pilot section — its governing heading (the
+        # last heading line above) or the lines just above name the pilot
+        heading = next((ln for ln in reversed(out) if re.match(r"^\s*(?:#{1,6}\s|\*\*[^*]{3,80}\*\*\s*$)", ln)), "")
+        context = heading + " " + " ".join(out[-12:])
+        pilot_scoped = any(t in context for t in terms) or re.search(r"\bpilot\b", context, re.IGNORECASE)
+        seen: set[str] = set()
+        kept = []
+        for line in block:
+            mm = _LIST_ITEM.match(line)
+            body = mm.group(3)
+            s = next((x for x in facts["standins"] if x in body
+                      and re.search(r"\b(?:build|develop|set up|configure|create|implement)\b", body, re.IGNORECASE)), None)
+            if pilot_scoped and s and s in seen:
+                records.append({"removed": body[:120], "standin": s})
+                continue
+            if s:
+                seen.add(s)
+            kept.append((mm.group(1), body))
+        if len(kept) != len(block):
+            out.extend(f"{indent}{n}. {body}" for n, (indent, body) in enumerate(kept, 1))
+        else:
+            out.extend(block)
+    return "\n".join(out), records
 
 
 _PRODUCT = re.compile(r"\b((?:[A-Z][A-Za-z]+|&|AI|COD)(?:\s+(?:[A-Z][A-Za-z]+|&|AI|COD)){1,5}\s+"
@@ -348,6 +417,8 @@ _NONTHRESHOLD = [
      r"\1", "protocol or version number"),
     (re.compile(r"\b(\d{3})\s*\(proposed — client approval required\)(\s*(?:Forbidden|Not Found|Unauthorized|OK|Bad Request|"
                 r"Internal Server Error|Conflict|Gone|Created|Accepted))", re.IGNORECASE), r"\1\2", "HTTP status code"),
+    (re.compile(r"\b((?:returns?|return code|status(?: code)?|HTTP(?: status)?|error code)\s+(?:a\s+|an\s+)?[1-5]\d\d)\s*"
+                r"\(proposed — client approval required\)", re.IGNORECASE), r"\1", "HTTP status code"),
     (re.compile(r"(?m)^(\s*\d{1,2}\.)\s*\(proposed — client approval required\)\s*"), r"\1 ", "list ordinal"),
     (re.compile(r"\b(\d{1,2}) \(proposed — client approval required\)(\.\s+(?=[A-Z]))"), r"\1\2", "inline ordinal"),
 ]
@@ -405,34 +476,57 @@ def nonthreshold_label_findings(text: str, label: str = "") -> list[dict]:
     return out
 
 
-_DANGLING_UNIT = re.compile(r"\s+(?:business\s+)?(?:day|days|hour|hours|minute|minutes|week|weeks|month|months)(?=\s*(?:—|:|\.|$))")
+_UNIT_WORD = r"(?:business\s+)?(?:day|days|hour|hours|minute|minutes|week|weeks|month|months)"
+_QUALIFIER = re.compile(r"\s+(?:within|after|under|in|over|inside)\s+\d+(?:\.\d+)?\s*" + _UNIT_WORD + r"\b", re.IGNORECASE)
+_DANGLING_NUMBER = re.compile(r"\s+(?:within|after|under|in|over|inside)\s+\d+(?:\.\d+)?(?=\s*(?:—|:|\.|$))", re.IGNORECASE)
+_DANGLING_UNIT = re.compile(r"\s+" + _UNIT_WORD + r"(?=\s*(?:—|:|\.|$))", re.IGNORECASE)
 
 
 def repair_kpi_text(text: str) -> tuple[str, list[dict]]:
-    """A KPI name whose coined number was removed must not keep the number's
-    unit ('resolved by human support business day')."""
-    out = _DANGLING_UNIT.sub("", text)
-    return out, ([{"rule": "dangling unit after number removal", "text": text[:120]}] if out != text else [])
+    """A KPI NAME carries no coined qualifier: 'resolved by human support
+    within 1 business day' is the metric 'resolved by human support' (the
+    number is the registered proposal); a unit or number left dangling by an
+    earlier strip goes too."""
+    out = _QUALIFIER.sub("", text)
+    out = _DANGLING_NUMBER.sub("", out)
+    out = _DANGLING_UNIT.sub("", out)
+    return out, ([{"rule": "coined qualifier / dangling unit removed from a KPI name", "text": text[:120]}] if out != text else [])
+
+
+def _shown_value(c: dict) -> str:
+    v, unit = c.get("value"), str(c.get("unit") or "")
+    if unit == "%" and isinstance(v, (int, float)) and 0 < v <= 1:
+        return f"{v:.0%}"
+    if unit == "%":
+        return f"{v:g}%"
+    return f"{v:g}" + (f" {unit}" if unit and unit not in ("count", "number") else "")
 
 
 def correct_kpi_claims(content: dict, ledger: dict) -> None:
-    """Module KPI proposals: a '%' value is a fraction and prints as a
-    percentage; a mutilated metric name is repaired in the claim text."""
+    """Module KPI proposals: the claim text is the cleaned metric name plus
+    the value in its unit ('…: 85%'); a '%' value is a fraction and prints as
+    a percentage; a repeated metric name or a dangling unit never survives."""
     for c in content["registry"].get("claims") or []:
         if c.get("type") != "module_kpi":
             continue
         text = str(c.get("text") or "")
-        if c.get("provenance") == "consultant_proposed" and c.get("unit") == "%" and isinstance(c.get("value"), (int, float)) \
-                and 0 < c["value"] <= 1 and re.search(r"\b0?\.\d+\s*%", text):
-            fixed = re.sub(r"\b0?\.\d+\s*%", f"{c['value']:.0%}", text)
-            ledger.setdefault("kpi_units_corrected", []).append({"claim": c.get("id"), "from": text[-40:], "to": fixed[-40:]})
-            c["text"] = text = fixed
-        fixed, recs = repair_kpi_text(text)
-        if recs:
-            ledger.setdefault("kpi_text_repaired", []).append({"claim": c.get("id"), **recs[0]})
-            c["text"] = fixed
-            if c.get("metric"):
-                c["metric"] = repair_kpi_text(str(c["metric"]))[0]
+        metric = str(c.get("metric") or text.split(":")[0]).strip()
+        metric_clean, recs = repair_kpi_text(metric)
+        if c.get("provenance") == "consultant_proposed" and isinstance(c.get("value"), (int, float)):
+            rebuilt = f"{metric_clean}: {_shown_value(c)}"
+            if rebuilt != text:
+                ledger.setdefault("kpi_text_repaired", []).append({"claim": c.get("id"), "from": text[:120], "to": rebuilt[:120]})
+                if c.get("unit") == "%" and re.search(r"\b0?\.\d+\s*%", text):
+                    ledger.setdefault("kpi_units_corrected", []).append({"claim": c.get("id"), "from": text[-40:], "to": rebuilt[-40:]})
+                c["text"] = rebuilt
+            c["metric"] = metric_clean
+        else:
+            fixed, recs2 = repair_kpi_text(text)
+            if recs2:
+                ledger.setdefault("kpi_text_repaired", []).append({"claim": c.get("id"), **recs2[0]})
+                c["text"] = fixed
+            if recs and c.get("metric"):
+                c["metric"] = metric_clean
     for m in content.get("modules") or []:
         spec = (m or {}).get("spec") if isinstance(m, dict) else None
         if isinstance(spec, dict):
@@ -446,15 +540,22 @@ def correct_kpi_claims(content: dict, ledger: dict) -> None:
 def kpi_unit_findings(content: dict) -> list[dict]:
     out = []
     for c in content["registry"].get("claims") or []:
-        if c.get("type") == "module_kpi" and c.get("unit") == "%" and isinstance(c.get("value"), (int, float)) \
-                and 0 < c["value"] <= 1 and re.search(r"\b0?\.\d+\s*%", str(c.get("text") or "")):
+        if c.get("type") != "module_kpi":
+            continue
+        text = str(c.get("text") or "")
+        if c.get("unit") == "%" and isinstance(c.get("value"), (int, float)) and 0 < c["value"] <= 1 and re.search(r"\b0?\.\d+\s*%", text):
             out.append({"severity": "high", "source": "integrity", "kind": "misclassification", "where": f"registry: {c.get('id')}",
-                        "issue": f"A fractional KPI value prints as a percentage of itself: \"{str(c.get('text'))[-60:]}\"",
+                        "issue": f"A fractional KPI value prints as a percentage of itself: \"{text[-60:]}\"",
                         "fix": "a '%' claim value is a fraction — render it ×100"})
-        if c.get("type") == "module_kpi" and _DANGLING_UNIT.search(str(c.get("text") or "")):
+        name = text.split(":")[0]
+        if _DANGLING_UNIT.search(name) or _DANGLING_NUMBER.search(name) or _QUALIFIER.search(name):
             out.append({"severity": "high", "source": "integrity", "kind": "misclassification", "where": f"registry: {c.get('id')}",
-                        "issue": f"A KPI name keeps a unit whose number was removed: \"{str(c.get('text'))[:120]}\"",
-                        "fix": "strip the unit with the number"})
+                        "issue": f"A KPI name carries a coined qualifier or a dangling unit: \"{text[:120]}\"",
+                        "fix": "the metric name carries no number; the number is the registered proposal"})
+        metric = str(c.get("metric") or "").strip()
+        if metric and text.startswith(metric + ": ") and text[len(metric) + 2:].lstrip().startswith(metric):
+            out.append({"severity": "high", "source": "integrity", "kind": "drift", "where": f"registry: {c.get('id')}",
+                        "issue": f"A KPI text repeats its metric name: \"{text[:120]}\"", "fix": "metric name once, then the value"})
     return out
 
 
@@ -740,6 +841,9 @@ def correct(content: dict, facts: dict) -> dict:
         text, recs = correct_phase_statements(text, facts)
         for r in recs:
             ledger.setdefault("phase_statements", []).append({"where": vol, **r})
+        text, recs = dedupe_standin_list_items(text, facts)
+        for r in recs:
+            ledger.setdefault("standin_duplicates_removed", []).append({"where": vol, **r})
         content[vol] = text
     return ledger
 
@@ -788,10 +892,20 @@ def validate_texts(texts: dict[str, str], content: dict, facts: dict) -> list[di
         for n in unregistered_names(text, facts):
             out.append({"severity": "high", "source": "integrity", "kind": "drift", "where": f"{label}: names",
                         "issue": f"An unregistered product or module name: '{n}'", "fix": "only registered module, tooling and system names"})
-        for alias, name in _name_map(facts):
-            if re.search(r"(?<![\w'])" + re.escape(alias) + r"(?![\w'])", text):
+        flat_text = re.sub(r"\s+", " ", text)
+        for alias, name, prev in _name_map(facts):
+            if _alias_pattern(alias, prev).search(flat_text):
                 out.append({"severity": "high", "source": "integrity", "kind": "drift", "where": f"{label}: names",
                             "issue": f"'{alias}' is an alias or abbreviation of the registered name '{name}'", "fix": "one name per module"})
+        # ONE list building the same stand-in twice (the narrative and the
+        # appendix each build it once — those are two lists, far apart)
+        lst = _pg.flatten_prose(text)
+        for s in facts["standins"]:
+            positions = [m.start() for m in re.finditer(r"\b(?:build|set up|configure|develop|create|implement)\b[^•.]{0,60}" + re.escape(s), lst, re.IGNORECASE)]
+            if any(b - a < 700 for a, b in zip(positions, positions[1:])):
+                out.append({"severity": "high", "source": "integrity", "kind": "contradiction", "where": f"{label}: build narrative",
+                            "issue": f"'{s}' is built twice within one list — a stand-in collapsed several modules into one",
+                            "fix": "one build step per stand-in"})
         out += [{**f, "kind": "misclassification"} for f in _reg.customer_queue_findings(text, label)]
         out += _reg.attempts_text_findings(text, total, terms, label)
         if total and total > 2 and re.search(r"\bafter the reminder\b", text):

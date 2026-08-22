@@ -1034,6 +1034,8 @@ def plain_language(text: str) -> str:
                  flags=re.IGNORECASE)
     out = re.sub(r"\b(\d{3})\s*\(proposed — client approval required\)(\s*(?:Forbidden|Not Found|Unauthorized|OK|Bad Request|"
                  r"Internal Server Error|Conflict|Gone|Created|Accepted))", r"\1\2", out, flags=re.IGNORECASE)
+    out = re.sub(r"\b((?:returns?|return code|status(?: code)?|HTTP(?: status)?|error code)\s+(?:an?\s+)?[1-5]\d\d)\s*"
+                 r"\(proposed — client approval required\)", r"\1", out, flags=re.IGNORECASE)
     if re.search(r"\brandom", out, re.IGNORECASE):
         out = re.sub(r"(\bbetween\s+\d+(?:\.\d+)?)\s*\(proposed — client approval required\)(\s+and\s+\d+(?:\.\d+)?)", r"\1\2", out,
                      flags=re.IGNORECASE)
@@ -1047,6 +1049,15 @@ _CODE_SPAN = re.compile(r"`[^`\n]+`")
 _URL_PATH = re.compile(r"(?<![\w/.])/(?:api|webhooks?|v\d+|internal|public)/[A-Za-z0-9_{}\-./:]*|"
                        r"(?<![\w/.])/(?:[A-Za-z0-9_{}\-.]+/){2,}[A-Za-z0-9_{}\-.]*")
 _API_PATH_OK = re.compile(r"^/[A-Za-z0-9/_\-{}.:]*$")
+
+
+# numbers that are identifiers, never thresholds — the classes the number
+# scanner skips and the label pass strips
+NON_THRESHOLD_FRAGMENT = re.compile(
+    r"\b(?:TLS|SSL|OAuth|HTTP/?|API\s?v|version|v)\s?\d+(?:\.\d+)?\b|"
+    r"\b[1-5]\d\d\b[^.]{0,40}\b(?:Forbidden|Not Found|Unauthorized|OK|Bad Request|Internal Server Error|Conflict|Gone)\b|"
+    r"\b(?:returns?|status(?: code)?|error code|HTTP(?: status)?)\s+(?:an?\s+)?[1-5]\d\d\b|"
+    r"\brandom[^.]{0,40}\bbetween\s+\d+(?:\.\d+)?\s+and\s+\d+(?:\.\d+)?\b", re.IGNORECASE)
 
 
 def api_path_repair(modules: list) -> list[dict]:
@@ -1511,6 +1522,10 @@ def threshold_pass(text: str, claims: list[dict], *, source: str, module_id: str
         # the bounds of a random draw ("a random number between 0 and 1") are
         # an assignment mechanic, never thresholds
         if random_draw and (re.search(r"\bbetween\s*$", before) or re.match(r"\s*and\s+\d", after) or re.search(r"\band\s*$", before)):
+            continue
+        # an HTTP status code ("returns a 403") is an identifier
+        if re.fullmatch(r"[1-5]\d\d", tok) and re.search(r"\b(?:returns?|return code|status(?: code)?|http(?: status)?|error code)\s+(?:an?\s+)?$",
+                                                          before, re.IGNORECASE):
             continue
         # inside an existing label, or a number the label already follows
         if "(proposed" in out[e:e + _LABEL_WINDOW]:
