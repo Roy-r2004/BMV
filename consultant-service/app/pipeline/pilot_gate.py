@@ -172,7 +172,14 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
     if tv is None:
         tv = field
     g["target_value"] = tv
-    g["target_value_conflict"] = (field is not None and tv is not None and abs(field - tv) > 0.01 * max(tv, 1))
+    g["target_value_field"] = field
+    # the same number written as a fraction (0.05 for "5 percentage points")
+    # is not a contradiction — it is reconciled and recorded; a different
+    # number (0.93, the resulting rate) is
+    same = field is not None and tv is not None and (
+        abs(field - tv) <= 0.01 * max(tv, 1) or abs(field * 100 - tv) <= 0.01 * max(tv, 1))
+    g["target_value_reconciled"] = (field is not None and tv is not None and abs(field - tv) > 0.01 * max(tv, 1) and same)
+    g["target_value_conflict"] = (field is not None and tv is not None and not same)
     g["change_kind"] = kind
     g["target_unit"] = "percentage points" if kind == "percentage_point" else ("% relative" if kind == "relative" else (kind or ""))
     g["direction"] = "fall" if _DOWN.search(tgt) and not _UP.search(tgt) else ("rise" if _UP.search(tgt) else None)
@@ -245,7 +252,9 @@ def gate_errors(g: dict) -> list[str]:
     if g.get("target_value") is None:
         errors.append("missing numeric target")
     if g.get("target_value_conflict"):
-        errors.append("target_value contradicts the target text")
+        errors.append(f"target_value ({g.get('target_value_field')}) contradicts the target text "
+                      f"({_fmt(g.get('target_value'))} {_unit_words(g)}) — write target_value exactly as the number in "
+                      f"the target text: {_fmt(g.get('target_value'))}")
     if g.get("change_kind") not in ("percentage_point", "relative"):
         errors.append("target must be explicitly percentage-point or relative")
     if g.get("direction") is None:

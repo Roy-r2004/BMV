@@ -687,7 +687,8 @@ def test_gate_text_governs_a_contradicting_numeric_field_and_strings_are_clean()
     claims = rg.client_fact_claims(json.loads(OPS), [])
     g = pg.normalize_gate(GATE47_RAW, claims)
     assert g["target_value"] == 5 and g["target_value_conflict"] is True
-    assert "target_value contradicts the target text" in pg.gate_errors(g)
+    assert any("target_value (0.93) contradicts the target text" in e and "write target_value exactly" in e
+               for e in pg.gate_errors(g))
     assert not g["control_method_stated"].endswith(".") and "by your own figures" not in g["baseline"]
     s = pg.canonical_sentence(g)
     full = pg.full_definition(g)

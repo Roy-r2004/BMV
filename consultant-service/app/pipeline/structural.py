@@ -259,8 +259,10 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
                 "severity": "high", "source": "structural", "where": "pilot_gate",
                 "issue": ("The pilot gate is not a whole typed object — " + "; ".join(errors) +
                           ". The single source of pilot criteria must be complete before any document restates it."),
-                "fix": "regenerate the decomposition with a complete pilot_gate (numerator, denominator, "
-                       "geography, control method, explicit percentage-point or relative target, baseline, guardrail)",
+                "fix": ("regenerate the decomposition with a complete pilot_gate (numerator, denominator, geography, "
+                        "randomized control method, explicit percentage-point or relative target, baseline, guardrail); "
+                        "target_value is the number written in the target text (5 for '5 percentage points', 25 for "
+                        "'25% relative'), never the resulting rate"),
             })
 
     mods = [m for m in (modules or []) if isinstance(m, dict) and m.get("id")]

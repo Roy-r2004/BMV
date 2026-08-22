@@ -156,6 +156,23 @@ def test_api_paths_stay_url_safe_slugs():
     assert len(found) == 2
 
 
+def test_target_value_fraction_form_is_reconciled_and_a_resulting_rate_is_named():
+    """Run 52 failed closed three times on 'target_value contradicts the
+    target text' with no hint of the expected number. The same number as a
+    fraction is reconciled; a different number is an error that names the
+    value to write."""
+    raw = copy.deepcopy(GATE)
+    raw["target_value"] = 0.10            # the text says 10 percentage points
+    g = pg.normalize_gate(raw)
+    assert g["target_value"] == 10 and g["target_value_reconciled"] and not g["target_value_conflict"]
+    assert not [e for e in pg.gate_errors(g) if "target_value" in e]
+    raw["target_value"] = 0.93            # the resulting rate — a different number
+    g2 = pg.normalize_gate(raw)
+    assert g2["target_value"] == 10 and g2["target_value_conflict"]
+    err = next(e for e in pg.gate_errors(g2) if "target_value" in e)
+    assert "(0.93)" in err and "write target_value exactly as the number in the target text: 10" in err
+
+
 def test_final_operations_manual_requires_owner_and_approver():
     from app.pipeline import export_pdf as ep
 
