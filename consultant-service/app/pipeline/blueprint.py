@@ -193,72 +193,41 @@ def _no_null_lines(content: str) -> str:
 
 def finish_document(content: str | None, *, modules: list, business_case: dict,
                     registry: dict | None, kind: str) -> tuple[str | None, dict]:
-    """Every deterministic pass a finished volume goes through. Returns the
-    corrected text and the new threshold claims the prose pass registered."""
-    from app.pipeline import pilot_gate as _pg
-    from app.pipeline import registry as _reg
-    from app.pipeline import timebasis
+    """Render the registry's own statements into a finished volume — and
+    nothing else.
 
-    report = {"new_claims": [], "gate": {}, "placeholders": [], "derivations_shown": []}
+    A finished document is never repaired by pattern. Exactly two things
+    happen here, both of them renderings of registry data into places the
+    registry owns:
+
+      1. the [[PILOT_GATE]] token becomes the canonical gate sentence;
+      2. each module's "You'll know it's working when" line becomes that
+         module's registered KPI statement.
+
+    Every other disagreement between a document and the registry — an
+    invented policy period, a restated design, a narrowed population, a
+    changed attempt count, a weak authentication claim, an unlabeled
+    threshold, an unknown name — is a finding for the integrity layer to
+    report. It is not silently rewritten here.
+    """
+    from app.pipeline import pilot_gate as _pg
+
+    report: dict = {"new_claims": [], "gate": {}, "rendered": []}
     if not content:
         return content, report
-    # placeholders in prose are recorded before plain_language renders them
-    report["placeholders"] = [{"source": kind, "placeholder": h, "replaced_with": "an approved threshold / an approved value"}
-                              for h in re.findall(r"\[[A-Z][A-Z_]{4,}\]|>?\[?CLIENT_INPUT[A-Z_]*\]?%?", content)]
     gate = (registry or {}).get("pilot_gate") or (
         (business_case or {}).get("pilot_gate") if isinstance((business_case or {}).get("pilot_gate"), dict)
         and "canonical_sentence" in (business_case or {}).get("pilot_gate", {}) else None)
-    content, report["gate"] = _pg.enforce(content, gate)
-    if kind == "blueprint":
-        content = _pg.ensure_in_decision(content, gate)
+    if gate and _pg.TOKEN in content:
+        n = content.count(_pg.TOKEN)
+        content = content.replace(_pg.TOKEN, _pg.canonical_sentence(gate))
+        report["gate"] = {"token_substitutions": n}
+        report["rendered"].append({"statement": "pilot gate", "sites": n})
+    if kind == "blueprint" and modules:
+        before = content
         content = _pin_kpi_lines(content, modules)
-    content = _no_null_lines(content)
-    if kind == "technical":
-        content = _repair_no_ai_lines(content, modules)
-    content = _reg.resolve_module_ids(content, modules)
-    content, _ = timebasis.repair_expressions(content)
-    annual_claims = _annual_claims(business_case)
-    content, _ = timebasis.check_restatements(content, annual_claims)
-    # attribution kept: a verified per-day / per-month restatement shows its derivation
-    content, report["derivations_shown"] = timebasis.attribute_restatements(content, annual_claims)
-    content = timebasis.round_counts(content)
-    if kind == "blueprint":
-        content = _align_cost_line(content, business_case)
-    if registry:
-        # invented settlement/remittance periods (and a moved event origin) in
-        # prose are corrected to the client's stated cycle exactly as they are
-        # in the specs; a restated pilot design becomes the canonical one; a
-        # phone-number-only gate on financial detail gets the stronger step
-        lines = []
-        report["design_corrections"], report["auth_hardening"], report["policy_corrections"] = [], [], []
-        report["customer_channel_corrections"], report["population_corrections"] = [], []
-        pilot_names = _reg.pilot_terms(modules)
-        for line in content.split("\n"):
-            fixed, notes = _reg.policy_pass(line, registry.get("claims") or [])
-            report["policy_corrections"] += [{"source": kind, "note": n} for n in notes]
-            if gate and not line.lstrip().startswith("|"):
-                fixed, recs = _pg.enforce_design(fixed, gate)
-                report["design_corrections"] += recs
-            # a customer never receives the internal queue; a pilot sentence
-            # never narrows the gate's population
-            fixed, recs = _reg.customer_facing_pass(fixed)
-            report["customer_channel_corrections"] += [{"source": kind, **r} for r in recs]
-            if gate and (re.search(r"\bpilot\b", fixed, re.IGNORECASE) or any(n and n in fixed for n in pilot_names)):
-                fixed, recs = _reg.population_pass(fixed, gate, registry.get("service_types"))
-                report["population_corrections"] += [{"source": kind, **r} for r in recs]
-            # prose about the pilot states the SOP's outreach attempt total
-            fixed, recs = _reg.attempts_text_pass(fixed, registry.get("pilot_attempt_total"), pilot_names)
-            report.setdefault("pilot_attempt_corrections", []).extend({"source": kind, **r} for r in recs)
-            if kind == "technical":
-                fixed, recs = _reg.harden_auth_text(fixed)
-                report["auth_hardening"] += recs
-            lines.append(fixed)
-        content = "\n".join(lines)
-    if kind == "technical" and registry:
-        counter = {"n": sum(1 for c in registry.get("claims") or [] if str(c.get("id", "")).startswith("TH-"))}
-        content, new = _reg.label_prose_thresholds(content, registry.get("claims") or [], counter,
-                                                   source="technical_plan", module_id="tp")
-        report["new_claims"] = new
+        if content != before:
+            report["rendered"].append({"statement": "module KPI lines", "sites": None})
     return content, report
 
 
@@ -312,12 +281,6 @@ def write_blueprint(
     content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="blueprint")
-    if (report.get("placeholders") or report.get("derivations_shown") or report.get("policy_corrections")) and registry:
-        registry.setdefault("placeholder_replacements", []).extend(report["placeholders"])
-        registry.setdefault("derivations_shown", []).extend(
-            [{"source": "blueprint", **d} for d in report.get("derivations_shown") or []])
-        registry.setdefault("policy_corrections", []).extend(report.get("policy_corrections") or [])
-        req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume
     if content:
         req.mvp_blueprint = content
@@ -361,13 +324,9 @@ def write_technical_plan(
     content = _markdown_call(db, request_id, "technical_plan", prompt, max_tokens=8000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="technical")
-    if (report["new_claims"] or report.get("placeholders") or report.get("derivations_shown")
-            or report.get("policy_corrections")) and registry:
-        registry.setdefault("claims", []).extend(report["new_claims"])
-        registry.setdefault("placeholder_replacements", []).extend(report.get("placeholders") or [])
-        registry.setdefault("derivations_shown", []).extend(
-            [{"source": "technical", **d} for d in report.get("derivations_shown") or []])
-        registry.setdefault("policy_corrections", []).extend(report.get("policy_corrections") or [])
+    if report.get("rendered") and registry:
+        registry.setdefault("rendered_statements", []).extend(
+            [{"source": "technical", **r} for r in report["rendered"]])
         registry["errors"] = _reg.validate_registry(registry)
         req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume

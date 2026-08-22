@@ -73,6 +73,13 @@ def totals_from(volumes: dict) -> dict:
             and all(v.get("every_page_inspected", v.get("inspected_pages") == v.get("pages")) for v in vols)}
 
 
+def _loads_json(s):
+    try:
+        return json.loads(s) if s else None
+    except ValueError:
+        return None
+
+
 def validate_record(record: dict) -> list[str]:
     """A release report must be arithmetically and logically consistent
     with its own manifest, or it is not a report."""
@@ -105,6 +112,13 @@ def validate_record(record: dict) -> list[str]:
             errors.append(f"status {record['status']} without every page inspected")
     if record.get("status") == "client_approved" and not (record.get("client_approval") or {}).get("complete"):
         errors.append("status client_approved without a client-supplied owner and approver")
+    # a released package carries a CURRENT, CLEAN integrity report
+    integ = record.get("integrity")
+    if record.get("status") in ("final", "client_approved"):
+        if not isinstance(integ, dict) or integ.get("status") != "current":
+            errors.append("released without a current integrity report bound to the content hash")
+        elif integ.get("blocked") or integ.get("findings"):
+            errors.append(f"released with {len(integ.get('findings') or [])} open integrity finding(s)")
     # lineage: the cumulative corrections are the parent's cumulative plus this pass
     if "corrections_current_pass" in record:
         cur, cum = record["corrections_current_pass"], record.get("corrections_cumulative") or {}
@@ -226,6 +240,23 @@ def audit_run(row, out_dir: str | None = None) -> dict:
         record["status_label"] = export_pdf.STATUS_LABELS["draft"]
     record["reasons"] = sorted(set(blockers))
     record["totals"] = totals_from(record["volumes"])
+    # the integrity report, bound to the hash of the content it was computed
+    # on: a record whose report does not match the content is not a record
+    from app.pipeline import integrity as _integrity
+
+    rep = _integrity.current_report(row)
+    if rep is None:
+        stale = _loads_json(getattr(row, "integrity_report_json", None))
+        record["integrity"] = {"status": "absent" if not stale else "stale",
+                               "content_hash_now": _integrity.content_hash(_integrity.load(row)),
+                               "content_hash_in_report": (stale or {}).get("content_hash")}
+    else:
+        record["integrity"] = {
+            "status": "current", "version": rep.get("version"), "ran_at": rep.get("ran_at"),
+            "content_hash": rep.get("content_hash"), "blocked": rep.get("blocked"),
+            "canon": rep.get("canon"), "mappings_applied": len(rep.get("mappings_applied") or []),
+            "findings": rep.get("findings"),
+        }
 
     import shutil
 

@@ -543,8 +543,11 @@ def test_release_report_totals_come_from_the_manifest_and_inconsistent_totals_fa
                "operations": {"pages": 17, "inspected_pages": 17, "every_page_inspected": True, "inspection_ok": True, "failures": []}}
     totals = ra.totals_from(volumes)
     assert totals == {"volumes": 3, "pages": 69, "inspected_pages": 69, "every_page_inspected": True}
-    record = {"status": "final", "reasons": [], "volumes": volumes, "totals": dict(totals)}
+    # a released record also carries a current, clean integrity report
+    integ = {"status": "current", "blocked": False, "findings": []}
+    record = {"status": "final", "reasons": [], "volumes": volumes, "totals": dict(totals), "integrity": integ}
     assert ra.validate_record(record) == []
+    assert any("current integrity report" in e for e in ra.validate_record({**record, "integrity": None}))
     wrong = copy.deepcopy(record)
     wrong["totals"]["pages"] = 98
     assert any("69" in e for e in ra.validate_record(wrong))
@@ -628,23 +631,32 @@ def test_canonicalize_layers_puts_the_gate_sentence_in_the_scoreboard_and_the_so
     assert any(c["type"] == "operational_policy" for c in reg["claims"])
 
 
-def test_finish_document_closes_every_run46_volume_i_defect_at_once():
+def test_finish_document_renders_registry_statements_and_reports_the_rest():
+    """v2 architecture: a finished volume is never repaired by pattern. The
+    two registry-owned renderings happen; every other run-46 defect becomes a
+    finding for the integrity layer, not a silent rewrite."""
+    from app.pipeline import integrity as it
     from app.pipeline.blueprint import finish_document
 
     bc, mods, reg = _skeleton()
     canon = reg["pilot_gate_sentence"]
-    md = ("## The decision\n\n- **Phase 1 — Pilot Delivery Confirmation:** proves the mechanism. " + VARIANT_DECISION + "\n"
+    md = ("## The decision\n\n- **Phase 1 — Pilot Delivery Confirmation:** proves the mechanism. [[PILOT_GATE]]\n"
           "- **Phase 2 — Prediction:** built from Phase 1 data.\n\n## How this makes money\n\n" + COST46 + "\n\n"
-          "## The product, module by module\n\n### Delivery Incident Predictor\n**You'll know it's working when:** " + VARIANT_MODULE + "\n\n"
-          + BUILD_FIRST46)
+          "## The product, module by module\n\n### Pre-Dispatch WhatsApp Pilot\n**You'll know it's working when:** "
+          + VARIANT_MODULE + "\n\n" + BUILD_FIRST46)
     out, report = finish_document(md, modules=mods, business_case=bc, registry=reg, kind="blueprint")
-    assert out.count(canon) == 2 and pg.restatement_findings(out, reg["pilot_gate"]) == []
-    assert "$5,832/month" in out and "$5,913" not in out and "/ 12 months" not in out
-    assert "**Pre-Dispatch WhatsApp Pilot:**" in out and "pre-dispatch-whatsapp-engine" not in out
-    from app.pipeline import export_pdf as ep
-
-    assert ep.find_artifacts(out) == []
-    assert rg.kpi_number_findings(out, reg) == []
+    # 1. the token became the canonical gate sentence; 2. the KPI line is the registry's
+    assert out.count(canon) >= 1 and report["gate"]["token_substitutions"] == 1
+    assert VARIANT_MODULE not in out and any(r["statement"] == "module KPI lines" for r in report["rendered"])
+    # nothing else was touched: the invented monthly figure and the raw id survive
+    assert "$5,913" in out or "/ 12 months" in out or "pre-dispatch-whatsapp-engine" in out
+    # and the integrity layer reports what it did not rewrite
+    content = {"modules": mods, "business_case": bc, "registry": reg, "blueprint": out, "technical": "",
+               "procedures": {"procedures": []}, "checklists": None, "scoreboard": None, "risks": None,
+               "journey": None, "org": None, "playbook": None, "ops_numbers": OPS, "free_texts": [],
+               "concept_name": "iCARRY Lebanon", "business_name": "iCARRY Lebanon"}
+    findings, _ = it.verify(content)
+    assert findings and all(f.severity == "high" for f in findings)
 
 
 def test_preflight_fixture_for_run_47_has_zero_structural_findings(client):

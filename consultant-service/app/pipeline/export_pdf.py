@@ -1460,9 +1460,11 @@ def _procedures_flowables(procedures: list) -> list:
             actor = str(step.get("actor") or "").strip().strip("[]").strip()
             if actor:
                 color = HEX_ACCENT if actor.lower().startswith("ai") else "#52607a"
-                # a role name, never a bracketed tag: "[customer]" reads as a
-                # placeholder; "Customer:" reads as the person who acts
-                shown = actor if actor[:1].isupper() else actor[0].upper() + actor[1:]
+                # the actor's name as the registry holds it. Only an
+                # all-lowercase name is capitalized for the label; re-casing a
+                # name that already carries capitals invents a second spelling
+                # of the same actor ("iCARRY support staff" -> "ICARRY …")
+                shown = actor[0].upper() + actor[1:] if actor.islower() else actor
                 label = f'<font color="{color}"><b>{_rich(shown)}:</b></font> '
             else:
                 label = ""
