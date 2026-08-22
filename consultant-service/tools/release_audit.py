@@ -122,8 +122,11 @@ def audit_run(row, out_dir: str | None = None) -> dict:
     from app.pipeline import export_pdf
     import inspect_pdf
 
+    from app.pipeline import registry as _registry
+
     gate = export_pdf.release_status(row)
     expect = "final" if gate["status"] == "final" else "draft"
+    reg = _registry.registry_for(row)
     record = {
         "request_id": row.id,
         "status": gate["status"],
@@ -141,7 +144,7 @@ def audit_run(row, out_dir: str | None = None) -> dict:
         except ValueError as exc:
             record["volumes"][kind] = {"error": str(exc)}
             continue
-        result = inspect_pdf.inspect(path, expect=expect, concept=row.concept_name or row.business_name)
+        result = inspect_pdf.inspect(path, expect=expect, concept=row.concept_name or row.business_name, registry=reg)
         texts[kind] = result.pop("text", "")
         record["volumes"][kind] = {
             "file": os.path.basename(path),
@@ -161,9 +164,7 @@ def audit_run(row, out_dir: str | None = None) -> dict:
         record["status"] = "draft"
     record["reasons"] = sorted(set(blockers))
     record["totals"] = totals_from(record["volumes"])
-    from app.pipeline import registry as _registry
-
-    record["corrections"] = _registry.corrections(_registry.registry_for(row))
+    record["corrections"] = _registry.corrections(reg)
     record["validation_errors"] = validate_record(record)
     if record["validation_errors"]:
         raise RuntimeError("release record does not validate: " + "; ".join(record["validation_errors"]))
@@ -226,6 +227,14 @@ def reaudit_revision(rev_dir: str, row) -> dict:
     if integrity != "valid":
         raise RuntimeError(f"{rev_id}: {integrity}")
     before = {k: v.get("sha256") for k, v in original["volumes"].items() if isinstance(v, dict)}
+    # registry built in memory from the run's own structures (the run may
+    # predate the registry column); nothing is persisted
+    import copy
+    bc = copy.deepcopy(json.loads(row.business_case_json) if row.business_case_json else {})
+    mods = copy.deepcopy(json.loads(row.modules_json) if row.modules_json else [])
+    reg = _registry.registry_for(row) or _registry.build_registry(
+        row.ops_numbers_json, bc, mods,
+        free_texts=[row.business_description or "", row.main_problem or "", row.desired_outcome or ""])
 
     texts, volumes = {}, {}
     for kind, vol in original["volumes"].items():
@@ -233,7 +242,7 @@ def reaudit_revision(rev_dir: str, row) -> dict:
             continue
         path = os.path.join(rev_dir, vol["file"])
         expect = "final" if original.get("status") == "final" else "draft"
-        result = inspect_pdf.inspect(path, expect=expect, concept=row.concept_name or row.business_name)
+        result = inspect_pdf.inspect(path, expect=expect, concept=row.concept_name or row.business_name, registry=reg)
         texts[kind] = result.pop("text", "")
         doc = pdfium.PdfDocument(path)
         doc.close()
@@ -246,14 +255,6 @@ def reaudit_revision(rev_dir: str, row) -> dict:
     # in-memory re-adjudication: the run's persisted findings are not altered
     result = adjudicate(row, texts, persist=False)
     ledger = result["ledger"]
-    # registry built in memory from the run's own structures (the run may
-    # predate the registry column); nothing is persisted
-    import copy
-    bc = copy.deepcopy(json.loads(row.business_case_json) if row.business_case_json else {})
-    mods = copy.deepcopy(json.loads(row.modules_json) if row.modules_json else [])
-    reg = _registry.registry_for(row) or _registry.build_registry(
-        row.ops_numbers_json, bc, mods,
-        free_texts=[row.business_description or "", row.main_problem or "", row.desired_outcome or ""])
 
     class _Shadow:  # the row as the audit sees it, with an in-memory registry
         pass
@@ -269,7 +270,7 @@ def reaudit_revision(rev_dir: str, row) -> dict:
     machine = qa_experts.machine_findings(shadow, reg, texts=texts)
     machine += [{**f, "source": "structural"} for f in structural_findings(bc, mods, reg)]
     text_blockers = export_pdf.registry_reasons(shadow, texts=texts)
-    artifacts = sorted({h for t in texts.values() for h in export_pdf.find_artifacts(t)})
+    artifacts = sorted({h for t in texts.values() for h in export_pdf.find_artifacts(t, reg)})
 
     open_real = [e for e in ledger if e.get("classification") == "real defect"]
     reasons = []

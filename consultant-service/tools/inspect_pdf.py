@@ -29,7 +29,8 @@ import pypdfium2 as pdfium
 from app.pipeline.export_pdf import find_artifacts, strip_page_chrome
 
 
-def inspect(path: str, expect: str | None = None, concept: str | None = None) -> dict:
+def inspect(path: str, expect: str | None = None, concept: str | None = None,
+            registry: dict | None = None) -> dict:
     failures: list[str] = []
     doc = pdfium.PdfDocument(path)
     n = len(doc)
@@ -57,7 +58,7 @@ def inspect(path: str, expect: str | None = None, concept: str | None = None) ->
         inspected += 1
 
     full = "\n".join(page_texts)
-    for hit in find_artifacts(full):
+    for hit in find_artifacts(full, registry):
         failures.append(f"client-unsafe artifact in text: {hit}")
     if re.search(r"<[^<>\n]*\(proposed[^<>]*>", full):
         failures.append("angle-bracket wrapper reached the rendered page")

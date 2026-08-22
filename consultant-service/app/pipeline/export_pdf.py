@@ -342,19 +342,61 @@ _GATE_ARTIFACTS = [
 ]
 
 
-def find_artifacts(text: str) -> list[str]:
+_GAP_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?\s*%?")
+
+
+def _registered_values(registry: dict | None) -> list[float]:
+    from app.pipeline.registry import proposals
+
+    return [float(c["value"]) for c in proposals(registry or {}) if isinstance(c.get("value"), (int, float))]
+
+
+def _duplicate_label(cleaned: str, registry: dict | None) -> bool:
+    """Two approval labels within a few characters is a duplicate UNLESS the
+    text between them is a second, separately registered proposal ('70%
+    (proposed …) and 60% (proposed …)') — registry evidence, not a regex
+    exception. Without a registry the strict reading stands."""
+    rx = next(rx for name, rx in _GATE_ARTIFACTS if name == "duplicate approval label")
+    values = _registered_values(registry) if registry else []
+    for m in rx.finditer(cleaned):
+        gap = cleaned[m.start():m.end()]
+        inner = gap[len("(proposed — client approval required)"):-len("(proposed — client approval required)")]
+        nums = []
+        for n in _GAP_NUMBER.findall(inner):
+            try:
+                v = float(n.rstrip("%").replace(",", "").strip())
+            except ValueError:
+                continue
+            nums.append(v / 100 if n.strip().endswith("%") else v)
+        if nums and values and all(any(abs(v - rv) <= 1e-6 * max(1.0, abs(v)) for rv in values) for v in nums):
+            continue
+        return True
+    return False
+
+
+def find_artifacts(text: str, registry: dict | None = None) -> list[str]:
     """Names of client-unsafe artifact classes present in `text`, checked
     AFTER the renderer's own deterministic cleanup — only what would truly
     reach the page counts. 'For your build team' lines are the sanctioned
-    home of technical identifiers; ordinary hyphenated English is not a slug."""
-    from app.pipeline.registry import _BUILD_TEAM_LINE, _SLUG_ALLOW, client_facing_region
+    home of technical identifiers; ordinary hyphenated English is not a slug.
+    With a registry, the duplicate-label and identifier classes are judged
+    on registered values and declared identifiers."""
+    from app.pipeline.registry import _BUILD_TEAM_LINE, _SLUG_ALLOW, client_facing_region, identifier_artifacts
 
     cleaned = _strip_artifacts(text or "")
     prose = _SLUG_ALLOW.sub(" ", _BUILD_TEAM_LINE.sub(" ", client_facing_region(cleaned)))
     hits = []
     for name, rx in _GATE_ARTIFACTS:
-        scope = prose if name == "internal identifier in client-facing text" else cleaned
-        if rx.search(scope):
+        if name == "duplicate approval label":
+            if _duplicate_label(cleaned, registry):
+                hits.append(name)
+            continue
+        if name == "internal identifier in client-facing text":
+            ids = [m.get("id") for m in (registry or {}).get("modules") or [] if m.get("id")]
+            if identifier_artifacts(prose, ids, (registry or {}).get("technical_identifiers")):
+                hits.append(name)
+            continue
+        if rx.search(cleaned):
             hits.append(name)
     return hits
 
@@ -403,7 +445,10 @@ def release_status(req: Request) -> dict:
     for attr in ("business_case_json", "procedures_json", "checklists_json",
                  "scoreboard_json", "org_json", "journey_json", "playbook_json"):
         corpus_parts.extend(_strings_of(_loads(getattr(req, attr, None), None)))
-    hits = sorted({h for part in corpus_parts for h in find_artifacts(part)})
+    from app.pipeline import registry as _reg
+
+    reg = _reg.registry_for(req)
+    hits = sorted({h for part in corpus_parts for h in find_artifacts(part, reg)})
     if hits:
         reasons.append("client-unsafe artifacts: " + ", ".join(hits))
     reasons += registry_reasons(req, corpus_parts)
@@ -436,7 +481,8 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
         reasons.append(f"{n} KPI/acceptance number(s) map to no registered claim")
     ids = [m["id"] for m in reg.get("modules") or []]
     parts = list(corpus_parts or []) + list(texts.values())
-    idhits = sorted({h for part in parts for h in _reg.identifier_artifacts(part, ids)})
+    idhits = sorted({h for part in parts
+                     for h in _reg.identifier_artifacts(part, ids, reg.get("technical_identifiers"))})
     if idhits:
         reasons.append("internal identifiers in client-facing text: " + ", ".join(idhits[:6]))
     annuals = [c["value"] for c in reg.get("claims") or []

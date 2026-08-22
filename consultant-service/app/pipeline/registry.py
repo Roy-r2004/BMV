@@ -51,6 +51,38 @@ YEAR_DAYS = 365
 MONTH_DAYS = 30
 PROPOSED_LABEL = "(proposed — client approval required)"
 WEEK_ONE_SENTENCE = "Baseline and target to be established during week-one measurement."
+NO_AUTONOMY = "Nothing on its own — it proposes, a human decides"
+_NULLISH = {"", "null", "none", "n/a", "na", "nil", "-", "—"}
+_SLUG_TOKEN = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)+$")
+_ID_FIELDS = {"id", "name", "tools", "apis", "data_models", "components", "services", "tables", "events",
+              "endpoints", "enabled_by", "backstage_modules", "integrations", "queues", "topics"}
+
+
+def technical_identifiers(modules: list) -> list[str]:
+    """Every slug-shaped identifier the structured technical anatomy declares
+    (module ids, data models, services, queues …) — the registry's list of
+    what counts as an internal identifier when it appears in client prose."""
+    found: set[str] = set()
+
+    def _walk(obj, under_id_field: bool):
+        if isinstance(obj, str):
+            tok = obj.strip()
+            if under_id_field and _SLUG_TOKEN.match(tok):
+                found.add(tok)
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                _walk(v, under_id_field or k in _ID_FIELDS)
+        elif isinstance(obj, list):
+            for v in obj:
+                _walk(v, under_id_field)
+
+    for m in modules or []:
+        if isinstance(m, dict):
+            if _SLUG_TOKEN.match(str(m.get("id") or "")):
+                found.add(str(m["id"]))
+            _walk(m.get("tech"), False)
+            _walk(m.get("spec"), False)
+    return sorted(found)
 
 CLAIM_TYPES = {
     "client_fact", "derived_value", "time_basis_conversion", "scenario_assumption",
@@ -501,11 +533,15 @@ def resolve_module_ids(text: str, modules: list) -> str:
     return out
 
 
-def identifier_artifacts(text: str, module_ids: list[str] | None = None) -> list[str]:
+def identifier_artifacts(text: str, module_ids: list[str] | None = None,
+                         known_ids: list[str] | None = None) -> list[str]:
     """Internal identifiers found in client-facing text: known module ids,
-    slug-shaped list labels ('1. some-module-engine:') and
-    technical slugs ('...-engine', '...-resolver')."""
+    slug-shaped list labels ('1. some-module-engine:'), registered technical
+    identifiers, and compound technical slugs ('pin-capture-handler'). A
+    single-hyphen word ending in a technical noun ('re-queue', 'sub-store')
+    is ordinary English unless the registry declares it as an identifier."""
     hits = []
+    known = {k for k in (known_ids or []) if k}
     # "For your build team" lines and the module appendix ("the engineering
     # detail") are the sanctioned homes of technical identifiers; ordinary
     # hyphenated English is not a slug
@@ -516,10 +552,11 @@ def identifier_artifacts(text: str, module_ids: list[str] | None = None) -> list
     t = re.sub(r"For your build team:.*?(?=\s(?:•|-|\*\*|##|Applying it)|$)", " ", t, flags=re.IGNORECASE)
     t = _BUILD_TEAM_LINE.sub(" ", t)
     t = _SLUG_ALLOW.sub(" ", t)
-    for mid in module_ids or []:
+    for mid in list(module_ids or []) + sorted(known):
         if mid and ("-" in mid or "_" in mid) and re.search(r"(?<![\w-])" + re.escape(mid) + r"(?![\w-])", t):
             hits.append(mid)
-    hits += [m.group(0) for m in _TECH_SLUG.finditer(t)]
+    hits += [m.group(0) for m in _TECH_SLUG.finditer(t)
+             if m.group(0).count("-") >= 2 or m.group(0) in known]
     return sorted(set(hits))
 
 
@@ -879,7 +916,7 @@ def phase_name_findings(blueprint_md: str, modules: list) -> list[dict]:
 
 
 CORRECTION_KEYS = ("renames", "policy_corrections", "pilot_ai_removed", "placeholder_replacements",
-                   "forward_dependencies_removed")
+                   "forward_dependencies_removed", "derivations_shown", "null_values_replaced")
 
 
 def corrections(reg: dict | None) -> dict:
@@ -984,6 +1021,14 @@ def type_technical_specs(modules: list, claims: list[dict], counter: dict) -> li
                     new += c
             ai = spec.get("ai")
             if isinstance(ai, dict):
+                # a null decision right is a statement, not a literal: the AI
+                # decides nothing alone (recorded as a correction)
+                for key in ("decides_alone", "hands_off"):
+                    if ai.get(key) is None or str(ai.get(key)).strip().lower() in _NULLISH:
+                        ai[key] = (NO_AUTONOMY if key == "decides_alone" else
+                                   "Everything it cannot resolve with confidence — a human picks it up")
+                        counter.setdefault("null_values_replaced", []).append(
+                            {"module": mid, "field": f"spec.ai.{key}", "replaced_with": ai[key]})
                 for key in ("decides_alone", "hands_off", "role"):
                     if isinstance(ai.get(key), str):
                         ai[key], c = threshold_pass(ai[key], claims, source=f"spec.ai.{key}",
@@ -1273,6 +1318,8 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         "pilot_ai_removed": pilot_ai_removed,
         "placeholder_replacements": placeholder_log,
         "forward_dependencies_removed": forward_removed,
+        "null_values_replaced": counter.get("null_values_replaced") or [],
+        "technical_identifiers": technical_identifiers(modules),
         "pilot_gate": gate,
         "pilot_gate_sentence": _pg.canonical_sentence(gate) if gate else "",
         "pilot_gate_definition": _pg.full_definition(gate) if gate else "",

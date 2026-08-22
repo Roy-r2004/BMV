@@ -138,6 +138,51 @@ def check_restatements(text: str, annual_claims: list[float]) -> tuple[str, list
     return _MONEY_BASIS.sub(_repl, text), records
 
 
+_DERIVATION_NEAR = re.compile(r"(?:/|÷)\s*(?:365|52)\b|a year\s*(?:/|÷)", re.IGNORECASE)
+
+
+def attribute_restatements(text: str, annual_claims: list[float]) -> tuple[str, list[dict]]:
+    """Attribution kept: every verified daily / weekly / monthly restatement
+    of an annual claim shows its own derivation in the sentence — '$194.40
+    per day ($70,956 a year ÷ 365)'. Table rows and sentences that already
+    carry the derivation are left alone. Returns (text, records)."""
+    records: list[dict] = []
+    if not text:
+        return text, records
+    claims = [c for c in annual_claims if isinstance(c, (int, float)) and c > 0]
+    if not claims:
+        return text, records
+    out_lines = []
+    for line in text.split("\n"):
+        if line.lstrip().startswith("|"):
+            out_lines.append(line)
+            continue
+
+        def _repl(m: re.Match) -> str:
+            stated = _value(m.group(1))
+            basis = m.group(2).lower()
+            if stated is None or "year" in basis or "annu" in basis:
+                return m.group(0)
+            after = line[m.end():m.end() + 80]
+            if _DERIVATION_NEAR.search(after) or _DERIVATION_NEAR.search(line[max(0, m.start() - 80):m.start()]):
+                return m.group(0)
+            for annual in claims:
+                for cand, _formula in candidates(annual, basis):
+                    if cand and _rounds_to(stated, cand):
+                        if "day" in basis or "daily" in basis:
+                            der = f"${annual:,.0f} a year ÷ {YEAR_DAYS}"
+                        elif "week" in basis:
+                            der = f"${annual:,.0f} a year ÷ 52"
+                        else:
+                            der = f"${annual:,.0f} a year ÷ {YEAR_DAYS} × {MONTH_DAYS}"
+                        records.append({"original": m.group(0), "derivation": der, "status": "derivation_shown"})
+                        return f"{m.group(0)} ({der})"
+            return m.group(0)
+
+        out_lines.append(_MONEY_BASIS.sub(_repl, line))
+    return "\n".join(out_lines), records
+
+
 def identity_findings(texts: dict[str, str], annual_claims: list[float]) -> list[dict]:
     """Package-wide check: for each annual claim, every monthly restatement
     across all texts must be the SAME figure on the package identity; a

@@ -121,6 +121,15 @@ def _align_cost_line(content: str, business_case: dict) -> str:
 _KPI_LINE = re.compile(r"(?im)^(\s*(?:[-*•]\s*)?\*\*(?:You.ll|How you.ll) know it.s working(?: when)?:?\*\*)[^\n]*(?:\n(?![\s]*(?:[-*•]\s*)?\*\*|\s*###|\s*##|\s*$)[^\n]*)*")
 _NULL_LINE = re.compile(r"(\*\*What the AI does on its own:\*\*)\s*(?:Null|None|N/A|null|none|-)\s*$", re.MULTILINE)
 _ANY_NULL = re.compile(r"(\*\*[^*\n]{2,60}:\*\*)\s*(?:Null|null)\b")
+# "- Decides alone: Null" — a plain list label carrying a null value
+_LIST_NULL = re.compile(r"(?m)^(\s*(?:[-*•]\s*)?[A-Z][^:\n*]{2,60}:)\s*(?:Null|null|None|N/A|n/a)\s*$")
+NO_AUTONOMY = "Nothing on its own — it proposes, a human decides"
+
+
+def _null_value_for(label: str) -> str:
+    if re.search(r"decides? alone|on its own|decides? without", label, re.IGNORECASE):
+        return NO_AUTONOMY
+    return "none"
 
 
 def _pin_kpi_lines(content: str, modules: list) -> str:
@@ -178,7 +187,8 @@ def _repair_no_ai_lines(content: str, modules: list) -> str:
 
 def _no_null_lines(content: str) -> str:
     out = _NULL_LINE.sub(r"\1 No AI in this part — deliberately.", content or "")
-    return _ANY_NULL.sub(r"\1 none", out)
+    out = _ANY_NULL.sub(lambda m: f"{m.group(1)} {_null_value_for(m.group(1))}", out)
+    return _LIST_NULL.sub(lambda m: f"{m.group(1)} {_null_value_for(m.group(1))}.", out)
 
 
 def finish_document(content: str | None, *, modules: list, business_case: dict,
@@ -189,7 +199,7 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     from app.pipeline import registry as _reg
     from app.pipeline import timebasis
 
-    report = {"new_claims": [], "gate": {}, "placeholders": []}
+    report = {"new_claims": [], "gate": {}, "placeholders": [], "derivations_shown": []}
     if not content:
         return content, report
     # placeholders in prose are recorded before plain_language renders them
@@ -207,7 +217,10 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
         content = _repair_no_ai_lines(content, modules)
     content = _reg.resolve_module_ids(content, modules)
     content, _ = timebasis.repair_expressions(content)
-    content, _ = timebasis.check_restatements(content, _annual_claims(business_case))
+    annual_claims = _annual_claims(business_case)
+    content, _ = timebasis.check_restatements(content, annual_claims)
+    # attribution kept: a verified per-day / per-month restatement shows its derivation
+    content, report["derivations_shown"] = timebasis.attribute_restatements(content, annual_claims)
     content = timebasis.round_counts(content)
     if kind == "blueprint":
         content = _align_cost_line(content, business_case)
@@ -277,8 +290,10 @@ def write_blueprint(
     content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="blueprint")
-    if report.get("placeholders") and registry:
+    if (report.get("placeholders") or report.get("derivations_shown")) and registry:
         registry.setdefault("placeholder_replacements", []).extend(report["placeholders"])
+        registry.setdefault("derivations_shown", []).extend(
+            [{"source": "blueprint", **d} for d in report.get("derivations_shown") or []])
         req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume
     if content:
@@ -323,9 +338,11 @@ def write_technical_plan(
     content = _markdown_call(db, request_id, "technical_plan", prompt, max_tokens=8000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="technical")
-    if (report["new_claims"] or report.get("placeholders")) and registry:
+    if (report["new_claims"] or report.get("placeholders") or report.get("derivations_shown")) and registry:
         registry.setdefault("claims", []).extend(report["new_claims"])
         registry.setdefault("placeholder_replacements", []).extend(report.get("placeholders") or [])
+        registry.setdefault("derivations_shown", []).extend(
+            [{"source": "technical", **d} for d in report.get("derivations_shown") or []])
         registry["errors"] = _reg.validate_registry(registry)
         req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume

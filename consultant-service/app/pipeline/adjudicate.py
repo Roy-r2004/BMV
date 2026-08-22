@@ -420,6 +420,93 @@ def adjudicate(req: Request, texts: dict[str, str] | None = None, *, persist: bo
                 _close("false_positive", "R6: " + evidence,
                        "semantic false positive resolved by structured phase data")
                 continue
+        # R31 — "the derivation is not shown": a machine-verified restatement that
+        # the rendered text prints WITH its derivation ('$194.40 per day ($70,956 a
+        # year ÷ 365)') is attributed — the objection is answered on the page
+        if re.search(r"derivation|attribut|not (?:explicitly )?shown|how (?:it|this) (?:was|is) (?:calculated|derived)",
+                     issue, re.IGNORECASE):
+            flat_corpus = re.sub(r"\s+", " ", corpus)
+            shown = None
+            for v, why in cited_verified:
+                tok = f"${v:,.2f}" if v < 1000 else f"${v:,.0f}"
+                m = re.search(re.escape(tok) + r"[^()\n]{0,40}\(([^)]*(?:÷|/)\s*(?:365|52)[^)]*)\)", flat_corpus)
+                if m:
+                    shown = (tok, m.group(1), why)
+                    break
+            if shown:
+                _close("false_positive",
+                       f"R31: '{shown[0]}' is printed with its derivation '({shown[1]})' in the rendered text, and the "
+                       f"value is machine-verified ({shown[2]})",
+                       "machine-proven false positive")
+                continue
+        # R29 — the pilot IS registered as a module by design: pilot=true, its only
+        # KPI claim is the decision gate, its procedures carry the pilot phase
+        where = str(f.get("where") or "")
+        pilot_mods = [m for m in (registry or {}).get("modules") or [] if m.get("pilot")]
+        for pm in pilot_mods:
+            pname = pm.get("client_facing_name") or ""
+            # the objection must be that the pilot is LISTED/positioned as a module
+            # (Phase-1 NAMING objections belong to R15)
+            if not pname or pname not in issue or not re.search(r"\bmodule\b", issue, re.IGNORECASE) or \
+                    not re.search(r"listed (?:as|among|in|under)|distinct (?:software )?module|"
+                                  r"not a (?:distinct |software |real )?module|success metric for|positioned as|"
+                                  r"copy of the pilot|procedures? (?:for|under) (?:a|the) module|"
+                                  r"definition of a .module", issue, re.IGNORECASE):
+                continue
+            gate_kpi = list(pm.get("kpi_claim_ids") or []) == [f"MK-{pm.get('id')}-gate"]
+            if not gate_kpi:
+                continue
+            proofs = [f"registry: '{pname}' is the pilot module (pilot=true, phase {pm.get('phase')})",
+                      "its only KPI claim is the decision gate, so the gate IS its success statement"]
+            if re.search(r"procedure", issue, re.IGNORECASE):
+                mine = [p for p in procedures if p.get("module") == pname]
+                if not mine or any(str(p.get("phase")).lower() != "pilot" for p in mine):
+                    continue
+                proofs.append(f"{len(mine)} procedure(s) filed under it all carry phase 'pilot'")
+            _close("false_positive", "R29: the pilot is listed among the modules BY DESIGN — " + "; ".join(proofs),
+                   "semantic false positive resolved by structured registry data")
+            break
+        if entry.get("classification"):
+            continue
+        # R30 — a threshold inside a quoted sentence is judged in THAT sentence:
+        # registered as a proposal for the module AND labeled there => proposal;
+        # unregistered or bare in the sentence => defect
+        wm = re.match(r"\s*(.+?):\s*'(.+)$", where, re.DOTALL)
+        if registry and _LABEL_TALK.search(issue) and wm:
+            mod_name, frag = wm.group(1).strip(), re.sub(r"\s+", " ", wm.group(2)).strip().rstrip("'…. ")
+            mod = next((m for m in registry.get("modules") or []
+                        if mod_name in (m.get("client_facing_name"), m.get("original_name"))), None)
+            nums_q = [q.strip() for q in _QUOTED.findall(issue) if any(ch.isdigit() for ch in q)
+                      and re.fullmatch(r"[\d,]*\.?\d+\s*%?", q.strip())]
+            words = [w for w in re.sub(r"\(proposed — client approval required\)", " ", frag).split() if w][:8]
+            flat = re.sub(r"\s+", " ", corpus)
+            if mod and nums_q and words:
+                pat = r"\s*(?:\(proposed — client approval required\)\s*)?".join(re.escape(w) for w in words)
+                hit = re.search(pat, flat)
+                if hit:
+                    end = flat.find(" • ", hit.end())
+                    window = flat[hit.start():end if 0 < end - hit.start() <= 700 else hit.start() + 700]
+                    proofs, fails = [], []
+                    for tok in nums_q:
+                        v = float(tok.rstrip("%").replace(",", "").strip())
+                        v = v / 100 if tok.endswith("%") else v
+                        claim = next((c for c in registry.get("claims") or []
+                                      if c.get("scope") == mod.get("id") and c.get("provenance") == "consultant_proposed"
+                                      and isinstance(c.get("value"), (int, float))
+                                      and abs(float(c["value"]) - v) <= 1e-6 * max(1.0, abs(v))), None)
+                        occ = list(re.finditer(r"(?<![\d.,])" + re.escape(tok.rstrip("%").strip()) + r"\s*%?", window))
+                        labeled = bool(occ) and all("(proposed" in window[o.end():o.end() + _LABEL_WINDOW] for o in occ)
+                        if claim and labeled:
+                            proofs.append(f"'{tok}' = {claim['id']} ({claim.get('type')}), labeled in the sentence")
+                        else:
+                            fails.append(f"'{tok}': " + ("no registered proposal for this module" if not claim
+                                                        else "not labeled inside the quoted sentence"))
+                    if fails:
+                        _close("confirmed", "R30: " + "; ".join(fails)[:300], "real defect")
+                    else:
+                        _close("false_positive", "R30: " + "; ".join(proofs)[:400],
+                               "semantic false positive resolved by structured threshold typing")
+                    continue
         # R7 + R2 — label evidence outranks the auditor's wording
         if _LABEL_TALK.search(issue):
             quoted = [q for q in _QUOTED.findall(issue)
