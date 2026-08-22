@@ -537,6 +537,24 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
     n = len(_reg.pilot_isolation_findings(modules, procedures))
     if n:
         reasons.append(f"{n} pilot specification(s)/procedure(s) depend on AI logic or another module")
+    # one pilot procedure set and one attempt count; labeled operating times;
+    # the customer never meets the internal queue; the gate's population
+    pilot_names = {str(m.get("client_facing_name") or m.get("name") or "") for m in modules
+                   if isinstance(m, dict) and m.get("pilot")}
+    n = len(_reg.pilot_procedure_findings(procedures, pilot_names))
+    if n:
+        reasons.append(f"{n} contradiction(s) between the pilot procedures")
+    n = len(_reg.operating_time_findings(procedures))
+    if n:
+        reasons.append(f"{n} unlabeled operating time(s)/cadence(s) in the procedures")
+    n = sum(len(_reg.customer_queue_findings(t)) for t in texts.values())
+    if n:
+        reasons.append(f"{n} sentence(s) send a customer into the internal pilot queue")
+    if gate:
+        n = sum(len(_reg.population_findings(t, gate, types=reg.get("service_types"), pilot_names=sorted(pilot_names)))
+                for t in texts.values())
+        if n:
+            reasons.append(f"{n} sentence(s) narrow the pilot population below the gate's population")
     annuals = [c["value"] for c in reg.get("claims") or []
                if c.get("type") == "derived_value" and c.get("unit") == "USD"
                and isinstance(c.get("value"), (int, float))]
@@ -881,6 +899,7 @@ def _pilot_gate_flowables(business_case: dict) -> list:
              if gate.get("baseline") or gate.get("baseline_source") else None),
             ("Target", f"{'rise' if gate.get('direction') == 'rise' else 'fall'} by {gate.get('target_value'):g} {unit} "
                        "(proposed — client approval required)" if gate.get("target_value") is not None else None),
+            ("Formula", gate.get("target_formula")),
             ("Change kind", "percentage-point change" if gate.get("change_kind") == "percentage_point"
              else "relative change" if gate.get("change_kind") == "relative" else None),
             ("Guardrails", "; ".join(gate.get("guardrails") or []) + " (proposed — client approval required)"

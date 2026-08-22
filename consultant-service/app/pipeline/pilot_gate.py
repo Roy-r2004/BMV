@@ -65,13 +65,25 @@ def design_errors(g: dict | None) -> list[str]:
     return errs
 
 
+def flatten_prose(text: str) -> str:
+    """Markdown or rendered text as one line of sentences: a bullet, a
+    numbered item, a heading or a table row is its own sentence boundary
+    ('• '), so two list items are never read as one sentence."""
+    t = text or ""
+    t = re.sub(r"(?m)^\s*(?:[-*•]|\d+\.)\s+", " • ", t)
+    t = re.sub(r"(?m)^\s*#{1,6}\s+", " • ", t)
+    t = re.sub(r"(?m)^\s*\|", " • ", t)
+    t = re.sub(r"\s*\n\s*", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
 def design_findings(text: str, g: dict | None) -> list[dict]:
     """Rendered-text check: any sentence that describes the control or the
     assignment differently from the canonical design is a high finding."""
     out = []
     if not text or not g:
         return out
-    flat = re.sub(r"\s+", " ", text)
+    flat = flatten_prose(text)
     canon = assignment_sentence(g).lower()
     for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•])|•", flat):
         if canon in sentence.lower():  # the gate box prints it sentence-internal, lower-cased
@@ -231,7 +243,20 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
     g["control"] = g["control_method"]  # the legacy key mirrors the rendered method
     g["target_vs_control"] = bool(g.get("control_method"))
     if g["target_vs_control"] and g.get("primary_metric"):
-        g["comparison_metric"] = f"treatment {g['primary_metric']} minus control {g['primary_metric']}"
+        m = g["primary_metric"]
+        # the comparison follows the change kind: a percentage-point target is
+        # the absolute difference; a relative target is that difference
+        # divided by the control rate
+        if g.get("change_kind") == "relative":
+            g["comparison_metric"] = f"(treatment {m} minus control {m}) divided by control {m}"
+            g["target_formula"] = (f"(treatment rate − control rate) ÷ control rate must be at least "
+                                   f"{_fmt(g.get('target_value'))}%" if g.get("direction") != "fall" else
+                                   f"(control rate − treatment rate) ÷ control rate must be at least {_fmt(g.get('target_value'))}%")
+        else:
+            g["comparison_metric"] = f"treatment {m} minus control {m}"
+            g["target_formula"] = (f"treatment rate − control rate must be at least {_fmt(g.get('target_value'))} percentage points"
+                                   if g.get("direction") != "fall" else
+                                   f"control rate − treatment rate must be at least {_fmt(g.get('target_value'))} percentage points")
         if not (g.get("denominator") and re.search(r"group|assigned|arm", g["denominator"], re.IGNORECASE)):
             g["denominator"] = "eligible deliveries assigned to each group"
     g["secondary_metrics"] = [str(x) for x in (raw.get("secondary_metrics") or []) if x]
@@ -353,7 +378,8 @@ def full_definition(g: dict | None) -> str:
             f"Population: {_lc(g.get('population')) or 'the pilot population'} in {g.get('geography') or 'the pilot zone'}. "
             f"Assignment: {split}; the treatment group receives {_lc(g.get('treatment')) or 'the pilot workflow'}. "
             f"Primary metric: {g.get('comparison_metric') or metric}{definition}. "
-            f"Target: treatment {metric} must {verb} the control group's by {_fmt(g.get('target_value'))} {_unit_words(g)} {LABEL}."
+            f"Target: treatment {metric} must {verb} the control group's by {_fmt(g.get('target_value'))} {_unit_words(g)}"
+            f"{' — ' + g['target_formula'] if g.get('target_formula') else ''} {LABEL}."
             f"{guard}{base} Approval status: {(g.get('approval_status') or APPROVAL_REQUIRED).replace('_', ' ')}.")
 
 
@@ -546,3 +572,4 @@ from app.config import settings as _settings
 
 PILOT_TOOLING = getattr(_settings, "PILOT_TOOLING_NAME", None) or "Pilot Review Queue"
 PILOT_OPERATOR = getattr(_settings, "PILOT_OPERATOR_ROLE", None) or "Pilot Support Operator"
+PILOT_CUSTOMER_FORM = getattr(_settings, "PILOT_CUSTOMER_FORM_NAME", None) or "Pilot Confirmation Form"

@@ -64,24 +64,42 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
     later_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
                    if isinstance(m, dict) and not m.get("pilot")]
 
+    # a later module a customer uses stands in as the customer-facing pilot
+    # form; a staff module as the internal queue
+    stand_in = {}
+    for m in modules or []:
+        if isinstance(m, dict) and not m.get("pilot"):
+            users = " ".join(str(u) for u in (m.get("users") or []))
+            form = bool(_registry._CUSTOMER_USER.search(users)) and not _registry._STAFF_ONLY.search(users)
+            for nm in (m.get("client_facing_name"), m.get("name"), m.get("original_name")):
+                if nm:
+                    stand_in[str(nm)] = _pg.PILOT_CUSTOMER_FORM if form else _pg.PILOT_TOOLING
+
     def _pilot_tooling(s):
         # a pilot-state step runs with today's tools: a later-phase or AI
-        # module named in it becomes the lightweight Pilot Review Queue
+        # module named in it becomes the lightweight pilot tooling
         if not isinstance(s, str):
             return s
         for n in sorted(set(ai_names + later_names), key=len, reverse=True):
             if n:
-                s = s.replace(n, _pg.PILOT_TOOLING)
+                s = s.replace(n, stand_in.get(n, _pg.PILOT_TOOLING))
         return s
 
-    pilot_module_names = {str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
-                          if isinstance(m, dict) and m.get("pilot")} | {"The pilot"}
+    pilot_only_names = {str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
+                        if isinstance(m, dict) and m.get("pilot")}
+    pilot_module_names = pilot_only_names | {"The pilot"}
     design_records: list[dict] = []
     ai_records: list[dict] = []
+    channel_records: list[dict] = []
+    population_records: list[dict] = []
+    # ONE pilot procedure set: the pilot SOP; module-level pilot procedures
+    # that restate it are removed (recorded)
+    consolidated = _registry.consolidate_pilot_procedures(procedures, pilot_only_names)
 
     def _pilot_scrub(s, where: str):
         # a pilot-phase step runs with today's tools, the pilot's rules and its
-        # human operator, on the canonical randomized design
+        # human operator, on the canonical randomized design, for the gate's
+        # population; a customer never receives the internal queue
         if not isinstance(s, str):
             return s
         fixed = _pilot_tooling(s)
@@ -91,6 +109,10 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
         fixed = scrubbed
         fixed, recs = _pg.enforce_design(fixed, gate)
         design_records.extend({"where": where, **r} for r in recs)
+        fixed, recs = _registry.customer_facing_pass(fixed)
+        channel_records.extend({"where": where, **r} for r in recs)
+        fixed, recs = _registry.population_pass(fixed, gate, (registry or {}).get("service_types"))
+        population_records.extend({"where": where, **r} for r in recs)
         return fixed
 
     for p in procedures or []:
@@ -241,6 +263,14 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
             registry.setdefault("pilot_ai_removed", []).extend(ai_records)
         if policy_notes:
             registry.setdefault("policy_corrections", []).extend(policy_notes)
+        if consolidated:
+            registry.setdefault("pilot_procedures_consolidated", []).extend(consolidated)
+        if channel_records:
+            registry.setdefault("customer_channel_corrections", []).extend(channel_records)
+        if population_records:
+            registry.setdefault("population_corrections", []).extend(population_records)
+        if counter.get("operating_time_labels"):
+            registry.setdefault("operating_time_labels", []).extend(counter["operating_time_labels"])
     return procedures
 
 

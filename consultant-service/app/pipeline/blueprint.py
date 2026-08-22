@@ -231,12 +231,22 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
         # phone-number-only gate on financial detail gets the stronger step
         lines = []
         report["design_corrections"], report["auth_hardening"], report["policy_corrections"] = [], [], []
+        report["customer_channel_corrections"], report["population_corrections"] = [], []
+        pilot_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
+                       if isinstance(m, dict) and m.get("pilot")]
         for line in content.split("\n"):
             fixed, notes = _reg.policy_pass(line, registry.get("claims") or [])
             report["policy_corrections"] += [{"source": kind, "note": n} for n in notes]
             if gate and not line.lstrip().startswith("|"):
                 fixed, recs = _pg.enforce_design(fixed, gate)
                 report["design_corrections"] += recs
+            # a customer never receives the internal queue; a pilot sentence
+            # never narrows the gate's population
+            fixed, recs = _reg.customer_facing_pass(fixed)
+            report["customer_channel_corrections"] += [{"source": kind, **r} for r in recs]
+            if gate and (re.search(r"\bpilot\b", fixed, re.IGNORECASE) or any(n and n in fixed for n in pilot_names)):
+                fixed, recs = _reg.population_pass(fixed, gate, registry.get("service_types"))
+                report["population_corrections"] += [{"source": kind, **r} for r in recs]
             if kind == "technical":
                 fixed, recs = _reg.harden_auth_text(fixed)
                 report["auth_hardening"] += recs

@@ -26,6 +26,10 @@ class Settings:
     # person and never depends on a later-phase module).
     PILOT_TOOLING_NAME: str = _env_or("PILOT_TOOLING_NAME", "Pilot Review Queue")
     PILOT_OPERATOR_ROLE: str = _env_or("PILOT_OPERATOR_ROLE", "Pilot Support Operator")
+    # the customer-facing counterpart of the internal queue: what a customer
+    # receives during the pilot (a simple confirmation form / reply), never
+    # the internal review queue
+    PILOT_CUSTOMER_FORM_NAME: str = _env_or("PILOT_CUSTOMER_FORM_NAME", "Pilot Confirmation Form")
     # Bake-off (2026-08-10, dashboard-image-v1 prompt, same input): gemini-3-pro
     # rendered a crisp true-16:9 desktop screenshot at $0.14; gpt-5.4-image-2 was
     # close but square/softer at $0.25; gpt-5-image bled content off both edges

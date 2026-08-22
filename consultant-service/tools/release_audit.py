@@ -109,7 +109,8 @@ def validate_record(record: dict) -> list[str]:
     if "corrections_current_pass" in record:
         cur, cum = record["corrections_current_pass"], record.get("corrections_cumulative") or {}
         for k, v in cur.items():
-            if len(cum.get(k) or []) < len(v or []):
+            distinct = {json.dumps(e, sort_keys=True) for e in (v or [])}  # the merge keeps one copy of identical entries
+            if len(cum.get(k) or []) < len(distinct):
                 errors.append(f"corrections_cumulative[{k}] holds fewer entries than the current pass")
     return errors
 

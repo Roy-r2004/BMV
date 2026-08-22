@@ -387,6 +387,18 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
     findings += pilot_isolation_findings(mods)
     findings += auth_findings(mods)
     findings += api_path_findings(mods)
+    # the pilot's own strings: no customer into the internal queue, no
+    # narrowing of the gate's population
+    from app.pipeline.registry import customer_queue_findings, population_findings
+
+    typed_gate = bc.get("pilot_gate") if isinstance(bc.get("pilot_gate"), dict) else None
+    for m in mods:
+        if m.get("pilot"):
+            blob = json.dumps({k: m.get(k) for k in ("spec", "tech", "purpose")}, ensure_ascii=False)
+            findings += customer_queue_findings(blob, f"modules.{m['id']}")
+            if typed_gate:
+                findings += population_findings(blob, typed_gate, f"modules.{m['id']}", (registry or {}).get("service_types"),
+                                                pilot_scope=False)
 
     # a scenario that "releases" hours by applying an inquiry share to an
     # hours pool asserts a client fact the client never gave

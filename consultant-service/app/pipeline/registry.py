@@ -355,6 +355,267 @@ def canonical_pilot_name(name: str) -> str:
     return stripped
 
 
+_CUSTOMER_USER = re.compile(r"customer|client|shopper|patient|guest|member|tenant|passenger|end[- ]user", re.IGNORECASE)
+_STAFF_ONLY = re.compile(r"^(?:[^a-z]*(?:staff|team|agent|dispatch|operator|manager|finance|support|admin)[^a-z]*)+$", re.IGNORECASE)
+_CUSTOMER_ACT = re.compile(r"\b(?:customers?|clients?|shoppers?|patients?|guests?|members?|end[- ]users?)\b[^.;]{0,120}?"
+                           r"\b(?:link|form|confirms?|reply|replies|responds?|submits?|access(?:es)?|opens?|receives?|clicks?|taps?|"
+                           r"drops?|pins?|uploads?|fills?)\b", re.IGNORECASE)
+_LINK_TO_QUEUE = re.compile(r"\b(?:link|form|page|url)\s+to\s+(?:the\s+)?", re.IGNORECASE)
+
+
+def customer_facing_pass(text: str) -> tuple[str, list[dict]]:
+    """A sentence in which a customer receives, opens or fills something
+    never names the internal pilot queue — the customer gets the pilot's
+    confirmation form; the queue stays internal."""
+    records: list[dict] = []
+    if not text or _pg.PILOT_TOOLING not in text:
+        return text, records
+    # clause by clause: the customer's action must precede the queue mention
+    # inside the same clause ("customers confirm … via a link to the queue"),
+    # never a later clause about staff ("; flagged orders go to the queue")
+    parts = re.split(r"((?<=[.!?;])\s+)", text)
+    out = []
+    for s in parts:
+        if _customer_meets_queue(s):
+            fixed = s.replace(_pg.PILOT_TOOLING + " module", _pg.PILOT_CUSTOMER_FORM).replace(_pg.PILOT_TOOLING, _pg.PILOT_CUSTOMER_FORM)
+            records.append({"original": s.strip()[:140], "replaced_with": _pg.PILOT_CUSTOMER_FORM})
+            out.append(fixed)
+        else:
+            out.append(s)
+    return "".join(out), records
+
+
+def _customer_meets_queue(clause: str) -> bool:
+    if _pg.PILOT_TOOLING not in clause:
+        return False
+    before = clause.split(_pg.PILOT_TOOLING)[0]
+    return bool(_CUSTOMER_ACT.search(before) or _LINK_TO_QUEUE.search(before[-20:]))
+
+
+def customer_queue_findings(text: str, label: str = "") -> list[dict]:
+    out = []
+    flat = _pg.flatten_prose(text)
+    if _pg.PILOT_TOOLING not in flat:
+        return out
+    for s in re.split(r"(?<=[.!?;])\s+|•", flat):
+        if _customer_meets_queue(s):
+            out.append({"severity": "high", "source": "structural", "where": f"{label}: pilot customer channel".strip(": "),
+                        "issue": f"A customer is sent into the internal {_pg.PILOT_TOOLING}: \"{s.strip()[:160]}\"",
+                        "fix": f"the customer receives the {_pg.PILOT_CUSTOMER_FORM}; the queue stays internal"})
+    return out
+
+
+# ── the pilot population is the gate's population ────────────────────────────
+_POP_QUALIFIER = re.compile(r"\b(?:for|to|of|covering|limited to|only for|restricted to|scheduled for)\s+(?:their\s+|all\s+|the\s+|new\s+)?"
+                            r"((?:[a-z]+(?:-[a-z]+)*\s+){1,4}?)(?:orders?|deliveries|shipments|delivery)\b", re.IGNORECASE)
+_POP_GENERIC = {"new", "eligible", "individual", "customer", "customers", "delivery", "deliveries", "pilot", "mobile", "app",
+                "order", "orders", "their", "all", "the", "and", "or", "standard", "each", "every", "treatment", "control",
+                "group", "selected", "business", "client", "clients", "scheduled", "same", "these", "those", "such", "pending",
+                "confirmed", "unconfirmed", "flagged", "high-risk", "incoming", "daily", "todays", "today's"}
+_POP_ALIASES = {"cod": ("cash-on-delivery", "cash on delivery", "cod")}
+
+
+def _population_words(gate: dict | None) -> set[str]:
+    blob = " ".join(str((gate or {}).get(k) or "") for k in ("population", "numerator", "denominator", "geography")).lower()
+    words = set(re.findall(r"[a-z][a-z-]*", blob))
+    for w in list(words):
+        words.update(w.split("-"))
+    return words
+
+
+def service_types(free_texts: list[str]) -> list[str]:
+    """The client's own service types: the qualifiers the client puts in front
+    of 'orders' / 'deliveries' in the brief ('e-commerce COD orders, same-day
+    and express on-demand deliveries' -> e-commerce, cod, same-day, express,
+    on-demand). Only these can narrow a pilot population."""
+    found: set[str] = set()
+    for t in free_texts or []:
+        for m in _SERVICE_QUALIFIER.finditer(str(t or "")):
+            for w in m.group(1).lower().split()[-4:]:
+                # a service type names an offering (same-day, on-demand, COD,
+                # e-commerce) — never a state ("failed"), a verb ("flags") or
+                # a question word ("where")
+                if w in _POP_GENERIC or w in _NOT_A_TYPE or len(w) < 3 or w in _STATE_WORDS:
+                    continue
+                if re.search(r"(?:ed|ing)$", w) and "-" not in w:
+                    continue
+                found.add(w)
+    return sorted(found)
+
+
+_STATE_WORDS = {"failed", "failing", "successful", "completed", "unconfirmed", "confirmed", "pending", "flagged", "flags",
+                "late", "delayed", "missed", "cancelled", "canceled", "returned", "first", "first-attempt", "re-attempt",
+                "attempted", "where", "current", "known", "historical", "previous", "existing", "eligible", "new", "open",
+                "closed", "active", "inactive", "high-risk", "low-risk", "risky", "problem", "problematic", "unresolved",
+                "resolved", "escalated", "treatment", "control"}
+
+
+# the run of words right before the unit noun, wherever it sits in the brief
+_SERVICE_QUALIFIER = re.compile(r"((?:[A-Za-z][A-Za-z-]*\s+){1,4}?)(?:orders?|deliveries|shipments)\b", re.IGNORECASE)
+_NOT_A_TYPE = {"we", "our", "your", "their", "they", "you", "deliver", "delivers", "delivering", "handle", "handles",
+               "handling", "process", "processes", "manage", "manages", "ship", "ships", "collect", "collects", "receive",
+               "receives", "include", "includes", "including", "offer", "offers", "provide", "provides", "support",
+               "supports", "serve", "serves", "accept", "accepts", "with", "from", "through", "via", "for", "into",
+               "individual", "individuals", "business", "businesses", "more", "most", "many", "some", "few"}
+
+
+def _narrowing_qualifiers(text: str, gate: dict | None, types: list[str] | None) -> list[str]:
+    """Qualifier phrases that restrict the unit noun to a client service type
+    the gate's population does not name."""
+    pop = _population_words(gate)
+    kinds = {t.lower() for t in (types or [])}
+    if not pop or not kinds:
+        return []
+    hits = []
+    for m in _POP_QUALIFIER.finditer(text or ""):
+        words = [w.lower() for w in m.group(1).split()]
+        typed = [w for w in words if w in kinds and w not in _POP_GENERIC]
+        if not typed:
+            continue
+
+        def _known(w: str) -> bool:
+            if w in pop or any(p in pop for p in w.split("-") if len(p) > 2):
+                return True
+            return any(a in " ".join(sorted(pop)) for a in _POP_ALIASES.get(w, ()))
+        if not all(_known(w) for w in typed):
+            hits.append(m.group(0))
+    return hits
+
+
+def population_findings(text: str, gate: dict | None, label: str = "", types: list[str] | None = None,
+                        pilot_names: list[str] | None = None, pilot_scope: bool = True) -> list[dict]:
+    """A pilot string may not narrow the pilot population to a client service
+    type the gate never named ('same-day and express deliveries' against a
+    population of 'all individual mobile-app orders'). On document text the
+    check applies to sentences about the pilot (the word or the pilot
+    module's name); a later module's own scope is not the pilot population."""
+    out = []
+    flat = _pg.flatten_prose(text)
+    names = [n for n in (pilot_names or []) if n]
+    for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•\d])|•", flat):
+        if pilot_scope and not (re.search(r"\bpilot\b", s, re.IGNORECASE) or any(n in s for n in names)):
+            continue
+        for q in _narrowing_qualifiers(s, gate, types):
+            out.append({"severity": "high", "source": "structural", "where": f"{label}: pilot population".strip(": "),
+                        "issue": (f"The pilot population is narrowed to '{q.strip()}' — the gate's population is "
+                                  f"'{(gate or {}).get('population')}': \"{s.strip()[:160]}\""),
+                        "fix": "describe the eligible orders of the pilot population, never a narrower service type"})
+            break
+    return out
+
+
+def population_pass(text: str, gate: dict | None, types: list[str] | None = None) -> tuple[str, list[dict]]:
+    records: list[dict] = []
+    if not text or not gate:
+        return text, records
+    out = text
+    for q in _narrowing_qualifiers(text, gate, types):
+        m = _POP_QUALIFIER.search(out)
+        while m and m.group(0) != q:
+            m = _POP_QUALIFIER.search(out, m.end())
+        if not m:
+            continue
+        fixed = m.group(0).replace(m.group(1), "eligible ", 1)
+        out = out.replace(m.group(0), fixed, 1)
+        records.append({"original": q.strip(), "replaced_with": fixed.strip()})
+    return out, records
+
+
+# ── one pilot procedure set, labeled operating times ─────────────────────────
+_ORDINAL_PREFIX = re.compile(r"^\s*(?:\d{1,2}\s*[.):]|\(\d{1,2}\)|[a-z]\s*[.)])\s+(?=\S)")
+
+
+def strip_ordinal(item: str) -> str:
+    """'3. Implement …' in a sequence field is a list item, not a threshold."""
+    return _ORDINAL_PREFIX.sub("", item) if isinstance(item, str) else item
+
+
+_CLOCK = re.compile(r"\b(\d{1,2}(?::\d{2})?\s*(?:AM|PM|a\.m\.|p\.m\.))(?![^()]{0,40}\(proposed)", re.IGNORECASE)
+_CADENCE_WORD = re.compile(r"^(\s*)(Daily|Weekly|Twice (?:a |per )day|Every (?:morning|evening|day|week)|Each (?:morning|evening|day))"
+                           r"\b(?!\s*\(proposed)", re.IGNORECASE)
+
+
+def operating_time_pass(text: str) -> tuple[str, list[dict]]:
+    """A clock time or a review cadence the client never stated is a
+    proposal and carries the label."""
+    records: list[dict] = []
+    if not isinstance(text, str) or not text:
+        return text, records
+
+    def _clock(m: re.Match) -> str:
+        records.append({"value": m.group(1), "kind": "clock_time"})
+        return m.group(1) + " " + PROPOSED_LABEL
+
+    out = _CLOCK.sub(_clock, text)
+    cm = _CADENCE_WORD.match(out)
+    if cm:
+        records.append({"value": cm.group(2), "kind": "cadence"})
+        out = out[:cm.end()] + " " + PROPOSED_LABEL + out[cm.end():]
+    return out, records
+
+
+def operating_time_findings(procedures: list) -> list[dict]:
+    out = []
+    for p in procedures or []:
+        if not isinstance(p, dict):
+            continue
+        strings = [("trigger", str(p.get("trigger") or ""))] + \
+                  [(f"steps[{i}]", str(s.get("step") or "")) for i, s in enumerate(p.get("steps") or []) if isinstance(s, dict)]
+        for field, s in strings:
+            if _CLOCK.search(s) or _CADENCE_WORD.match(s):
+                out.append({"severity": "high", "source": "structural", "where": f"procedures: {p.get('name')} ({field})",
+                            "issue": f"An operating time or review cadence is stated without attribution or a proposal label: \"{s[:140]}\"",
+                            "fix": "label it '(proposed — client approval required)' or source it from the client"})
+                break
+    return out
+
+
+def consolidate_pilot_procedures(procedures: list, pilot_names: set[str]) -> list[dict]:
+    """The pilot SOP ('The pilot') is the ONE executable pilot procedure set;
+    a pilot-phase procedure filed under the pilot module restates it with
+    other mechanics (53-r3: one reminder vs three attempts) and is removed."""
+    removed: list[dict] = []
+    sop = [p for p in (procedures or []) if isinstance(p, dict) and p.get("module") == "The pilot"
+           and str(p.get("phase") or "").lower() == "pilot"]
+    if not sop:
+        return removed
+    for p in list(procedures or []):
+        if isinstance(p, dict) and str(p.get("phase") or "").lower() == "pilot" and p.get("module") in pilot_names:
+            removed.append({"procedure": p.get("name"), "module": p.get("module"),
+                            "reason": "the pilot SOP is the single executable pilot procedure set"})
+            procedures.remove(p)
+    return removed
+
+
+_ATTEMPTS = re.compile(r"\b(\d+|one|two|three|four|five)\s+(?:\(proposed[^)]*\)\s*)?(attempts?|reminders?)\b", re.IGNORECASE)
+_WORD_N = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+
+
+def pilot_procedure_findings(procedures: list, pilot_names: set[str]) -> list[dict]:
+    """Two pilot procedure sets, or two different attempt counts inside the
+    pilot procedures, are a contradiction the reader cannot resolve."""
+    out = []
+    pilot = [p for p in (procedures or []) if isinstance(p, dict) and str(p.get("phase") or "").lower() == "pilot"]
+    sets = {str(p.get("module")) for p in pilot}
+    if "The pilot" in sets and (sets & pilot_names):
+        out.append({"severity": "high", "source": "structural", "where": "procedures: pilot",
+                    "issue": "Two pilot procedure sets exist (the pilot SOP and module-level pilot procedures) — one workflow "
+                             "described twice with different mechanics.",
+                    "fix": "keep the pilot SOP as the single executable set"})
+    totals = set()
+    for p in pilot:
+        blob = " ".join([str(p.get("trigger") or "")] + [str(s.get("step") or "") for s in p.get("steps") or [] if isinstance(s, dict)]
+                        + [str(e.get("when") or "") + " " + str(e.get("then") or "") for e in p.get("exceptions") or [] if isinstance(e, dict)])
+        for m in _ATTEMPTS.finditer(blob):
+            n = int(m.group(1)) if m.group(1).isdigit() else _WORD_N[m.group(1).lower()]
+            totals.add(n + 1 if m.group(2).lower().startswith("reminder") else n)
+    if len(totals) > 1:
+        out.append({"severity": "high", "source": "structural", "where": "procedures: pilot",
+                    "issue": f"The pilot procedures state different outreach attempt counts: {sorted(totals)}.",
+                    "fix": "one canonical attempt count across the pilot procedures"})
+    return out
+
+
 def module_registry(modules: list, business_case: dict) -> tuple[list[dict], list[dict]]:
     """Typed module metadata, and the renames applied to make pilot-phase
     names honest. Mutates the modules in place (the single source every
@@ -450,9 +711,19 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
     # the Phase-1 pilot may not lean on ANY other module — later-phase or
     # parallel workstream alike, none exists when the pilot runs: its strings
     # name the lightweight pilot tooling instead
-    later = [m["client_facing_name"] for m in mods if not m.get("pilot")]
-    later += [str(m.get("original_name") or "") for m in mods if not m.get("pilot") and m.get("original_name")]
-    later = sorted({x for x in later if x}, key=len, reverse=True)
+    # a later module a CUSTOMER uses (its users name the customer) stands in
+    # the pilot as the customer-facing pilot form; a staff module as the
+    # internal pilot queue — the queue is never what a customer receives
+    replacement: dict[str, str] = {}
+    for m in mods:
+        if m.get("pilot"):
+            continue
+        users = " ".join(str(u) for u in (m.get("users") or []))
+        stand_in = _pg.PILOT_CUSTOMER_FORM if _CUSTOMER_USER.search(users) and not _STAFF_ONLY.search(users) else _pg.PILOT_TOOLING
+        for nm in (m.get("client_facing_name"), m.get("original_name"), m.get("name")):
+            if nm:
+                replacement[str(nm)] = stand_in
+    later = sorted({x for x in replacement if x}, key=len, reverse=True)
     pilot_mods = [m for m in mods if m.get("pilot")]
     if pilot_mods and later:
         removed: list[dict] = []
@@ -461,8 +732,8 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
             if isinstance(obj, str):
                 for name in later:
                     if name in obj:
-                        removed.append({"field": path, "later_phase_module": name, "replaced_with": _pg.PILOT_TOOLING})
-                        obj = obj.replace(name, _pg.PILOT_TOOLING)
+                        removed.append({"field": path, "later_phase_module": name, "replaced_with": replacement[name]})
+                        obj = obj.replace(name, replacement[name])
                 return obj
             if isinstance(obj, dict):
                 return {k: (_detach(v, f"{path}.{k}") if k not in ("id", "depends_on") else v) for k, v in obj.items()}
@@ -640,7 +911,7 @@ AUTH_CLAUSE = ("Before any settlement or financial detail is shared, the request
 
 
 def weak_auth_sentences(text: str) -> list[str]:
-    flat = re.sub(r"\s+", " ", text or "")
+    flat = _pg.flatten_prose(text)
     sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•])|•", flat)
     out = []
     for i, s in enumerate(sentences):
@@ -1124,8 +1395,7 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
         return out
     out += cadence_findings(texts, claims)
     for label, text in (texts or {}).items():
-        flat = re.sub(r"\s-\s+(?=[A-Z*])", ". ", text or "")
-        flat = re.sub(r"\s+", " ", flat)
+        flat = _pg.flatten_prose(re.sub(r"\s-\s+(?=[A-Z*])", ". ", text or ""))
         for sentence in re.split(r"(?<=[.!?])\s+|•", flat):
             if not _POLICY_WORDS.search(sentence):
                 continue
@@ -1153,15 +1423,19 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
                     continue
                 # the period must be ABOUT settling — adjacent to the policy
                 # verb/noun ("remitted weekly", "settled within 5 days",
-                # "2-day remittance policy") — a review cadence in the same
-                # sentence ("<Policy> Review Checklist (Weekly)") is not
+                # "2-day remittance policy", "remittance dates (within 2 days …
+                # of order delivery)", "the 'within 2 days … of delivery' policy")
+                # — a review cadence in the same sentence is not
                 before = sentence[max(0, m.start() - 60): m.start()]
-                after = sentence[m.end(): m.end() + 40]
+                after = sentence[m.end(): m.end() + 60]
                 near = before + " " + after
-                tied = (re.search(r"(?:" + _POLICY_WORDS.pattern + r")\w*\s+(?:\w+\s+){0,2}(?:within|in|after|every|of|on|per|at)?\s*$",
+                tied = (re.search(r"(?:" + _POLICY_WORDS.pattern + r")\w*\s+(?:\w+\s+){0,2}[('\"]?\s*(?:within|in|after|every|of|on|per|at)?\s*$",
                                   before, re.IGNORECASE)
                         or re.match(r"\s*(?:\w+\s+){0,1}(?:settlement|remittance|payout|disbursement)\s+(?:cycle|policy|period|terms|window)",
-                                    after, re.IGNORECASE))
+                                    after, re.IGNORECASE)
+                        or re.match(r"\s*(?:\((?:proposed[^)]*|your stated cycle)\)\s*)*(?:of|after|from|following)\s+(?:the\s+)?"
+                                    r"(?:order|delivery|collection|invoice|pickup|month|the sale)", after, re.IGNORECASE)
+                        or re.match(r"\s*(?:\((?:proposed[^)]*|your stated cycle)\)\s*)*(?:of|after)[^.']{0,40}?['\"]?\s*policy\b", after, re.IGNORECASE))
                 if not tied:
                     continue
                 # the 30-day operating month and "x 30 days" are identity formulas, not policies
@@ -1238,7 +1512,7 @@ def cadence_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
     if not deadline_days(claims):
         return out
     for label, text in (texts or {}).items():
-        flat = re.sub(r"\s+", " ", text or "")
+        flat = _pg.flatten_prose(text)
         for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•\d])|•", flat):
             for n in _cadence_hits(sentence, claims):
                 out.append({"severity": "high", "source": "structural", "where": f"{label}: operational policy",
@@ -1432,7 +1706,9 @@ def phase_name_findings(blueprint_md: str, modules: list) -> list[dict]:
 
 CORRECTION_KEYS = ("renames", "policy_corrections", "pilot_ai_removed", "placeholder_replacements",
                    "forward_dependencies_removed", "derivations_shown", "null_values_replaced",
-                   "identifier_corrections", "auth_hardening", "pilot_design_corrections", "unit_corrections")
+                   "identifier_corrections", "auth_hardening", "pilot_design_corrections", "unit_corrections",
+                   "pilot_procedures_consolidated", "population_corrections", "operating_time_labels",
+                   "customer_channel_corrections")
 
 
 def corrections(reg: dict | None) -> dict:
@@ -1562,6 +1838,16 @@ def type_procedures(procedures: list, claims: list[dict], counter: dict) -> list
             continue
         pid = re.sub(r"[^a-z0-9]+", "-", str(p.get("name") or "procedure").lower()).strip("-")[:30]
         phase = str(p.get("phase") or "future").upper()
+        # clock times and review cadences are proposals unless the client stated them
+        if isinstance(p.get("trigger"), str):
+            p["trigger"], recs = operating_time_pass(p["trigger"])
+            for r in recs:
+                counter.setdefault("operating_time_labels", []).append({"procedure": p.get("name"), "field": "trigger", **r})
+        for i, st in enumerate(p.get("steps") or []):
+            if isinstance(st, dict) and isinstance(st.get("step"), str):
+                st["step"], recs = operating_time_pass(st["step"])
+                for r in recs:
+                    counter.setdefault("operating_time_labels", []).append({"procedure": p.get("name"), "field": f"steps[{i}]", **r})
         for key in ("trigger",):
             if isinstance(p.get(key), str):
                 p[key], c = threshold_pass(p[key], claims, source=f"procedures.{key}",
@@ -1796,6 +2082,38 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
     # AI logic written INTO the pilot's build steps, fields and strings is
     # removed too — the pilot is rules-based and human-supervised
     pilot_ai_removed += pilot_rules_only(modules, _pg.PILOT_OPERATOR, _pg.PILOT_TOOLING)
+    # list items never start with their own number (a threshold pass would
+    # label "3." as a proposal); a customer never receives the internal
+    # queue; the pilot population is the gate's population
+    customer_channel, population_corrections = [], []
+    kinds = service_types(free_texts or [])
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+        tech = m.get("tech") if isinstance(m.get("tech"), dict) else None
+        if tech:
+            for key in ("build_sequence", "done_when", "evaluation"):
+                if isinstance(tech.get(key), list):
+                    tech[key] = [strip_ordinal(x) for x in tech[key]]
+            ai = tech.get("ai_agent") if isinstance(tech.get("ai_agent"), dict) else None
+            if ai and isinstance(ai.get("evaluation"), list):
+                ai["evaluation"] = [strip_ordinal(x) for x in ai["evaluation"]]
+        if m.get("pilot"):
+            def _pilot_walk(obj, path):
+                if isinstance(obj, str):
+                    fixed, recs = customer_facing_pass(obj)
+                    customer_channel.extend({"module": m.get("id"), "field": path, **r} for r in recs)
+                    fixed, recs = population_pass(fixed, gate, kinds)
+                    population_corrections.extend({"module": m.get("id"), "field": path, **r} for r in recs)
+                    return fixed
+                if isinstance(obj, dict):
+                    return {k: (_pilot_walk(v, f"{path}.{k}") if k not in ("id", "name", "entity") else v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [_pilot_walk(v, f"{path}[{i}]") for i, v in enumerate(obj)]
+                return obj
+            for key in ("purpose", "pain_point_addressed", "spec", "tech"):
+                if key in m:
+                    m[key] = _pilot_walk(m[key], key)
     # identifiers are URL-safe; financial detail needs more than a number match
     identifier_corrections = api_path_repair(modules)
     auth_hardening = harden_auth(modules)
@@ -1845,6 +2163,9 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         "api_paths": api_paths(modules),
         "identifier_corrections": identifier_corrections,
         "auth_hardening": auth_hardening,
+        "customer_channel_corrections": customer_channel,
+        "population_corrections": population_corrections,
+        "service_types": kinds,
         "pilot_design": _pg.assignment_sentence(gate) if gate and not gate.get("design_errors") else None,
         "pilot_gate": gate,
         "pilot_gate_sentence": _pg.canonical_sentence(gate) if gate else "",
