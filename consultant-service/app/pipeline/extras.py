@@ -95,6 +95,11 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
     # ONE pilot procedure set: the pilot SOP; module-level pilot procedures
     # that restate it are removed (recorded)
     consolidated = _registry.consolidate_pilot_procedures(procedures, pilot_only_names)
+    # the SOP's attempt total governs the pilot module's own strings — and,
+    # through the registry, the prose every volume is finished with
+    attempt_records = _registry.pilot_attempts_pass(modules, procedures)
+    if registry is not None:
+        registry["pilot_attempt_total"] = _registry.sop_attempt_total(procedures)
 
     def _pilot_scrub(s, where: str):
         # a pilot-phase step runs with today's tools, the pilot's rules and its
@@ -265,6 +270,9 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
             registry.setdefault("policy_corrections", []).extend(policy_notes)
         if consolidated:
             registry.setdefault("pilot_procedures_consolidated", []).extend(consolidated)
+        if attempt_records:
+            registry.setdefault("pilot_attempt_corrections", []).extend(attempt_records)
+            registry["_modules_changed"] = True
         if channel_records:
             registry.setdefault("customer_channel_corrections", []).extend(channel_records)
         if population_records:
@@ -559,6 +567,9 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     if procedure_library:
         by_name["procedures"] = {"procedures": procedure_library}
     if registry:
+        # the canonicalizer aligned the pilot module's own strings with its SOP
+        if registry.pop("_modules_changed", None) and modules:
+            req.modules_json = json.dumps(modules)
         req.registry_json = json.dumps(registry)
     if by_name.get("journey"):
         req.journey_json = json.dumps(by_name["journey"])

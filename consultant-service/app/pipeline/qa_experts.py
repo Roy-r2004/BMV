@@ -100,12 +100,15 @@ def machine_findings(req: Request, registry: dict | None, texts: dict[str, str] 
         out += [{**f, "where": f"{label}: {f['where']}"} for f in _registry.api_text_findings(text, registry.get("api_paths") or [])]
     out += _registry.pilot_isolation_findings(modules, procedures)
     pilot_names = {str(m.get("client_facing_name") or m.get("name") or "") for m in modules if isinstance(m, dict) and m.get("pilot")}
-    out += _registry.pilot_procedure_findings(procedures, pilot_names)
+    out += _registry.pilot_procedure_findings(procedures, pilot_names, modules)
     out += _registry.operating_time_findings(procedures)
+    total = _registry.sop_attempt_total(procedures)
+    terms = _registry.pilot_terms(modules)
     for label, text in texts.items():
         out += _registry.customer_queue_findings(text, label)
+        out += _registry.attempts_text_findings(text, total, terms, label)
         if gate:
-            out += _registry.population_findings(text, gate, label, registry.get("service_types"), sorted(pilot_names))
+            out += _registry.population_findings(text, gate, label, registry.get("service_types"), terms)
     return out
 
 

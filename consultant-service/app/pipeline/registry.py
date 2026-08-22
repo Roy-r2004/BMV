@@ -591,9 +591,25 @@ _ATTEMPTS = re.compile(r"\b(\d+|one|two|three|four|five)\s+(?:\(proposed[^)]*\)\
 _WORD_N = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 
-def pilot_procedure_findings(procedures: list, pilot_names: set[str]) -> list[dict]:
-    """Two pilot procedure sets, or two different attempt counts inside the
-    pilot procedures, are a contradiction the reader cannot resolve."""
+def _attempt_totals(text: str) -> set[int]:
+    """Outreach attempt totals a text states: 'three attempts' -> 3, 'one
+    reminder' -> 2 (the first message plus one reminder)."""
+    totals = set()
+    for m in _ATTEMPTS.finditer(text or ""):
+        n = int(m.group(1)) if m.group(1).isdigit() else _WORD_N[m.group(1).lower()]
+        totals.add(n + 1 if m.group(2).lower().startswith("reminder") else n)
+    return totals
+
+
+def _procedure_text(p: dict) -> str:
+    return " ".join([str(p.get("trigger") or "")] + [str(s.get("step") or "") for s in p.get("steps") or [] if isinstance(s, dict)]
+                    + [str(e.get("when") or "") + " " + str(e.get("then") or "") for e in p.get("exceptions") or [] if isinstance(e, dict)])
+
+
+def pilot_procedure_findings(procedures: list, pilot_names: set[str], modules: list | None = None) -> list[dict]:
+    """Two pilot procedure sets, or two different attempt counts anywhere in
+    the pilot's specification (its SOP procedures AND the pilot module's
+    own strings), are a contradiction the reader cannot resolve."""
     out = []
     pilot = [p for p in (procedures or []) if isinstance(p, dict) and str(p.get("phase") or "").lower() == "pilot"]
     sets = {str(p.get("module")) for p in pilot}
@@ -604,16 +620,140 @@ def pilot_procedure_findings(procedures: list, pilot_names: set[str]) -> list[di
                     "fix": "keep the pilot SOP as the single executable set"})
     totals = set()
     for p in pilot:
-        blob = " ".join([str(p.get("trigger") or "")] + [str(s.get("step") or "") for s in p.get("steps") or [] if isinstance(s, dict)]
-                        + [str(e.get("when") or "") + " " + str(e.get("then") or "") for e in p.get("exceptions") or [] if isinstance(e, dict)])
-        for m in _ATTEMPTS.finditer(blob):
-            n = int(m.group(1)) if m.group(1).isdigit() else _WORD_N[m.group(1).lower()]
-            totals.add(n + 1 if m.group(2).lower().startswith("reminder") else n)
+        totals |= _attempt_totals(_procedure_text(p))
+    for m in modules or []:
+        if isinstance(m, dict) and m.get("pilot"):
+            totals |= _attempt_totals(" ".join(s for k in ("purpose", "spec", "tech") for s in _strings_in(m.get(k))))
     if len(totals) > 1:
-        out.append({"severity": "high", "source": "structural", "where": "procedures: pilot",
-                    "issue": f"The pilot procedures state different outreach attempt counts: {sorted(totals)}.",
-                    "fix": "one canonical attempt count across the pilot procedures"})
+        out.append({"severity": "high", "source": "structural", "where": "pilot specification",
+                    "issue": f"The pilot's specification states different outreach attempt counts: {sorted(totals)} "
+                             "(SOP procedures and pilot module strings together).",
+                    "fix": "one canonical attempt count across the pilot SOP and the pilot module"})
     return out
+
+
+def pilot_terms(modules: list) -> list[str]:
+    """What marks a sentence as being about the pilot: the pilot module's
+    client-facing name and the names of its own features ('Response Tracking
+    & Reminder System') — registry data, never a hardcoded phrase."""
+    terms: list[str] = []
+    for m in modules or []:
+        if not (isinstance(m, dict) and m.get("pilot")):
+            continue
+        for nm in (m.get("client_facing_name"), m.get("name"), m.get("original_name")):
+            if nm:
+                terms.append(str(nm))
+        spec = m.get("spec") if isinstance(m.get("spec"), dict) else {}
+        for f in spec.get("features") or []:
+            if isinstance(f, dict) and f.get("name") and len(str(f["name"])) > 6:
+                terms.append(str(f["name"]))
+    return sorted(set(terms), key=len, reverse=True)
+
+
+def sop_attempt_total(procedures: list) -> int | None:
+    """The one outreach attempt total the pilot SOP states (None if it
+    states none or several)."""
+    sop = [p for p in (procedures or []) if isinstance(p, dict) and p.get("module") == "The pilot"
+           and str(p.get("phase") or "").lower() == "pilot"]
+    totals = set()
+    for p in sop:
+        totals |= _attempt_totals(_procedure_text(p))
+    return next(iter(totals)) if len(totals) == 1 else None
+
+
+def _align_attempts(s: str, total: int) -> str:
+    words = {v: k for k, v in _WORD_N.items()}
+
+    def _sub(m: re.Match) -> str:
+        n = int(m.group(1)) if m.group(1).isdigit() else _WORD_N[m.group(1).lower()]
+        kind = m.group(2).lower()
+        want = total - 1 if kind.startswith("reminder") else total
+        if (n + 1 if kind.startswith("reminder") else n) == total or want < 1:
+            return m.group(0)
+        number = words.get(want, str(want)) if not m.group(1).isdigit() else str(want)
+        noun = ("reminder" if kind.startswith("reminder") else "attempt") + ("s" if want != 1 else "")
+        return m.group(0).replace(m.group(1), number, 1).replace(m.group(2), noun, 1)
+
+    fixed = _ATTEMPTS.sub(_sub, s)
+    return re.sub(r"\breminders message\b", "reminder messages", fixed)
+
+
+def attempts_text_pass(text: str, total: int | None, pilot_names: list[str] | None) -> tuple[str, list[dict]]:
+    """Prose about the pilot states the SOP's attempt total — line by line,
+    only lines about the pilot (the word or the pilot module's name)."""
+    records: list[dict] = []
+    if not text or not total:
+        return text, records
+    names = [n for n in (pilot_names or []) if n]
+    out = []
+    for line in text.split("\n"):
+        if _ATTEMPTS.search(line) and (re.search(r"\bpilot\b", line, re.IGNORECASE) or any(n in line for n in names)):
+            fixed = _align_attempts(line, total)
+            if fixed != line:
+                records.append({"original": line.strip()[:140], "replaced_with": fixed.strip()[:140], "sop_attempts": total})
+            out.append(fixed)
+        else:
+            out.append(line)
+    return "\n".join(out), records
+
+
+def attempts_text_findings(text: str, total: int | None, pilot_names: list[str] | None, label: str = "") -> list[dict]:
+    """Rendered-text check: a pilot sentence whose attempt or reminder count
+    differs from the SOP's total is a contradiction."""
+    out = []
+    if not text or not total:
+        return out
+    names = [n for n in (pilot_names or []) if n]
+    flat = _pg.flatten_prose(text)
+    for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•\d])|•", flat):
+        if not (re.search(r"\bpilot\b", s, re.IGNORECASE) or any(n in s for n in names)):
+            continue
+        stated = _attempt_totals(s)
+        if stated and stated != {total}:
+            out.append({"severity": "high", "source": "structural", "where": f"{label}: pilot attempts".strip(": "),
+                        "issue": (f"The pilot's outreach attempt count reads {sorted(stated)} here but the pilot SOP makes "
+                                  f"{total}: \"{s.strip()[:160]}\""),
+                        "fix": f"state the SOP's total ({total} attempts)"})
+    return out
+
+
+def pilot_attempts_pass(modules: list, procedures: list) -> list[dict]:
+    """The pilot SOP is executable and canonical: its attempt total governs
+    the pilot module's strings ('sends one reminder' becomes 'sends two
+    reminders' when the SOP makes three attempts). Recorded."""
+    records: list[dict] = []
+    sop = [p for p in (procedures or []) if isinstance(p, dict) and p.get("module") == "The pilot"
+           and str(p.get("phase") or "").lower() == "pilot"]
+    sop_totals = set()
+    for p in sop:
+        sop_totals |= _attempt_totals(_procedure_text(p))
+    if len(sop_totals) != 1:
+        return records
+    total = next(iter(sop_totals))
+
+    def _rewrite(s: str, path: str) -> str:
+        if not isinstance(s, str) or not _ATTEMPTS.search(s):
+            return s
+        fixed = _align_attempts(s, total)
+        if fixed != s:
+            records.append({"field": path, "original": s[:140], "replaced_with": fixed[:140], "sop_attempts": total})
+        return fixed
+
+    def _walk(obj, path):
+        if isinstance(obj, str):
+            return _rewrite(obj, path)
+        if isinstance(obj, dict):
+            return {k: (_walk(v, f"{path}.{k}") if k not in ("id", "name", "entity") else v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_walk(v, f"{path}[{i}]") for i, v in enumerate(obj)]
+        return obj
+
+    for m in modules or []:
+        if isinstance(m, dict) and m.get("pilot"):
+            for key in ("purpose", "pain_point_addressed", "spec", "tech"):
+                if key in m:
+                    m[key] = _walk(m[key], f"{m.get('id')}.{key}")
+    return records
 
 
 def module_registry(modules: list, business_case: dict) -> tuple[list[dict], list[dict]]:
@@ -1708,7 +1848,7 @@ CORRECTION_KEYS = ("renames", "policy_corrections", "pilot_ai_removed", "placeho
                    "forward_dependencies_removed", "derivations_shown", "null_values_replaced",
                    "identifier_corrections", "auth_hardening", "pilot_design_corrections", "unit_corrections",
                    "pilot_procedures_consolidated", "population_corrections", "operating_time_labels",
-                   "customer_channel_corrections")
+                   "customer_channel_corrections", "pilot_attempt_corrections", "content_recovery")
 
 
 def corrections(reg: dict | None) -> dict:

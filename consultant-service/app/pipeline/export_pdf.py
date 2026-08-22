@@ -541,9 +541,14 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
     # the customer never meets the internal queue; the gate's population
     pilot_names = {str(m.get("client_facing_name") or m.get("name") or "") for m in modules
                    if isinstance(m, dict) and m.get("pilot")}
-    n = len(_reg.pilot_procedure_findings(procedures, pilot_names))
+    n = len(_reg.pilot_procedure_findings(procedures, pilot_names, modules))
     if n:
-        reasons.append(f"{n} contradiction(s) between the pilot procedures")
+        reasons.append(f"{n} contradiction(s) inside the pilot specification (procedures and pilot module)")
+    total = _reg.sop_attempt_total(procedures)
+    terms = _reg.pilot_terms(modules)
+    n = sum(len(_reg.attempts_text_findings(t, total, terms)) for t in texts.values())
+    if n:
+        reasons.append(f"{n} sentence(s) state a pilot attempt count different from the SOP's")
     n = len(_reg.operating_time_findings(procedures))
     if n:
         reasons.append(f"{n} unlabeled operating time(s)/cadence(s) in the procedures")
@@ -551,7 +556,7 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
     if n:
         reasons.append(f"{n} sentence(s) send a customer into the internal pilot queue")
     if gate:
-        n = sum(len(_reg.population_findings(t, gate, types=reg.get("service_types"), pilot_names=sorted(pilot_names)))
+        n = sum(len(_reg.population_findings(t, gate, types=reg.get("service_types"), pilot_names=_reg.pilot_terms(modules)))
                 for t in texts.values())
         if n:
             reasons.append(f"{n} sentence(s) narrow the pilot population below the gate's population")

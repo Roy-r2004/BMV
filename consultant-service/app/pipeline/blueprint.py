@@ -232,8 +232,7 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
         lines = []
         report["design_corrections"], report["auth_hardening"], report["policy_corrections"] = [], [], []
         report["customer_channel_corrections"], report["population_corrections"] = [], []
-        pilot_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
-                       if isinstance(m, dict) and m.get("pilot")]
+        pilot_names = _reg.pilot_terms(modules)
         for line in content.split("\n"):
             fixed, notes = _reg.policy_pass(line, registry.get("claims") or [])
             report["policy_corrections"] += [{"source": kind, "note": n} for n in notes]
@@ -247,6 +246,9 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
             if gate and (re.search(r"\bpilot\b", fixed, re.IGNORECASE) or any(n and n in fixed for n in pilot_names)):
                 fixed, recs = _reg.population_pass(fixed, gate, registry.get("service_types"))
                 report["population_corrections"] += [{"source": kind, **r} for r in recs]
+            # prose about the pilot states the SOP's outreach attempt total
+            fixed, recs = _reg.attempts_text_pass(fixed, registry.get("pilot_attempt_total"), pilot_names)
+            report.setdefault("pilot_attempt_corrections", []).extend({"source": kind, **r} for r in recs)
             if kind == "technical":
                 fixed, recs = _reg.harden_auth_text(fixed)
                 report["auth_hardening"] += recs

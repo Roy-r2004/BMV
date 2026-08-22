@@ -47,6 +47,25 @@ def test_one_pilot_procedure_set_and_one_attempt_count():
     assert [r["procedure"] for r in removed] == ["Managing confirmations"]
     assert [p["name"] for p in procs] == ["Conducting outreach", "Future thing"]
     assert rg.pilot_procedure_findings(procs, {pilot_name}) == []
+    # the pilot module's own strings must agree with the SOP's attempt total
+    mods = copy.deepcopy(MODULES)
+    mods[0]["spec"]["features"] = [{"name": "Reminders", "description": "Monitors responses and automatically sends one reminder message if no response within 30 minutes."}]
+    assert any("attempt counts" in f["issue"] for f in rg.pilot_procedure_findings(procs, {pilot_name}, mods))
+    recs = rg.pilot_attempts_pass(mods, procs)
+    desc = mods[0]["spec"]["features"][0]["description"]
+    assert "sends two reminder messages if no response" in desc and recs and recs[0]["sop_attempts"] == 3
+    assert rg.pilot_procedure_findings(procs, {pilot_name}, mods) == []
+    # prose about the pilot follows the SOP too; a later module's own count is left alone
+    assert rg.sop_attempt_total(procs) == 3
+    mods[0]["spec"]["features"][0]["name"] = "Response Tracking & Reminder System"
+    terms = rg.pilot_terms(mods)
+    assert "Response Tracking & Reminder System" in terms
+    md = (f"- **{pilot_name}**: sends one reminder message if no response within 30 minutes.\n"
+          "- Response Tracking & Reminder System: automatically sends one reminder message if no response.\n"
+          "- **Escalation module**: opens a ticket after 5 attempts.")
+    fixed, recs = rg.attempts_text_pass(md, 3, terms)
+    assert fixed.count("sends two reminder messages") == 2 and "after 5 attempts" in fixed and len(recs) == 2
+    assert len(rg.attempts_text_findings(md, 3, terms, "t")) == 2 and rg.attempts_text_findings(fixed, 3, terms, "t") == []
 
 
 def test_customer_receives_the_pilot_form_never_the_internal_queue():
