@@ -107,6 +107,7 @@ def machine_findings(req: Request, registry: dict | None, texts: dict[str, str] 
     for label, text in texts.items():
         out += _registry.customer_queue_findings(text, label)
         out += _registry.attempts_text_findings(text, total, terms, label)
+        out += _registry.ordinal_label_findings(text, label)
         if gate:
             out += _registry.population_findings(text, gate, label, registry.get("service_types"), terms)
     return out

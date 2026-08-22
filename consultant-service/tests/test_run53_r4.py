@@ -122,11 +122,31 @@ def test_pilot_strings_never_narrow_the_gate_population():
 
 def test_list_items_lose_their_own_numbers_before_typing():
     mods = copy.deepcopy(MODULES)
-    mods[1]["tech"]["build_sequence"] = ["1. Define the data models.", "3. Implement the WhatsApp integration.", "(4) Build the dashboard."]
+    mods[1]["tech"]["build_sequence"] = ["1. Define the data models.", "3 (proposed — client approval required). Implement the WhatsApp integration.",
+                                         "(4) Build the dashboard."]
     reg = rg.build_registry(OPS, {"build_order": [m["id"] for m in mods], "pilot_gate": copy.deepcopy(GATE)}, mods)
     seq = mods[1]["tech"]["build_sequence"]
     assert seq == ["Define the data models.", "Implement the WhatsApp integration.", "Build the dashboard."]
     assert not [c for c in reg["claims"] if c.get("source", "").startswith("tech.build_sequence") and c.get("value") in (1, 3, 4)]
+    # an inline ordinal in prose is never a threshold — on the page and in the data
+    prose = "Next, we connect to WhatsApp to send and receive messages. 3 (proposed — client approval required). Then, we set up the queue."
+    assert rg.ordinal_label_findings(prose, "technical")
+    assert rg.plain_language(prose) == "Next, we connect to WhatsApp to send and receive messages. 3. Then, we set up the queue."
+    assert rg.unlabel_ordinals(prose) == rg.plain_language(prose) and rg.ordinal_label_findings(rg.plain_language(prose)) == []
+    kept = "escalates when 3 (proposed — client approval required) pre-confirmation attempts fail"
+    assert rg.unlabel_ordinals(kept) == kept
+
+
+def test_table_of_contents_is_navigation_not_a_kpi_statement():
+    from app.pipeline import export_pdf as ep
+
+    mods = copy.deepcopy(MODULES)
+    reg = rg.build_registry(OPS, {"build_order": [m["id"] for m in mods], "pilot_gate": copy.deepcopy(GATE)}, mods)
+    page = ("THE BLUEPRINT Beacon\nContents\nContents 2\nThe decision 4\nThe pilot decision gate 5\nThe product, module by module 8\n"
+            "SECTION 01 The decision\nThe pilot runs for six weeks.\n")
+    cleaned = ep.strip_page_chrome(page, "Beacon")
+    assert "The decision 4" not in cleaned and "The pilot runs for six weeks." in cleaned
+    assert rg.kpi_number_findings(cleaned, reg, strict_kpi=True) == []
 
 
 def test_operating_times_and_cadences_are_labeled_proposals():

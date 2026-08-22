@@ -549,6 +549,9 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
     n = sum(len(_reg.attempts_text_findings(t, total, terms)) for t in texts.values())
     if n:
         reasons.append(f"{n} sentence(s) state a pilot attempt count different from the SOP's")
+    n = sum(len(_reg.ordinal_label_findings(t)) for t in texts.values())
+    if n:
+        reasons.append(f"{n} list ordinal(s) labeled as thresholds")
     n = len(_reg.operating_time_findings(procedures))
     if n:
         reasons.append(f"{n} unlabeled operating time(s)/cadence(s) in the procedures")
@@ -1478,7 +1481,16 @@ def strip_page_chrome(text: str, concept: str | None = None) -> str:
     out = _CHROME_HEAD.sub(" ", out)
     out = _CHROME_FOOT.sub(" ", out)
     out = _CHROME_PAGE.sub("", out)
+    # the table of contents is navigation, not prose: "The decision 4" is a
+    # page number, never a KPI figure
+    out = _TOC_BLOCK.sub(" [table of contents]\n", out)
     return out
+
+
+# entries carry dotted leaders ("The pilot decision gate . . . . 4") and \r\n endings
+# the chrome strip glues the cover's last line to "Contents", so the heading
+# is matched after any whitespace, not only at a line start
+_TOC_BLOCK = re.compile(r"(?:^|(?<=\s))Contents[ \t]*\r?\n(?:[^\n]{2,220}?[\s.]+\d{1,3}[ \t]*\r?\n?){2,}")
 
 
 def _page_chrome(label: str, concept: str, draft: bool = False):

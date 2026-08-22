@@ -110,7 +110,8 @@ _SKIP_BEFORE = re.compile(
     r"((phase|section|page|volume|step|week|tier|level|version|part|top|chapter|figure|table|"
     r"option|v|q|run|no\.|#)\s*|[A-Za-z0-9]-|claim\s+[A-Z]{2}-[\w-]*)$", re.IGNORECASE)
 _SKIP_AFTER = re.compile(
-    r"^\s*(/7|x\b|×|am\b|pm\b|:\d|-\w|(?:phases?|steps?|parts?|modules?|volumes?|sections?|pages?|records?|"
+    r"^\s*(/7|x\b|×|am\b|pm\b|:\d|-\w|\.\s+[A-Z]|\(proposed[^)]*\)\.\s+[A-Z]|"  # "3. Then, we …" is an inline ordinal
+    r"(?:phases?|steps?|parts?|modules?|volumes?|sections?|pages?|records?|"
     r"screens?|tables?|fields?|roles?|types?|categories|options?|lists?|entities|tools?|integrations?|"
     r"scenarios?|stages?|layers?|columns?|rows?|reasons?|sentences?|questions?|items?)\b)", re.IGNORECASE)
 _THRESHOLD_SENTENCE = re.compile(
@@ -522,7 +523,27 @@ def population_pass(text: str, gate: dict | None, types: list[str] | None = None
 
 
 # ── one pilot procedure set, labeled operating times ─────────────────────────
-_ORDINAL_PREFIX = re.compile(r"^\s*(?:\d{1,2}\s*[.):]|\(\d{1,2}\)|[a-z]\s*[.)])\s+(?=\S)")
+# "3. Implement …", "(4) Build …", and a label an earlier pass put between the
+# ordinal and its period ("3 (proposed — client approval required). Implement")
+_ORDINAL_PREFIX = re.compile(r"^\s*(?:\d{1,2}\s*(?:\(proposed[^)]*\)\s*)?[.):]|\(\d{1,2}\)|[a-z]\s*[.)])\s+(?=\S)")
+# an inline ordinal in prose ("… messages. 3. Then, we …") wearing a label
+_LABELED_ORDINAL = re.compile(r"(?<![\w$.,])(\d{1,2}) \(proposed — client approval required\)(\.)(?=\s+[A-Z])")
+
+
+def unlabel_ordinals(text: str) -> str:
+    """A number that is a list ordinal is not a threshold: the label an
+    earlier pass attached is removed ('3 (proposed …). Then' -> '3. Then')."""
+    return _LABELED_ORDINAL.sub(r"\1\2", text) if isinstance(text, str) else text
+
+
+def ordinal_label_findings(text: str, label: str = "") -> list[dict]:
+    out = []
+    flat = _pg.flatten_prose(text)
+    for m in _LABELED_ORDINAL.finditer(flat):
+        out.append({"severity": "high", "source": "structural", "where": f"{label}: list ordinals".strip(": "),
+                    "issue": f"A list ordinal is labeled as a proposed threshold: \"{flat[max(0, m.start()-60):m.end()+40]}\"",
+                    "fix": "ordinals are never thresholds — strip the label"})
+    return out
 
 
 def strip_ordinal(item: str) -> str:
@@ -956,8 +977,9 @@ def plain_language(text: str) -> str:
     out = re.sub(r"\b(?:after|up to|maximum of|max\.?)\s+N\b", lambda m: m.group(0).replace("N", "the approved maximum number"), out)
     out = _CENTS.sub(lambda m: "$" + f"{int(float(m.group(1).replace(',', '') + '.' + m.group(2)) + 0.5):,}", out)
     out = _WORD_DURATION.sub(lambda m: f"{_WORD_TO_N[m.group(1).lower()]}-{m.group(2).lower()}{m.group(3)}", out)
-    # never two approval labels back to back
+    # never two approval labels back to back; never a label on a list ordinal
     out = re.sub(r"(\(proposed — client approval required\))(?:[\s,;]*\(proposed — client approval required\))+", r"\1", out)
+    out = _LABELED_ORDINAL.sub(r"\1\2", out)
     for key, original in masks.items():
         out = out.replace(key, original)
     return out
