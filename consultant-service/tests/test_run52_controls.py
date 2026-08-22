@@ -176,9 +176,17 @@ def test_target_value_fraction_form_is_reconciled_and_a_resulting_rate_is_named(
 def test_final_operations_manual_requires_owner_and_approver():
     from app.pipeline import export_pdf as ep
 
+    # three states: DRAFT (open findings) / FINAL — CONSULTANCY DELIVERABLE (all
+    # quality checks pass; no client approval needed) / CLIENT APPROVED (the
+    # client supplied the document owner and approver — never invented)
     row = Request(id=9201, business_name="x", status="done", is_failed=False, mvp_blueprint="doc", technical_plan="doc",
                   qa_report_json=json.dumps({"checks": [], "findings": []}))
-    assert any("owner/approver" in r for r in ep.release_status(row)["reasons"])
+    gate = ep.release_status(row)
+    assert gate["status"] == "final" and gate["status_label"] == "FINAL — CONSULTANCY DELIVERABLE" and gate["reasons"] == []
+    assert not rg.document_control(row)["complete"]
     row.document_owner, row.document_approver = "Operations Manager (client)", "Head of Operations (client)"
-    assert not any("owner/approver" in r for r in ep.release_status(row)["reasons"])
-    assert rg.document_control(row)["complete"]
+    gate = ep.release_status(row)
+    assert gate["status"] == "client_approved" and gate["status_label"] == "CLIENT APPROVED" and rg.document_control(row)["complete"]
+    row.qa_report_json = json.dumps({"checks": [], "findings": [{"severity": "high", "source": "qa_numbers", "where": "x",
+                                                                 "issue": "an open finding", "fix": "fix it"}]})
+    assert ep.release_status(row)["status"] == "draft"

@@ -47,13 +47,16 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
     counter = {"n": sum(1 for c in claims if str(c.get("id", "")).startswith("TH-"))}
     renames = [(r["from"], r["to"]) for r in ((registry or {}).get("renames") or []) if r.get("from") and r.get("to")]
 
+    policy_notes: list[dict] = []
+
     def _fix(s):
         if not isinstance(s, str):
             return s
         s, _ = _pg.enforce(s, gate)
         for old, new in renames:
             s = s.replace(old, new)
-        s, _ = _registry.policy_pass(s, claims)
+        s, notes = _registry.policy_pass(s, claims)
+        policy_notes.extend({"source": "operations layers", "note": n} for n in notes)
         return _registry.resolve_module_ids(s, modules)
 
     ai_names = [str(m.get("client_facing_name") or m.get("name") or "") for m in (modules or [])
@@ -236,6 +239,8 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
             registry.setdefault("pilot_design_corrections", []).extend(design_records)
         if ai_records:
             registry.setdefault("pilot_ai_removed", []).extend(ai_records)
+        if policy_notes:
+            registry.setdefault("policy_corrections", []).extend(policy_notes)
     return procedures
 
 

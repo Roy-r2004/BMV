@@ -230,9 +230,10 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
         # in the specs; a restated pilot design becomes the canonical one; a
         # phone-number-only gate on financial detail gets the stronger step
         lines = []
-        report["design_corrections"], report["auth_hardening"] = [], []
+        report["design_corrections"], report["auth_hardening"], report["policy_corrections"] = [], [], []
         for line in content.split("\n"):
-            fixed, _ = _reg.policy_pass(line, registry.get("claims") or [])
+            fixed, notes = _reg.policy_pass(line, registry.get("claims") or [])
+            report["policy_corrections"] += [{"source": kind, "note": n} for n in notes]
             if gate and not line.lstrip().startswith("|"):
                 fixed, recs = _pg.enforce_design(fixed, gate)
                 report["design_corrections"] += recs
@@ -299,10 +300,11 @@ def write_blueprint(
     content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="blueprint")
-    if (report.get("placeholders") or report.get("derivations_shown")) and registry:
+    if (report.get("placeholders") or report.get("derivations_shown") or report.get("policy_corrections")) and registry:
         registry.setdefault("placeholder_replacements", []).extend(report["placeholders"])
         registry.setdefault("derivations_shown", []).extend(
             [{"source": "blueprint", **d} for d in report.get("derivations_shown") or []])
+        registry.setdefault("policy_corrections", []).extend(report.get("policy_corrections") or [])
         req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume
     if content:
@@ -347,11 +349,13 @@ def write_technical_plan(
     content = _markdown_call(db, request_id, "technical_plan", prompt, max_tokens=8000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="technical")
-    if (report["new_claims"] or report.get("placeholders") or report.get("derivations_shown")) and registry:
+    if (report["new_claims"] or report.get("placeholders") or report.get("derivations_shown")
+            or report.get("policy_corrections")) and registry:
         registry.setdefault("claims", []).extend(report["new_claims"])
         registry.setdefault("placeholder_replacements", []).extend(report.get("placeholders") or [])
         registry.setdefault("derivations_shown", []).extend(
             [{"source": "technical", **d} for d in report.get("derivations_shown") or []])
+        registry.setdefault("policy_corrections", []).extend(report.get("policy_corrections") or [])
         registry["errors"] = _reg.validate_registry(registry)
         req.registry_json = json.dumps(registry)
     # a failed (re)generation never erases an existing volume

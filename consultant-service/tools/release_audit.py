@@ -96,14 +96,64 @@ def validate_record(record: dict) -> list[str]:
                 errors.append(f"{kind}: inspected pages exceed its page count")
             if v.get("inspection_ok") and v.get("failures"):
                 errors.append(f"{kind}: inspection_ok with failures listed")
-    if record.get("status") == "final":
+    if record.get("status") in ("final", "client_approved"):
         if record.get("reasons"):
-            errors.append("status final with reasons listed")
+            errors.append(f"status {record['status']} with reasons listed")
         if any(isinstance(v, dict) and not v.get("inspection_ok") for v in vols.values()):
-            errors.append("status final with a failed inspection")
+            errors.append(f"status {record['status']} with a failed inspection")
         if not expect["every_page_inspected"]:
-            errors.append("status final without every page inspected")
+            errors.append(f"status {record['status']} without every page inspected")
+    if record.get("status") == "client_approved" and not (record.get("client_approval") or {}).get("complete"):
+        errors.append("status client_approved without a client-supplied owner and approver")
+    # lineage: the cumulative corrections are the parent's cumulative plus this pass
+    if "corrections_current_pass" in record:
+        cur, cum = record["corrections_current_pass"], record.get("corrections_cumulative") or {}
+        for k, v in cur.items():
+            if len(cum.get(k) or []) < len(v or []):
+                errors.append(f"corrections_cumulative[{k}] holds fewer entries than the current pass")
     return errors
+
+
+def _latest_revision_dir(releases_dir: str, run_id: int) -> str | None:
+    best, best_n = None, 0
+    if os.path.isdir(releases_dir):
+        for name in os.listdir(releases_dir):
+            m = re.fullmatch(rf"{run_id}-r(\d+)", name)
+            if m and int(m.group(1)) > best_n:
+                best, best_n = os.path.join(releases_dir, name), int(m.group(1))
+    return best
+
+
+def _merge_corrections(base: dict, extra: dict) -> dict:
+    """Union by key; an entry already present (same JSON) is not repeated."""
+    out = {k: list(v or []) for k, v in (base or {}).items()}
+    for k, v in (extra or {}).items():
+        seen = {json.dumps(e, sort_keys=True) for e in out.get(k, [])}
+        out.setdefault(k, [])
+        for e in v or []:
+            if json.dumps(e, sort_keys=True) not in seen:
+                out[k].append(e)
+                seen.add(json.dumps(e, sort_keys=True))
+    return out
+
+
+def cumulative_corrections(rev_dir: str | None) -> dict:
+    """Every correction applied to a run up to and including `rev_dir`,
+    walking parent_revision links (a legacy record without lineage counts
+    its own `corrections` as its pass and links to the previous number)."""
+    if not rev_dir or not os.path.isfile(os.path.join(rev_dir, "record.json")):
+        return {}
+    with open(os.path.join(rev_dir, "record.json"), encoding="utf-8") as f:
+        rec = json.load(f)
+    if "corrections_cumulative" in rec:
+        return rec["corrections_cumulative"]
+    releases_dir = os.path.dirname(rev_dir)
+    m = re.fullmatch(r"(\d+)-r(\d+)", os.path.basename(rev_dir))
+    parent = rec.get("parent_revision")
+    if not parent and m and int(m.group(2)) > 1:
+        parent = f"{m.group(1)}-r{int(m.group(2)) - 1}"
+    base = cumulative_corrections(os.path.join(releases_dir, parent)) if parent else {}
+    return _merge_corrections(base, rec.get("corrections_current_pass", rec.get("corrections") or {}))
 
 
 def _registry_blockers(row, texts: dict[str, str]) -> list[str]:
@@ -125,15 +175,19 @@ def audit_run(row, out_dir: str | None = None) -> dict:
     from app.pipeline import registry as _registry
 
     gate = export_pdf.release_status(row)
-    expect = "final" if gate["status"] == "final" else "draft"
+    expect = "draft" if gate["status"] == "draft" else "final"
     reg = _registry.registry_for(row)
     record = {
         "request_id": row.id,
         "status": gate["status"],
+        "status_label": gate["status_label"],
+        "client_approval": gate.get("client_approval"),
         "reasons": list(gate["reasons"]),
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "note": "FINAL applies ONLY to the exact file hashes below; any rebuild "
-                "invalidates this decision and requires re-audit.",
+                "invalidates this decision and requires re-audit. States: draft (open quality findings) / "
+                "final (FINAL — CONSULTANCY DELIVERABLE: every quality check passes; client approval not required) / "
+                "client_approved (the client supplied the document owner and approver).",
         "volumes": {},
     }
     blockers = list(gate["reasons"])
@@ -160,19 +214,26 @@ def audit_run(row, out_dir: str | None = None) -> dict:
     text_blockers = _registry_blockers(row, texts) if texts else []
     blockers += [f"rendered text: {b}" for b in text_blockers if b not in gate["reasons"]]
     record["rendered_text_checks"] = text_blockers
-    if blockers and record["status"] == "final":
+    if blockers and record["status"] != "draft":
         record["status"] = "draft"
+        record["status_label"] = export_pdf.STATUS_LABELS["draft"]
     record["reasons"] = sorted(set(blockers))
     record["totals"] = totals_from(record["volumes"])
-    record["corrections"] = _registry.corrections(reg)
-    record["validation_errors"] = validate_record(record)
-    if record["validation_errors"]:
-        raise RuntimeError("release record does not validate: " + "; ".join(record["validation_errors"]))
 
     import shutil
 
     base = out_dir or os.path.join(settings.UPLOADS_DIR, "exports")
     releases_dir = os.path.join(base, "releases")
+    # lineage: this pass's corrections, the parent revision, and the
+    # cumulative corrections across every revision of the run
+    parent_dir = _latest_revision_dir(releases_dir, row.id)
+    record["parent_revision"] = os.path.basename(parent_dir) if parent_dir else None
+    record["corrections_current_pass"] = _registry.corrections(reg)
+    record["corrections_cumulative"] = _merge_corrections(cumulative_corrections(parent_dir), record["corrections_current_pass"])
+    record["corrections"] = record["corrections_cumulative"]  # alias kept for readers of earlier records
+    record["validation_errors"] = validate_record(record)
+    if record["validation_errors"]:
+        raise RuntimeError("release record does not validate: " + "; ".join(record["validation_errors"]))
     revision = _next_revision(releases_dir, row.id)
     rev_id = f"{row.id}-r{revision}"
     rev_dir = os.path.join(releases_dir, rev_id)
@@ -241,7 +302,7 @@ def reaudit_revision(rev_dir: str, row) -> dict:
         if not isinstance(vol, dict) or "file" not in vol:
             continue
         path = os.path.join(rev_dir, vol["file"])
-        expect = "final" if original.get("status") == "final" else "draft"
+        expect = "draft" if original.get("status") == "draft" else "final"
         result = inspect_pdf.inspect(path, expect=expect, concept=row.concept_name or row.business_name, registry=reg)
         texts[kind] = result.pop("text", "")
         doc = pdfium.PdfDocument(path)
@@ -294,6 +355,7 @@ def reaudit_revision(rev_dir: str, row) -> dict:
         "source_record": record_path,
         "source_integrity": integrity,
         "status": "draft" if reasons else "final",
+        "status_label": export_pdf.STATUS_LABELS["draft" if reasons else "final"],
         "reasons": sorted(set(reasons)),
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "note": ("Re-audit of a frozen revision with the current controls. The source files, their "
@@ -349,7 +411,7 @@ def main(argv: list[str]) -> int:
         record = reaudit_revision(argv[1], row)
         db.close()
         print(json.dumps({k: v for k, v in record.items() if k not in ("ledger", "machine_findings")}, indent=1))
-        return 0 if record["status"] == "final" else 1
+        return 0 if record["status"] != "draft" else 1
     row = db.get(Request, int(argv[0]))
     if row is None:
         print(f"request {argv[0]} not found")
@@ -357,7 +419,7 @@ def main(argv: list[str]) -> int:
     record = audit_run(row)
     db.close()
     print(json.dumps(record, indent=1))
-    return 0 if record["status"] == "final" else 1
+    return 0 if record["status"] != "draft" else 1
 
 
 if __name__ == "__main__":

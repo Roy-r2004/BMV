@@ -32,10 +32,6 @@ def client():
 
 
 def _seed(db, **overrides):
-    # a FINAL needs the client's document owner and approver — the fixture
-    # row carries them so release tests exercise the other gates
-    overrides.setdefault("document_owner", "Clinic Manager (client)")
-    overrides.setdefault("document_approver", "Practice Owner (client)")
     row = Request(
         business_name="Beacon Physiotherapy", business_description="clinic",
         email="t@example.com", status="done", is_generating=False,
@@ -1166,7 +1162,7 @@ def test_release_status_comes_from_the_runs_own_records(client):
     assert ep.release_status(artifacty)["status"] == "draft"
     assert "artifacts" in ep.release_status(artifacty)["reasons"][0]
     final = ep.release_status(clean)
-    assert final == {"status": "final", "reasons": []}
+    assert (final["status"], final["reasons"], final["status_label"]) == ("final", [], "FINAL — CONSULTANCY DELIVERABLE")
     db.close()
 
 

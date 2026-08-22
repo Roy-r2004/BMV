@@ -33,8 +33,6 @@ def client():
 
 
 def _seed(db, **overrides):
-    overrides.setdefault("document_owner", "Operations Manager (client)")
-    overrides.setdefault("document_approver", "Head of Operations (client)")
     row = Request(business_name="iCARRY Lebanon", business_description="delivery platform",
                   email="t@example.com", status="done", is_generating=False)
     for k, v in overrides.items():

@@ -437,10 +437,21 @@ def _strings_of(obj, skip_keys: set | None = None) -> list[str]:
     return []
 
 
+BMV_STATEMENT = ("Prepared by BMV AI. Recommendations and proposed thresholds require client validation. "
+                 "This document has not yet been formally approved by the client.")
+STATUS_LABELS = {"draft": "DRAFT", "final": "FINAL — CONSULTANCY DELIVERABLE", "client_approved": "CLIENT APPROVED"}
+
+
 def release_status(req: Request) -> dict:
     """The release decision, computed from THIS run's persisted records:
     its quality bench report and a deterministic artifact scan of every
-    client-facing string. {"status": "final"|"draft", "reasons": [...]}."""
+    client-facing string. Three states:
+      draft            — open quality findings exist
+      final            — FINAL — CONSULTANCY DELIVERABLE: every quality check passes;
+                         client approval is not required
+      client_approved  — CLIENT APPROVED: final AND the client supplied the
+                         document owner and approver
+    {"status": ..., "status_label": ..., "reasons": [...], "client_approval": {...}}."""
     reasons = []
     # Preconditions: a run that never finished, has no documents, or was
     # never audited by the bench can hold NO release decision — run 44's
@@ -470,12 +481,12 @@ def release_status(req: Request) -> dict:
     if hits:
         reasons.append("client-unsafe artifacts: " + ", ".join(hits))
     reasons += registry_reasons(req, corpus_parts)
-    # a FINAL operations manual has an assigned owner and approver — client
-    # intake facts, never invented
+    # client governance is the optional LATER state: a consultancy deliverable
+    # is final on its quality checks alone; CLIENT APPROVED needs the client's
+    # own owner and approver (intake facts, never invented)
     dc = _reg.document_control(req)
-    if not dc["complete"]:
-        reasons.append("operations manual has no assigned owner/approver (client intake: document_owner, document_approver)")
-    return {"status": "draft" if reasons else "final", "reasons": reasons}
+    status = "draft" if reasons else ("client_approved" if dc["complete"] else "final")
+    return {"status": status, "status_label": STATUS_LABELS[status], "reasons": reasons, "client_approval": dc}
 
 
 def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
@@ -567,15 +578,24 @@ def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:
         if (settings.ENGAGEMENT_LEAD or "").strip() else []
     ) + [
         Paragraph("Confidential — for the addressee's team and advisors.", _S["meta"]),
-    ] + (
-        [Spacer(1, 6), Paragraph(
-            '<font color="#b45309"><b>DRAFT — REQUIRES VALIDATION.</b> The quality review '
-            "recorded open findings; resolve them before client release.</font>", _S["meta"])]
-        if _is_draft(req) else []
-    ) + [
+    ] + _status_lines(req) + [
         NextPageTemplate("body"),
         PageBreak(),
     ]
+
+
+def _status_lines(req: Request) -> list:
+    """The release state on the cover — DRAFT with its warning, FINAL —
+    CONSULTANCY DELIVERABLE with the BMV statement, CLIENT APPROVED."""
+    status = release_status(req)["status"]
+    if status == "draft":
+        return [Spacer(1, 6), Paragraph(
+            '<font color="#b45309"><b>DRAFT — REQUIRES VALIDATION.</b> The quality review '
+            "recorded open findings; resolve them before client release.</font>", _S["meta"])]
+    if status == "final":
+        return [Spacer(1, 6), Paragraph(f"<b>{STATUS_LABELS['final']}.</b> {BMV_STATEMENT}", _S["meta"])]
+    return [Spacer(1, 6), Paragraph(f"<b>{STATUS_LABELS['client_approved']}.</b> Approved by the client's named owner and approver "
+                                    "(see Document control in the Operations Manual).", _S["meta"])]
 
 
 def _toc() -> list:
@@ -1325,15 +1345,19 @@ def _doc_control_flowables(req: Request) -> list:
     manual opens with, from the run's own records (never invented)."""
     from app.pipeline import registry as _reg
 
-    status = release_status(req)["status"].upper()
+    gate = release_status(req)
     dc = _reg.document_control(req)
-    owner = dc["owner"] or "Unassigned — required before FINAL (client intake: document owner)"
-    approver = dc["approver"] or "Unassigned — required before FINAL (client intake: document approver)"
+    owner = dc["owner"] or "Not yet assigned — set by the client at approval (intake: document owner)"
+    approver = dc["approver"] or "Not yet assigned — set by the client at approval (intake: document approver)"
     date = datetime.utcnow().strftime("%B %d, %Y")
     flows = [Paragraph("Document control", _S["h2toc"])]
     rows = [
         ("Version", f"Engagement run {req.id} · generated {date}"),
-        ("Status", status),
+        ("Status", gate["status_label"]),
+    ]
+    if gate["status"] == "final":
+        rows.append(("Statement", BMV_STATEMENT))
+    rows += [
         ("Owner", owner),
         ("Approver", approver),
     ]

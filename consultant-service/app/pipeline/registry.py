@@ -1122,6 +1122,7 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
     origins = {int(c["value"]): c["event"] for c in day_claims if c.get("event")}
     if not client_days:
         return out
+    out += cadence_findings(texts, claims)
     for label, text in (texts or {}).items():
         flat = re.sub(r"\s-\s+(?=[A-Z*])", ". ", text or "")
         flat = re.sub(r"\s+", " ", flat)
@@ -1175,6 +1176,96 @@ def policy_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
                                       f"\"{sentence.strip()[:160]}\""),
                             "fix": f"state the client's own period ({sorted(client_days)[0]} days) or remove the policy claim"})
     return out
+
+
+# ── a deadline is not a cadence ──────────────────────────────────────────────
+# "settle within 10 days after month-end" is a deadline counted from an
+# event; "monitor every 10 days" is a frequency. The client's deadline number
+# may not be reused as a monitoring frequency unless the client separately
+# supplied that cadence.
+_CADENCE = re.compile(r"\b(?:every|each)\s+(\d+)\s*(?:-|\s)?days?\b|\b(\d+)[- ]day\s+(?:cadence|frequency|interval|rhythm|"
+                      r"monitoring|review|check)\b", re.IGNORECASE)
+_CADENCE_Q = re.compile(r"how often|frequency|cadence|every|routine|rhythm|interval", re.IGNORECASE)
+
+
+def deadline_days(claims: list[dict]) -> dict[int, str]:
+    """Client-stated deadlines: a day count that counts from an event."""
+    return {int(c["value"]): c["event"] for c in _policy_day_claims(claims) if c.get("event")}
+
+
+def cadence_days(claims: list[dict]) -> set[int]:
+    """Day counts the client supplied AS a cadence ('how often…: every 10 days')."""
+    return {int(c["value"]) for c in claims
+            if c.get("type") == "client_fact" and str(c.get("unit") or "").startswith("day")
+            and isinstance(c.get("value"), (int, float)) and _CADENCE_Q.search(str(c.get("question") or ""))}
+
+
+def _policy_subject(claims: list[dict], n: int) -> str:
+    q = " ".join(str(c.get("question") or "") for c in _policy_day_claims(claims) if int(c["value"]) == n)
+    for verb, noun in (("settle", "settlement"), ("remit", "remittance"), ("payout", "payout"),
+                       ("pay out", "payout"), ("disburse", "disbursement"), ("invoice", "invoicing")):
+        if verb in q.lower():
+            return noun
+    return "the policy"
+
+
+def _routine_owner(claims: list[dict]) -> str:
+    """The team the client named around its routines ('across our finance team')."""
+    blob = " ".join(str(c.get("text") or "") + " " + str(c.get("question") or "") for c in claims if c.get("type") == "client_fact")
+    m = re.search(r"\b([a-z]+) team\b", blob, re.IGNORECASE)
+    return (m.group(1).lower() + " ") if m else ""
+
+
+def cadence_sentence(claims: list[dict], n: int) -> str:
+    subject = _policy_subject(claims, n)
+    origin = deadline_days(claims).get(n, "")
+    return (f"Monitor {subject} status according to the client-approved {_routine_owner(claims)}routine. "
+            f"{subject[0].upper() + subject[1:]} must be completed within {n} days {origin}.").replace("  ", " ")
+
+
+def _cadence_hits(sentence: str, claims: list[dict]) -> list[int]:
+    deadlines, cadences = deadline_days(claims), cadence_days(claims)
+    out = []
+    for m in _CADENCE.finditer(sentence):
+        n = int(m.group(1) or m.group(2))
+        if n in deadlines and n not in cadences:
+            out.append(n)
+    return out
+
+
+def cadence_findings(texts: dict[str, str], claims: list[dict]) -> list[dict]:
+    out = []
+    if not deadline_days(claims):
+        return out
+    for label, text in (texts or {}).items():
+        flat = re.sub(r"\s+", " ", text or "")
+        for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•\d])|•", flat):
+            for n in _cadence_hits(sentence, claims):
+                out.append({"severity": "high", "source": "structural", "where": f"{label}: operational policy",
+                            "issue": (f"The client's {n}-day deadline ({n} days {deadline_days(claims)[n]}) is reused as a "
+                                      f"monitoring frequency the client never supplied: \"{sentence.strip()[:160]}\""),
+                            "fix": f"replace with: {cadence_sentence(claims, n)}"})
+                break
+    return out
+
+
+def cadence_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
+    """Deterministic repair: a sentence that turns the client's deadline into
+    a frequency is replaced by the canonical routine sentence."""
+    notes: list[str] = []
+    if not text or not deadline_days(claims):
+        return text, notes
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\[(•\d])", text)
+    out = []
+    for s in parts:
+        hits = _cadence_hits(s, claims)
+        if hits:
+            canon = cadence_sentence(claims, hits[0])
+            notes.append(f"'{s.strip()[:100]}' -> '{canon}' (deadline reused as a cadence)")
+            out.append(canon)
+        else:
+            out.append(s)
+    return " ".join(out) if len(parts) > 1 else out[0], notes
 
 
 def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
@@ -1250,6 +1341,9 @@ def policy_pass(text: str, claims: list[dict]) -> tuple[str, list[str]]:
     # an invented period corrected to the client's number still has to count
     # from the client's event ("2 days of collection" -> "10 days after month-end")
     out = _restore_origin(out)
+    # and a deadline never becomes a monitoring frequency
+    out, cadence_notes = cadence_pass(out, claims)
+    notes += cadence_notes
     return out, notes
 
 
