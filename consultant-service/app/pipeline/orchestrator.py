@@ -137,6 +137,21 @@ def _run_inner(db: Session, request_id: int) -> None:
         return
 
     req = db.get(Request, request_id)
+    # A run with neither written volume produced no deliverable, whatever else
+    # survived. Every document stage fails OPEN so one bad call degrades the
+    # package instead of killing it — but when the whole spine fails (run 58
+    # lost DNS mid-flight and lost analyze, consult, plan, decompose, blueprint
+    # and technical_plan) the request still reported "done" over an empty
+    # record. A status has to be backed by the thing it claims.
+    if not (req.mvp_blueprint or req.technical_plan):
+        req.status = "failed"
+        req.is_failed = True
+        req.is_generating = False
+        db.commit()
+        emit(db, request_id, "failed",
+             "No blueprint and no technical plan were produced — nothing to deliver", 70)
+        return
+
     req.status = "done"
     req.is_generating = False
     req.is_failed = False

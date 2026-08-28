@@ -89,6 +89,12 @@ def line_unit(line: dict) -> str:
 
 _CANNOT_CALC = "not yet calculable"
 
+# Output budgets for one module's technical spec, tried in order. The first
+# is what a normal module needs; the second is for a module dense enough to
+# be cut off by it — infrastructure modules carry far more data models,
+# APIs and integrations than a booking flow does.
+TECH_SPEC_BUDGETS = (3200, 7200)
+
 
 def unit_provenance(fm: dict, claims: list[dict] | None = None) -> list[dict]:
     """A scenario may apply an 'automates X% of inquiries' share to an
@@ -550,10 +556,20 @@ def decompose_business(
                 module_spec=json.dumps(module.get("spec") or {}, indent=1),
                 other_modules=others,
             )
-            body = provider.chat(
-                settings.ANALYSIS_MODEL, [{"role": "user", "content": tech_prompt}], max_tokens=3200,
-            )
-            return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage"), None
+            # A denser module needs a bigger budget, not a parse error. Run 59
+            # asked for infrastructure modules whose data models and APIs ran
+            # past 3,200 tokens; the JSON came back cut off mid-string
+            # ("Unterminated string starting at ... char 12242") and the whole
+            # engagement failed. When the model reports it was cut off by the
+            # cap, raise the cap once rather than parse the wreckage.
+            for budget in TECH_SPEC_BUDGETS:
+                body = provider.chat(
+                    settings.ANALYSIS_MODEL, [{"role": "user", "content": tech_prompt}], max_tokens=budget,
+                )
+                choice = body["choices"][0]
+                if choice.get("finish_reason") != "length":
+                    break
+            return extract_json_from_text(choice["message"]["content"]), body.get("usage"), None
         except Exception as exc:
             return None, None, str(exc)[:500]
 

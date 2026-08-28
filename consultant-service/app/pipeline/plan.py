@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.templating import render
 
 _DEFAULT_ROLES = [
