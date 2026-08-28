@@ -786,6 +786,10 @@ def test_qa_bench_audits_decision_and_contradictions():
 def _flow_text(flows):
     parts = []
     for f in flows:
+        # a KeepTogether groups flowables that must not be split across pages
+        # (the closing call to action, the lead and the contact address)
+        for inner in getattr(f, "_content", None) or []:
+            parts.append(_flow_text([inner]))
         t = getattr(f, "text", "") or ""
         if t:
             parts.append(t)
@@ -1134,8 +1138,9 @@ def test_angle_bracket_wrappers_are_unwrapped_but_real_lt_survives(client):
     assert "&lt;" not in out and ">" not in out.replace("</b>", "").replace("<b>", "")
     assert "2 hours (proposed — client approval required)" in out
     # comparison shorthand becomes words — "<30 minutes" was released prose
-    assert "fewer than 70%" in ep._rich("keep it <70% of capacity")
-    assert "fewer than 30 minutes of dispatch" in ep._rich("within <30 minutes of dispatch")
+    assert "less than 70%" in ep._rich("keep it <70% of capacity")
+    assert "less than 30 minutes of dispatch" in ep._rich("within <30 minutes of dispatch")
+    assert "less than 0.5" in ep._rich("with a score <0.5")
     assert "more than 1 hour" in ep._rich("time is >1 hour")
     # engineering identifiers read as words
     assert "failed first attempt rate" in ep._rich("0.12 failed_first_attempt_rate")

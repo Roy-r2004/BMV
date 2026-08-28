@@ -324,6 +324,61 @@ def apply_authority(content: dict, canon: _canon.Canon) -> list[dict]:
     return applied
 
 
+_NO_BASIS = {"", "n/a", "na", "none", "null"}
+# a stray tail after a KPI metric: a few lowercase words, no sentence in them
+_METRIC_TAIL = re.compile(r"[ \t]+((?:[a-z][a-z-]*[ \t]+){0,3}[a-z][a-z-]*)(?=[ \t]*(?:[—–\-:.]|$))")
+
+
+def pin_kpi_metrics(text: str, canon: _canon.Canon) -> tuple[str, list[dict]]:
+    """A stated KPI metric is the registered metric, and its time basis is the
+    one the claim carries.
+
+    Run 53-r26 printed "Percentage of escalated COD settlement inquiries
+    resolved by human support business day" — the registered metric plus a
+    stray basis. The claim's time_basis is 'n/a', so there is no basis to
+    state: the stray words are REMOVED rather than a basis invented. Where the
+    claim does carry one, it is rendered from the claim."""
+    applied: list[dict] = []
+    if not text:
+        return text, applied
+    for e in sorted(canon.of_kind("metric"), key=lambda x: -len(str(x.data.get("metric") or ""))):
+        metric = str(e.data.get("metric") or "").strip()
+        if len(metric) < 12 or metric not in text:
+            continue
+        basis = str(e.data.get("basis") or "").strip().lower()
+        wanted = "" if basis in _NO_BASIS else f" per {basis}"
+        out, last, changed = [], 0, False
+        for m in re.finditer(re.escape(metric), text):
+            tail = _METRIC_TAIL.match(text, m.end())
+            stated = tail.group(1) if tail else ""
+            if stated == wanted.strip().removeprefix("per ").strip() or (not tail and not wanted):
+                continue
+            out.append(text[last:m.end()])
+            out.append(wanted)
+            last = tail.end() if tail else m.end()
+            changed = True
+            applied.append({"where": "kpi metric", "surface": (metric + " " + stated).strip(),
+                            "canonical": (metric + wanted).strip(), "entity": e.id,
+                            "law": "a KPI metric and its time basis are the claim's"})
+        if changed:
+            out.append(text[last:])
+            text = "".join(out)
+    return text, applied
+
+
+def kpi_metric_findings(texts: dict[str, str], canon: _canon.Canon) -> list[Finding]:
+    """A KPI metric stated with a basis the claim does not carry."""
+    out: list[Finding] = []
+    for label, text in (texts or {}).items():
+        fixed, applied = pin_kpi_metrics(_pg.flatten_prose(text or ""), canon)
+        for a in applied:
+            out.append(Finding(CONFLICT, f"{label}: kpi", f"a KPI states \"{a['surface'][:110]}\"; the claim "
+                               f"registers \"{a['canonical'][:110]}\"",
+                               "state the registered metric and only the basis the claim carries",
+                               expected=a["canonical"], statement=a["surface"][:160], entities=(a["entity"],)))
+    return out
+
+
 def render_slots(content: dict, canon: _canon.Canon) -> list[dict]:
     """Re-render the registry-owned SLOTS in the finished volumes — today the
     phase heading, which states a phase's number (or that it is the parallel
@@ -341,6 +396,8 @@ def render_slots(content: dict, canon: _canon.Canon) -> list[dict]:
     for vol in _PROSE.values():
         if not content.get(vol):
             continue
+        content[vol], kpi = pin_kpi_metrics(content[vol], canon)
+        applied += [{**a, "where": f"{vol}: {a['where']}"} for a in kpi]
         content[vol], rendered, refused = _pin_phase_headings(content[vol], canon)
         applied += [{"where": f"{vol}: phase heading", "surface": r["stated"], "canonical": r["rendered"],
                      "entity": "phase", "law": "a phase heading is rendered from the registry"}
@@ -1097,6 +1154,7 @@ def verify(content: dict, texts: dict[str, str] | None = None) -> tuple[list[Fin
     findings += procedure_tool_fit_findings(content, canon)
     findings += forward_dependency_findings(content, canon)
     findings += phase_section_findings(canon)
+    findings += kpi_metric_findings(prose, canon)
     findings += statement_findings(content, canon, prose)
     if texts is not None:
         findings += artifact_findings(content, texts)
@@ -1150,6 +1208,21 @@ def enforce(db: Session, request_id: int) -> dict:
         "content_hash": content_hash(content),
     }
     row.integrity_report_json = json.dumps(report)
+    # every correction this pass applied joins the engagement's own log, so it
+    # reaches the cumulative lineage and not only this record's current pass
+    if mappings:
+        reg = _reg.registry_for(row) or {}
+        log = list(reg.get("integrity_corrections") or [])
+        seen = {json.dumps(e, sort_keys=True, default=str) for e in log}
+        for m in mappings:
+            entry = {"where": m.get("where"), "before": m.get("surface"), "after": m.get("canonical"),
+                     "authority": m.get("law") or "the canonical registry", "entity": m.get("entity")}
+            key = json.dumps(entry, sort_keys=True, default=str)
+            if key not in seen:
+                seen.add(key)
+                log.append(entry)
+        reg["integrity_corrections"] = log
+        row.registry_json = json.dumps(reg)
     db.commit()
     return report
 

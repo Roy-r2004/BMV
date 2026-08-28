@@ -682,7 +682,8 @@ def test_every_font_that_prints_is_embedded_and_no_heading_is_orphaned(tmp_path)
     tight = ParagraphStyle("t", parent=body, bulletFontName=F_BODY, bulletFontSize=9)
     flows = [Paragraph("Body line %d." % i, body) for i in range(28)]
     flows += [Paragraph("A bullet in the embedded face.", tight, bulletText="•")]
-    flows += [Spacer(1, 280), Paragraph("A Kept Heading", kept), Paragraph("Its content follows.", body)]
+    flows += [Spacer(1, 280), Paragraph("A Kept Heading", kept)]
+    flows += [Paragraph("Its content follows, line %d." % i, body) for i in range(12)]
     SimpleDocTemplate(good, pagesize=A4).build(flows)
     assert presentation_findings(good) == []
 
@@ -696,6 +697,147 @@ def test_every_font_that_prints_is_embedded_and_no_heading_is_orphaned(tmp_path)
     assert _S["bullet"].bulletFontName == _S["bullet"].fontName
     for name in ("kicker", "secno", "h1toc", "h2toc", "h3"):
         assert _S[name].keepWithNext, name
+
+
+# ── the owner's pass on the 53-r26 pages ────────────────────────────────────
+
+
+def test_a_document_does_not_end_on_a_nearly_empty_page(tmp_path):
+    """53-r26's Operations Manual ended on a page whose only content was the
+    contact address. Furniture is what REPEATS — position cannot tell it
+    apart, because on a nearly empty page the one real line sits high, inside
+    any margin band you would draw."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate
+
+    from app.pipeline.export_pdf import F_BODY, presentation_findings
+
+    body = ParagraphStyle("b", fontName=F_BODY, fontSize=9, leading=13)
+
+    def build(path, tail):
+        flows = []
+        for page in range(2):
+            flows += [Paragraph("Running header", body)]
+            flows += [Paragraph("Body line %d on page %d." % (i, page), body) for i in range(20)]
+            flows += [PageBreak()]
+        flows += [Paragraph("Running header", body)] + tail
+        SimpleDocTemplate(path, pagesize=A4).build(flows)
+
+    stranded = str(tmp_path / "stranded.pdf")
+    build(stranded, [Paragraph("<b>consulting@buildmyversion.com</b>", body)])
+    found = presentation_findings(stranded)
+    assert any("last page carries only 1 line" in f and "consulting@" in f for f in found)
+
+    # the same address kept with the call to action it belongs to
+    kept = str(tmp_path / "kept.pdf")
+    build(kept, [Paragraph("Take the plan — it's yours.", body),
+                 Paragraph("Every module and procedure is written down here.", body),
+                 Paragraph("<b>consulting@buildmyversion.com</b>", body)])
+    assert not any("last page carries" in f for f in presentation_findings(kept))
+    # and the renderer keeps them together in one flowable
+    from app.pipeline import export_pdf as ep
+
+    assert any(isinstance(f, KeepTogether) for f in ep._decision_flowables())
+
+
+def test_a_label_heading_is_kept_with_what_it_introduces(tmp_path):
+    """"Where the AI works:" is a heading in everything but style. The colon is
+    what makes it one, and the earlier orphan law exempted anything ending in
+    a colon — so five of them sat alone at the foot of a page in 53-r26."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    from app.pipeline.export_pdf import _S, F_BODY, _is_label, presentation_findings
+
+    # the renderer treats it as a heading
+    assert _is_label("**Where the AI works:**") and _is_label("**What it does:**")
+    assert not _is_label("The engine validates the pin.")
+    assert _S["label"].keepWithNext and _S["bullet_label"].keepWithNext
+
+    # and the markdown renderer actually ROUTES a label line to the keeping
+    # style — both as a plain line and as a bullet
+    from app.pipeline.export_pdf import _markdown_flowables
+
+    styles = {getattr(f, "text", ""): getattr(getattr(f, "style", None), "name", "")
+              for f in _markdown_flowables("**Where the AI works:**\n"
+                                           "- **What it does:**\n"
+                                           "It reads the queue and proposes a reply.\n")}
+    assert styles.get("<b>Where the AI works:</b>") == "label"
+    assert styles.get("<b>What it does:</b>") == "bullet_label"
+    assert styles.get("It reads the queue and proposes a reply.") == "body"
+
+    body = ParagraphStyle("b", fontName=F_BODY, fontSize=9, leading=13)
+    loose = ParagraphStyle("l", parent=body)                     # no keepWithNext
+    orphan = str(tmp_path / "orphan.pdf")
+    flows = [Paragraph("Body line %d." % i, body) for i in range(28)]
+    flows += [Spacer(1, 300), Paragraph("<b>Where the AI works:</b>", loose)]
+    flows += [Paragraph("It reads the queue and proposes a reply, line %d." % i, body) for i in range(6)]
+    SimpleDocTemplate(orphan, pagesize=A4).build(flows)
+    assert any("orphaned label heading" in f and "Where the AI works:" in f
+               for f in presentation_findings(orphan))
+
+    # the same label in the keeping style travels with its content
+    keeping = str(tmp_path / "keeping.pdf")
+    flows = [Paragraph("Body line %d." % i, body) for i in range(28)]
+    flows += [Spacer(1, 300), Paragraph("<b>Where the AI works:</b>", _S["label"])]
+    flows += [Paragraph("It reads the queue and proposes a reply, line %d." % i, body) for i in range(6)]
+    SimpleDocTemplate(keeping, pagesize=A4).build(flows)
+    assert not any("orphaned label heading" in f for f in presentation_findings(keeping))
+
+
+def test_a_kpi_metric_and_its_basis_come_from_the_claim():
+    """53-r26 printed "… resolved by human support business day". The claim's
+    time_basis is 'n/a', so there is no basis to state: the stray words are
+    removed, never replaced by an invented one."""
+    content = _content()
+    metric = "Percentage of escalated COD settlement inquiries resolved by human support"
+    content["registry"]["claims"] = list(content["registry"].get("claims") or []) + [
+        {"id": "MK-x-02", "type": "module_kpi", "value": 0.85, "unit": "%", "time_basis": "n/a",
+         "population": "n/a", "scope": "s", "phase": "FUTURE", "provenance": "consultant_proposed",
+         "approval_status": "consultant_proposed — client approval required", "source": "spec.kpis[1]",
+         "allowed_sections": [], "text": f"{metric}: 85%", "metric": metric}]
+    canon = C.build(content)
+    shipped = f"- {metric} business day — Baseline and target to be established during week one.\n"
+    fixed, applied = it.pin_kpi_metrics(shipped, canon)
+    assert fixed == f"- {metric} — Baseline and target to be established during week one.\n"
+    assert len(applied) == 1 and applied[0]["canonical"] == metric
+    assert it.pin_kpi_metrics(fixed, canon) == (fixed, [])        # idempotent
+    assert it.kpi_metric_findings({"technical": shipped}, canon)
+    assert it.kpi_metric_findings({"technical": fixed}, canon) == []
+
+    # where the claim DOES carry a basis, it is rendered from the claim
+    content["registry"]["claims"][-1]["time_basis"] = "week"
+    canon = C.build(content)
+    out, applied = it.pin_kpi_metrics(f"- {metric} business day — Baseline.\n", canon)
+    assert out == f"- {metric} per week — Baseline.\n" and applied
+
+
+def test_an_integrity_correction_reaches_the_cumulative_lineage(client):
+    """The policy-attribution repair was reported in the current pass and never
+    reached the lineage, so a reader of the record could not see that an
+    attribution had ever been corrected."""
+    mods = copy.deepcopy(MODULES)
+    bc = {"build_order": [m["id"] for m in mods], "pilot_gate": copy.deepcopy(GATE)}
+    reg = rg.build_registry(OPS, bc, mods)
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint="## The decision\nA plan.\n", technical_plan="## How it works\nfine\n",
+                business_case_json=json.dumps(bc), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                ops_numbers_json=OPS, procedures_json=json.dumps({"procedures": []}),
+                qa_report_json=json.dumps({"checks": [], "findings": []}), integrity_stamp=False)
+    row.mvp_blueprint += "\nWe remit within 10 days after month-end (your stated cycle) (your stated cycle).\n"
+    db.commit()
+    report = it.enforce(db, row.id)
+    db.refresh(row)
+    logged = (rg.registry_for(row) or {}).get("integrity_corrections") or []
+    assert logged, "the corrections this pass applied are not in the engagement's log"
+    for entry in logged:
+        assert entry.get("where") and entry.get("authority")
+        assert "before" in entry and "after" in entry
+    assert "integrity_corrections" in rg.CORRECTION_KEYS
+    assert len(logged) == len(report["mappings_applied"])
+    db.close()
 
 
 # ── authority precedence: which source wins a disagreement ──────────────────

@@ -2060,7 +2060,13 @@ CORRECTION_KEYS = ("renames", "policy_corrections", "pilot_ai_removed", "placeho
                    # They belong in the lineage exactly like a machine
                    # correction: r23 and r24 changed the source and the record
                    # said nothing about it.
-                   "source_corrections")
+                   "source_corrections",
+                   # what the integrity layer itself applied this pass — the
+                   # attribution and name repairs among them. They were reported
+                   # in the current pass and never reached the cumulative
+                   # lineage, so a reader of the record could not see that a
+                   # policy attribution had ever been corrected.
+                   "integrity_corrections")
 
 
 def corrections(reg: dict | None) -> dict:

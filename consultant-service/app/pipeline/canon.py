@@ -763,7 +763,8 @@ def _metric_and_assumption_entities(content: dict) -> list[Entity]:
             out.append(Entity(id=f"metric:{c['id']}", kind="metric",
                               canonical=str(c.get("text") or "").strip(),
                               data={"module": c.get("scope"), "value": c.get("value"), "unit": c.get("unit"),
-                                    "provenance": c.get("provenance"), "metric": c.get("metric")}))
+                                    "provenance": c.get("provenance"), "metric": c.get("metric"),
+                                    "basis": c.get("time_basis")}))
         elif c.get("type") == "scenario_assumption":
             out.append(Entity(id=f"assumption:{c['id']}", kind="assumption",
                               canonical=str(c.get("text") or "").strip(),

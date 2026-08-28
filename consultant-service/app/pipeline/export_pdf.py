@@ -46,6 +46,7 @@ from reportlab.platypus import (
     Frame,
     HRFlowable,
     Image,
+    KeepTogether,
     NextPageTemplate,
     PageBreak,
     PageTemplate,
@@ -138,6 +139,10 @@ _S = {
                              leading=14.2, leftIndent=11, bulletIndent=2, spaceAfter=3.2,
                              bulletColor=ACCENT, bulletFontName=F_BODY, bulletFontSize=9.3,
                              allowWidows=0, allowOrphans=0),
+    # a bold label that introduces the lines under it ("Where the AI works:")
+    # is a heading in everything but style, and is kept with its content
+    "label": ParagraphStyle("label", fontName=F_BODY, fontSize=9.3, textColor=INK,
+                            leading=15, spaceAfter=5.5, keepWithNext=1),
     "cell": ParagraphStyle("cell", fontName=F_BODY, fontSize=8.4, textColor=INK, leading=11.8),
     "cellhead": ParagraphStyle("cellhead", fontName=F_SB, fontSize=7.8, textColor=MUTED, leading=10),
     "meta": ParagraphStyle("meta", fontName=F_MD, fontSize=8.4, textColor=MUTED, leading=12.5),
@@ -179,11 +184,20 @@ def _strip_artifacts(text: str) -> str:
     # comparison notation is engineering shorthand, not client prose:
     # "<30 minutes" reads as a placeholder — say the words
     out = plain_language(out)
-    out = re.sub(r"(?<![\w<>])<\s*(\d)", r"fewer than \1", out)
+    out = re.sub(r"(?<![\w<>])<\s*(\d)", r"less than \1", out)
     out = re.sub(r"(?<![\w<>])>\s*(\d)", r"more than \1", out)
     for key, original in masks.items():
         out = out.replace(key, original)
     return out
+
+
+def _is_label(line: str) -> bool:
+    """A line that is nothing but a bold label introducing what follows —
+    "**Where the AI works:**". It is a heading in everything but style, so it
+    is kept with its content. Run 53-r26 left five of them alone at the foot
+    of a page."""
+    plain = re.sub(r"</?[bi]>|\*\*|__|\*|`", "", str(line or "")).strip()
+    return bool(plain) and plain.endswith(":") and len(plain) <= 80
 
 
 def _rich(text: str) -> str:
@@ -266,12 +280,14 @@ def _markdown_flowables(md: str) -> list:
         elif line.startswith("### "):
             flows.append(Paragraph(_rich(line[4:]), _S["h2toc"]))
         elif line.startswith(("- ", "* ")):
-            flows.append(Paragraph(_rich(line[2:]), _S["bullet"], bulletText="•"))
+            item = line[2:]
+            flows.append(Paragraph(_rich(item), _S["bullet_label" if _is_label(item) else "bullet"],
+                                   bulletText="•"))
         elif re.match(r"^\d+\.\s", line):
             num, rest = line.split(".", 1)
             flows.append(Paragraph(_rich(rest.strip()), _S["bullet"], bulletText=f"{num}."))
         else:
-            flows.append(Paragraph(_rich(line), _S["body"]))
+            flows.append(Paragraph(_rich(line), _S["label" if _is_label(line) else "body"]))
     return flows
 
 
@@ -434,8 +450,36 @@ def presentation_findings(path: str) -> list[str]:
                 continue
             text = "".join(s["text"] for s in spans).strip()
             head = spans[0]
-            if ("Syne" in head["font"] or head["size"] >= 10.5) and not text.endswith((".", ":", "?", "!")):
-                out.append(f"orphaned heading on page {n + 1}: \"{text[:80]}\"")
+            styled = ("Syne" in head["font"] or head["size"] >= 10.5) and not text.endswith((".", ":", "?", "!"))
+            # a bold label that introduces the lines under it is a heading in
+            # everything but style. The colon is what makes it one, so the
+            # earlier law — which exempted anything ending in a colon — could
+            # not see the five that run 53-r26 left at the foot of a page.
+            label = text.endswith(":") and len(text) <= 80
+            if styled or label:
+                kind = "label heading" if label else "heading"
+                out.append(f"orphaned {kind} on page {n + 1}: \"{text[:80]}\"")
+
+        # a document does not end on a page carrying almost nothing. Page
+        # furniture is what REPEATS — the running header, the footer, the page
+        # number — and it is not content. Position cannot tell them apart: on
+        # a nearly empty page the one real line sits high, inside any margin
+        # band you would draw. Run 53-r26's Operations Manual ended on a page
+        # whose only content was the contact address.
+        def _texts(n):
+            return [("".join(s["text"] for s in l["spans"])).strip()
+                    for b in doc[n].get_text("dict")["blocks"] for l in b.get("lines", [])
+                    if any(s["text"].strip() for s in l.get("spans", []))]
+
+        seen: dict[str, int] = {}
+        for n in range(doc.page_count):
+            for t in {re.sub(r"\d+", "#", t) for t in _texts(n)}:
+                seen[t] = seen.get(t, 0) + 1
+        furniture = {t for t, c in seen.items() if c > doc.page_count / 2}
+        content = [t for t in _texts(doc.page_count - 1) if re.sub(r"\d+", "#", t) not in furniture]
+        if 0 < len(content) < 3:
+            out.append(f"the last page carries only {len(content)} line(s) of content: "
+                       f"\"{' / '.join(content)[:90]}\"")
     finally:
         doc.close()
     return out
@@ -693,6 +737,9 @@ def _toc() -> list:
         toc,
         PageBreak(),
     ]
+
+
+_S["bullet_label"] = ParagraphStyle("bullet_label", parent=_S["bullet"], keepWithNext=1)
 
 
 _CELLHEAD_ON_ACCENT = ParagraphStyle(
@@ -1182,6 +1229,7 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
 
 def _decision_flowables(req: Request | None = None) -> list:
     flows = _h1("Three ways forward")
+    ways: list[tuple[str, str]] = []
     for title, body in [
         ("We execute this plan for you",
          "The team that wrote it builds it — module by module, in the order above, with you "
@@ -1196,20 +1244,26 @@ def _decision_flowables(req: Request | None = None) -> list:
          "Every module, data model, procedure, build sequence and acceptance check is written "
          "down here. A competent team can build from this document."),
     ]:
+        ways.append((title, body))
+    for title, body in ways[:-1]:
         flows.append(Paragraph(title, _S["h2toc"]))
         flows.append(Paragraph(body, _S["body"]))
-    flows.append(Spacer(1, 6))
+    # the last call to action, the engagement lead and the contact address are
+    # ONE unit. Run 53-r26's Operations Manual pushed the address onto a page
+    # of its own, so the manual ended on a page carrying a single line.
+    closing = [Paragraph(ways[-1][0], _S["h2toc"]), Paragraph(ways[-1][1], _S["body"]), Spacer(1, 6)]
     lead = (settings.ENGAGEMENT_LEAD or "").strip()
     if lead:
-        flows.append(Paragraph("Engagement leadership", _S["h2toc"]))
-        flows.append(Paragraph(_rich(lead), _S["body"]))
+        closing.append(Paragraph("Engagement leadership", _S["h2toc"]))
+        closing.append(Paragraph(_rich(lead), _S["body"]))
         # Real accountability only: the release date prints when a reviewer
         # actually released this run — never as an invented formality.
         if req is not None and getattr(req, "reviewed_at", None):
-            flows.append(Paragraph(
+            closing.append(Paragraph(
                 _rich(f"Reviewed and released on {req.reviewed_at:%B %d, %Y}."), _S["meta"]))
-        flows.append(Spacer(1, 4))
-    flows.append(Paragraph("<b>consulting@buildmyversion.com</b>", _S["body"]))
+        closing.append(Spacer(1, 4))
+    closing.append(Paragraph("<b>consulting@buildmyversion.com</b>", _S["body"]))
+    flows.append(KeepTogether(closing))
     return flows
 
 
@@ -1267,12 +1321,12 @@ def _module_appendix_flowables(modules: list) -> list:
                                ("Evaluation — trusted when", "evaluation")]:
                 items = agent.get(key) or []
                 if items:
-                    flows.append(Paragraph(f"<b>{label}:</b>", _S["body"]))
+                    flows.append(Paragraph(f"<b>{label}:</b>", _S["label"]))
                     for it in items:
                         flows.append(Paragraph(_rich(it), _S["bullet"], bulletText="•"))
             tools = agent.get("tools") or []
             if tools:
-                flows.append(Paragraph("<b>Tools:</b>", _S["body"]))
+                flows.append(Paragraph("<b>Tools:</b>", _S["label"]))
                 for t in tools:
                     flows.append(Paragraph(
                         f"<b>{_rich(t.get('name') or '')}</b> — " + _rich(t.get("does") or ""),
