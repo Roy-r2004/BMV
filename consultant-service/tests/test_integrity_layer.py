@@ -382,6 +382,155 @@ def test_a_two_word_verb_phrase_is_not_reported_as_a_coined_system_name():
     assert real[0].statement == "Delivery & Settlement Resolution Hub"
 
 
+# ── authority precedence: which source wins a disagreement ──────────────────
+
+
+def test_the_precedence_names_one_owning_source_for_each_contested_fact():
+    from app.pipeline import authority as au
+
+    assert au.PRECEDENCE == {"pilot population": "pilot gate",
+                             "procedure steps": "canonical SOP",
+                             "outreach attempt count": "canonical SOP",
+                             "entity name": "canonical registry",
+                             "module ownership": "canonical registry"}
+
+
+def test_the_gate_owns_the_pilot_population():
+    from app.pipeline import authority as au
+
+    content = _content()
+    content["registry"]["service_types"] = rg.service_types(content["free_texts"])
+    gate, kinds = content["registry"]["pilot_gate"], content["registry"]["service_types"]
+    pop = gate["population"]
+
+    s = "The pilot sends a WhatsApp message before dispatch for their same-day and express on-demand deliveries."
+    out, recs = au.population_render(s, gate, kinds, ["the pilot"])
+    assert out == f"The pilot sends a WhatsApp message before dispatch for {pop[0].lower() + pop[1:]}."
+    assert recs and recs[0]["authority"] == "pilot gate"
+    assert rg.population_findings(out, gate, "t", kinds) == []
+    # the geography the gate's own population carries is not stated twice
+    s2 = "Pilot messages are sent for all same-day and express on-demand deliveries in the pilot region."
+    out2, _ = au.population_render(s2, gate, kinds, ["the pilot"])
+    assert out2.count("region") == 0 and out2.endswith(".") and out2.count(pop[0].lower() + pop[1:]) == 1
+    # a sentence that is not about the pilot is left alone, and the pass is idempotent
+    later = "The engine validates windows for same-day and express on-demand deliveries."
+    assert au.population_render(later, gate, kinds, ["the pilot"]) == (later, [])
+    assert au.population_render(out, gate, kinds, ["the pilot"]) == (out, [])
+
+
+def test_legacy_vague_wording_is_rendered_from_the_gate_where_it_scopes_the_pilot():
+    """'eligible deliveries' is what the deleted population_pass left behind:
+    not narrower than the gate, so the population law never reported it, and
+    saying nothing at all."""
+    from app.pipeline import authority as au
+
+    content = _content()
+    gate = content["registry"]["pilot_gate"]
+    s = "The pilot confirms details before dispatch for their eligible deliveries."
+    out, recs = au.population_render(s, gate, [], ["the pilot"])
+    assert "eligible" not in out and gate["population"][1:] in out and recs
+    assert "eligible" in au.LEGACY_VAGUE
+
+
+def test_the_canonical_sop_is_the_only_executable_pilot_procedure_set():
+    from app.pipeline import authority as au
+
+    sop = [{"name": "Preparing orders", "module": "The pilot", "phase": "pilot", "steps": []},
+           {"name": "Outreach", "module": "The pilot", "phase": "pilot", "steps": []}]
+    dup = [{"name": "Managing confirmations", "module": "Pilot Module", "phase": "pilot", "steps": []}]
+    future = [{"name": "Later", "module": "Pilot Module", "phase": "future", "steps": []}]
+    kept, recs = au.dedupe_pilot_procedures(sop + dup + future, {"Pilot Module"})
+    assert [p["name"] for p in kept] == ["Preparing orders", "Outreach", "Later"]
+    assert len(recs) == 1 and recs[0]["authority"] == "canonical SOP"
+    # with no SOP set there is nothing authoritative to keep, so nothing is dropped
+    assert au.dedupe_pilot_procedures(dup + future, {"Pilot Module"}) == (dup + future, [])
+
+
+def test_the_sop_owns_the_outreach_attempt_count():
+    from app.pipeline import authority as au
+
+    s = "The pilot sends one reminder if no response is received."
+    out, recs = au.attempt_render(s, 3, ["the pilot"])
+    assert out == "The pilot sends two reminders if no response is received." and recs
+    assert rg._attempt_totals(out) == {3}
+    # the sentence's own form is kept: digits stay digits
+    assert au.attempt_render("The pilot sends 1 reminder.", 3, ["the pilot"])[0] == "The pilot sends 2 reminders."
+    # already canonical, and sentences that are not the pilot's, are untouched
+    assert au.attempt_render(out, 3, ["the pilot"]) == (out, [])
+    assert au.attempt_render("Finance sends one reminder about invoices.", 3, ["the pilot"])[0] \
+        == "Finance sends one reminder about invoices."
+
+
+def test_a_coined_name_resolves_to_its_module_or_to_the_registrys_own_names():
+    from app.pipeline import authority as au
+
+    content = _content()
+    canon = C.build(content)
+    roster = C.phase_title(canon.build_order())
+    names = [e.canonical for e in canon.of_kind("module")]
+    one = canon.build_order()[-1]                    # deliberately NOT first in the roster
+    others = [n for n in names if n != one]
+
+    # its own sentence names exactly one module: that module is responsible,
+    # and no other module's name is dragged in with it
+    s = f"The {one} feeds a smart Delivery & Settlement Resolution Hub for the client."
+    out, recs = au.coined_name_render(s, canon)
+    assert "Delivery & Settlement Resolution Hub" not in out and f"the {one}" in out
+    assert all(n not in out for n in others)
+    assert recs[0]["authority"] == "canonical registry"
+    assert recs[0]["resolved_by"] == "the one module its sentence names"
+
+    # no single module: the registry's own names, and the determiner and its
+    # adjectives go with the coined name so the sentence stays grammatical
+    s = "This proposes a phased implementation of a smart Delivery & Settlement Resolution Hub, beginning now."
+    out, recs = au.coined_name_render(s, canon)
+    assert out == f"This proposes a phased implementation of the {roster}, beginning now."
+    assert "invent" not in out and recs
+
+    # a REGISTERED name that is just as name-shaped is never touched, and no
+    # entity is invented for the coined one
+    registered = next(n for n in names if len(n.split()) >= 3 and n.split()[-1] in
+                      ("Pilot", "Engine", "Coordinator", "Workbench", "Hub", "Platform", "System", "Interface"))
+    known = f"The {registered} handles it."
+    assert au.coined_name_render(known, canon) == (known, [])
+    assert C.build(content).resolve("Delivery & Settlement Resolution Hub").status == "unknown"
+
+
+def test_enforce_applies_the_authority_precedence_end_to_end(client):
+    """The precedence is not advisory: enforce renders the owning source's
+    value into the structures and the volumes, and records whose authority
+    it used."""
+    mods = copy.deepcopy(MODULES)
+    bc = {"build_order": [m["id"] for m in mods], "pilot_gate": copy.deepcopy(GATE)}
+    reg = rg.build_registry(OPS, bc, mods, ["We deliver same-day and express on-demand deliveries."])
+    canon = C.build({"modules": mods, "registry": reg})
+    pilot = next(e for e in canon.of_kind("module") if e.data.get("pilot")).canonical
+    pop = reg["pilot_gate"]["population"]
+    procedures = {"procedures": [
+        {"name": "Outreach", "module": "The pilot", "phase": "pilot",
+         "steps": [{"actor": "Pilot Support Operator", "step": "The pilot sends two reminders if no response."}]},
+        {"name": "Managing confirmations", "module": pilot, "phase": "pilot",
+         "steps": [{"actor": "Pilot Support Operator", "step": "The pilot sends one reminder if no response."}]}]}
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint=("## The decision\nThe pilot confirms details before dispatch for their "
+                                   "same-day and express on-demand deliveries.\n"),
+                technical_plan="## How your system works\nfine\n",
+                business_case_json=json.dumps(bc), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                ops_numbers_json=OPS, procedures_json=json.dumps(procedures),
+                qa_report_json=json.dumps({"checks": [], "findings": []}), integrity_stamp=False)
+    report = it.enforce(db, row.id)
+    db.refresh(row)
+    # the SOP is the only pilot set left, and the gate's population is on the page
+    assert [p["name"] for p in json.loads(row.procedures_json)["procedures"]] == ["Outreach"]
+    assert pop[1:] in row.mvp_blueprint and "same-day and express" not in row.mvp_blueprint
+    laws = " | ".join(m.get("law", "") for m in report["mappings_applied"])
+    assert "pilot gate owns the pilot population" in laws
+    assert "canonical SOP owns the pilot's procedure steps" in laws
+    # and it settles: a second pass finds nothing left to render
+    assert it.enforce(db, row.id)["mappings_applied"] == []
+    db.close()
+
+
 # ── root cause D: a procedure is filed under the module that executes it ────
 
 

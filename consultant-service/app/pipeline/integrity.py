@@ -191,6 +191,69 @@ def retype(content: dict, canon: _canon.Canon) -> list[dict]:
     return applied
 
 
+def apply_authority(content: dict, canon: _canon.Canon) -> list[dict]:
+    """Render the authoritative value wherever a lesser source states a
+    conflicting one.
+
+    The precedence is declared once in app/pipeline/authority.py — the gate
+    owns the pilot population, the canonical SOP owns the pilot's procedure
+    steps and its outreach attempt count, the registry owns entity names and
+    ownership. Every application records which source's authority was used, so
+    the release record says not just what changed but on whose authority."""
+    from app.pipeline import authority as _auth
+
+    applied: list[dict] = []
+    reg = content.get("registry") or {}
+    gate = reg.get("pilot_gate")
+    types = reg.get("service_types") or []
+    terms = _reg.pilot_terms(content.get("modules") or [])
+
+    # the canonical SOP is the pilot's only executable procedure set
+    layer = content.get("procedures") if isinstance(content.get("procedures"), dict) else None
+    if layer is not None and isinstance(layer.get("procedures"), list):
+        pilot_names = {e.canonical for e in canon.of_kind("module") if e.data.get("pilot")}
+        layer["procedures"], recs = _auth.dedupe_pilot_procedures(layer["procedures"], pilot_names)
+        applied += [{"where": "procedures: pilot", "surface": r["removed"], "canonical": r["kept"],
+                     "entity": "procedures",
+                     "law": f"the {r['authority']} owns the pilot's procedure steps"} for r in recs]
+    total = _reg.sop_attempt_total((layer or {}).get("procedures") or [])
+
+    def _authoritative(text: str, where: str) -> str:
+        out, recs = _auth.population_render(text, gate, types, terms)
+        applied.extend({"where": where, "surface": r["original"], "canonical": r["replaced_with"],
+                        "entity": "gate:PG-01", "law": f"the {r['authority']} owns the pilot population"}
+                       for r in recs)
+        out, recs = _auth.attempt_render(out, total, terms)
+        applied.extend({"where": where, "surface": r["original"], "canonical": r["replaced_with"],
+                        "entity": "policy:pilot-outreach-attempts",
+                        "law": f"the {r['authority']} owns the outreach attempt count"} for r in recs)
+        return out
+
+    def _walk(obj, where: str):
+        if isinstance(obj, str):
+            return _authoritative(obj, where)
+        if isinstance(obj, dict):
+            return {k: (_walk(v, f"{where}.{k}") if k not in _SKIP_KEYS else v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_walk(v, f"{where}[{i}]") for i, v in enumerate(obj)]
+        return obj
+
+    for name in ("modules", "procedures", "checklists", "scoreboard", "risks", "journey", "org", "playbook"):
+        if content.get(name) is not None:
+            content[name] = _walk(content[name], name)
+    for vol in _PROSE.values():
+        if not content.get(vol):
+            continue
+        text = _authoritative(content[vol], vol)
+        text, recs = _auth.coined_name_render(text, canon, vol)
+        applied.extend({"where": vol, "surface": r["original"], "canonical": r["replaced_with"],
+                        "entity": "module",
+                        "law": f"the {r['authority']} owns entity names — resolved by {r['resolved_by']}"}
+                       for r in recs)
+        content[vol] = text
+    return applied
+
+
 def render_slots(content: dict, canon: _canon.Canon) -> list[dict]:
     """Re-render the registry-owned SLOTS in the finished volumes — today the
     phase heading, which states a phase's number (or that it is the parallel
@@ -633,6 +696,8 @@ def enforce(db: Session, request_id: int) -> dict:
     canon = _canon.build(content)
     mappings = normalize(content, canon)
     mappings += retype(content, canon)
+    mappings += apply_authority(content, canon)
+    canon = _canon.build(content)          # procedures and names have changed
     mappings += render_slots(content, canon)
     save(row, content)
     db.commit()
