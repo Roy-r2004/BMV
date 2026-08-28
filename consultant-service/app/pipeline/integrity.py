@@ -172,6 +172,7 @@ def sanitize(content: dict, canon: _canon.Canon) -> list[dict]:
     applied: list[dict] = []
     corpus = json.dumps({k: content.get(k) for k in _LAYERS.values()}, ensure_ascii=False, default=str)
     tokens = canon.name_tokens()
+    policies = [(e.data.get("core"), e.data.get("attribution")) for e in canon.of_kind("policy")]
     known = [e.canonical for e in canon._entities.values() if not _canon.repeated_run(e.canonical, tokens)]
 
     # every name-shaped string: a registered canonical, or a field called "name"
@@ -205,6 +206,7 @@ def sanitize(content: dict, canon: _canon.Canon) -> list[dict]:
                 if bad in out:
                     out = out.replace(bad, good)
             fixed = _canon.collapse_attribution(out)
+            fixed = _canon.collapse_statement_attributions(fixed, policies)
             if fixed != out:
                 applied.append({"where": where, "surface": out.strip()[:140], "canonical": fixed.strip()[:140],
                                 "entity": "attribution", "law": "an attribution is stated once"})
@@ -601,6 +603,7 @@ def statement_findings(content: dict, canon: _canon.Canon, texts: dict[str, str]
         out += surface_findings(text, canon, label)
         out += phase_findings(text, canon, label)
         out += audience_findings(text, canon, label)
+        out += phase_sequence_findings(text, canon, label)
         out += label_findings(text, label)
     out += phase_title_findings(texts, canon)
     return out
@@ -889,6 +892,107 @@ def procedure_tool_fit_findings(content: dict, canon: _canon.Canon) -> list[Find
     return out
 
 
+_SEQUENCING = re.compile(r"\b(finally|lastly|then|next|after that|afterwards|last)\b", re.IGNORECASE)
+_IN_PARALLEL = re.compile(r"\b(in parallel|alongside|at the same time|concurrently|simultaneously)\b", re.IGNORECASE)
+
+
+def phase_sequence_findings(text: str, canon: _canon.Canon, where: str) -> list[Finding]:
+    """A parallel workstream is never described as a step in the sequence, and
+    a numbered phase is never described as running in parallel.
+
+    Run 53-r24's build order read "Finally, in parallel, build the AI COD
+    Settlement Inquiry Resolver and the Delivery & Settlement Support
+    Escalation" — which puts the workstream that has no number last in the
+    sequence AND takes the sequential Phase 4 out of it. The registry holds
+    which is which, so the clause is checked against it."""
+    out: list[Finding] = []
+    modules = {e.canonical: e for e in canon.of_kind("module")}
+    seen: set[tuple] = set()
+    # the build order is client-facing prose. The module appendix is declared
+    # engineering detail, where "last" belongs to a field name in a data model
+    # and says nothing about the order anything is built in.
+    for clause in _reg._CLAUSE_SPLIT.split(_pg.flatten_prose(_reg.client_facing_region(text or ""))):
+        if not clause or _reg._CLAUSE_SPLIT.fullmatch(clause):
+            continue
+        seq, par = _SEQUENCING.search(clause), _IN_PARALLEL.search(clause)
+        if not seq and not par:
+            continue
+        for name in sorted(modules, key=len, reverse=True):
+            at = clause.find(name)
+            # the word must be said ABOUT this module, not merely somewhere in
+            # the same long enumeration
+            if at < 0 or min((abs(at - m.start()) for m in (seq, par) if m), default=10 ** 6) > 160:
+                continue
+            e = modules[name]
+            number = e.data.get("phase_number")
+            if number is None and e.data.get("workstream") == "parallel" and seq and (name, "seq") not in seen:
+                seen.add((name, "seq"))
+                out.append(Finding(MISCLASSIFIED, f"{where}: phases",
+                                   f"'{name}' is the parallel workstream but is placed in the sequence "
+                                   f"('{seq.group(0)}')",
+                                   "state it as the parallel workstream, built independently of the phases",
+                                   statement=clause.strip()[:180], entities=(e.id,)))
+            elif isinstance(number, int) and par and (name, "par") not in seen:
+                seen.add((name, "par"))
+                out.append(Finding(MISCLASSIFIED, f"{where}: phases",
+                                   f"'{name}' is Phase {number} but is described as running in parallel "
+                                   f"('{par.group(0)}')",
+                                   f"state it as Phase {number}, built in sequence",
+                                   expected=f"Phase {number}", statement=clause.strip()[:180], entities=(e.id,)))
+    return out
+
+
+def forward_dependency_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
+    """A procedure runs with what exists when its own phase ships.
+
+    Run 53-r24's Phase-2 procedure was driven by the Phase-3 AI engine and
+    escalated to the Phase-4 module, so nothing in it could be executed when
+    Phase 2 shipped. A later phase, and the parallel workstream (which carries
+    no promise of being ready), are both unavailable."""
+    procedures = (content.get("procedures") or {}).get("procedures") \
+        if isinstance(content.get("procedures"), dict) else []
+    by_name = {e.canonical: e for e in canon.of_kind("module")}
+    out: list[Finding] = []
+    for p in procedures or []:
+        if not isinstance(p, dict):
+            continue
+        filed = str(p.get("module") or "")
+        own = by_name.get(filed)
+        own_phase = 1 if filed == "The pilot" else (own.data.get("phase_number") if own else None)
+        if not isinstance(own_phase, int):
+            continue
+        # a module must ACT for this to be a dependency the phase cannot meet.
+        # It does not act by starting the procedure (a trigger, or the leading
+        # run of steps that hands the work over — if it is not built, the
+        # procedure simply never fires). It DOES act when it is the actor of a
+        # step after this procedure's own work has begun, or when it is what an
+        # exception tells you to do.
+        steps = [s for s in (p.get("steps") or []) if isinstance(s, dict)]
+        lead = 0
+        while lead < len(steps) and str(steps[lead].get("actor") or "") in by_name and \
+                str(steps[lead].get("actor") or "") != filed:
+            lead += 1
+        acting = {str(s.get("actor") or "") for s in steps[lead:]}
+        exception_then = " ".join(str(e.get("then") or "") for e in (p.get("exceptions") or [])
+                                  if isinstance(e, dict))
+        for name, e in sorted(by_name.items(), key=lambda kv: -len(kv[0])):
+            if name == filed or (name not in acting and name not in exception_then):
+                continue
+            n = e.data.get("phase_number")
+            if isinstance(n, int) and n > own_phase:
+                stage = f"Phase {n}"
+            elif n is None and e.data.get("workstream") == "parallel":
+                stage = "the parallel workstream"
+            else:
+                continue
+            out.append(Finding(CONFLICT, f"procedures: {p.get('name')}",
+                               f"a Phase-{own_phase} procedure requires '{name}', which is {stage} — not built "
+                               f"when this procedure runs",
+                               "run it with the tools its own phase ships, and hand off to the pilot or a human",
+                               statement=name, entities=(e.id,)))
+    return out
+
+
 def structure_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
     """Laws proven on the structures themselves — no prose involved."""
     from app.pipeline.structural import structural_findings
@@ -991,6 +1095,7 @@ def verify(content: dict, texts: dict[str, str] | None = None) -> tuple[list[Fin
     findings += hygiene_findings(content, canon, texts)
     findings += pilot_population_findings(content, canon)
     findings += procedure_tool_fit_findings(content, canon)
+    findings += forward_dependency_findings(content, canon)
     findings += phase_section_findings(canon)
     findings += statement_findings(content, canon, prose)
     if texts is not None:

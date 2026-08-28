@@ -115,9 +115,9 @@ CYAN = colors.HexColor("#22d3ee")
 # in the table of contents (see _EngagementDoc.afterFlowable).
 _S = {
     "kicker": ParagraphStyle("kicker", fontName=F_SB, fontSize=8.5, textColor=ACCENT,
-                             spaceAfter=4, leading=11),
+                             spaceAfter=4, leading=11, keepWithNext=1),
     "secno": ParagraphStyle("secno", fontName=F_SB, fontSize=8, textColor=ACCENT,
-                            leading=10, spaceBefore=0, spaceAfter=3),
+                            leading=10, spaceBefore=0, spaceAfter=3, keepWithNext=1),
     "cover_vol": ParagraphStyle("cover_vol", fontName=F_SB, fontSize=10.5, textColor=ACCENT,
                                 leading=14, spaceAfter=8),
     "cover_title": ParagraphStyle("cover_title", fontName=F_DISPLAY, fontSize=31,
@@ -125,18 +125,19 @@ _S = {
     "cover_sub": ParagraphStyle("cover_sub", fontName=F_MD, fontSize=12.5, textColor=MUTED,
                                 leading=18, spaceAfter=4),
     "h1toc": ParagraphStyle("h1toc", fontName=F_HEAD, fontSize=15.5, textColor=INK,
-                            leading=20, spaceBefore=4, spaceAfter=2),
+                            leading=20, spaceBefore=4, spaceAfter=2, keepWithNext=1),
     "h2toc": ParagraphStyle("h2toc", fontName=F_SB, fontSize=11, textColor=ACCENT_DK,
-                            leading=15, spaceBefore=11, spaceAfter=4),
+                            leading=15, spaceBefore=11, spaceAfter=4, keepWithNext=1),
     "h3": ParagraphStyle("h3", fontName=F_SB, fontSize=8.5, textColor=ACCENT,
-                         leading=12, spaceBefore=9, spaceAfter=3),
+                         leading=12, spaceBefore=9, spaceAfter=3, keepWithNext=1),
     "callout": ParagraphStyle("callout", fontName=F_BODY, fontSize=9.3, textColor=INK,
                               leading=14.5),
     "body": ParagraphStyle("body", fontName=F_BODY, fontSize=9.3, textColor=INK,
                            leading=15, spaceAfter=5.5, allowWidows=0, allowOrphans=0),
     "bullet": ParagraphStyle("bullet", fontName=F_BODY, fontSize=9.3, textColor=INK,
                              leading=14.2, leftIndent=11, bulletIndent=2, spaceAfter=3.2,
-                             bulletColor=ACCENT, allowWidows=0, allowOrphans=0),
+                             bulletColor=ACCENT, bulletFontName=F_BODY, bulletFontSize=9.3,
+                             allowWidows=0, allowOrphans=0),
     "cell": ParagraphStyle("cell", fontName=F_BODY, fontSize=8.4, textColor=INK, leading=11.8),
     "cellhead": ParagraphStyle("cellhead", fontName=F_SB, fontSize=7.8, textColor=MUTED, leading=10),
     "meta": ParagraphStyle("meta", fontName=F_MD, fontSize=8.4, textColor=MUTED, leading=12.5),
@@ -390,6 +391,54 @@ def _duplicate_label(cleaned: str, registry: dict | None) -> bool:
             continue
         return True
     return False
+
+
+def presentation_findings(path: str) -> list[str]:
+    """What is wrong with the PAGE rather than the words.
+
+    Two laws, both read off the finished file:
+
+      * every font is embedded. A base-14 face (Helvetica, ZapfDingbats)
+        renders from whatever the reader happens to have, so the page is not
+        the page we approved. Run 53-r24 drew every bullet and list number in
+        one of those two, because reportlab's ParagraphStyle defaults
+        bulletFontName to Helvetica.
+      * no heading is orphaned — left as the last thing on a page with its
+        content overleaf. A page carrying only a heading is a divider and is
+        not an orphan, so the law applies to pages that also carry body text.
+    """
+    try:
+        import pymupdf
+    except ImportError:                                   # pragma: no cover - fails open
+        return []
+    out: list[str] = []
+    doc = pymupdf.open(path)
+    try:
+        # a font DECLARED in a page's resources but never drawn with puts
+        # nothing on the page; only what actually renders is judged
+        unembedded = {f[3] for n in range(doc.page_count) for f in doc.get_page_fonts(n)
+                      if f[1] in ("n/a", "")}
+        drawn = {s["font"] for n in range(doc.page_count)
+                 for b in doc[n].get_text("dict")["blocks"] for l in b.get("lines", [])
+                 for s in l.get("spans", []) if s["text"].strip()}
+        loose = sorted({f for f in unembedded if any(f in d or d in f for d in drawn)})
+        if loose:
+            out.append("fonts not embedded: " + ", ".join(loose))
+        for n in range(doc.page_count):
+            lines = [l for b in doc[n].get_text("dict")["blocks"] for l in b.get("lines", [])
+                     if any(s["text"].strip() for s in l.get("spans", []))]
+            if len(lines) < 8:                            # a divider page is not an orphan
+                continue
+            spans = [s for s in lines[-1].get("spans", []) if s["text"].strip()]
+            if not spans:
+                continue
+            text = "".join(s["text"] for s in spans).strip()
+            head = spans[0]
+            if ("Syne" in head["font"] or head["size"] >= 10.5) and not text.endswith((".", ":", "?", "!")):
+                out.append(f"orphaned heading on page {n + 1}: \"{text[:80]}\"")
+    finally:
+        doc.close()
+    return out
 
 
 def find_artifacts(text: str, registry: dict | None = None) -> list[str]:

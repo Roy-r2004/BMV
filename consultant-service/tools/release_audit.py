@@ -261,6 +261,10 @@ def audit_run(row, out_dir: str | None = None) -> dict:
             "failures": result["failures"],
         }
         blockers += [f"{kind}: {f}" for f in result["failures"]]
+        # the page itself, not the words: every font embedded, no orphaned heading
+        presentation = export_pdf.presentation_findings(path)
+        record["volumes"][kind]["presentation"] = presentation
+        blockers += [f"{kind}: {f}" for f in presentation]
     # the registry checks on the EXACT rendered text, not the markdown
     text_blockers = _registry_blockers(row, texts) if texts else []
     blockers += [f"rendered text: {b}" for b in text_blockers if b not in gate["reasons"]]

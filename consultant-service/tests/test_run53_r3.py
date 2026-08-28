@@ -88,6 +88,15 @@ def test_release_record_carries_parent_revision_and_cumulative_corrections(clien
     # the corrections themselves, not a count of them
     assert isinstance(first["integrity"]["mappings_applied"], list)
     assert first["integrity"]["mappings_count"] == len(first["integrity"]["mappings_applied"])
+    # an EDITORIAL correction to the source belongs in the lineage exactly like
+    # a machine one: r23 and r24 changed the structured source and the record
+    # said nothing about it. And every correction this pass applied carries its
+    # location, its before/after text and the authority it was made under.
+    assert "source_corrections" in first["corrections_registry_log"]
+    for entry in first["corrections_current_pass"]["applied"]:
+        assert entry.get("where"), entry
+        assert "surface" in entry and "canonical" in entry, entry     # before / after
+        assert entry.get("law") or entry.get("entity"), entry          # authority
     from app.pipeline.export_pdf import STATUS_LABELS
 
     assert first["status"] in ("final", "draft") and first["status_label"] == STATUS_LABELS[first["status"]]
@@ -95,12 +104,15 @@ def test_release_record_carries_parent_revision_and_cumulative_corrections(clien
     reg2 = json.loads(row.registry_json)
     reg2["pilot_ai_removed"] = []
     reg2["derivations_shown"] = [{"source": "blueprint", "original": "$194.40 per day", "derivation": "$70,956 a year ÷ 365"}]
+    reg2["source_corrections"] = [{"where": "procedures: X", "before": "a", "after": "b",
+                                   "authority": "the pilot gate owns the pilot population", "why": "z"}]
     row.registry_json = json.dumps(reg2)
     db.commit()
     second = ra.audit_run(row)
     assert second["parent_revision"] == first["revision"]
     assert second["corrections_registry_log"]["pilot_ai_removed"] == [] and second["corrections_registry_log"]["derivations_shown"]
     assert second["corrections_cumulative"]["pilot_ai_removed"] == reg["pilot_ai_removed"]
+    assert second["corrections_cumulative"]["source_corrections"] == reg2["source_corrections"]
     assert second["corrections_cumulative"]["derivations_shown"] == reg2["derivations_shown"]
     assert second["corrections"] == second["corrections_cumulative"] and second["validation_errors"] == []
     with open(second["record_path"], encoding="utf-8") as f:

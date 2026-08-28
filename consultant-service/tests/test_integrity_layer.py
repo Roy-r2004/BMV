@@ -569,6 +569,135 @@ def test_an_attribution_is_stated_once():
         "Remitting within 10 days after month-end (your stated cycle) is the rule."
 
 
+# ── the owner's final pass on the 53-r24 pages ──────────────────────────────
+
+
+def test_a_parallel_workstream_is_never_placed_in_the_sequence():
+    """53-r24's build order: "Finally, in parallel, build the AI COD Settlement
+    Inquiry Resolver and the Delivery & Settlement Support Escalation" — which
+    puts the workstream that has no number last in the sequence AND takes the
+    sequential Phase 4 out of it."""
+    content = _content()
+    canon = C.build(content)
+    par = next(e for e in canon.of_kind("module") if e.data.get("workstream") == "parallel")
+    seq = next(e for e in canon.of_kind("module") if e.data.get("phase_number") == 3)
+    shipped = f'Finally, in parallel, build the "{par.canonical}" and the "{seq.canonical}" to handle both.'
+    out = it.phase_sequence_findings(shipped, canon, "technical")
+    assert len(out) == 2 and {f.kind for f in out} == {it.MISCLASSIFIED}
+    assert any(par.canonical in f.issue and "parallel workstream but is placed in the sequence" in f.issue for f in out)
+    assert any(seq.canonical in f.issue and "described as running in parallel" in f.issue for f in out)
+
+    # stated correctly, in two clauses, nothing fires
+    ok = (f'Then build the "{seq.canonical}" as Phase 3. The "{par.canonical}" is a parallel workstream: '
+          "it runs independently of the phases.")
+    assert it.phase_sequence_findings(ok, canon, "technical") == []
+    # an ordinary sequencing word about a numbered phase is not a finding
+    assert it.phase_sequence_findings(f'Then build the "{seq.canonical}".', canon, "technical") == []
+
+
+def test_an_attribution_is_stated_once_within_a_statement():
+    """53-r24: "… remittance dates (within 10 days after month-end (your stated
+    cycle) to fully settle COD with a client (your stated cycle))". The two
+    markers are not adjacent, so collapsing adjacent repeats could not see
+    them."""
+    one = [("10 days after month-end", "(your stated cycle)")]
+    shipped = ("Settlement inquiries, detailing collection amounts, remittance dates (within 10 days after "
+               "month-end (your stated cycle) to fully settle COD with a client (your stated cycle)), and any "
+               "outstanding items.")
+    fixed = C.collapse_statement_attributions(shipped, one)
+    assert fixed.count("(your stated cycle)") == 1
+    assert "to fully settle COD with a client)" in fixed          # no stray space before the bracket
+    assert C.collapse_statement_attributions(fixed, one) == fixed
+
+    # two registered policies in one statement may each carry it
+    two = one + [("30 days after invoice", "(your stated cycle)")]
+    both = "We remit 10 days after month-end (your stated cycle) and bill 30 days after invoice (your stated cycle)."
+    assert C.collapse_statement_attributions(both, two) == both
+    # and one per sentence is never flattened across sentences
+    apart = ("A is 10 days after month-end (your stated cycle). B is 10 days after month-end (your stated cycle).")
+    assert C.collapse_statement_attributions(apart, one) == apart
+
+
+def test_a_procedure_runs_with_what_its_own_phase_ships():
+    """53-r24's Phase-2 procedure was driven by the Phase-3 AI engine and
+    escalated to the Phase-4 module, so none of it could be executed when
+    Phase 2 shipped."""
+    content = _content()
+    canon = C.build(content)
+    p2 = next(e.canonical for e in canon.of_kind("module") if e.data.get("phase_number") == 2)
+    p3 = next(e.canonical for e in canon.of_kind("module") if e.data.get("phase_number") == 3)
+    par = next(e.canonical for e in canon.of_kind("module") if e.data.get("workstream") == "parallel")
+
+    content["procedures"] = {"procedures": [{
+        "name": "Customer Updating Delivery Details via Secure Link", "module": p2, "phase": "future",
+        "trigger": f"Customer receives a link from the {p2}.",
+        "steps": [{"actor": p2, "step": "Generates the link."},
+                  {"actor": "customer", "step": "Submits the details."},
+                  {"actor": p3, "step": "Validates the submission."}],
+        "exceptions": [{"when": "No response.", "then": f"Escalated to the {par} for review."}]}]}
+    out = it.forward_dependency_findings(content, canon)
+    assert {f.statement for f in out} == {p3, par}
+    assert all(f.kind == it.CONFLICT for f in out)
+
+    # a module that only TRIGGERS the procedure, or hands the work over in a
+    # leading run of steps, is not a dependency: if it is absent the procedure
+    # never fires
+    content["procedures"]["procedures"][0] = {
+        "name": "Handling escalations", "module": p2, "phase": "future",
+        "trigger": f"The {p3} cannot resolve an order.",
+        "steps": [{"actor": p3, "step": "Flags the order."},
+                  {"actor": p2, "step": "Records the outcome."}],
+        "exceptions": []}
+    assert it.forward_dependency_findings(content, canon) == []
+    # an EARLIER phase is always available
+    content["procedures"]["procedures"][0]["steps"].append({"actor": "The pilot", "step": "Notifies the customer."})
+    assert it.forward_dependency_findings(content, canon) == []
+
+
+def test_every_font_that_prints_is_embedded_and_no_heading_is_orphaned(tmp_path):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    from app.pipeline.export_pdf import F_BODY, F_HEAD, presentation_findings
+
+    body = ParagraphStyle("b", fontName=F_BODY, fontSize=9, leading=13)
+    head = ParagraphStyle("h", fontName=F_HEAD, fontSize=15.5, leading=20)
+    loose = ParagraphStyle("l", fontName=F_BODY, fontSize=9, leading=13,
+                           bulletFontName="Helvetica", bulletFontSize=9)
+
+    bad = str(tmp_path / "bad.pdf")
+    flows = [Paragraph("Body line %d." % i, body) for i in range(28)]
+    flows += [Paragraph("A bullet in a base-14 face.", loose, bulletText="•")]
+    flows += [Spacer(1, 280), Paragraph("An Orphaned Heading", head)]
+    SimpleDocTemplate(bad, pagesize=A4).build(flows)
+    found = presentation_findings(bad)
+    assert any("fonts not embedded" in f and "Helvetica" in f for f in found)
+    assert any("orphaned heading" in f and "An Orphaned Heading" in f for f in found)
+
+    # the same page set, with the bullet in an embedded face and the heading
+    # kept with its content, is clean
+    good = str(tmp_path / "good.pdf")
+    kept = ParagraphStyle("k", parent=head, keepWithNext=1)
+    tight = ParagraphStyle("t", parent=body, bulletFontName=F_BODY, bulletFontSize=9)
+    flows = [Paragraph("Body line %d." % i, body) for i in range(28)]
+    flows += [Paragraph("A bullet in the embedded face.", tight, bulletText="•")]
+    flows += [Spacer(1, 280), Paragraph("A Kept Heading", kept), Paragraph("Its content follows.", body)]
+    SimpleDocTemplate(good, pagesize=A4).build(flows)
+    assert presentation_findings(good) == []
+
+    # and the PRODUCTION styles are the ones that satisfy both laws: the bullet
+    # glyph was the only mark on run 53-r24's pages in a base-14 face, because
+    # reportlab defaults bulletFontName to Helvetica.
+    from app.pipeline.export_pdf import _S
+
+    base14 = ("Helvetica", "Times", "Courier", "ZapfDingbats", "Symbol")
+    assert not str(_S["bullet"].bulletFontName).startswith(base14)
+    assert _S["bullet"].bulletFontName == _S["bullet"].fontName
+    for name in ("kicker", "secno", "h1toc", "h2toc", "h3"):
+        assert _S[name].keepWithNext, name
+
+
 # ── authority precedence: which source wins a disagreement ──────────────────
 
 

@@ -2054,7 +2054,13 @@ CORRECTION_KEYS = ("renames", "policy_corrections", "pilot_ai_removed", "placeho
                    "forward_dependencies_removed", "derivations_shown", "null_values_replaced",
                    "identifier_corrections", "auth_hardening", "pilot_design_corrections", "unit_corrections",
                    "pilot_procedures_consolidated", "population_corrections", "operating_time_labels",
-                   "customer_channel_corrections", "pilot_attempt_corrections", "content_recovery")
+                   "customer_channel_corrections", "pilot_attempt_corrections", "content_recovery",
+                   # editorial corrections the CONSULTANT made to the structured
+                   # source, where a law reported a conflict it may not settle.
+                   # They belong in the lineage exactly like a machine
+                   # correction: r23 and r24 changed the source and the record
+                   # said nothing about it.
+                   "source_corrections")
 
 
 def corrections(reg: dict | None) -> dict:

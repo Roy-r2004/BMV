@@ -164,6 +164,44 @@ def collapse_attribution(text: str) -> str:
     return _REPEATED_PARENTHETICAL.sub(r"\1", text or "")
 
 
+def collapse_statement_attributions(text: str, policies: Iterable[tuple[str, str]]) -> str:
+    """Within one statement an attribution is stated once per policy the
+    statement names.
+
+    Run 53-r24 shipped "… remittance dates (within 10 days after month-end
+    (your stated cycle) to fully settle COD with a client (your stated
+    cycle))". The two markers are not adjacent, so collapsing adjacent repeats
+    could not see them. A statement naming ONE registered policy carries ONE
+    attribution: the first is kept and the rest are dropped. A statement that
+    names two policies may carry two, so a package with several client-stated
+    cycles is never flattened."""
+    policies = [(c, a) for c, a in policies if c and a]
+    if not text or not policies:
+        return text
+    out = []
+    for chunk in re.split(r"(?<=[.!?])(\s+)", text):
+        if not chunk or chunk.isspace():
+            out.append(chunk)
+            continue
+        for attribution in {a for _, a in policies}:
+            allowed = max(1, len({c for c, a in policies if a == attribution and c in chunk}))
+            seen = 0
+            pieces, last = [], 0
+            for m in re.finditer(re.escape(attribution), chunk):
+                seen += 1
+                if seen <= allowed:
+                    continue
+                pieces.append(chunk[last:m.start()])
+                last = m.end()
+                while last < len(chunk) and chunk[last] == " ":
+                    last += 1
+            if pieces:
+                pieces.append(chunk[last:])
+                chunk = re.sub(r"\s+([)\].,;])", r"\1", "".join(pieces))
+        out.append(chunk)
+    return "".join(out)
+
+
 def collapse_repeat(name: str, known: Iterable[str] = (), corpus: str = "",
                     name_tokens: Iterable[str] | None = None) -> tuple[str | None, str]:
     """The one well-formed name a repeated run collapses to, or (None, reason).
