@@ -78,8 +78,16 @@ def test_release_record_carries_parent_revision_and_cumulative_corrections(clien
                 registry_json=json.dumps(reg), business_case_json=json.dumps(bc), modules_json=json.dumps(mods),
                 ops_numbers_json=OPS)
     first = ra.audit_run(row)
-    assert first["parent_revision"] is None and first["corrections_current_pass"]["pilot_ai_removed"] == reg["pilot_ai_removed"]
-    assert first["corrections_cumulative"] == first["corrections_current_pass"] and first["validation_errors"] == []
+    # the REGISTRY LOG is the lineage; "current pass" is what the integrity
+    # layer applied to the content this record hashes, and nothing else.
+    assert first["parent_revision"] is None
+    assert first["corrections_registry_log"]["pilot_ai_removed"] == reg["pilot_ai_removed"]
+    assert first["corrections_cumulative"] == first["corrections_registry_log"] and first["validation_errors"] == []
+    assert first["corrections_current_pass"]["proven"] is True
+    assert first["corrections_current_pass"]["content_hash"] == first["integrity"]["content_hash"]
+    # the corrections themselves, not a count of them
+    assert isinstance(first["integrity"]["mappings_applied"], list)
+    assert first["integrity"]["mappings_count"] == len(first["integrity"]["mappings_applied"])
     from app.pipeline.export_pdf import STATUS_LABELS
 
     assert first["status"] in ("final", "draft") and first["status_label"] == STATUS_LABELS[first["status"]]
@@ -91,7 +99,7 @@ def test_release_record_carries_parent_revision_and_cumulative_corrections(clien
     db.commit()
     second = ra.audit_run(row)
     assert second["parent_revision"] == first["revision"]
-    assert second["corrections_current_pass"]["pilot_ai_removed"] == [] and second["corrections_current_pass"]["derivations_shown"]
+    assert second["corrections_registry_log"]["pilot_ai_removed"] == [] and second["corrections_registry_log"]["derivations_shown"]
     assert second["corrections_cumulative"]["pilot_ai_removed"] == reg["pilot_ai_removed"]
     assert second["corrections_cumulative"]["derivations_shown"] == reg2["derivations_shown"]
     assert second["corrections"] == second["corrections_cumulative"] and second["validation_errors"] == []

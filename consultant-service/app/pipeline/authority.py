@@ -81,10 +81,10 @@ def population_render(text: str, gate: dict | None, types: list[str] | None,
         if pilot_scope and not (re.search(r"\bpilot\b", chunk, re.IGNORECASE) or any(n in chunk for n in names)):
             out_parts.append(chunk)
             continue
-        narrowing = set(_reg._narrowing_qualifiers(chunk, gate, types))
+        narrowing = set(_reg._narrowing_qualifiers(chunk, gate, types, _reg._POP_QUALIFIER_RENDER))
         fixed = chunk
         # right to left, so earlier offsets stay valid
-        for m in list(_reg._POP_QUALIFIER.finditer(chunk))[::-1]:
+        for m in list(_reg._POP_QUALIFIER_RENDER.finditer(chunk))[::-1]:
             modifier = re.sub(r"\s+", " ", (m.group(1) or "")).strip().lower()
             if m.group(0) not in narrowing and modifier not in LEGACY_VAGUE:
                 continue

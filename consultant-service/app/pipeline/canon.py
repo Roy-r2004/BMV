@@ -70,6 +70,7 @@ class Mapping:
 # ── surface-form derivation ──────────────────────────────────────────────────
 
 _WORD = re.compile(r"[A-Za-z0-9]+")
+_WORD_TOKEN = re.compile(r"[A-Za-z][\w-]*")
 
 
 def humanize(identifier: str) -> str:
@@ -108,6 +109,91 @@ def _drop_leading_words(name: str) -> set[str]:
         if len(words) - k >= 2 and all(_ACRONYM.match(w) for w in words[:k]):
             out.add(" ".join(words[k:]))
     return out
+
+
+# ── well-formedness ─────────────────────────────────────────────────────────
+# A token repeated inside ONE contiguous name, with at most two words between.
+# Separators are spaces and tabs only: a comma-separated list ("… Engine,
+# Delivery & Settlement …") and a heading followed by a paragraph are not
+# repetitions, and treating them as such would flag ordinary prose.
+_REPEATED_RUN = re.compile(r"\b([A-Z][\w-]+)((?:[ \t]+[A-Za-z][\w-]*){0,2})[ \t]+\1\b")
+# the same parenthetical twice in a row — "(your stated cycle) (your stated
+# cycle)" — which is an attribution rendered onto a statement that already
+# carried it.
+_REPEATED_PARENTHETICAL = re.compile(r"(\(([^()]{2,80})\))(\s*\1)+")
+
+
+# function words are not names. A heading followed by a paragraph that opens
+# with the same word ("The opportunity" / "The …") is ordinary English, and on
+# a rendered page the two sit one after the other.
+_NOT_A_NAME_TOKEN = frozenset(
+    "The This That These Those A An It We You Your Our Their Its In On At For To Of And Or But If "
+    "When While With By From As Is Are Be All Each Every No Not One Two Three First Next Then Now "
+    "Also How What Why Where Who Both Any Some Such Other Same More Most Less".split())
+
+
+def repeated_run(name: str, name_tokens: Iterable[str] | None = None):
+    """The first repeated token run in a NAME, or None.
+
+    Two things keep this off ordinary prose. The repeated token is never an
+    English function word ("The opportunity … The …" is a heading and its
+    paragraph). And when the registry's vocabulary is supplied, the repeated
+    token must be a token of some registered name — so a rendered heading like
+    "DAY TO DAY" is English, while "Client Client Portal …" is a name built
+    twice from the registry's own words."""
+    tokens = set(name_tokens) if name_tokens is not None else None
+    for m in _REPEATED_RUN.finditer(name or ""):
+        token = m.group(1)
+        if token in _NOT_A_NAME_TOKEN or (tokens is not None and token not in tokens):
+            continue
+        return m
+    return None
+
+
+def _statement_around(text: str, index: int) -> str:
+    """The sentence the character at `index` sits in — the span an attribution
+    is judged over."""
+    start = max((text.rfind(p, 0, index) for p in (". ", "! ", "? ", "\n")), default=-1)
+    end = min((e for e in (text.find(p, index) for p in (". ", "! ", "? ", "\n")) if e != -1), default=len(text))
+    return text[start + 1:end + 1]
+
+
+def collapse_attribution(text: str) -> str:
+    """An attribution is stated once. Idempotent by construction: its own
+    output contains no adjacent repeat for it to collapse."""
+    return _REPEATED_PARENTHETICAL.sub(r"\1", text or "")
+
+
+def collapse_repeat(name: str, known: Iterable[str] = (), corpus: str = "",
+                    name_tokens: Iterable[str] | None = None) -> tuple[str | None, str]:
+    """The one well-formed name a repeated run collapses to, or (None, reason).
+
+    Dropping either occurrence of the repeated token gives two candidates.
+    Exactly one of three ordered tests must choose between them — they are
+    identical; exactly one contains a registered canonical name; exactly one
+    occurs verbatim elsewhere in the engagement. If none chooses, the registry
+    states nothing: the verifier reports the malformed name and the release
+    fails closed. Nothing is guessed and no similarity is scored."""
+    m = repeated_run(name, name_tokens)
+    if not m:
+        return name, ""
+    token, middle = m.group(1), m.group(2)
+    drop_first = name[:m.start()] + (middle.strip() + " " if middle.strip() else "") + token + name[m.end():]
+    drop_second = name[:m.start()] + token + middle + name[m.end():]
+    a, b = (re.sub(r"[ \t]{2,}", " ", s).strip() for s in (drop_first, drop_second))
+    if a == b:
+        return a, "both collapses agree"
+    registered = [n for n in known if n and len(str(n).split()) >= 2]
+    in_a = [n for n in registered if n in a]
+    in_b = [n for n in registered if n in b]
+    if bool(in_a) != bool(in_b):
+        chosen, names = (a, in_a) if in_a else (b, in_b)
+        return chosen, f"it states the registered name '{sorted(names, key=len)[-1]}'"
+    if corpus:
+        seen_a, seen_b = corpus.count(a), corpus.count(b)
+        if bool(seen_a) != bool(seen_b):
+            return (a if seen_a else b), "it is the form the engagement states elsewhere"
+    return None, "neither collapse states a registered name or appears elsewhere"
 
 
 def name_surfaces(name: str, *extra: str) -> tuple[str, ...]:
@@ -166,6 +252,14 @@ class Canon:
         want = set(kinds) or set(KINDS)
         return sorted({e.canonical for e in self._entities.values() if e.kind in want}, key=len, reverse=True)
 
+    def name_tokens(self) -> set[str]:
+        """Every word of every registered name — the vocabulary a malformed
+        name is necessarily built from."""
+        if getattr(self, "_tokens", None) is None:
+            self._tokens = {w for e in self._entities.values() if e.kind in NAMED_KINDS
+                            for w in _WORD_TOKEN.findall(e.canonical)}
+        return self._tokens
+
     def all_surfaces(self, *kinds: str) -> list[tuple[str, str]]:
         """(surface, entity_id) for every non-canonical surface form."""
         want = set(kinds) or set(KINDS)
@@ -202,6 +296,19 @@ class Canon:
                           if forms else None)
         return self._scan
 
+    def mask_entities(self, text: str) -> str:
+        """Every registered name span replaced by same-length filler, in ONE
+        longest-first left-to-right scan — the same scanner the mapping uses.
+
+        A law that reads prose must not read a NAME: 'Business Client COD
+        Settlement Escalation Form' is an interface, not a mention of the
+        business-client population, and typing an actor from words inside a
+        registered name lets a name decide its own audience."""
+        scanner = self._scanner()
+        if not text or scanner is None:
+            return text or ""
+        return scanner.sub(lambda m: "\0" * len(m.group(0)), text)
+
     def apply_exact_mappings(self, text: str, where: str = "") -> tuple[str, list[Mapping]]:
         """Replace every non-canonical surface form that denotes exactly one
         entity with that entity's canonical form. One left-to-right scan,
@@ -221,6 +328,26 @@ class Canon:
             entity = self._entities[ids[0]]
             if form == entity.canonical:
                 continue                       # already canonical
+            # a mapping never CREATES a repeated token run. Expanding a surface
+            # form that overlaps a longer name already in the text inserts a
+            # token that is present already: run 53 turned 'Client Portal …'
+            # into 'Client Client Portal …' this way, and once THAT was
+            # canonical its own derived surface was the clean name, so every
+            # clean mention expanded into the corrupt one. The guard is local
+            # and exact — it compares the join before and after.
+            head = "".join(out) + text[last:m.start()]
+            tail = text[m.end():m.end() + 80]
+            # an ATTRIBUTED statement is attributed once. The surface form of a
+            # policy is its core without the attribution, so mapping it onto a
+            # statement that already carries the attribution appends a second
+            # one — run 53 shipped "(your stated cycle) (your stated cycle)".
+            attribution = entity.data.get("attribution")
+            if attribution and attribution in _statement_around(text, m.start()):
+                continue
+            toks = self.name_tokens()
+            if (repeated_run(head[-80:] + entity.canonical + tail, toks)
+                    and not repeated_run(head[-80:] + form + tail, toks)):
+                continue
             out.append(text[last:m.start()])
             out.append(entity.canonical)
             last = m.end()
@@ -293,10 +420,15 @@ class Canon:
             return None, f"one section delivers modules from {claimed}"
         if not numbered:
             return parallel.canonical, ""
-        head = numbered[0].canonical
+        # A numbered phase and the parallel workstream in ONE section is the
+        # same conflict as two numbered phases. Run 53-r22 minted "Phase 4 —
+        # …, with the parallel workstream …", which is exactly the grouping a
+        # parallel workstream exists to deny: it has no number because it does
+        # not run in sequence with the phases.
         if parallel is not None:
-            head += f", with the {PARALLEL_LABEL.lower()} {parallel.data.get('title')}"
-        return head, ""
+            return None, (f"one section delivers {numbered[0].data.get('label')} and the "
+                          f"{PARALLEL_LABEL.lower()}")
+        return numbered[0].canonical, ""
 
 
 # ── building the registry from an engagement's structured content ────────────
@@ -338,7 +470,14 @@ class _NamedThings:
             if s and str(s) != rec["canonical"]:
                 rec["surfaces"].add(str(s))
         for k, v in (data or {}).items():
-            rec["data"].setdefault(k, v)
+            # a set-valued key accumulates across every declarer. `setdefault`
+            # alone means the FIRST module to name a shared system owns it,
+            # and every later declarer is silently dropped — which makes
+            # `owner` useless as proof of exclusive ownership.
+            if isinstance(v, (set, frozenset)):
+                rec["data"].setdefault(k, set()).update(v)
+            else:
+                rec["data"].setdefault(k, v)
 
     def entities(self) -> list[Entity]:
         out = []
@@ -349,7 +488,8 @@ class _NamedThings:
             surfaces = {s for s in (rec["surfaces"] | derived) if s and s != rec["canonical"]}
             out.append(Entity(id=f"{rec['kind']}:{rec['id_hint']}", kind=rec["kind"], canonical=rec["canonical"],
                               surfaces=tuple(sorted(surfaces, key=len, reverse=True)),
-                              data={**rec["data"], "roles": sorted(rec["roles"])}))
+                              data={**{k: (sorted(v) if isinstance(v, set) else v) for k, v in rec["data"].items()},
+                                    "roles": sorted(rec["roles"])}))
         return out
 
 
@@ -389,9 +529,11 @@ def _add_modules(things: _NamedThings, content: dict) -> None:
                    })
     # the pilot's stand-ins are engagement-agnostic interfaces of their own
     things.add(_pg.PILOT_TOOLING, "interface", id_hint="pilot-tooling",
-               data={"interface_kind": "queue", "audience": INTERNAL, "owner": "the pilot"})
+               data={"interface_kind": "queue", "audience": INTERNAL, "owner": "the pilot",
+                     "declarers": {"the pilot"}})
     things.add(_pg.PILOT_CUSTOMER_FORM, "interface", id_hint="pilot-customer-form",
-               data={"interface_kind": "form", "audience": CUSTOMER, "owner": "the pilot"})
+               data={"interface_kind": "form", "audience": CUSTOMER, "owner": "the pilot",
+                     "declarers": {"the pilot"}})
 
 
 PARALLEL_LABEL = "Parallel workstream"
@@ -477,12 +619,13 @@ def _add_interfaces(things: _NamedThings, content: dict) -> None:
             name = screen.get("name") if isinstance(screen, dict) else screen
             if isinstance(name, str):
                 things.add(re.sub(r"\s*\([^)]*\)\s*$", "", name), "interface",
-                           data={"interface_kind": "screen", "owner": owner,
+                           data={"interface_kind": "screen", "owner": owner, "declarers": {owner},
                                  "audience": audience_of(users, str(screen))})
         for api in tech.get("apis") or []:
             if isinstance(api, dict) and api.get("name"):
                 things.add(str(api["name"]), "interface",
-                           data={"interface_kind": "api", "owner": owner, "audience": INTERNAL, "does": api.get("does")})
+                           data={"interface_kind": "api", "owner": owner, "declarers": {owner},
+                                 "audience": INTERNAL, "does": api.get("does")})
         # a named system is not internal by assumption: a client portal is a
         # system a client opens. Its audience comes from what the entry itself
         # says, never from the module's users (the pilot's users include
@@ -492,18 +635,18 @@ def _add_interfaces(things: _NamedThings, content: dict) -> None:
                 system = it.get("system") if isinstance(it, dict) else it
                 if isinstance(system, str):
                     things.add(re.sub(r"\s*\([^)]*\)\s*$", "", system), "interface",
-                               data={"interface_kind": "system", "owner": owner,
-                                     "audience": audience_of([], str(system))})
+                               data={"interface_kind": "system", "owner": owner, "declarers": {owner},
+                                     "audience": audience_of([], re.sub(r"\s*\([^)]*\)\s*$", "", str(system)))})
         for it in spec.get("integrations") or []:
             if isinstance(it, str):
                 things.add(re.sub(r"\s*\([^)]*\)\s*$", "", it), "interface",
-                           data={"interface_kind": "system", "owner": owner,
-                                 "audience": audience_of([], str(it))})
+                           data={"interface_kind": "system", "owner": owner, "declarers": {owner},
+                                 "audience": audience_of([], re.sub(r"\s*\([^)]*\)\s*$", "", str(it)))})
     checklists = content.get("checklists") if isinstance(content.get("checklists"), dict) else {}
     for form in checklists.get("forms") or []:
         if isinstance(form, dict) and form.get("name"):
             things.add(str(form["name"]), "interface",
-                       data={"interface_kind": "form", "owner": "operations",
+                       data={"interface_kind": "form", "owner": "operations", "declarers": {"operations"},
                              "audience": audience_of([], str(form.get("purpose") or ""))})
 
 
@@ -557,11 +700,12 @@ def _fact_and_policy_entities(content: dict) -> list[Entity]:
     # sentence fragment, wherever the package states it
     for n, origin in _reg.deadline_days(claims).items():
         subject = _reg._policy_subject(claims, n)
+        core, attribution = f"{n} days {origin}", "(your stated cycle)"
         out.append(Entity(id=f"policy:{subject}-period", kind="policy",
-                          canonical=f"{n} days {origin} (your stated cycle)",
-                          surfaces=(f"{n} days {origin}",),
+                          canonical=f"{core} {attribution}",
+                          surfaces=(core,),
                           data={"subject": subject, "value": n, "unit": "days", "event": origin,
-                                "provenance": "client_stated",
+                                "provenance": "client_stated", "core": core, "attribution": attribution,
                                 "cadence_allowed": n in _reg.cadence_days(claims)}))
     # the pilot's outreach policy: one attempt total, from the pilot SOP
     procedures = (content.get("procedures") or {}).get("procedures") if isinstance(content.get("procedures"), dict) else []
@@ -589,16 +733,48 @@ def _metric_and_assumption_entities(content: dict) -> list[Entity]:
     return out
 
 
+_EXCLUSION = re.compile(
+    r"(?:,|\band\b|\bbut\b|^|\.)\s*(?:excluding|excludes|excluded|except(?:\s+for)?|"
+    r"other than|not including|apart from)\s+(?P<np>[^.;,]+)", re.IGNORECASE)
+
+
+def gate_exclusions(content: dict, population: str) -> tuple[list[str], list[str]]:
+    """The populations a gate's own population clause excludes, resolved to
+    the values modules declare as users.
+
+    This is a SPLIT, never an inference: the clause is taken verbatim, and it
+    resolves only when it matches a declared user value exactly (optionally
+    without the unit noun the included half already uses). A clause that
+    matches nothing is returned unresolved, so the gate blocks on its own
+    under-specified wording rather than the law falling silent."""
+    declared: dict[str, str] = {}
+    for m in content.get("modules") or []:
+        if isinstance(m, dict):
+            for u in m.get("users") or []:
+                if str(u).strip():
+                    declared.setdefault(str(u).strip().lower(), str(u).strip())
+    resolved, unresolved = [], []
+    for m in _EXCLUSION.finditer(population or ""):
+        clause = m.group("np").strip().rstrip(".")
+        words = clause.split()
+        candidates = [clause] + ([" ".join(words[:-1])] if len(words) > 1 else [])
+        hit = next((declared[c.lower()] for c in candidates if c.lower() in declared), None)
+        (resolved.append(hit) if hit else unresolved.append(clause))
+    return resolved, unresolved
+
+
 def _gate_entity(content: dict) -> list[Entity]:
     from app.pipeline import pilot_gate as _pg
 
     gate = (content.get("registry") or {}).get("pilot_gate")
     if not gate:
         return []
+    excluded, unresolved = gate_exclusions(content, str(gate.get("population") or ""))
     return [Entity(id="gate:PG-01", kind="gate", canonical=_pg.canonical_sentence(gate),
                    data={"full_definition": _pg.full_definition(gate),
                          "assignment": _pg.assignment_sentence(gate),
                          "population": gate.get("population"), "geography": gate.get("geography"),
+                         "population_excludes": excluded, "population_excludes_unresolved": unresolved,
                          "primary_metric": gate.get("primary_metric"), "target_value": gate.get("target_value"),
                          "change_kind": gate.get("change_kind"), "target_formula": gate.get("target_formula"),
                          "duration": gate.get("duration_value"), "guardrails": gate.get("guardrails")})]

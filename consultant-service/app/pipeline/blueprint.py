@@ -201,6 +201,7 @@ def _pin_phase_headings(content: str, canon) -> tuple[str, list[dict]]:
         return content, []
     lines = content.split("\n")
     rendered: list[dict] = []
+    refused: list[dict] = []
     for i, line in enumerate(lines):
         m = _PHASE_SLOT.search(line)
         if not m:
@@ -208,15 +209,19 @@ def _pin_phase_headings(content: str, canon) -> tuple[str, list[dict]]:
         delivered = _delivered_modules(lines, i, m.end(), names)
         if not delivered:
             continue
-        heading, _reason = canon.heading_for(delivered)
+        heading, reason = canon.heading_for(delivered)
         if heading is None:
+            # the registry states no heading for this section. Silence here is
+            # how run 53-r22 shipped a merged phase: the refusal is carried out
+            # so the verifier can report it.
+            refused.append({"line": i, "stated": m.group(0), "reason": reason, "delivers": list(delivered)})
             continue
         new = f"**{heading}{m.group(3)}**"
         if new == m.group(0):
             continue
         lines[i] = line[:m.start()] + new + line[m.end():]
         rendered.append({"stated": m.group(0), "rendered": new})
-    return "\n".join(lines), rendered
+    return "\n".join(lines), rendered, refused
 
 
 def _repair_no_ai_lines(content: str, modules: list) -> str:
@@ -294,9 +299,12 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     if modules:
         from app.pipeline import canon as _canon
 
-        content, phases = _pin_phase_headings(content, _canon.build({"modules": modules, "registry": registry or {}}))
+        content, phases, refused = _pin_phase_headings(
+            content, _canon.build({"modules": modules, "registry": registry or {}}))
         if phases:
             report["rendered"].append({"statement": "phase headings", "sites": len(phases), "headings": phases})
+        if refused:
+            report["refused"] = refused
     return content, report
 
 

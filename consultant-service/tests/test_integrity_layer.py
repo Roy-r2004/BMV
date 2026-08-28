@@ -217,31 +217,35 @@ def test_a_phase_heading_is_rendered_from_the_registry_and_refuses_a_two_phase_s
 
     # the heading's title is replaced by the registry's; the narrative is not
     doc = f"- **Phase 2 — Enhanced Customer Interaction:** The {mod2} will do things.\n"
-    out, rendered = bp._pin_phase_headings(doc, canon)
+    out, rendered, _refused = bp._pin_phase_headings(doc, canon)
     assert out == f"- **Phase 2 — {p2.data['title']}:** The {mod2} will do things.\n"
     assert len(rendered) == 1
 
     # a parallel module stated as a numbered phase is re-labelled, not renumbered
     par_mod = par.data["modules"][0]
-    out, _ = bp._pin_phase_headings(f"- **Phase 4 — Automated Inquiry Resolution:** The {par_mod} runs alone.\n", canon)
+    out, _, _ = bp._pin_phase_headings(f"- **Phase 4 — Automated Inquiry Resolution:** The {par_mod} runs alone.\n", canon)
     assert out.startswith(f"- **{C.PARALLEL_LABEL} — {par.data['title']}:**")
 
-    # a 'Delivers:' slot names the whole set; a numbered phase carrying the
-    # parallel workstream states both, from the registry
+    # a numbered phase AND the parallel workstream in one section: run 53-r22
+    # minted "Phase 4 — …, with the parallel workstream …", grouping a
+    # workstream that has no number into the sequence. The registry now states
+    # no heading, the renderer writes nothing, and the refusal is carried out.
     doc = f"*   **Phase 3: Coined**\n    *   **Delivers:** {mod3}, {par_mod}\n"
-    out, _ = bp._pin_phase_headings(doc, canon)
-    assert f"**Phase 3 — {p3.data['title']}, with the parallel workstream {par.data['title']}**" in out
-
-    # two NUMBERED phases in one section: the registry states no heading and
-    # the renderer writes nothing — the verifier reports it
-    doc = f"*   **Phase 2: Coined**\n    *   **Delivers:** {mod2}, {mod3}\n"
-    out, rendered = bp._pin_phase_headings(doc, canon)
+    out, rendered, refused = bp._pin_phase_headings(doc, canon)
     assert out == doc and rendered == []
+    assert len(refused) == 1 and C.PARALLEL_LABEL.lower() in refused[0]["reason"]
+    assert "with the parallel workstream" not in out
+    assert canon.heading_for([mod3, par_mod])[0] is None
+
+    # two NUMBERED phases in one section: refused the same way
+    doc = f"*   **Phase 2: Coined**\n    *   **Delivers:** {mod2}, {mod3}\n"
+    out, rendered, refused = bp._pin_phase_headings(doc, canon)
+    assert out == doc and rendered == [] and len(refused) == 1
     assert canon.heading_for([mod2, mod3])[0] is None
 
     # rendering twice changes nothing
-    once, _ = bp._pin_phase_headings(f"- **Phase 2 — Coined:** The {mod2} acts.\n", canon)
-    twice, again = bp._pin_phase_headings(once, canon)
+    once, _, _ = bp._pin_phase_headings(f"- **Phase 2 — Coined:** The {mod2} acts.\n", canon)
+    twice, again, _ = bp._pin_phase_headings(once, canon)
     assert twice == once and again == []
 
 
@@ -380,6 +384,189 @@ def test_a_two_word_verb_phrase_is_not_reported_as_a_coined_system_name():
     real = it.name_findings("We propose a smart Delivery & Settlement Resolution Hub.", canon, "blueprint")
     assert [f.kind for f in real] == [it.UNKNOWN]
     assert real[0].statement == "Delivery & Settlement Resolution Hub"
+
+
+# ── the owner's audit of the exact 53-r22 PDFs ──────────────────────────────
+# Eight defects reached client pages with a clean integrity report. Each test
+# below uses the failing string from those pages, with the negative control
+# that must NOT trip.
+
+
+def test_a_pilot_procedure_may_not_act_on_a_population_the_gate_excludes():
+    content = _content()
+    gate = content["registry"]["pilot_gate"]
+    gate["population"] = "All delivery orders placed for individuals via the app, excluding business client orders"
+    content["modules"][3]["users"] = ["business client", "finance team"]
+    content["procedures"] = {"procedures": [{
+        "name": "Resolving COD Settlement Inquiries", "module": "The pilot", "phase": "pilot",
+        "trigger": "Upon receiving a COD settlement inquiry from a business client via WhatsApp or email",
+        "steps": [{"actor": "iCARRY Support Staff", "step": "Identify the business client and extract identifiers."}]}]}
+    canon = C.build(content)
+    assert canon.get("gate:PG-01").data["population_excludes"] == ["business client"]
+    out = it.pilot_population_findings(content, canon)
+    assert len(out) == 1 and out[0].kind == it.CONFLICT
+    assert "business client" in out[0].issue and "trigger" in out[0].issue
+
+    # a clause that EXCLUDES the population states the boundary correctly
+    content["procedures"]["procedures"][0]["trigger"] = "Any pilot order, excluding business client orders"
+    content["procedures"]["procedures"][0]["steps"] = [
+        {"actor": "iCARRY Support Staff", "step": "Skip business client orders."}]
+    assert it.pilot_population_findings(content, C.build(content)) == []
+
+    # a gate whose exclusion names nothing the registry declares blocks on itself
+    gate["population"] = "All orders, excluding wholesale partner accounts"
+    unresolved = it.pilot_population_findings(content, C.build(content))
+    assert any("no registry entity declares" in f.issue for f in unresolved)
+
+
+def test_a_procedure_names_only_the_tools_of_the_module_it_belongs_to():
+    content = _content()
+    mods = content["modules"]
+    mods[1].setdefault("tech", {})["integrations"] = [{"system": "Customer Confirmation Status Log"}]
+    mods[2].setdefault("tech", {})["integrations"] = [{"system": "iCARRY Financial Settlement Database"}]
+    canon = C.build(content)
+    owner1 = mods[1]["client_facing_name"]
+    owner2 = mods[2]["client_facing_name"]
+    content["procedures"] = {"procedures": [{
+        "name": "Handling Business Client COD Settlement Inquiries", "module": owner2, "phase": "future",
+        "steps": [{"actor": "iCARRY Support Staff",
+                   "step": "Monitors the Customer Confirmation Status Log for 'unresolvable' COD inquiries."}]}]}
+    out = it.procedure_tool_fit_findings(content, canon)
+    assert len(out) == 1 and owner1 in out[0].issue and "Customer Confirmation Status Log" in out[0].issue
+
+    # its own module's tool is fine
+    content["procedures"]["procedures"][0]["steps"][0]["step"] = "Reads the iCARRY Financial Settlement Database."
+    assert it.procedure_tool_fit_findings(content, canon) == []
+
+    # a tool SEVERAL modules declare belongs to none of them in particular —
+    # whichever module the procedure is filed under
+    mods[1]["tech"]["integrations"].append({"system": "Shared Ledger Service"})
+    mods[2]["tech"]["integrations"].append({"system": "Shared Ledger Service"})
+    shared = C.build(content)
+    content["procedures"]["procedures"][0]["steps"][0]["step"] = "Reads the Shared Ledger Service."
+    for filed in (owner1, owner2):
+        content["procedures"]["procedures"][0]["module"] = filed
+        assert it.procedure_tool_fit_findings(content, shared) == [], filed
+
+
+def test_staff_are_not_sent_to_the_customer_facing_interface():
+    """The exact 53-r22 sentence. A customer clause joined by ', and' to a
+    staff clause was ONE clause, so the staff half was handed the customer
+    form."""
+    content = _content()
+    canon = C.build(content)
+    internal, customer = canon.channel_mapping("the pilot")
+    shipped = ("You'll be able to send WhatsApp messages to customers asking them to confirm details via a "
+               f"secure link, and your team will use the {customer.canonical} to monitor responses and "
+               "intervene for risky orders.")
+    fixed, recs = rg.channel_pass(shipped, internal.canonical, customer.canonical)
+    assert f"your team will use the {internal.canonical} to monitor responses" in fixed
+    assert "to customers asking them to confirm details via a secure link" in fixed
+    assert [r["actor"] for r in recs] == ["staff"]
+    assert rg.channel_pass(fixed, internal.canonical, customer.canonical) == (fixed, [])
+    # and every detector reports the same sentence the corrector would fix,
+    # and is satisfied by what the corrector writes. A detector its own
+    # corrector cannot satisfy blocks a release forever — 53-r23 was held on
+    # exactly this sentence AFTER it had been fixed.
+    assert [f.kind for f in it.audience_findings(shipped, canon, "technical")] == [it.MISCLASSIFIED]
+    assert it.audience_findings(fixed, canon, "technical") == []
+    assert rg.customer_queue_findings(shipped, "technical", internal.canonical, customer.canonical) == []
+    assert rg.customer_queue_findings(fixed, "technical", internal.canonical, customer.canonical) == []
+    sent_in = f"The customer opens a link to the {internal.canonical} to confirm."
+    assert rg.customer_queue_findings(sent_in, "technical", internal.canonical, customer.canonical)
+
+
+def test_the_pilot_description_may_not_narrow_participation_after_any_governor():
+    """53-r22: '… on WhatsApp before their same-day and express deliveries go
+    out.' No law saw it, because the governor list held only the slots the
+    RENDERER can safely write into."""
+    content = _content()
+    kinds = rg.service_types(content["free_texts"])
+    gate = content["registry"]["pilot_gate"]
+    shipped = ("This is a test program to reach out to individual customers on WhatsApp before their "
+               "same-day and express deliveries go out.")
+    assert rg.population_findings(shipped, gate, "technical", kinds, ["the pilot"], pilot_scope=False)
+    # the renderer refuses this slot: a 20-word population would strand "go out"
+    from app.pipeline import authority as au
+
+    out, recs = au.population_render(shipped, gate, kinds, ["the pilot"], pilot_scope=False)
+    assert out == shipped and recs == []
+    # the renderer's governors are a strict subset of the detector's: what it
+    # can DETECT is wider than what it may WRITE, and "before" is on the wrong
+    # side of that line in both guards
+    assert au._PREPOSITION.match("before their deliveries go out") is None
+    assert rg._POP_QUALIFIER_RENDER.search(shipped) is None
+    assert rg._POP_QUALIFIER.search(shipped) is not None
+    # the slot it CAN write ends its clause
+    safe = "The pilot sends a message for their same-day and express on-demand deliveries."
+    assert au.population_render(safe, gate, kinds, ["the pilot"])[1]
+
+
+def test_a_canonical_name_states_each_of_its_tokens_once():
+    """The four names 53-r22 shipped, and the ordinary English that must not
+    be mistaken for them."""
+    content = _content()
+    canon = C.build(content)
+    tokens = canon.name_tokens() | {"Client", "Support", "Proactive", "iCARRY"}
+    for bad in ("Client Client Portal Settlement Inquiry Form",
+                "Client iCARRY Client Portal Settlement Status Display",
+                "Support iCARRY Support Staff Resolution Feedback Loop",
+                "Sending Proactive COD Proactive Payment Timeline Reminders"):
+        assert C.repeated_run(bad, tokens), bad
+    for ok in ("DAY TO DAY", "The opportunity\n\nThe plan is simple",
+               "AI Delivery Pre-Confirmation Engine, Delivery & Settlement Support Escalation",
+               "POST /api/v1/escalations/delivery, POST /api/v1/escalations/queue"):
+        assert C.repeated_run(ok, tokens) is None, ok
+    # the collapse is determinate, and says which test chose it
+    fixed, why = C.collapse_repeat("Client iCARRY Client Portal Settlement Status Display",
+                                   ["iCARRY Client Portal"], "", tokens)
+    assert fixed == "iCARRY Client Portal Settlement Status Display" and "registered name" in why
+    fixed, why = C.collapse_repeat("Client Client Portal Settlement Inquiry Form", [], "", tokens)
+    assert fixed == "Client Portal Settlement Inquiry Form" and "agree" in why
+    # neither collapse determined: the registry states nothing and it blocks
+    assert C.collapse_repeat("Alpha Beta Alpha Gamma", [], "", {"Alpha", "Beta", "Gamma"})[0] is None
+
+
+def test_a_mapping_never_creates_a_repeated_token_run():
+    """Once the corrupt name was canonical, dropping an inner word derived the
+    CLEAN name as one of its own surfaces — so every clean mention mapped into
+    the corruption."""
+    content = _content()
+    content["modules"][2].setdefault("spec", {})["features"] = [
+        {"name": "Client Client Portal Settlement Inquiry Form"}]
+    canon = C.build(content)
+    clean = "Client Portal Settlement Inquiry Form"
+    assert canon.resolve(clean).unique                      # the corrupt name claims the clean one
+    out, _ = canon.apply_exact_mappings(clean)
+    assert out == clean, "the mapping must not expand a clean name into a corrupt one"
+
+
+def test_an_attribution_is_stated_once():
+    """53-r22: 'remitting within 10 days after month-end (your stated cycle)
+    (your stated cycle)'. The policy's surface form is its core without the
+    attribution, so mapping it onto an already-attributed statement appends a
+    second one."""
+    assert C.collapse_attribution("within 10 days after month-end (your stated cycle) (your stated cycle).") \
+        == "within 10 days after month-end (your stated cycle)."
+    once = "within 10 days after month-end (your stated cycle)."
+    assert C.collapse_attribution(once) == once
+    assert C.collapse_attribution("(a) then (b)") == "(a) then (b)"
+    # prevention: the mapping does not append to a statement that already says it
+    policy = C.Entity(id="policy:settlement-period", kind="policy",
+                      canonical="10 days after month-end (your stated cycle)",
+                      surfaces=("10 days after month-end",),
+                      data={"core": "10 days after month-end", "attribution": "(your stated cycle)"})
+    canon = C.Canon([policy])
+    already = "Remitting within 10 days after month-end (your stated cycle) is the rule."
+    assert canon.apply_exact_mappings(already)[0] == already
+    # and where the attribution sits elsewhere in the statement, so the
+    # canonical form does not match at the offset and only the guard stops it
+    apart = "Your stated cycle (your stated cycle) means remitting within 10 days after month-end."
+    assert canon.apply_exact_mappings(apart)[0] == apart
+    assert apart.count("(your stated cycle)") == 1
+    bare = "Remitting within 10 days after month-end is the rule."
+    assert canon.apply_exact_mappings(bare)[0] == \
+        "Remitting within 10 days after month-end (your stated cycle) is the rule."
 
 
 # ── authority precedence: which source wins a disagreement ──────────────────

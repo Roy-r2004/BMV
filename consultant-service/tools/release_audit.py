@@ -119,13 +119,43 @@ def validate_record(record: dict) -> list[str]:
             errors.append("released without a current integrity report bound to the content hash")
         elif integ.get("blocked") or integ.get("findings"):
             errors.append(f"released with {len(integ.get('findings') or [])} open integrity finding(s)")
-    # lineage: the cumulative corrections are the parent's cumulative plus this pass
-    if "corrections_current_pass" in record:
-        cur, cum = record["corrections_current_pass"], record.get("corrections_cumulative") or {}
-        for k, v in cur.items():
+    # lineage: the cumulative corrections are the parent's cumulative plus the
+    # registry's own log for this pass
+    log = record.get("corrections_registry_log")
+    if isinstance(log, dict):
+        cum = record.get("corrections_cumulative") or {}
+        for k, v in log.items():
             distinct = {json.dumps(e, sort_keys=True) for e in (v or [])}  # the merge keeps one copy of identical entries
             if len(cum.get(k) or []) < len(distinct):
-                errors.append(f"corrections_cumulative[{k}] holds fewer entries than the current pass")
+                errors.append(f"corrections_cumulative[{k}] holds fewer entries than this pass's log")
+    # truthfulness: the current pass IS what the integrity layer applied to the
+    # content this record hashes. Run 53-r22 presented 17 corrections recovered
+    # from revision r3 as this pass's work and reported its own 7 as a count.
+    cur = record.get("corrections_current_pass")
+    if isinstance(integ, dict) or cur is not None:
+        if not isinstance(cur, dict) or "applied" not in cur:
+            errors.append("the record does not describe this pass's corrections")
+        else:
+            applied = cur.get("applied") or []
+            if not cur.get("proven"):
+                errors.append("this pass's corrections are not bound to a current integrity report")
+            if isinstance(integ, dict):
+                if cur.get("content_hash") != integ.get("content_hash"):
+                    errors.append("this pass's corrections are bound to different content than the integrity report")
+                if len(applied) != len(integ.get("mappings_applied") or []):
+                    errors.append("this pass's corrections do not match the integrity report's mappings")
+            if cur.get("count") != len(applied):
+                errors.append("this pass's correction count does not match the corrections listed")
+            mine = re.fullmatch(r"(\d+)-r\d+", str(record.get("revision") or ""))
+            foreign = re.compile(r"\b%s-r\d+\b" % (mine.group(1) if mine else r"\d+"))
+            for entry in applied:
+                blob = json.dumps(entry, sort_keys=True)
+                if foreign.search(blob) and str(record.get("revision") or "") not in blob:
+                    errors.append(f"this pass lists a correction sourced from another revision: {blob[:120]}")
+                    break
+                if not entry.get("where") or not (entry.get("law") or entry.get("entity")):
+                    errors.append("a correction is recorded without its location or its authority")
+                    break
     return errors
 
 
@@ -251,10 +281,15 @@ def audit_run(row, out_dir: str | None = None) -> dict:
                                "content_hash_now": _integrity.content_hash(_integrity.load(row)),
                                "content_hash_in_report": (stale or {}).get("content_hash")}
     else:
+        # the corrections themselves, not a count of them: a record that says
+        # "7 mappings" describes nothing and cannot be checked. Each entry
+        # carries where it was applied, the before and after, and the AUTHORITY
+        # it was applied under.
         record["integrity"] = {
             "status": "current", "version": rep.get("version"), "ran_at": rep.get("ran_at"),
             "content_hash": rep.get("content_hash"), "blocked": rep.get("blocked"),
-            "canon": rep.get("canon"), "mappings_applied": len(rep.get("mappings_applied") or []),
+            "canon": rep.get("canon"), "mappings_applied": list(rep.get("mappings_applied") or []),
+            "mappings_count": len(rep.get("mappings_applied") or []),
             "findings": rep.get("findings"),
         }
 
@@ -266,8 +301,21 @@ def audit_run(row, out_dir: str | None = None) -> dict:
     # cumulative corrections across every revision of the run
     parent_dir = _latest_revision_dir(releases_dir, row.id)
     record["parent_revision"] = os.path.basename(parent_dir) if parent_dir else None
-    record["corrections_current_pass"] = _registry.corrections(reg)
-    record["corrections_cumulative"] = _merge_corrections(cumulative_corrections(parent_dir), record["corrections_current_pass"])
+    # THIS pass's corrections are the ones the integrity layer applied to the
+    # content this record hashes — nothing else. Run 53-r22 reported 17
+    # "current pass" entries recovered from revision r3's rendered text, none
+    # of which happened in that pass: the registry's correction log accumulates
+    # across every revision, so it is lineage, never a description of now.
+    current = list((rep or {}).get("mappings_applied") or [])
+    record["corrections_current_pass"] = {
+        "proven": rep is not None,
+        "content_hash": (rep or {}).get("content_hash"),
+        "count": len(current),
+        "applied": current,
+    }
+    record["corrections_registry_log"] = _registry.corrections(reg)
+    record["corrections_cumulative"] = _merge_corrections(cumulative_corrections(parent_dir),
+                                                          record["corrections_registry_log"])
     record["corrections"] = record["corrections_cumulative"]  # alias kept for readers of earlier records
     record["validation_errors"] = validate_record(record)
     if record["validation_errors"]:

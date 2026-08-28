@@ -543,11 +543,37 @@ def test_release_report_totals_come_from_the_manifest_and_inconsistent_totals_fa
                "operations": {"pages": 17, "inspected_pages": 17, "every_page_inspected": True, "inspection_ok": True, "failures": []}}
     totals = ra.totals_from(volumes)
     assert totals == {"volumes": 3, "pages": 69, "inspected_pages": 69, "every_page_inspected": True}
-    # a released record also carries a current, clean integrity report
-    integ = {"status": "current", "blocked": False, "findings": []}
-    record = {"status": "final", "reasons": [], "volumes": volumes, "totals": dict(totals), "integrity": integ}
+    # a released record also carries a current, clean integrity report AND a
+    # truthful description of what THIS pass corrected: run 53-r22 reported its
+    # own corrections as a bare count and filled "current pass" with entries
+    # recovered from revision r3.
+    applied = [{"where": "technical", "surface": "a", "canonical": "b", "entity": "gate:PG-01",
+                "law": "the pilot gate owns the pilot population"}]
+    integ = {"status": "current", "blocked": False, "findings": [], "content_hash": "abc",
+             "mappings_applied": applied, "mappings_count": 1}
+    record = {"status": "final", "reasons": [], "volumes": volumes, "totals": dict(totals), "integrity": integ,
+              "revision": "53-r23",
+              "corrections_current_pass": {"proven": True, "content_hash": "abc", "count": 1, "applied": applied}}
     assert ra.validate_record(record) == []
     assert any("current integrity report" in e for e in ra.validate_record({**record, "integrity": None}))
+    # a count without the corrections themselves is not a description
+    silent = copy.deepcopy(record)
+    silent.pop("corrections_current_pass")
+    assert any("does not describe this pass" in e for e in ra.validate_record(silent))
+    # corrections bound to other content than the report describes
+    stale = copy.deepcopy(record)
+    stale["corrections_current_pass"]["content_hash"] = "other"
+    assert any("different content" in e for e in ra.validate_record(stale))
+    # a prior revision's work presented as this pass's
+    foreign = copy.deepcopy(record)
+    foreign["corrections_current_pass"]["applied"] = [
+        {"where": "blueprint", "surface": "x", "canonical": "y", "entity": "e", "law": "l",
+         "source": "53-r3 rendered text"}]
+    assert any("another revision" in e for e in ra.validate_record(foreign))
+    # a correction recorded without its authority
+    mute = copy.deepcopy(record)
+    mute["corrections_current_pass"]["applied"] = [{"surface": "x", "canonical": "y"}]
+    assert any("without its location or its authority" in e for e in ra.validate_record(mute))
     wrong = copy.deepcopy(record)
     wrong["totals"]["pages"] = 98
     assert any("69" in e for e in ra.validate_record(wrong))

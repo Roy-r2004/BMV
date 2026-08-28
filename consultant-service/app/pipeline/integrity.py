@@ -156,6 +156,74 @@ def normalize(content: dict, canon: _canon.Canon) -> list[dict]:
     return applied
 
 
+def sanitize(content: dict, canon: _canon.Canon) -> list[dict]:
+    """Well-formedness of the names and statements themselves, repaired at
+    source before anything is mapped.
+
+    Two hygiene laws, both idempotent by construction:
+
+      * a canonical name states each of its tokens once;
+      * an attribution is stated once.
+
+    They run FIRST. A corrupt name that reaches the registry becomes canonical,
+    and dropping an inner word from it derives the CLEAN name as one of its own
+    surface forms — after which every clean mention maps into the corruption
+    and the damage is self-reinforcing. Run 53 shipped four such names."""
+    applied: list[dict] = []
+    corpus = json.dumps({k: content.get(k) for k in _LAYERS.values()}, ensure_ascii=False, default=str)
+    tokens = canon.name_tokens()
+    known = [e.canonical for e in canon._entities.values() if not _canon.repeated_run(e.canonical, tokens)]
+
+    # every name-shaped string: a registered canonical, or a field called "name"
+    candidates: set[str] = {e.canonical for e in canon._entities.values() if _canon.repeated_run(e.canonical, tokens)}
+
+    def _names(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == "name" and isinstance(v, str) and _canon.repeated_run(v, tokens):
+                    candidates.add(v)
+                _names(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                _names(v)
+
+    for layer in _LAYERS.values():
+        _names(content.get(layer))
+
+    repairs: dict[str, str] = {}
+    for name in sorted(candidates, key=len, reverse=True):
+        fixed, why = _canon.collapse_repeat(name, known, corpus, tokens)
+        if fixed and fixed != name:
+            repairs[name] = fixed
+            applied.append({"where": "names", "surface": name, "canonical": fixed, "entity": "name",
+                            "law": f"a canonical name states each of its tokens once — {why}"})
+
+    def _walk(obj, where: str):
+        if isinstance(obj, str):
+            out = obj
+            for bad, good in repairs.items():
+                if bad in out:
+                    out = out.replace(bad, good)
+            fixed = _canon.collapse_attribution(out)
+            if fixed != out:
+                applied.append({"where": where, "surface": out.strip()[:140], "canonical": fixed.strip()[:140],
+                                "entity": "attribution", "law": "an attribution is stated once"})
+            return fixed
+        if isinstance(obj, dict):
+            return {k: (_walk(v, f"{where}.{k}") if k not in _SKIP_KEYS else v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_walk(v, f"{where}[{i}]") for i, v in enumerate(obj)]
+        return obj
+
+    for layer in _LAYERS.values():
+        if content.get(layer) is not None:
+            content[layer] = _walk(content[layer], layer)
+    for vol in _PROSE.values():
+        if content.get(vol):
+            content[vol] = _walk(content[vol], vol)
+    return applied
+
+
 def retype(content: dict, canon: _canon.Canon) -> list[dict]:
     """Typed structured corrections the registry determines EXACTLY — a field
     set to the one value the structures allow. No prose is touched here.
@@ -169,7 +237,7 @@ def retype(content: dict, canon: _canon.Canon) -> list[dict]:
         if isinstance(content.get("procedures"), dict) else None
     names = {e.canonical for e in canon.of_kind("module")}
     for p in procedures or []:
-        owner, n = misfiled_owner(p, names)
+        owner, n = misfiled_owner(p, names, canon)
         if not owner:
             continue
         applied.append({"where": f"procedures: {p.get('name')}", "surface": p.get("module"),
@@ -271,11 +339,30 @@ def render_slots(content: dict, canon: _canon.Canon) -> list[dict]:
     for vol in _PROSE.values():
         if not content.get(vol):
             continue
-        content[vol], rendered = _pin_phase_headings(content[vol], canon)
+        content[vol], rendered, refused = _pin_phase_headings(content[vol], canon)
         applied += [{"where": f"{vol}: phase heading", "surface": r["stated"], "canonical": r["rendered"],
                      "entity": "phase", "law": "a phase heading is rendered from the registry"}
                     for r in rendered]
+        _REFUSALS[vol] = refused
     return applied
+
+
+# a slot the registry refused to state, carried from the render to the verifier
+_REFUSALS: dict[str, list[dict]] = {}
+
+
+def phase_section_findings(canon: _canon.Canon) -> list[Finding]:
+    """A section the registry refused to head. A numbered phase and the
+    parallel workstream in one section groups a workstream that has no number
+    into a sequence — which is what having no number denies."""
+    out = []
+    for vol, refusals in sorted(_REFUSALS.items()):
+        for r in refusals or []:
+            out.append(Finding(CONFLICT, f"{vol}: phases",
+                               f"the registry states no heading for a section that delivers "
+                               f"{', '.join(r.get('delivers') or [])}: {r.get('reason')}",
+                               "one section delivers one registry phase", statement=str(r.get("stated"))[:160]))
+    return out
 
 
 # ── detectors (they DETECT; they never rewrite) ──────────────────────────────
@@ -441,22 +528,35 @@ def audience_findings(text: str, canon: _canon.Canon, where: str) -> list[Findin
     customer anywhere, and reporting it would block a release on a sentence no
     one can correct. This is the same scope the corrector uses, so what the
     corrector cannot fix is exactly what this reports."""
-    out = []
-    internal = [e for e in canon.of_kind("interface")
-                if e.data.get("audience") == _canon.INTERNAL
-                and canon.channel_mapping(str(e.data.get("owner") or "")) is not None]
-    for s in _sentences(text):
-        for e in internal:
-            if e.canonical not in s:
+    out: list[Finding] = []
+    flat = _pg.flatten_prose(text)
+    owners = {str(e.data.get("owner") or "") for e in canon.of_kind("interface")}
+    for owner in sorted(o for o in owners if o):
+        pair = canon.channel_mapping(owner)
+        if pair is None:
+            continue
+        internal, customer = pair
+        for clause in _reg._CLAUSE_SPLIT.split(flat):
+            if not clause or _reg._CLAUSE_SPLIT.fullmatch(clause):
                 continue
-            before = s.split(e.canonical)[0]
-            if _CUSTOMER_CLAUSE.search(s) or _LINK_TO.search(before[-30:]):
+            acts_customer = _reg._customer_acts(clause, internal.canonical)
+            acts_staff = _reg._staff_acts(clause)
+            if acts_customer and acts_staff:
+                continue                       # neither name is determined here
+            if internal.canonical in clause and acts_customer:
                 out.append(Finding(MISCLASSIFIED, f"{where}: audience",
-                                   f"a customer is sent to '{e.canonical}', which the registry holds as an internal "
-                                   f"{e.data.get('interface_kind', 'interface')}",
-                                   "name the customer-facing interface the registry holds for this step",
-                                   statement=s.strip()[:180], entities=(e.id,)))
-                break
+                                   f"a customer is sent to '{internal.canonical}', which the registry holds as an "
+                                   f"internal {internal.data.get('interface_kind', 'interface')}",
+                                   f"name the customer-facing interface the registry holds — '{customer.canonical}'",
+                                   expected=customer.canonical, statement=clause.strip()[:180],
+                                   entities=(internal.id,)))
+            elif customer.canonical in clause and acts_staff:
+                out.append(Finding(MISCLASSIFIED, f"{where}: audience",
+                                   f"staff work in '{customer.canonical}', which the registry holds as the "
+                                   f"customer-facing {customer.data.get('interface_kind', 'interface')}",
+                                   f"name the internal interface the registry holds — '{internal.canonical}'",
+                                   expected=internal.canonical, statement=clause.strip()[:180],
+                                   entities=(customer.id,)))
     return out
 
 
@@ -543,7 +643,14 @@ def _procedure_text(p: dict) -> str:
     return " ".join(parts)
 
 
-def misfiled_owner(p: dict, names: set[str]) -> tuple[str | None, int]:
+def _tools_of(canon: _canon.Canon, module_name: str) -> set[str]:
+    """The interfaces only this module declares. An interface several modules
+    declare is shared and proves nothing about ownership."""
+    return {e.canonical for e in canon.of_kind("interface")
+            if set(e.data.get("declarers") or ()) == {module_name}}
+
+
+def misfiled_owner(p: dict, names: set[str], canon: _canon.Canon | None = None) -> tuple[str | None, int]:
     """The module a procedure's steps execute, when the structures determine
     exactly ONE and the module it is filed under plays NO part in it.
 
@@ -556,7 +663,14 @@ def misfiled_owner(p: dict, names: set[str]) -> tuple[str | None, int]:
     if not isinstance(p, dict) or p.get("module") in ("The pilot", None) or str(p.get("phase") or "").lower() == "pilot":
         return None, 0
     filed = str(p.get("module") or "")
-    if filed in _procedure_text(p):
+    text = _procedure_text(p)
+    if filed in text:
+        return None, 0
+    # a module also plays a part through its OWN tools. An escalation
+    # procedure names the escalation module's queue and its detail view while
+    # never naming the module — re-filing it under the module that triggers it
+    # was wrong, and left a procedure using tools its new owner does not have.
+    if canon is not None and any(tool in text for tool in _tools_of(canon, filed)):
         return None, 0
     counts: dict[str, int] = {}
     for s in p.get("steps") or []:
@@ -570,6 +684,209 @@ def misfiled_owner(p: dict, names: set[str]) -> tuple[str | None, int]:
     if n < 3 or (len(ranked) > 1 and ranked[1][1] == n) or top == filed:
         return None, 0
     return top, n
+
+
+def hygiene_findings(content: dict, canon: _canon.Canon, texts: dict[str, str] | None = None) -> list[Finding]:
+    """A malformed name or a doubled attribution that survived the hygiene
+    pass. Either one reached a client page in run 53-r22, so either one blocks
+    the release."""
+    out: list[Finding] = []
+    seen: set[str] = set()
+    tokens = canon.name_tokens()
+    for e in canon._entities.values():
+        m = _canon.repeated_run(e.canonical, tokens)
+        if m and e.canonical not in seen:
+            seen.add(e.canonical)
+            out.append(Finding(ARTIFACT, f"registry: {e.id}",
+                               f"a canonical name states '{m.group(1)}' twice: \"{e.canonical}\"",
+                               "a canonical name states each of its tokens once", statement=e.canonical,
+                               entities=(e.id,)))
+
+    def _scan(text: str, where: str) -> None:
+        m = _canon.repeated_run(text, tokens)
+        if m and m.group(0) not in seen:
+            seen.add(m.group(0))
+            out.append(Finding(ARTIFACT, f"{where}: names",
+                               f"a name states '{m.group(1)}' twice: \"{m.group(0)}\"",
+                               "a canonical name states each of its tokens once", statement=m.group(0)))
+        d = _canon._REPEATED_PARENTHETICAL.search(text)
+        if d and d.group(0) not in seen:
+            seen.add(d.group(0))
+            out.append(Finding(ARTIFACT, f"{where}: attribution",
+                               f"an attribution is stated twice: \"{d.group(0)[:80]}\"",
+                               "an attribution is stated once", statement=d.group(0)[:120]))
+
+    def _walk(obj, where: str) -> None:
+        if isinstance(obj, str):
+            _scan(obj, where)
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                _walk(v, f"{where}.{k}")
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                _walk(v, f"{where}[{i}]")
+
+    for layer in _LAYERS.values():
+        _walk(content.get(layer), layer)
+    # the RAW text, never flattened: the repeated-run law reads a contiguous
+    # name, and flattening turns every line break into a space, which would
+    # join a heading to the paragraph beneath it
+    for label, text in (texts or {name: content.get(name) or "" for name in _PROSE.values()}).items():
+        _scan(text or "", label)
+    return out
+
+
+_SCOPING = re.compile(r"\b(excluding|excludes?|excluded|except(?:\s+for)?|other than|not including|omit(?:s|ting)?|"
+                      r"skip(?:s|ping)?|filters?\s+out|filtered\s+out|ignor(?:e|es|ing)|leave out|non-|not)\b",
+                      re.IGNORECASE)
+
+
+def _procedure_fields(p: dict):
+    yield "trigger", p.get("trigger")
+    for i, s in enumerate(p.get("steps") or []):
+        if isinstance(s, dict):
+            yield f"steps[{i}].actor", s.get("actor")
+            yield f"steps[{i}].step", s.get("step")
+    for j, e in enumerate(p.get("exceptions") or []):
+        if isinstance(e, dict):
+            yield f"exceptions[{j}].when", e.get("when")
+            yield f"exceptions[{j}].then", e.get("then")
+
+
+def pilot_population_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
+    """A pilot artifact may not ACT on a population the gate excludes.
+
+    The gate owns the pilot population, and its population clause names what
+    the pilot does not cover. A pilot procedure whose trigger or steps act on
+    that population contradicts the gate — run 53-r22 shipped a pilot SOP
+    procedure resolving business-client COD settlement inquiries while the
+    gate excluded business client orders.
+
+    Detection is typed, never fuzzy: registered names are masked first (a name
+    that CONTAINS the population is a name, not a mention), the population is
+    matched only as the value a module declares, and a clause that excludes or
+    negates the population states the boundary correctly and is skipped.
+
+    This law DETECTS only. Whether the pilot should drop the work or the gate
+    should widen its population is the author's or the client's decision — the
+    gate itself is 'client approval required'."""
+    gate = canon.get("gate:PG-01")
+    if gate is None:
+        return []
+    out: list[Finding] = []
+    for clause in gate.data.get("population_excludes_unresolved") or []:
+        out.append(Finding(CONFLICT, "registry: pilot gate",
+                           f"the gate excludes a population no registry entity declares: '{clause}'",
+                           "declare the excluded population as a user of the module that serves it, or state "
+                           "the exclusion using a name the registry already carries",
+                           statement=clause, entities=("gate:PG-01",)))
+    excluded = [p for p in (gate.data.get("population_excludes") or []) if p]
+    if not excluded:
+        return out
+    procedures = (content.get("procedures") or {}).get("procedures") \
+        if isinstance(content.get("procedures"), dict) else []
+    pilot_names = {e.canonical for e in canon.of_kind("module") if e.data.get("pilot")}
+
+    def _acting_hits(text: str) -> list[str]:
+        hits = []
+        masked = canon.mask_entities(text or "")
+        for population in excluded:
+            for m in re.finditer(r"(?<!\w)" + re.escape(population) + r"(?!\w)", masked, re.IGNORECASE):
+                clause = re.split(r"[.;:]", masked[:m.start()])[-1]
+                if not _SCOPING.search(clause):
+                    hits.append(population)
+        return hits
+
+    for p in procedures or []:
+        if not isinstance(p, dict) or str(p.get("phase") or "").lower() != "pilot":
+            continue
+        if p.get("module") not in ({"The pilot"} | pilot_names):
+            continue
+        named: dict[str, list[str]] = {}
+        statement = ""
+        for where, text in _procedure_fields(p):
+            if not isinstance(text, str):
+                continue
+            for population in _acting_hits(text):
+                named.setdefault(population, []).append(where)
+                statement = statement or text.strip()[:170]
+        for population, wheres in sorted(named.items()):
+            out.append(Finding(CONFLICT, f"procedures: {p.get('name')}",
+                               f"a pilot procedure acts on '{population}', which the pilot gate's population "
+                               f"excludes — named in {', '.join(sorted(set(wheres)))}",
+                               "the gate excludes this population: take this work out of the pilot, or widen "
+                               "the gate's population with client approval",
+                               expected=str(gate.data.get("population")), statement=statement,
+                               entities=("gate:PG-01",)))
+    for m in content.get("modules") or []:
+        if not isinstance(m, dict) or not m.get("pilot"):
+            continue
+        for key in ("purpose", "pain_point_addressed", "spec", "tech"):
+            for text in _strings_in(m.get(key)):
+                for population in _acting_hits(text):
+                    out.append(Finding(CONFLICT, f"modules.{m.get('id')}.{key}",
+                                       f"the pilot module acts on '{population}', which the pilot gate's "
+                                       f"population excludes",
+                                       "the gate excludes this population: take this work out of the pilot, or "
+                                       "widen the gate's population with client approval",
+                                       expected=str(gate.data.get("population")), statement=text.strip()[:170],
+                                       entities=("gate:PG-01",)))
+                    break
+    return out
+
+
+def _strings_in(obj):
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _strings_in(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _strings_in(v)
+
+
+def procedure_tool_fit_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
+    """A procedure names only the tools of the module it belongs to.
+
+    An interface belongs to a module when exactly ONE module declares it;
+    an interface several modules declare is shared and belongs to none of them
+    in particular. Run 53-r22 shipped financial COD-settlement procedures that
+    reached for the delivery pre-confirmation module's AI and its Customer
+    Confirmation Status Log.
+
+    DETECTS only: which tool the settlement work should have used is not
+    something the structures determine — the owning module may hold no
+    equivalent at all."""
+    procedures = (content.get("procedures") or {}).get("procedures") \
+        if isinstance(content.get("procedures"), dict) else []
+    exclusive: dict[str, tuple[str, str]] = {}
+    for e in canon.of_kind("interface"):
+        declarers = [d for d in (e.data.get("declarers") or []) if d]
+        if len(set(declarers)) == 1:
+            exclusive[e.canonical] = (declarers[0], e.id)
+    module_names = {m.canonical for m in canon.of_kind("module")}
+    out: list[Finding] = []
+    for p in procedures or []:
+        if not isinstance(p, dict):
+            continue
+        filed = str(p.get("module") or "")
+        if filed not in module_names:
+            continue                       # the pilot SOP belongs to no module
+        seen: set[str] = set()
+        for where, text in _procedure_fields(p):
+            if not isinstance(text, str):
+                continue
+            for name, (owner, entity_id) in exclusive.items():
+                if owner == filed or name in seen or name not in text:
+                    continue
+                seen.add(name)
+                out.append(Finding(MISCLASSIFIED, f"procedures: {p.get('name')}",
+                                   f"filed under '{filed}' but uses '{name}', which only '{owner}' declares "
+                                   f"— named in {where}",
+                                   f"name a tool '{filed}' declares, or file the procedure under '{owner}'",
+                                   statement=text.strip()[:170], entities=(entity_id,)))
+    return out
 
 
 def structure_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
@@ -607,7 +924,7 @@ def structure_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
     # a procedure filed under a module that plays no part in it
     names = {e.canonical for e in canon.of_kind("module")}
     for p in procedures or []:
-        owner, n = misfiled_owner(p, names)
+        owner, n = misfiled_owner(p, names, canon)
         if owner:
             out.append(Finding(MISCLASSIFIED, f"procedures: {p.get('name')}",
                                f"filed under '{p.get('module')}', which plays no part in it, "
@@ -671,6 +988,10 @@ def verify(content: dict, texts: dict[str, str] | None = None) -> tuple[list[Fin
                                              "technical": content.get("technical") or ""}
     findings: list[Finding] = []
     findings += structure_findings(content, canon)
+    findings += hygiene_findings(content, canon, texts)
+    findings += pilot_population_findings(content, canon)
+    findings += procedure_tool_fit_findings(content, canon)
+    findings += phase_section_findings(canon)
     findings += statement_findings(content, canon, prose)
     if texts is not None:
         findings += artifact_findings(content, texts)
@@ -694,7 +1015,11 @@ def enforce(db: Session, request_id: int) -> dict:
         raise ValueError(f"Request {request_id} not found")
     content = load(row)
     canon = _canon.build(content)
-    mappings = normalize(content, canon)
+    # name hygiene FIRST: a corrupt name that survives into the mapping pass
+    # makes the clean name one of its own surface forms
+    mappings = sanitize(content, canon)
+    canon = _canon.build(content)
+    mappings += normalize(content, canon)
     mappings += retype(content, canon)
     mappings += apply_authority(content, canon)
     canon = _canon.build(content)          # procedures and names have changed

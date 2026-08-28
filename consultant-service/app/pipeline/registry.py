@@ -376,28 +376,65 @@ def customer_facing_pass(text: str) -> tuple[str, list[dict]]:
     return channel_pass(text, _pg.PILOT_TOOLING, _pg.PILOT_CUSTOMER_FORM)
 
 
+# A clause ends at a sentence terminator OR at a coordinating conjunction. Run
+# 53-r22 shipped "…send WhatsApp messages to customers asking them to confirm
+# details via a secure link, and your team will use the Pilot Confirmation Form
+# to monitor responses": splitting on terminators alone made that ONE clause,
+# the customer half satisfied the customer test, and the staff half was handed
+# the customer-facing form.
+_CLAUSE_SPLIT = re.compile(r"((?<=[.!?;:])\s+|\s*[,;]\s+(?:and|but|then|while|so|or|yet|whereas)\s+)")
+_STAFF_ACTOR = re.compile(r"\b(?:your team|the team|our team|staff|operator|dispatcher|dispatch|support|agent|"
+                          r"manager|analyst|coordinator|reviewer|finance|admin|back[- ]office)\b", re.IGNORECASE)
+_STAFF_VERB = re.compile(r"\b(?:use|uses|using|monitor|monitors|monitoring|review|reviews|reviewing|access|accesses|"
+                         r"open|opens|check|checks|process|processes|work|works|intervene|intervenes|handle|handles|"
+                         r"resolve|resolves|log|logs|update|updates|triage|triages|escalate|escalates)\b", re.IGNORECASE)
+
+
+def _staff_acts(clause: str) -> bool:
+    """A staff actor and an action verb in the same clause."""
+    m = _STAFF_ACTOR.search(clause or "")
+    return bool(m and _STAFF_VERB.search(clause[m.start():]))
+
+
+def _customer_acts(clause: str, internal_name: str = "") -> bool:
+    return bool(_CUSTOMER_ACT.search(clause or "")) or (bool(internal_name) and _customer_meets(clause, internal_name))
+
+
 def channel_pass(text: str, internal_name: str, customer_name: str) -> tuple[str, list[dict]]:
-    """Name for the same thing's other name: a clause in which a customer
-    receives, opens or fills something names the CUSTOMER-facing interface,
-    never the internal one. Both names come from the registry, so this is an
-    exact canonical mapping between two registered entities — no wording is
-    invented and no similarity decides anything. The caller applies it only
-    when the registry holds exactly one interface of each audience."""
+    """An interface's audience must match the actor acting on it, in BOTH
+    directions.
+
+    A clause in which a CUSTOMER receives, opens or fills something names the
+    customer-facing interface; a clause in which STAFF monitor, review or
+    process something names the internal one. Both names come from the
+    registry, so each correction is an exact canonical mapping between two
+    registered entities — no wording is invented and no similarity decides
+    anything. A clause in which BOTH act names neither for us: it is left
+    exactly as it is and the verifier reports it.
+
+    The pass is idempotent and convergent: a clause's actor does not change
+    when its interface name does, so the corrected clause satisfies its own
+    direction and neither rule fires again."""
     records: list[dict] = []
-    if not text or internal_name not in text:
+    if not text or (internal_name not in text and customer_name not in text):
         return text, records
-    # clause by clause: the customer's action must precede the mention inside
-    # the same clause ("customers confirm … via a link to the queue"), never a
-    # later clause about staff ("; flagged orders go to the queue")
-    parts = re.split(r"((?<=[.!?;])\s+)", text)
     out = []
-    for s in parts:
-        if _customer_meets(s, internal_name):
-            fixed = s.replace(internal_name + " module", customer_name).replace(internal_name, customer_name)
-            records.append({"original": s.strip()[:140], "replaced_with": customer_name})
-            out.append(fixed)
+    for part in _CLAUSE_SPLIT.split(text):
+        if not part or _CLAUSE_SPLIT.fullmatch(part):
+            out.append(part)
+            continue
+        customer, staff = _customer_acts(part, internal_name), _staff_acts(part)
+        if customer and staff:
+            out.append(part)                       # ambiguous: reported, never guessed
+            continue
+        if internal_name in part and customer:
+            out.append(part.replace(internal_name + " module", customer_name).replace(internal_name, customer_name))
+            records.append({"original": part.strip()[:140], "replaced_with": customer_name, "actor": "customer"})
+        elif customer_name in part and staff:
+            out.append(part.replace(customer_name + " module", internal_name).replace(customer_name, internal_name))
+            records.append({"original": part.strip()[:140], "replaced_with": internal_name, "actor": "staff"})
         else:
-            out.append(s)
+            out.append(part)
     return "".join(out), records
 
 
@@ -462,21 +499,45 @@ def integration_channel_findings(module: dict) -> list[dict]:
             if str(entry.get("system") or "") == _pg.PILOT_TOOLING and _entry_is_customer_facing(entry)]
 
 
-def customer_queue_findings(text: str, label: str = "") -> list[dict]:
+def customer_queue_findings(text: str, label: str = "", internal_name: str = "",
+                            customer_name: str = "") -> list[dict]:
+    """The reporting half of the audience law, on the SAME clause predicate the
+    corrector uses.
+
+    Splitting on sentence terminators alone made this report a sentence the
+    corrector had already fixed: "… send WhatsApp messages to customers asking
+    them to confirm details via a secure link, and your team will use the Pilot
+    Review Queue to monitor responses" is a customer clause AND a staff clause,
+    and the staff half correctly names the internal queue. A detector that its
+    own corrector cannot satisfy blocks a release forever."""
+    internal_name = internal_name or _pg.PILOT_TOOLING
+    customer_name = customer_name or _pg.PILOT_CUSTOMER_FORM
     out = []
     flat = _pg.flatten_prose(text)
-    if _pg.PILOT_TOOLING not in flat:
+    if internal_name not in flat:
         return out
-    for s in re.split(r"(?<=[.!?;])\s+|•", flat):
-        if _customer_meets_queue(s):
-            out.append({"severity": "high", "source": "structural", "where": f"{label}: pilot customer channel".strip(": "),
-                        "issue": f"A customer is sent into the internal {_pg.PILOT_TOOLING}: \"{s.strip()[:160]}\"",
-                        "fix": f"the customer receives the {_pg.PILOT_CUSTOMER_FORM}; the queue stays internal"})
+    for clause in _CLAUSE_SPLIT.split(flat):
+        if not clause or _CLAUSE_SPLIT.fullmatch(clause):
+            continue
+        for part in re.split(r"•", clause):
+            if internal_name in part and _customer_acts(part, internal_name) and not _staff_acts(part):
+                out.append({"severity": "high", "source": "structural",
+                            "where": f"{label}: pilot customer channel".strip(": "),
+                            "issue": f"A customer is sent into the internal {internal_name}: \"{part.strip()[:160]}\"",
+                            "fix": f"the customer receives the {customer_name}; the queue stays internal"})
     return out
 
 
 # ── the pilot population is the gate's population ────────────────────────────
-_POP_QUALIFIER = re.compile(r"\b(?:for|to|of|covering|limited to|only for|restricted to|scheduled for)\s+(?:their\s+|all\s+|the\s+|new\s+)?"
+# The DETECTOR's governors. Run 53-r22 narrowed the pilot after "before"
+# ("… on WhatsApp before their same-day and express deliveries go out") and no
+# law saw it, because the list held only the eight slots the RENDERER can
+# safely write into. The renderer keeps its own shorter list
+# (authority._PREPOSITION): a 20-word population noun phrase can only be
+# written where it ends its clause, so a narrowing found here but not
+# renderable is REPORTED and fixed at source, never forced into the sentence.
+_POP_QUALIFIER = re.compile(r"\b(?:for|to|of|covering|limited to|only for|restricted to|scheduled for|"
+                            r"before|after|during|ahead of|prior to|on|across)\s+(?:their\s+|all\s+|the\s+|new\s+)?"
                             r"((?:[a-z]+(?:-[a-z]+)*\s+){1,4}?)(?:orders?|deliveries|shipments|delivery)\b", re.IGNORECASE)
 _POP_GENERIC = {"new", "eligible", "individual", "customer", "customers", "delivery", "deliveries", "pilot", "mobile", "app",
                 "order", "orders", "their", "all", "the", "and", "or", "standard", "each", "every", "treatment", "control",
@@ -529,7 +590,17 @@ _NOT_A_TYPE = {"we", "our", "your", "their", "they", "you", "deliver", "delivers
                "individual", "individuals", "business", "businesses", "more", "most", "many", "some", "few"}
 
 
-def _narrowing_qualifiers(text: str, gate: dict | None, types: list[str] | None) -> list[str]:
+# the RENDERER's governors: the slots a 20-word population noun phrase can be
+# written into without stranding the verb that governs it. A narrowing found
+# outside these is reported and fixed at source, never forced into the sentence.
+_POP_QUALIFIER_RENDER = re.compile(
+    r"\b(?:for|to|of|covering|limited to|only for|restricted to|scheduled for)\s+"
+    r"(?:their\s+|all\s+|the\s+|new\s+)?"
+    r"((?:[a-z]+(?:-[a-z]+)*\s+){1,4}?)(?:orders?|deliveries|shipments|delivery)\b", re.IGNORECASE)
+
+
+def _narrowing_qualifiers(text: str, gate: dict | None, types: list[str] | None,
+                          pattern: "re.Pattern[str] | None" = None) -> list[str]:
     """Qualifier phrases that restrict the unit noun to a client service type
     the gate's population does not name."""
     pop = _population_words(gate)
@@ -537,7 +608,7 @@ def _narrowing_qualifiers(text: str, gate: dict | None, types: list[str] | None)
     if not pop or not kinds:
         return []
     hits = []
-    for m in _POP_QUALIFIER.finditer(text or ""):
+    for m in (pattern or _POP_QUALIFIER).finditer(text or ""):
         words = [w.lower() for w in m.group(1).split()]
         typed = [w for w in words if w in kinds and w not in _POP_GENERIC]
         if not typed:
