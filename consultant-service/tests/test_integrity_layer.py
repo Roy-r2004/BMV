@@ -153,11 +153,305 @@ def test_a_phase_statement_is_checked_against_the_registry_not_rewritten():
     assert conflict and conflict[0].expected == "Phase 2"
 
 
-def test_cross_volume_phase_titles_must_agree():
-    out = it.phase_title_findings({"blueprint": "- **Phase 2 — Enhanced Customer Interaction:** x\n",
-                                   "technical": "- **Phase 2: Customer Self-Service:** y\n"})
-    assert len(out) == 1 and out[0].kind == it.CONFLICT and "Phase 2" in out[0].statement
-    assert it.phase_title_findings({"blueprint": "Phase 2 — Same Title: x", "technical": "Phase 2 — Same Title: y"}) == []
+def test_a_phase_title_is_the_registrys_title_not_the_volumes_invention():
+    """Run 53: the two volumes coined their own phase titles and disagreed.
+    The law is not 'the volumes agree' — it is 'each volume states the
+    registry's title', which is what the phase delivers."""
+    canon = C.build(_content())
+    phase2 = next(e for e in canon.of_kind("phase") if e.data.get("number") == 2)
+    want = phase2.data["title"]
+    coined = {"blueprint": f"- **Phase 2 — Enhanced Customer Interaction:** x\n",
+              "technical": "- **Phase 2: Customer Self-Service:** y\n"}
+    out = it.phase_title_findings(coined, canon)
+    assert len(out) == 2 and {f.kind for f in out} == {it.CONFLICT}
+    assert all(f.expected == want for f in out)
+    # both volumes stating the registry's title is clean, and the mixed
+    # heading (a numbered phase carrying the parallel workstream) still reads
+    # as that phase's title
+    assert it.phase_title_findings({"blueprint": f"Phase 2 — {want}: x",
+                                    "technical": f"Phase 2 — {want}, with the parallel workstream Z: y"}, canon) == []
+    # a phase the registry does not hold is a conflict, not a silent pass
+    assert [f.kind for f in it.phase_title_findings({"blueprint": "Phase 9 — Human Handoffs: x"}, canon)] == [it.CONFLICT]
+
+
+# ── root cause C: phases are the registry's, in the registry's order ─────────
+
+
+def test_a_phase_is_titled_by_what_it_delivers_and_a_parallel_workstream_has_no_number():
+    canon = C.build(_content())
+    numbered = [e for e in canon.phases() if e.data.get("number") is not None]
+    parallel = [e for e in canon.phases() if e.data.get("number") is None]
+    assert [e.data["number"] for e in numbered] == sorted(e.data["number"] for e in numbered)
+    assert canon.phases()[-1] in parallel or not parallel      # parallel comes last
+    for e in numbered + parallel:
+        # the title is the canonical names of the modules it delivers — never
+        # a coined phrase, and never a fixed number of them
+        assert e.data["title"] == C.phase_title(e.data["modules"])
+        assert all(n in e.canonical for n in e.data["modules"])
+    assert parallel and parallel[0].data["label"] == C.PARALLEL_LABEL
+
+
+def test_the_build_order_never_gives_a_parallel_module_a_phase_number():
+    """Run 53's origin: build_order listed the parallel module fourth, the
+    blueprint read 'fourth' as 'Phase 4', and the real Phase 4 became a
+    Phase 5 that does not exist."""
+    content = _content()
+    canon = C.build(content)
+    parallel = next(e for e in canon.of_kind("module") if e.data.get("workstream") == "parallel")
+    names = content["registry"]["build_order_names"]
+    numbered = [e.canonical for e in canon.of_kind("module") if isinstance(e.data.get("phase_number"), int)]
+    assert names[-1] == parallel.canonical                     # after every numbered module
+    assert names[:len(numbered)] == canon.build_order()[:len(numbered)]
+    assert sorted(names) == sorted(e.canonical for e in canon.of_kind("module"))
+
+
+def test_a_phase_heading_is_rendered_from_the_registry_and_refuses_a_two_phase_section():
+    from app.pipeline import blueprint as bp
+
+    content = _content()
+    canon = C.build(content)
+    p2 = next(e for e in canon.of_kind("phase") if e.data.get("number") == 2)
+    p3 = next(e for e in canon.of_kind("phase") if e.data.get("number") == 3)
+    mod2, mod3 = p2.data["modules"][0], p3.data["modules"][0]
+    par = next(e for e in canon.phases() if e.data.get("number") is None)
+
+    # the heading's title is replaced by the registry's; the narrative is not
+    doc = f"- **Phase 2 — Enhanced Customer Interaction:** The {mod2} will do things.\n"
+    out, rendered = bp._pin_phase_headings(doc, canon)
+    assert out == f"- **Phase 2 — {p2.data['title']}:** The {mod2} will do things.\n"
+    assert len(rendered) == 1
+
+    # a parallel module stated as a numbered phase is re-labelled, not renumbered
+    par_mod = par.data["modules"][0]
+    out, _ = bp._pin_phase_headings(f"- **Phase 4 — Automated Inquiry Resolution:** The {par_mod} runs alone.\n", canon)
+    assert out.startswith(f"- **{C.PARALLEL_LABEL} — {par.data['title']}:**")
+
+    # a 'Delivers:' slot names the whole set; a numbered phase carrying the
+    # parallel workstream states both, from the registry
+    doc = f"*   **Phase 3: Coined**\n    *   **Delivers:** {mod3}, {par_mod}\n"
+    out, _ = bp._pin_phase_headings(doc, canon)
+    assert f"**Phase 3 — {p3.data['title']}, with the parallel workstream {par.data['title']}**" in out
+
+    # two NUMBERED phases in one section: the registry states no heading and
+    # the renderer writes nothing — the verifier reports it
+    doc = f"*   **Phase 2: Coined**\n    *   **Delivers:** {mod2}, {mod3}\n"
+    out, rendered = bp._pin_phase_headings(doc, canon)
+    assert out == doc and rendered == []
+    assert canon.heading_for([mod2, mod3])[0] is None
+
+    # rendering twice changes nothing
+    once, _ = bp._pin_phase_headings(f"- **Phase 2 — Coined:** The {mod2} acts.\n", canon)
+    twice, again = bp._pin_phase_headings(once, canon)
+    assert twice == once and again == []
+
+
+def test_enforce_renders_the_phase_heading_into_a_volume_that_already_exists(client):
+    """A package is corrected without regenerating a word of it: the heading
+    slot is re-rendered from the registry, the narrative is left alone."""
+    mods = copy.deepcopy(MODULES)
+    bc = {"build_order": [m["id"] for m in mods], "pilot_gate": copy.deepcopy(GATE)}
+    reg = rg.build_registry(OPS, bc, mods)
+    canon = C.build({"modules": mods, "registry": reg})
+    p2 = next(e for e in canon.of_kind("phase") if e.data.get("number") == 2)
+    mod2 = p2.data["modules"][0]
+    narrative = f"The {mod2} will interpret responses and route them."
+    db = SessionLocal()
+    row = _seed(db, mvp_blueprint=f"## The decision\n- **Phase 2 — Coined Title:** {narrative}\n",
+                technical_plan="## How your system works\nfine\n",
+                business_case_json=json.dumps(bc), modules_json=json.dumps(mods), registry_json=json.dumps(reg),
+                ops_numbers_json=OPS, procedures_json=json.dumps({"procedures": []}),
+                qa_report_json=json.dumps({"checks": [], "findings": []}), integrity_stamp=False)
+    report = it.enforce(db, row.id)
+    db.refresh(row)
+    assert f"- **Phase 2 — {p2.data['title']}:** {narrative}" in row.mvp_blueprint
+    assert "Coined Title" not in row.mvp_blueprint
+    assert any(m.get("entity") == "phase" for m in report["mappings_applied"])
+    # the report is bound to the content it was computed on, after rendering
+    assert report["content_hash"] == it.content_hash(it.load(row))
+    # and running it again renders nothing new
+    again = it.enforce(db, row.id)
+    assert not [m for m in again["mappings_applied"] if m.get("entity") == "phase"]
+    db.close()
+
+
+# ── root cause A: audience — who is sent where ──────────────────────────────
+
+
+def test_a_customer_facing_position_names_the_customer_interface_and_staff_keep_the_queue():
+    content = _content()
+    canon = C.build(content)
+    internal, customer = canon.channel_mapping("the pilot")
+    assert internal.data["audience"] == C.INTERNAL and customer.data["audience"] == C.CUSTOMER
+
+    text = (f"Sends a WhatsApp message asking customers to confirm their location via a link to the {internal.canonical}. "
+            f"Flags high-risk orders for human intervention via the {internal.canonical}.")
+    fixed, recs = rg.channel_pass(text, internal.canonical, customer.canonical)
+    assert fixed.count(customer.canonical) == 1 and fixed.count(internal.canonical) == 1
+    assert fixed.endswith(f"human intervention via the {internal.canonical}.")
+    assert len(recs) == 1
+    # applying it again changes nothing
+    assert rg.channel_pass(fixed, internal.canonical, customer.canonical) == (fixed, [])
+
+
+def test_an_integration_entry_is_corrected_as_one_unit_because_its_name_field_is_bare():
+    content = _content()
+    canon = C.build(content)
+    internal, customer = canon.channel_mapping("the pilot")
+    pilot = next(m for m in content["modules"] if m.get("pilot"))
+    pilot.setdefault("tech", {})["integration_details"] = [
+        {"system": internal.canonical, "direction": "out",
+         "detail": "Unique URL with delivery id token for the customer to access the interface."},
+        {"system": internal.canonical, "direction": "in", "detail": "Staff review the queued responses."}]
+    applied = it.retype(content, canon)
+    systems = [e["system"] for e in pilot["tech"]["integration_details"]]
+    assert systems == [customer.canonical, internal.canonical]
+    assert any(a.get("entity") == customer.id for a in applied)
+
+
+def test_a_named_system_is_not_internal_by_assumption():
+    """Run 53 held 'iCARRY Client Portal' as internal and then reported every
+    sentence in which a client opened it."""
+    content = _content()
+    pilot = next(m for m in content["modules"] if m.get("pilot"))
+    pilot.setdefault("tech", {})["integrations"] = [{"system": "iCARRY Client Portal"},
+                                                   {"system": "Dispatch Router Service"}]
+    canon = C.build(content)
+    assert canon.resolve("iCARRY Client Portal").entity.data["audience"] == C.CUSTOMER
+    assert canon.resolve("Dispatch Router Service").entity.data["audience"] != C.CUSTOMER
+
+
+def test_the_audience_mapping_fails_closed_when_the_registry_holds_more_than_one():
+    content = _content()
+    canon = C.build(content)
+    internal, customer = canon.channel_mapping("the pilot")
+    crowded = C.Canon(list(canon._entities.values()) + [
+        C.Entity(id="interface:second-form", kind="interface", canonical="Second Pilot Form",
+                 data={"interface_kind": "form", "owner": "the pilot", "audience": C.CUSTOMER})])
+    assert crowded.channel_mapping("the pilot") is None
+
+
+def test_a_customer_is_not_sent_to_a_transport_api_or_a_warehouse():
+    """The law fires only where the registry holds a customer-facing
+    counterpart — the same scope the corrector has. A WhatsApp API or a data
+    warehouse named beside the word 'customer' sends nobody anywhere."""
+    content = _content()
+    pilot = next(m for m in content["modules"] if m.get("pilot"))
+    pilot.setdefault("tech", {})["integrations"] = [{"system": "WhatsApp Business API"},
+                                                   {"system": "Historical Delivery Data Warehouse"}]
+    canon = C.build(content)
+    internal, customer = canon.channel_mapping("the pilot")
+    assert canon.resolve("WhatsApp Business API").entity.data["audience"] == C.INTERNAL
+    assert it.audience_findings("The customer receives a message via WhatsApp Business API.", canon, "technical") == []
+    assert it.audience_findings("Customer records are held in the Historical Delivery Data Warehouse.",
+                                canon, "technical") == []
+    # the pilot's queue DOES have a counterpart, so a customer sent there is reported
+    out = it.audience_findings(f"The customer opens a link to the {internal.canonical}.", canon, "technical")
+    assert len(out) == 1 and out[0].kind == it.MISCLASSIFIED and out[0].entities == (internal.id,)
+
+
+def test_the_build_team_block_is_exempt_even_when_the_page_hard_wraps_it():
+    """On the rendered page the sanctioned block runs over several physical
+    lines. The line-anchored exemption cleared only the first, so the tool
+    names on the continuation lines read as internal identifiers loose in
+    client-facing prose — an artifact that blocked a release and was not real."""
+    from app.pipeline.export_pdf import find_artifacts
+
+    reg = rg.build_registry(OPS, {"build_order": [m["id"] for m in copy.deepcopy(MODULES)],
+                                  "pilot_gate": copy.deepcopy(GATE)}, copy.deepcopy(MODULES))
+    mid = MODULES[0]["id"]                      # a hyphenated internal module id
+    wrapped = ("• For your build team: `DeliveryPreConfirmation` (delivery id, confirmation status),\n"
+               f"`CustomerHistoricalDeliveryPattern` (customer id); Modules: {mid},\n"
+               "`validate_location_pin`; APIs: `/api/v1/pre_dispatch_confirmations`.\n"
+               "• What this part does: it confirms delivery details before dispatch.\n")
+    assert "internal identifier in client-facing text" not in find_artifacts(wrapped, reg)
+    # the same identifier OUTSIDE the block is still caught
+    loose = wrapped + f"\nYour team opens {mid} from the client dashboard.\n"
+    assert "internal identifier in client-facing text" in find_artifacts(loose, reg)
+
+
+def test_a_two_word_verb_phrase_is_not_reported_as_a_coined_system_name():
+    """'Approve Pilot', 'Reviewing Pilot', 'If System' come out of headings and
+    ordinary sentences. Blocking a release on a name nobody can register
+    empties the gate; a real coined name is longer and still reported."""
+    canon = C.build(_content())
+    for noise in ("Approve Pilot and record the decision.", "If System availability drops, escalate.",
+                  "Reviewing Pilot performance weekly.", "Update the Pilot Log."):
+        assert [f for f in it.name_findings(noise, canon, "operations") if f.kind == it.UNKNOWN] == []
+    real = it.name_findings("We propose a smart Delivery & Settlement Resolution Hub.", canon, "blueprint")
+    assert [f.kind for f in real] == [it.UNKNOWN]
+    assert real[0].statement == "Delivery & Settlement Resolution Hub"
+
+
+# ── root cause D: a procedure is filed under the module that executes it ────
+
+
+def test_a_procedure_is_refiled_only_when_the_module_it_names_plays_no_part_in_it():
+    content = _content()
+    canon = C.build(content)
+    mods = {e.canonical for e in canon.of_kind("module")}
+    coordinator = next(e.canonical for e in canon.of_kind("module")
+                       if e.data.get("phase_number") == 2)
+    workbench = next(e.canonical for e in canon.of_kind("module") if e.data.get("phase_number") == 3)
+
+    # filed under a module that appears nowhere in it: re-filed
+    misfiled = {"name": "Settling inquiries", "module": workbench, "phase": "future",
+                "steps": [{"actor": coordinator, "step": "a"}, {"actor": coordinator, "step": "b"},
+                          {"actor": coordinator, "step": "c"}]}
+    assert it.misfiled_owner(misfiled, mods) == (coordinator, 3)
+
+    # an ESCALATION procedure: another module triggers it, humans carry it out,
+    # and the module it is filed under is named in it — never re-filed
+    escalation = {"name": "Handling escalations", "module": workbench, "phase": "future",
+                  "trigger": f"The {workbench} receives an unresolved case",
+                  "steps": [{"actor": coordinator, "step": "a"}, {"actor": coordinator, "step": "b"},
+                            {"actor": coordinator, "step": "c"},
+                            {"actor": "iCARRY Support Staff", "step": "d"},
+                            {"actor": "iCARRY Support Staff", "step": "e"}]}
+    assert it.misfiled_owner(escalation, mods) == (None, 0)
+
+    # a tie determines nothing
+    tied = dict(misfiled, steps=[{"actor": coordinator, "step": "a"}] * 3 + [{"actor": "Third Module", "step": "b"}] * 3)
+    assert it.misfiled_owner(dict(tied, module=workbench), mods | {"Third Module"}) == (None, 0)
+
+    content["procedures"] = {"procedures": [copy.deepcopy(misfiled), copy.deepcopy(escalation)]}
+    applied = it.retype(content, canon)
+    filed = [p["module"] for p in content["procedures"]["procedures"]]
+    assert filed == [coordinator, workbench]
+    assert any(a["canonical"] == coordinator for a in applied)
+
+
+# ── root cause B and the leftovers: conflicting content fails closed ────────
+
+
+def test_a_narrowed_pilot_population_is_reported_and_never_reworded():
+    """r19 replaced the narrowing words with 'eligible' and produced
+    '[eligible] deliveries'. The layer reports and leaves the text alone."""
+    content = _content()
+    content["registry"]["service_types"] = rg.service_types(content["free_texts"])
+    gate = content["registry"]["pilot_gate"]
+    text = "Messages are sent for all same-day and express on-demand deliveries in the pilot region."
+    content["blueprint"] = text
+    before = content["blueprint"]
+    findings, _ = it.verify(content)
+    pop = [f for f in findings if "population" in f.where]
+    assert pop and pop[0].kind == it.CONFLICT
+    assert pop[0].expected == gate["population"]
+    assert content["blueprint"] == before           # nothing was modified
+    assert "eligible" not in content["blueprint"]
+
+
+def test_an_unknown_system_name_is_reported_never_registered_and_never_replaced():
+    content = _content()
+    content["blueprint"] = "This blueprint proposes a smart Delivery & Settlement Resolution Hub for the client."
+    canon = C.build(content)
+    assert canon.resolve("Delivery & Settlement Resolution Hub").status == "unknown"
+    findings, _ = it.verify(content)
+    unknown = [f for f in findings if f.kind == it.UNKNOWN]
+    assert unknown and "Delivery & Settlement Resolution Hub" in unknown[0].statement
+    # the name is neither invented into the registry nor swapped for another
+    assert C.build(content).resolve("Delivery & Settlement Resolution Hub").status == "unknown"
+    mapped, _ = canon.apply_exact_mappings(content["blueprint"])
+    assert mapped == content["blueprint"]
 
 
 # ── the gate ─────────────────────────────────────────────────────────────────

@@ -116,8 +116,9 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
         design_records.extend({"where": where, **r} for r in recs)
         fixed, recs = _registry.customer_facing_pass(fixed)
         channel_records.extend({"where": where, **r} for r in recs)
-        fixed, recs = _registry.population_pass(fixed, gate, (registry or {}).get("service_types"))
-        population_records.extend({"where": where, **r} for r in recs)
+        # a narrowed pilot population is REPORTED, never reworded: substituting
+        # a generic word for the words a sentence used is what produced
+        # "[eligible] deliveries" on run 53's pages
         return fixed
 
     for p in procedures or []:

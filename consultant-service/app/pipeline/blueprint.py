@@ -158,6 +158,67 @@ def _pin_kpi_lines(content: str, modules: list) -> str:
     return "".join(parts)
 
 
+_PHASE_SLOT = re.compile(r"\*\*Phase\s+(\d+)\s*[—–:\-]\s*([^*\n]+?)(:?)\*\*")
+
+
+def _named_in(text: str, names: list[str]) -> list[str]:
+    """The registry modules a span states, in the order it states them.
+    Longest name first, and a matched span is masked, so a name that is part
+    of a longer name is never counted twice."""
+    masked, found = text, []
+    for n in names:
+        idx = masked.find(n)
+        if idx >= 0:
+            found.append((idx, n))
+            masked = masked[:idx] + "\0" * len(n) + masked[idx + len(n):]
+    return [n for _, n in sorted(found)]
+
+
+def _delivered_modules(lines: list[str], i: int, after: int, names: list[str]) -> list[str]:
+    """What a phase section delivers. 'Delivers:' is a structured slot and
+    names the whole set; without it the phase's subject is the first registry
+    module the heading line states — never every module its narrative mentions."""
+    for j in (i + 1, i + 2):
+        if j < len(lines) and "Delivers:" in lines[j]:
+            got = _named_in(lines[j].split("Delivers:", 1)[1], names)
+            if got:
+                return got
+    got = _named_in(lines[i][after:], names)
+    return got[:1]
+
+
+def _pin_phase_headings(content: str, canon) -> tuple[str, list[dict]]:
+    """A phase heading states the registry's phase — its number (or that it is
+    the parallel workstream) and its title. The heading is a slot the registry
+    owns, so it is RENDERED from the registry, never reworded and never
+    similarity-matched. When the delivered modules span two numbered phases
+    the registry refuses to state a heading: nothing is written and the
+    integrity layer reports the conflict."""
+    if not content:
+        return content, []
+    names = sorted((e.canonical for e in canon.of_kind("module")), key=len, reverse=True)
+    if not names:
+        return content, []
+    lines = content.split("\n")
+    rendered: list[dict] = []
+    for i, line in enumerate(lines):
+        m = _PHASE_SLOT.search(line)
+        if not m:
+            continue
+        delivered = _delivered_modules(lines, i, m.end(), names)
+        if not delivered:
+            continue
+        heading, _reason = canon.heading_for(delivered)
+        if heading is None:
+            continue
+        new = f"**{heading}{m.group(3)}**"
+        if new == m.group(0):
+            continue
+        lines[i] = line[:m.start()] + new + line[m.end():]
+        rendered.append({"stated": m.group(0), "rendered": new})
+    return "\n".join(lines), rendered
+
+
 def _repair_no_ai_lines(content: str, modules: list) -> str:
     """A module specced with AI never reads 'No AI in this part': the line is
     rebuilt from the spec's own ai role / decides_alone / hands_off."""
@@ -196,13 +257,15 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     """Render the registry's own statements into a finished volume — and
     nothing else.
 
-    A finished document is never repaired by pattern. Exactly two things
-    happen here, both of them renderings of registry data into places the
+    A finished document is never repaired by pattern. Exactly three things
+    happen here, all of them renderings of registry data into places the
     registry owns:
 
       1. the [[PILOT_GATE]] token becomes the canonical gate sentence;
       2. each module's "You'll know it's working when" line becomes that
-         module's registered KPI statement.
+         module's registered KPI statement;
+      3. each phase heading becomes the registry's phase — its number (or the
+         parallel workstream) and its title, which is what it delivers.
 
     Every other disagreement between a document and the registry — an
     invented policy period, a restated design, a narrowed population, a
@@ -228,6 +291,12 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
         content = _pin_kpi_lines(content, modules)
         if content != before:
             report["rendered"].append({"statement": "module KPI lines", "sites": None})
+    if modules:
+        from app.pipeline import canon as _canon
+
+        content, phases = _pin_phase_headings(content, _canon.build({"modules": modules, "registry": registry or {}}))
+        if phases:
+            report["rendered"].append({"statement": "phase headings", "sites": len(phases), "headings": phases})
     return content, report
 
 

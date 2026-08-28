@@ -399,10 +399,12 @@ def find_artifacts(text: str, registry: dict | None = None) -> list[str]:
     home of technical identifiers; ordinary hyphenated English is not a slug.
     With a registry, the duplicate-label and identifier classes are judged
     on registered values and declared identifiers."""
-    from app.pipeline.registry import _BUILD_TEAM_LINE, _SLUG_ALLOW, client_facing_region, identifier_artifacts
+    from app.pipeline.registry import _BUILD_TEAM_BLOCK, _SLUG_ALLOW, client_facing_region, identifier_artifacts
 
     cleaned = _strip_artifacts(text or "")
-    prose = _SLUG_ALLOW.sub(" ", _BUILD_TEAM_LINE.sub(" ", client_facing_region(cleaned)))
+    # the block form, not the line form: this runs on the EXACT rendered text,
+    # where the sanctioned build-team block is hard wrapped over several lines
+    prose = _SLUG_ALLOW.sub(" ", _BUILD_TEAM_BLOCK.sub(" ", client_facing_region(cleaned)))
     hits = []
     for name, rx in _GATE_ARTIFACTS:
         if name == "duplicate approval label":

@@ -109,13 +109,16 @@ def test_pilot_strings_never_narrow_the_gate_population():
     # a later module's own scope is not the pilot population: document-text checks are pilot-scoped
     later = "The engine validates windows for same-day and express on-demand deliveries."
     assert rg.population_findings(later, g, "t", kinds) == [] and rg.population_findings(later, g, "t", kinds, pilot_scope=False)
-    fixed, recs = rg.population_pass(s, g, kinds)
-    assert fixed == "The pilot sends a WhatsApp message before dispatch for their eligible deliveries." and recs
-    assert rg.population_findings(fixed, g, "t", kinds) == []
+    # the narrowing is REPORTED and the sentence is left exactly as it is.
+    # There is no population_pass: substituting the literal word "eligible"
+    # for the words it did not recognise is what produced "[eligible]
+    # deliveries" and "eligible delivery success" on run 53's pages, and only
+    # the author knows whether the sentence or the gate is the wrong one.
+    assert not hasattr(rg, "population_pass")
     # ordinary prepositional phrases are not service types
     for ok in ("Sends a WhatsApp message for new customer deliveries in the pilot.",
                "This cuts the cost of failed first-attempt deliveries.", "Asks them to confirm their exact delivery spot."):
-        assert rg.population_findings(ok, g, "t", kinds) == [] and rg.population_pass(ok, g, kinds)[0] == ok
+        assert rg.population_findings(ok, g, "t", kinds) == []
     # without the client's service types the rule stays silent
     assert rg.population_findings(s, g, "t", []) == []
 

@@ -233,6 +233,71 @@ class Canon:
         e = self._entities.get(f"{kind}:{key}")
         return e.canonical if e else None
 
+    # -- audience ------------------------------------------------------------
+    def interfaces_of(self, owner: str, audience: str) -> list[Entity]:
+        return [e for e in self.of_kind("interface")
+                if e.data.get("owner") == owner and e.data.get("audience") == audience]
+
+    def channel_mapping(self, owner: str) -> tuple[Entity, Entity] | None:
+        """The typed correction the registry can make on its own: when an
+        owner holds EXACTLY ONE internal interface and EXACTLY ONE
+        customer-facing interface, the name that belongs in a customer-facing
+        position is determined — one exact canonical mapping, name for name.
+        Zero or several of either and there is no mapping: the layer reports
+        the conflict and the release stays closed."""
+        internal = self.interfaces_of(owner, INTERNAL)
+        customer = self.interfaces_of(owner, CUSTOMER)
+        if len(internal) == 1 and len(customer) == 1:
+            return internal[0], customer[0]
+        return None
+
+    # -- phases --------------------------------------------------------------
+    def phases(self) -> list[Entity]:
+        """Numbered phases in number order, then the parallel workstream."""
+        numbered = sorted((e for e in self.of_kind("phase") if isinstance(e.data.get("number"), int)),
+                          key=lambda e: e.data["number"])
+        return numbered + [e for e in self.of_kind("phase") if e.data.get("number") is None]
+
+    def phase_of_module(self, name: str) -> Entity | None:
+        for e in self.of_kind("phase"):
+            if name in (e.data.get("modules") or []):
+                return e
+        return None
+
+    def build_order(self) -> list[str]:
+        """The registry's build order: the modules of each numbered phase in
+        phase order, then the parallel workstream's. A parallel module is
+        never given a number by appearing in this list."""
+        return [n for e in self.phases() for n in (e.data.get("modules") or [])]
+
+    def heading_for(self, module_names: Iterable[str]) -> tuple[str | None, str]:
+        """The canonical heading of a section that delivers `module_names`.
+
+        Returns (heading, "") when the registry can state it, and (None,
+        reason) when it cannot. A section that claims two numbered phases is a
+        conflict: the registry reports it and the renderer writes nothing."""
+        numbered: list[Entity] = []
+        parallel: Entity | None = None
+        for name in module_names:
+            phase = self.phase_of_module(str(name))
+            if phase is None:
+                continue
+            if phase.data.get("number") is None:
+                parallel = phase
+            elif phase not in numbered:
+                numbered.append(phase)
+        if not numbered and parallel is None:
+            return None, "no delivered module belongs to a registry phase"
+        if len(numbered) > 1:
+            claimed = ", ".join(str(p.data.get("label")) for p in sorted(numbered, key=lambda e: e.data["number"]))
+            return None, f"one section delivers modules from {claimed}"
+        if not numbered:
+            return parallel.canonical, ""
+        head = numbered[0].canonical
+        if parallel is not None:
+            head += f", with the {PARALLEL_LABEL.lower()} {parallel.data.get('title')}"
+        return head, ""
+
 
 # ── building the registry from an engagement's structured content ────────────
 
@@ -329,6 +394,21 @@ def _add_modules(things: _NamedThings, content: dict) -> None:
                data={"interface_kind": "form", "audience": CUSTOMER, "owner": "the pilot"})
 
 
+PARALLEL_LABEL = "Parallel workstream"
+
+
+def phase_title(module_names: Iterable[str]) -> str:
+    """A phase is titled by what it delivers. The title is the canonical names
+    of its modules, in registry order — never a coined phrase. One module, one
+    name; several modules, all of them. Nothing about the count is fixed."""
+    names = [str(n) for n in module_names if n]
+    if not names:
+        return ""
+    if len(names) == 1:
+        return names[0]
+    return ", ".join(names[:-1]) + f" and {names[-1]}"
+
+
 def _phase_entities(modules: list[Entity]) -> list[Entity]:
     by_number: dict[int, list[str]] = {}
     parallel: list[str] = []
@@ -338,12 +418,15 @@ def _phase_entities(modules: list[Entity]) -> list[Entity]:
             by_number.setdefault(n, []).append(m.canonical)
         elif m.data.get("workstream") == "parallel":
             parallel.append(m.canonical)
-    out = [Entity(id=f"phase:{n}", kind="phase", canonical=f"Phase {n}",
-                  data={"number": n, "modules": names})
+    out = [Entity(id=f"phase:{n}", kind="phase", canonical=f"Phase {n} — {phase_title(names)}",
+                  data={"number": n, "modules": names, "title": phase_title(names),
+                        "label": f"Phase {n}"})
            for n, names in sorted(by_number.items())]
     if parallel:
-        out.append(Entity(id="phase:parallel", kind="phase", canonical="Parallel workstream",
-                          data={"number": None, "modules": parallel}))
+        out.append(Entity(id="phase:parallel", kind="phase",
+                          canonical=f"{PARALLEL_LABEL} — {phase_title(parallel)}",
+                          data={"number": None, "modules": parallel, "title": phase_title(parallel),
+                                "label": PARALLEL_LABEL}))
     return out
 
 
@@ -400,16 +483,22 @@ def _add_interfaces(things: _NamedThings, content: dict) -> None:
             if isinstance(api, dict) and api.get("name"):
                 things.add(str(api["name"]), "interface",
                            data={"interface_kind": "api", "owner": owner, "audience": INTERNAL, "does": api.get("does")})
+        # a named system is not internal by assumption: a client portal is a
+        # system a client opens. Its audience comes from what the entry itself
+        # says, never from the module's users (the pilot's users include
+        # customers, which would make every system it touches customer-facing)
         for key in ("integrations", "integration_details"):
             for it in tech.get(key) or []:
                 system = it.get("system") if isinstance(it, dict) else it
                 if isinstance(system, str):
                     things.add(re.sub(r"\s*\([^)]*\)\s*$", "", system), "interface",
-                               data={"interface_kind": "system", "owner": owner, "audience": INTERNAL})
+                               data={"interface_kind": "system", "owner": owner,
+                                     "audience": audience_of([], str(system))})
         for it in spec.get("integrations") or []:
             if isinstance(it, str):
                 things.add(re.sub(r"\s*\([^)]*\)\s*$", "", it), "interface",
-                           data={"interface_kind": "system", "owner": owner, "audience": INTERNAL})
+                           data={"interface_kind": "system", "owner": owner,
+                                 "audience": audience_of([], str(it))})
     checklists = content.get("checklists") if isinstance(content.get("checklists"), dict) else {}
     for form in checklists.get("forms") or []:
         if isinstance(form, dict) and form.get("name"):

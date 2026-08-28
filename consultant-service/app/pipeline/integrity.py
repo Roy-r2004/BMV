@@ -120,11 +120,21 @@ def normalize(content: dict, canon: _canon.Canon) -> list[dict]:
     """Apply exact canonical mappings — and nothing else — to every string in
     the structured layers and the prose. Each application is recorded."""
     applied: list[dict] = []
+    # the pilot's two stand-in interfaces differ only by audience; when the
+    # registry holds exactly one of each, a customer-facing position has one
+    # determined name — the same exact-mapping licence, applied by audience
+    channel = canon.channel_mapping("the pilot")
 
     def _fix(text: str, where: str) -> str:
         out, maps = canon.apply_exact_mappings(text, where)
         applied.extend({"where": where, "surface": m.surface, "canonical": m.canonical, "entity": m.entity_id}
                        for m in maps)
+        if channel is not None:
+            internal, customer = channel
+            out, recs = _reg.channel_pass(out, internal.canonical, customer.canonical)
+            applied.extend({"where": where, "surface": r["original"], "canonical": customer.canonical,
+                            "entity": customer.id, "law": "a customer-facing position names the customer interface"}
+                           for r in recs)
         return out
 
     def _walk(obj, where: str):
@@ -143,6 +153,65 @@ def normalize(content: dict, canon: _canon.Canon) -> list[dict]:
         if content.get(vol):
             lines = content[vol].split("\n")
             content[vol] = "\n".join(_fix(line, f"{vol}:{i}") for i, line in enumerate(lines))
+    return applied
+
+
+def retype(content: dict, canon: _canon.Canon) -> list[dict]:
+    """Typed structured corrections the registry determines EXACTLY — a field
+    set to the one value the structures allow. No prose is touched here.
+
+    Today there is one: a procedure filed under a module that plays no part in
+    it is filed under the module its steps execute, when exactly one such
+    module exists. Where the structures do not determine a single answer,
+    nothing is written and the verifier reports the conflict."""
+    applied: list[dict] = []
+    procedures = (content.get("procedures") or {}).get("procedures") \
+        if isinstance(content.get("procedures"), dict) else None
+    names = {e.canonical for e in canon.of_kind("module")}
+    for p in procedures or []:
+        owner, n = misfiled_owner(p, names)
+        if not owner:
+            continue
+        applied.append({"where": f"procedures: {p.get('name')}", "surface": p.get("module"),
+                        "canonical": owner, "entity": f"module:{owner}",
+                        "law": "a procedure is filed under the module that executes it"})
+        p["module"] = owner
+    # an integration entry carries its audience in the fields beside `system`,
+    # so the audience mapping is applied to the entry as one unit
+    channel = canon.channel_mapping("the pilot")
+    if channel is not None:
+        internal, customer = channel
+        for m in content.get("modules") or []:
+            if not isinstance(m, dict) or not m.get("pilot"):
+                continue
+            for rec in _reg.integration_channel_pass(m, internal.canonical, customer.canonical):
+                applied.append({"where": f"modules.{rec['module']}.{rec['field']}", "surface": rec["original"],
+                                "canonical": customer.canonical, "entity": customer.id,
+                                "law": "a customer-facing position names the customer interface"})
+    return applied
+
+
+def render_slots(content: dict, canon: _canon.Canon) -> list[dict]:
+    """Re-render the registry-owned SLOTS in the finished volumes — today the
+    phase heading, which states a phase's number (or that it is the parallel
+    workstream) and its title.
+
+    Rendering a slot is not rewriting prose: the narrative around it is
+    untouched, the value comes from the registry rather than from a pattern,
+    and a slot the registry cannot state is left exactly as it is for the
+    verifier to report. This is the same licence `finish_document` uses when a
+    volume is first written, applied to a volume that already exists so that a
+    package can be corrected without regenerating a word of it."""
+    from app.pipeline.blueprint import _pin_phase_headings
+
+    applied: list[dict] = []
+    for vol in _PROSE.values():
+        if not content.get(vol):
+            continue
+        content[vol], rendered = _pin_phase_headings(content[vol], canon)
+        applied += [{"where": f"{vol}: phase heading", "surface": r["stated"], "canonical": r["rendered"],
+                     "entity": "phase", "law": "a phase heading is rendered from the registry"}
+                    for r in rendered]
     return applied
 
 
@@ -206,7 +275,13 @@ def name_findings(text: str, canon: _canon.Canon, where: str) -> list[Finding]:
         # report the longest tail that begins with a capital — the name as
         # the document states it
         cand = next((t for t in tails if t[:1].isupper() and len(t) >= 8), raw)
-        if cand in seen:
+        # a two-word span is a verb phrase far more often than a coined system
+        # name ("Approve Pilot", "Reviewing Pilot", "If System" all come out of
+        # ordinary sentences and headings). Reporting those blocks a release on
+        # something no one can ever register, which empties the gate of meaning;
+        # ambiguity, which is PROVEN rather than guessed, is reported at any
+        # length.
+        if len(cand.split()) < 3 or cand in seen:
             continue
         seen.add(cand)
         out.append(Finding(UNKNOWN, f"{where}: names", f"'{cand}' is stated as a system or module but is in no registry entity",
@@ -217,21 +292,34 @@ def name_findings(text: str, canon: _canon.Canon, where: str) -> list[Finding]:
 _PHASE_TITLE = re.compile(r"\bPhase\s+(\d+)\s*[—–:-]\s*([A-Z][^.\n•:]{3,70})")
 
 
-def phase_title_findings(texts: dict[str, str]) -> list[Finding]:
-    """One phase, one title. Two volumes that title the same phase
-    differently disagree about the plan."""
-    titles: dict[int, dict[str, str]] = {}
+def phase_title_findings(texts: dict[str, str], canon: _canon.Canon) -> list[Finding]:
+    """A phase heading states the REGISTRY's title for that phase — what the
+    phase delivers. Every volume states the same title because every volume
+    renders it from the registry, so cross-volume agreement follows from
+    registry agreement instead of being checked volume against volume."""
+    by_number = {e.data.get("number"): e for e in canon.of_kind("phase")
+                 if isinstance(e.data.get("number"), int)}
+    out: list[Finding] = []
     for label, text in (texts or {}).items():
+        seen: set[int] = set()
         for m in _PHASE_TITLE.finditer(_pg.flatten_prose(text or "")):
-            n, title = int(m.group(1)), m.group(2).strip().rstrip(":;,")
-            titles.setdefault(n, {}).setdefault(label, title)
-    out = []
-    for n, by_label in sorted(titles.items()):
-        distinct = {t for t in by_label.values()}
-        if len(distinct) > 1:
-            out.append(Finding(CONFLICT, "cross-volume: phases",
-                               f"Phase {n} is titled " + " and ".join(f"'{t}' ({lbl})" for lbl, t in by_label.items()),
-                               "one title per phase, from the registry", statement=f"Phase {n}"))
+            n = int(m.group(1))
+            if n in seen:
+                continue
+            seen.add(n)
+            title = m.group(2).strip().rstrip(":;,").strip("* ")
+            e = by_number.get(n)
+            if e is None:
+                out.append(Finding(CONFLICT, f"{label}: phases",
+                                   f"the document states a Phase {n}; the registry has no Phase {n}",
+                                   "state only the phases the registry holds", statement=f"Phase {n}"))
+                continue
+            want = str(e.data.get("title") or "")
+            if want and title != want and not title.startswith(want):
+                out.append(Finding(CONFLICT, f"{label}: phases",
+                                   f"Phase {n} is titled '{title}' but the registry titles it '{want}'",
+                                   "state the registry's title for the phase — what the phase delivers",
+                                   expected=want, statement=f"Phase {n}", entities=(e.id,)))
     return out
 
 
@@ -282,10 +370,18 @@ def phase_findings(text: str, canon: _canon.Canon, where: str) -> list[Finding]:
 
 def audience_findings(text: str, canon: _canon.Canon, where: str) -> list[Finding]:
     """A clause in which a customer acts names no interface whose audience is
-    internal. The layer reports it; deciding which interface the author meant
-    is not a mechanical mapping."""
+    internal — WHEN the registry holds a customer-facing counterpart for that
+    interface's owner, so there is a determinate right answer.
+
+    Without a counterpart there is nothing to say: naming a transport API or a
+    data warehouse in a sentence that also mentions customers does not send a
+    customer anywhere, and reporting it would block a release on a sentence no
+    one can correct. This is the same scope the corrector uses, so what the
+    corrector cannot fix is exactly what this reports."""
     out = []
-    internal = [e for e in canon.of_kind("interface") if e.data.get("audience") == _canon.INTERNAL]
+    internal = [e for e in canon.of_kind("interface")
+                if e.data.get("audience") == _canon.INTERNAL
+                and canon.channel_mapping(str(e.data.get("owner") or "")) is not None]
     for s in _sentences(text):
         for e in internal:
             if e.canonical not in s:
@@ -343,7 +439,7 @@ def statement_findings(content: dict, canon: _canon.Canon, texts: dict[str, str]
         out += phase_findings(text, canon, label)
         out += audience_findings(text, canon, label)
         out += label_findings(text, label)
-    out += phase_title_findings(texts)
+    out += phase_title_findings(texts, canon)
     return out
 
 
@@ -371,6 +467,46 @@ def label_findings(text: str, where: str) -> list[Finding]:
             out.append(Finding(MISCLASSIFIED, f"{where}: labels", f"{what} wears an approval label: \"{m.group(0)[:80]}\"",
                                "only thresholds carry the approval label", statement=m.group(0)[:120]))
     return out
+
+
+def _procedure_text(p: dict) -> str:
+    parts = [str(p.get("trigger") or ""), str(p.get("name") or "")]
+    for s in p.get("steps") or []:
+        if isinstance(s, dict):
+            parts += [str(s.get("actor") or ""), str(s.get("step") or "")]
+    for e in p.get("exceptions") or []:
+        if isinstance(e, dict):
+            parts += [str(e.get("when") or ""), str(e.get("then") or "")]
+    return " ".join(parts)
+
+
+def misfiled_owner(p: dict, names: set[str]) -> tuple[str | None, int]:
+    """The module a procedure's steps execute, when the structures determine
+    exactly ONE and the module it is filed under plays NO part in it.
+
+    Both halves matter. An escalation procedure is filed under the escalation
+    module while another module triggers it and human staff carry it out —
+    counting only module-actors would re-file it under the trigger, which is
+    wrong. So a procedure is misfiled only when the module named on it appears
+    nowhere in it — not as an actor, not in a step, not in the trigger — and a
+    single other module dominates the steps outright."""
+    if not isinstance(p, dict) or p.get("module") in ("The pilot", None) or str(p.get("phase") or "").lower() == "pilot":
+        return None, 0
+    filed = str(p.get("module") or "")
+    if filed in _procedure_text(p):
+        return None, 0
+    counts: dict[str, int] = {}
+    for s in p.get("steps") or []:
+        a = str((s or {}).get("actor") or "")
+        if a in names:
+            counts[a] = counts.get(a, 0) + 1
+    if not counts:
+        return None, 0
+    ranked = sorted(counts.items(), key=lambda kv: -kv[1])
+    top, n = ranked[0]
+    if n < 3 or (len(ranked) > 1 and ranked[1][1] == n) or top == filed:
+        return None, 0
+    return top, n
 
 
 def structure_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
@@ -405,22 +541,15 @@ def structure_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
         if isinstance(m, dict) and m.get("pilot"):
             for f in _reg.integration_channel_findings(m):
                 out.append(Finding(MISCLASSIFIED, f.get("where", "modules"), f.get("issue", ""), f.get("fix", "")))
-    # a procedure executed mostly by another module is filed under the wrong one
+    # a procedure filed under a module that plays no part in it
     names = {e.canonical for e in canon.of_kind("module")}
     for p in procedures or []:
-        if not isinstance(p, dict) or p.get("module") in ("The pilot", None) or str(p.get("phase") or "").lower() == "pilot":
-            continue
-        counts: dict[str, int] = {}
-        for s in p.get("steps") or []:
-            a = str((s or {}).get("actor") or "")
-            if a in names:
-                counts[a] = counts.get(a, 0) + 1
-        if counts:
-            top, n = max(counts.items(), key=lambda kv: kv[1])
-            if top != p.get("module") and n >= 3 and n >= 2 * max(counts.get(str(p.get("module")), 0), 1):
-                out.append(Finding(MISCLASSIFIED, f"procedures: {p.get('name')}",
-                                   f"filed under '{p.get('module')}' but executed by '{top}' in {n} steps",
-                                   "file it under the module that executes it"))
+        owner, n = misfiled_owner(p, names)
+        if owner:
+            out.append(Finding(MISCLASSIFIED, f"procedures: {p.get('name')}",
+                               f"filed under '{p.get('module')}', which plays no part in it, "
+                               f"but executed by '{owner}' in {n} steps",
+                               "file it under the module that executes it"))
     # checklists that name a FUTURE module are not day-one artifacts
     future = {e.canonical for e in canon.of_kind("module") if e.data.get("phase") == "FUTURE"}
     cl = content.get("checklists") if isinstance(content.get("checklists"), dict) else {}
@@ -503,6 +632,8 @@ def enforce(db: Session, request_id: int) -> dict:
     content = load(row)
     canon = _canon.build(content)
     mappings = normalize(content, canon)
+    mappings += retype(content, canon)
+    mappings += render_slots(content, canon)
     save(row, content)
     db.commit()
     content = load(row)

@@ -134,6 +134,12 @@ _TECH_SLUG = re.compile(
 _SLUG_ALLOW = re.compile(r"\b\w+-to-\w+\b|\bself-service\b|\bfull-service\b|\bmulti-agent\b|\bsingle-agent\b|"
                          r"\bfirst-party\b|\bthird-party\b|\bin-app\b|\bback-office\b|\bon-demand\b", re.IGNORECASE)
 _BUILD_TEAM_LINE = re.compile(r"For your build team:[^\n•]*", re.IGNORECASE)
+# the same sanctioned block as it survives PDF extraction, where it is HARD
+# WRAPPED across several physical lines. The line-anchored form above exempts
+# only the first of them, so the identifiers on the continuation lines used to
+# read as internal identifiers loose in client-facing prose. A continuation is
+# a line that does not itself start a new bullet, heading or paragraph.
+_BUILD_TEAM_BLOCK = re.compile(r"For your build team:(?:[^\n•]|\n(?!\s*(?:\n|[-*•#]|\d+\.\s)))*", re.IGNORECASE)
 _APPENDIX_START = re.compile(r"Module appendix\s*[—–-]\s*the engineering detail", re.IGNORECASE)
 _APPENDIX_END = re.compile(r"Three ways forward", re.IGNORECASE)
 
@@ -367,21 +373,28 @@ _LINK_TO_QUEUE = re.compile(r"\b(?:link|form|page|url)\s+to\s+(?:the\s+)?", re.I
 
 
 def customer_facing_pass(text: str) -> tuple[str, list[dict]]:
-    """A sentence in which a customer receives, opens or fills something
-    never names the internal pilot queue — the customer gets the pilot's
-    confirmation form; the queue stays internal."""
+    return channel_pass(text, _pg.PILOT_TOOLING, _pg.PILOT_CUSTOMER_FORM)
+
+
+def channel_pass(text: str, internal_name: str, customer_name: str) -> tuple[str, list[dict]]:
+    """Name for the same thing's other name: a clause in which a customer
+    receives, opens or fills something names the CUSTOMER-facing interface,
+    never the internal one. Both names come from the registry, so this is an
+    exact canonical mapping between two registered entities — no wording is
+    invented and no similarity decides anything. The caller applies it only
+    when the registry holds exactly one interface of each audience."""
     records: list[dict] = []
-    if not text or _pg.PILOT_TOOLING not in text:
+    if not text or internal_name not in text:
         return text, records
-    # clause by clause: the customer's action must precede the queue mention
-    # inside the same clause ("customers confirm … via a link to the queue"),
-    # never a later clause about staff ("; flagged orders go to the queue")
+    # clause by clause: the customer's action must precede the mention inside
+    # the same clause ("customers confirm … via a link to the queue"), never a
+    # later clause about staff ("; flagged orders go to the queue")
     parts = re.split(r"((?<=[.!?;])\s+)", text)
     out = []
     for s in parts:
-        if _customer_meets_queue(s):
-            fixed = s.replace(_pg.PILOT_TOOLING + " module", _pg.PILOT_CUSTOMER_FORM).replace(_pg.PILOT_TOOLING, _pg.PILOT_CUSTOMER_FORM)
-            records.append({"original": s.strip()[:140], "replaced_with": _pg.PILOT_CUSTOMER_FORM})
+        if _customer_meets(s, internal_name):
+            fixed = s.replace(internal_name + " module", customer_name).replace(internal_name, customer_name)
+            records.append({"original": s.strip()[:140], "replaced_with": customer_name})
             out.append(fixed)
         else:
             out.append(s)
@@ -389,12 +402,16 @@ def customer_facing_pass(text: str) -> tuple[str, list[dict]]:
 
 
 def _customer_meets_queue(clause: str) -> bool:
-    """The clause sends a customer into the queue: a customer acts on it
-    (before or after the mention), the queue is a link/URL a customer uses,
-    or the clause is about a customer's access to it."""
-    if _pg.PILOT_TOOLING not in clause:
+    return _customer_meets(clause, _pg.PILOT_TOOLING)
+
+
+def _customer_meets(clause: str, internal_name: str) -> bool:
+    """The clause sends a customer into the internal interface: a customer
+    acts on it (before or after the mention), it is a link/URL a customer
+    uses, or the clause is about a customer's access to it."""
+    if internal_name not in clause:
         return False
-    before = clause.split(_pg.PILOT_TOOLING)[0]
+    before = clause.split(internal_name)[0]
     if _CUSTOMER_ACT.search(clause) or _LINK_TO_QUEUE.search(before[-20:]):
         return True
     if re.search(r"\b(?:link|URL|web page|page)\b", clause, re.IGNORECASE) and re.search(r"\bcustomers?\b", clause, re.IGNORECASE):
@@ -418,15 +435,20 @@ def _entry_is_customer_facing(entry: dict) -> bool:
                                                and re.search(r"\bcustomers?\b", text, re.IGNORECASE)))
 
 
-def integration_channel_pass(module: dict) -> list[dict]:
+def integration_channel_pass(module: dict, internal_name: str = "", customer_name: str = "") -> list[dict]:
     """An integration entry whose own description says a customer opens,
-    receives or fills it is the customer-facing form, not the internal queue
-    — the entry's `system` field is corrected as one unit."""
+    receives or fills it is the customer-facing interface, not the internal
+    one — the entry's `system` field is corrected as one unit.
+
+    The entry is the unit because the `system` field holds a bare name: the
+    audience lives in the sibling fields, so no clause-level rule can see it."""
+    internal_name = internal_name or _pg.PILOT_TOOLING
+    customer_name = customer_name or _pg.PILOT_CUSTOMER_FORM
     records = []
     for key, entry in _integration_entries(module):
-        if str(entry.get("system") or "") == _pg.PILOT_TOOLING and _entry_is_customer_facing(entry):
-            entry["system"] = _pg.PILOT_CUSTOMER_FORM
-            records.append({"module": module.get("id"), "field": f"tech.{key}", "replaced_with": _pg.PILOT_CUSTOMER_FORM,
+        if str(entry.get("system") or "") == internal_name and _entry_is_customer_facing(entry):
+            entry["system"] = customer_name
+            records.append({"module": module.get("id"), "field": f"tech.{key}", "replaced_with": customer_name,
                             "original": " ".join(str(v) for v in entry.values())[:120]})
     return records
 
@@ -552,21 +574,14 @@ def population_findings(text: str, gate: dict | None, label: str = "", types: li
     return out
 
 
-def population_pass(text: str, gate: dict | None, types: list[str] | None = None) -> tuple[str, list[dict]]:
-    records: list[dict] = []
-    if not text or not gate:
-        return text, records
-    out = text
-    for q in _narrowing_qualifiers(text, gate, types):
-        m = _POP_QUALIFIER.search(out)
-        while m and m.group(0) != q:
-            m = _POP_QUALIFIER.search(out, m.end())
-        if not m:
-            continue
-        fixed = m.group(0).replace(m.group(1), "eligible ", 1)
-        out = out.replace(m.group(0), fixed, 1)
-        records.append({"original": q.strip(), "replaced_with": fixed.strip()})
-    return out, records
+# There is deliberately no population_pass. Narrowing the pilot population is
+# a CONFLICT between a sentence and the gate, and the words the sentence should
+# have used are not recoverable from the registry: only the author knows
+# whether the narrowing or the gate is wrong. The pass that used to substitute
+# the literal word "eligible" for whatever it did not recognise is what put
+# "[eligible] deliveries" and "eligible delivery success" on run 53's pages.
+# population_findings reports it; the release fails closed until it is fixed at
+# the source.
 
 
 # ── one pilot procedure set, labeled operating times ─────────────────────────
@@ -822,6 +837,26 @@ def pilot_attempts_pass(modules: list, procedures: list) -> list[dict]:
                 if key in m:
                     m[key] = _walk(m[key], f"{m.get('id')}.{key}")
     return records
+
+
+def build_order_names(reg_modules: list, build_order: list) -> list[str]:
+    """The build order the registry states: the modules of each numbered phase
+    in phase order, then the parallel workstream's.
+
+    A parallel module never acquires a phase number by its position in this
+    list. Run 53 listed a parallel module fourth and the blueprint read the
+    fourth entry as 'Phase 4', numbering a workstream that has no number and
+    pushing the real Phase 4 to a Phase 5 that does not exist."""
+    by_id = {m["id"]: m for m in reg_modules if isinstance(m, dict) and m.get("id")}
+    ids = [mid for mid in build_order if isinstance(mid, str) and mid in by_id]
+    ids += [mid for mid in by_id if mid not in ids]
+
+    def key(item: tuple[int, str]) -> tuple[int, int]:
+        i, mid = item
+        n = by_id[mid].get("phase_number")
+        return (n if isinstance(n, int) else 10 ** 6, i)
+
+    return [by_id[mid].get("client_facing_name") or mid for _, mid in sorted(enumerate(ids), key=key)]
 
 
 def module_registry(modules: list, business_case: dict) -> tuple[list[dict], list[dict]]:
@@ -2343,8 +2378,6 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
                 if isinstance(obj, str):
                     fixed, recs = customer_facing_pass(obj)
                     customer_channel.extend({"module": m.get("id"), "field": path, **r} for r in recs)
-                    fixed, recs = population_pass(fixed, gate, kinds)
-                    population_corrections.extend({"module": m.get("id"), "field": path, **r} for r in recs)
                     return fixed
                 if isinstance(obj, dict):
                     return {k: (_pilot_walk(v, f"{path}.{k}") if k not in ("id", "name", "entity") else v) for k, v in obj.items()}
@@ -2410,9 +2443,7 @@ def build_registry(ops_numbers_json: str | None, business_case: dict, modules: l
         "pilot_gate": gate,
         "pilot_gate_sentence": _pg.canonical_sentence(gate) if gate else "",
         "pilot_gate_definition": _pg.full_definition(gate) if gate else "",
-        "build_order_names": [
-            next((m["client_facing_name"] for m in reg_modules if m["id"] == mid), mid)
-            for mid in (bc.get("build_order") or []) if isinstance(mid, str)],
+        "build_order_names": build_order_names(reg_modules, bc.get("build_order") or []),
     }
     reg["errors"] = validate_registry(reg)
     return reg
