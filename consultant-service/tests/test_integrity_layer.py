@@ -840,6 +840,76 @@ def test_an_integrity_correction_reaches_the_cumulative_lineage(client):
     db.close()
 
 
+def test_every_printed_character_exists_in_its_face_and_round_trips(tmp_path):
+    """53-r29 typed ☐ and ✓ in a face that carries neither. Both drew as
+    .notdef — a hollow box on the page — and all 38 extracted as U+0000, so
+    the text could not be searched, copied or read aloud."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import Paragraph, SimpleDocTemplate
+
+    from app.pipeline.export_pdf import (F_BODY, _MarkedParagraph, _S, glyphs_in,
+                                         presentation_findings, safe_bullet, unsupported)
+
+    # the brand faces are subsets: they carry the marks ordinary prose needs
+    # and carry no ballot box, check or arrow
+    assert glyphs_in(F_BODY)
+    assert unsupported("The pilot — 10 days · 85% × 2 » on", F_BODY) == []
+    assert unsupported("☐✓", F_BODY) == ["☐", "✓"]
+    assert safe_bullet("☐", F_BODY) == "•"       # never sent to the page
+    assert safe_bullet("•", F_BODY) == "•"
+
+    # a typed mark the face lacks is caught on the finished file
+    bad = str(tmp_path / "notdef.pdf")
+    SimpleDocTemplate(bad, pagesize=A4).build(
+        [Paragraph("A checklist item.", _S["bullet"], bulletText="☐") for _ in range(6)])
+    found = presentation_findings(bad)
+    assert any("does not round-trip" in f and "U+0000" in f for f in found)
+
+    # the mark DRAWN instead: vector on the page, nothing to round-trip
+    good = str(tmp_path / "drawn.pdf")
+    SimpleDocTemplate(good, pagesize=A4).build(
+        [Paragraph("Checklist for the pilot day.", _S["body"])]
+        + [_MarkedParagraph("Review the pilot orders for today.", _S["bullet"], mark="box") for _ in range(4)]
+        + [_MarkedParagraph("Details reach dispatch within five minutes.", _S["bullet"], mark="check")
+           for _ in range(2)])
+    assert presentation_findings(good) == []
+
+    import pymupdf
+
+    doc = pymupdf.open(good)
+    try:
+        page = doc[0]
+        assert len(page.get_drawings()) >= 6              # one vector mark per item
+        text = page.get_text()
+        assert "\x00" not in text and "�" not in text
+        assert "Review the pilot orders for today." in text
+    finally:
+        doc.close()
+
+
+def test_no_list_mark_is_typed_in_a_face_that_cannot_draw_it():
+    """The guard that keeps this from coming back: every mark the renderer
+    types must exist in the face that prints it."""
+    from app.pipeline.export_pdf import _checklists_flowables, unsupported
+
+    flows = _checklists_flowables({
+        "checklists": [{"name": "Pilot day", "phase": "pilot", "when": "each morning",
+                        "items": ["Review the pilot orders.", "Confirm each address."]}],
+        "forms": [{"name": "Pilot Confirmation Form", "purpose": "capture the reply",
+                   "fields": ["Order id", "Confirmed spot"]}]})
+    assert flows
+    for f in flows:
+        mark = getattr(f, "bulletText", None)
+        if not mark:
+            continue
+        face = getattr(f.style, "bulletFontName", None) or f.style.fontName
+        assert unsupported(mark, face) == [], f"{mark!r} cannot be drawn in {face}"
+    # and the checklist items carry a DRAWN mark, not a typed one
+    from app.pipeline.export_pdf import _MarkedParagraph
+
+    assert any(isinstance(f, _MarkedParagraph) for f in flows)
+
+
 # ── authority precedence: which source wins a disagreement ──────────────────
 
 

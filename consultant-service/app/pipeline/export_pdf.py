@@ -191,6 +191,69 @@ def _strip_artifacts(text: str) -> str:
     return out
 
 
+def glyphs_in(face: str) -> set:
+    """The characters an embedded face can actually draw. The brand faces ship
+    as ~230-glyph subsets: they carry •, ·, — and », and carry no ballot box,
+    no check, no arrow."""
+    try:
+        font = pdfmetrics.getFont(face)
+    except Exception:                                     # pragma: no cover - unregistered face
+        return set()
+    return set(getattr(getattr(font, "face", None), "charToGlyph", None) or ())
+
+
+def unsupported(text: str, face: str) -> list[str]:
+    """The characters `face` cannot draw. Whatever is left is drawn as
+    .notdef — a hollow box on the page that extracts as U+0000."""
+    cmap = glyphs_in(face)
+    if not cmap:
+        return []
+    return sorted({ch for ch in str(text or "") if ch not in "\n\r\t " and ord(ch) not in cmap})
+
+
+def safe_bullet(mark: str, face: str, fallback: str = "•") -> str:
+    """A bullet the face can draw. A mark it cannot is never sent to the page:
+    the caller either draws it (see _MarkedParagraph) or takes the fallback."""
+    if not unsupported(mark, face):
+        return mark
+    return fallback if not unsupported(fallback, face) else "-"
+
+
+class _MarkedParagraph(Paragraph):
+    """A list item whose mark is DRAWN, not typed.
+
+    No font has to carry a ballot box or a check: the mark is vector, so it
+    cannot render as .notdef, and there is no glyph for text extraction to
+    round-trip. Run 53-r29 typed ☐ and ✓ in a face that has neither, and all
+    38 of them extracted as U+0000."""
+
+    def __init__(self, text, style, mark: str = "box", **kw):
+        super().__init__(text, style, **kw)
+        self._mark = mark
+
+    def draw(self):
+        super().draw()
+        size = self.style.fontSize
+        side = size * 0.62
+        x = self.style.bulletIndent - self.style.leftIndent
+        y = self.height - size * 0.80
+        c = self.canv
+        c.saveState()
+        c.setStrokeColor(self.style.bulletColor or self.style.textColor)
+        if self._mark == "box":
+            c.setLineWidth(0.7)
+            c.roundRect(x, y, side, side, side * 0.18, stroke=1, fill=0)
+        else:
+            c.setLineWidth(1.15)
+            c.setLineCap(1)
+            path = c.beginPath()
+            path.moveTo(x, y + side * 0.52)
+            path.lineTo(x + side * 0.36, y + side * 0.12)
+            path.lineTo(x + side * 1.00, y + side * 0.92)
+            c.drawPath(path, stroke=1, fill=0)
+        c.restoreState()
+
+
 def _is_label(line: str) -> bool:
     """A line that is nothing but a bold label introducing what follows —
     "**Where the AI works:**". It is a heading in everything but style, so it
@@ -440,6 +503,31 @@ def presentation_findings(path: str) -> list[str]:
         loose = sorted({f for f in unembedded if any(f in d or d in f for d in drawn)})
         if loose:
             out.append("fonts not embedded: " + ", ".join(loose))
+
+        # every character that prints exists in its embedded face and comes
+        # back through extraction. A glyph the face does not carry is drawn as
+        # .notdef — a hollow box on the page — and extracts as U+0000; a glyph
+        # with no ToUnicode entry extracts as U+FFFD. Either way the page is
+        # not the page we approved, and its text cannot be searched, copied or
+        # read aloud. Run 53-r29 typed a ballot box and a check in a face that
+        # carries neither.
+        import unicodedata
+
+        broken: dict[str, tuple[int, str]] = {}
+        for n in range(doc.page_count):
+            for b in doc[n].get_text("dict")["blocks"]:
+                for l in b.get("lines", []):
+                    for sp in l.get("spans", []):
+                        for ch in sp["text"]:
+                            if ch in "\n\r\t ":
+                                continue
+                            if ord(ch) in (0x0000, 0xFFFD) or \
+                                    unicodedata.category(ch) in ("Cc", "Cn", "Co", "Cs"):
+                                key = f"U+{ord(ch):04X} in {sp['font']}"
+                                broken.setdefault(key, (n + 1, sp["text"].strip()[:40]))
+        for what, (page, near) in sorted(broken.items()):
+            out.append(f"a printed character does not round-trip: {what} on page {page}"
+                       + (f" near \"{near}\"" if near else ""))
         for n in range(doc.page_count):
             lines = [l for b in doc[n].get_text("dict")["blocks"] for l in b.get("lines", [])
                      if any(s["text"].strip() for s in l.get("spans", []))]
@@ -1367,7 +1455,7 @@ def _module_appendix_flowables(modules: list) -> list:
         if tech.get("done_when"):
             flows.append(Paragraph("It's finished when", _S["h3"]))
             for d in tech["done_when"]:
-                flows.append(Paragraph(_rich(d), _S["bullet"], bulletText="✓"))
+                flows.append(_MarkedParagraph(_rich(d), _S["bullet"], mark="check"))
         if spec.get("kpis"):
             flows.append(Paragraph("<b>You'll know it's working when:</b> " + _rich("; ".join(spec["kpis"])), _S["body"]))
     return flows
@@ -1481,7 +1569,7 @@ def _checklists_flowables(checklists_data: dict | None) -> list:
         if c.get("when"):
             flows.append(Paragraph("<b>When:</b> " + _rich(c["when"]), _S["body"]))
         for item in c.get("items") or []:
-            flows.append(Paragraph(_rich(item), _S["bullet"], bulletText="☐"))
+            flows.append(_MarkedParagraph(_rich(item), _S["bullet"], mark="box"))
     for f in forms:
         flows.append(Paragraph(_rich(f.get("name") or "") + " (form)", _S["h2toc"]))
         if f.get("purpose"):
