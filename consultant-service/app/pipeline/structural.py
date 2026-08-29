@@ -193,16 +193,42 @@ def _words(text: str, noise: set) -> set:
             if w.lower() not in noise}
 
 
-def module_overlap_findings(modules: list) -> list[dict]:
+def engagement_subjects(*names: str) -> set:
+    """The distinct things this engagement serves, from the client's own name
+    for it: "Masar & MultiAI" -> {"masar", "multiai"}. An estate that spans two
+    systems says so in its name, and each system legitimately gets its own
+    instance of the same capability."""
+    subjects: set[str] = set()
+    for name in names:
+        parts = re.split(r"\s*(?:&|\+|,|/|\band\b)\s*", str(name or ""))
+        if len(parts) < 2:
+            continue
+        for part in parts:
+            subjects |= _words(part, _NAME_NOISE)
+    return subjects
+
+
+def module_overlap_findings(modules: list, subjects: set | None = None) -> list[dict]:
     """Two modules whose names share two distinctive words and whose purposes
-    share three are one job split in two — a decomposition defect."""
+    share three are one job split in two — a decomposition defect.
+
+    UNLESS each one names a different subject the engagement itself serves.
+    Request 15 proposed a 'Masar Local Inference Gateway' and a 'MultiAI Local
+    Inference Gateway' for an estate the client named "Masar & MultiAI"; those
+    are one capability deployed per system, not one capability split in two,
+    and the preflight refused the engagement three times over it."""
     out = []
+    subjects = subjects or set()
     mods = [m for m in (modules or []) if isinstance(m, dict) and m.get("id")]
     for i, a in enumerate(mods):
         for b in mods[i + 1:]:
             na, nb = _words(str(a.get("name") or ""), _NAME_NOISE), _words(str(b.get("name") or ""), _NAME_NOISE)
             shared_name = na & nb
             if len(shared_name) < 2:
+                continue
+            # each names a different subject of the engagement -> per-subject
+            # instances of one capability, which is a plan, not a defect
+            if (na - nb) & subjects and (nb - na) & subjects:
                 continue
             pa = _words(" ".join(str(a.get(k) or "") for k in ("purpose", "pain_point_addressed")), _PURPOSE_NOISE)
             pb = _words(" ".join(str(b.get(k) or "") for k in ("purpose", "pain_point_addressed")), _PURPOSE_NOISE)
@@ -216,7 +242,8 @@ def module_overlap_findings(modules: list) -> list[dict]:
     return out
 
 
-def structural_findings(business_case: dict, modules: list, registry: dict | None = None) -> list[dict]:
+def structural_findings(business_case: dict, modules: list, registry: dict | None = None,
+                        subjects: set | None = None) -> list[dict]:
     """High findings a machine can prove — appended to the QA report and
     counted by the release gate like any other."""
     findings: list[dict] = []
@@ -360,7 +387,7 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
 
     # two modules for one job: overlapping names AND overlapping purposes
     # (a past run split one inquiry-handling job into two near-identical modules)
-    findings += module_overlap_findings(mods)
+    findings += module_overlap_findings(mods, subjects)
 
     # pilot-phase modules: honest names, no AI automation
     from app.pipeline.registry import _AI_NAME, validate_registry
@@ -446,8 +473,9 @@ def structural_findings(business_case: dict, modules: list, registry: dict | Non
     return findings
 
 
-def preflight(business_case: dict, modules: list, registry: dict | None = None) -> list[dict]:
+def preflight(business_case: dict, modules: list, registry: dict | None = None,
+              subjects: set | None = None) -> list[dict]:
     """The pre-generation check: the same structural findings, computed
     BEFORE any prose call spends money. A failed preflight means the
     decomposition is retried or the run stops — never a blind spend."""
-    return structural_findings(business_case, modules, registry)
+    return structural_findings(business_case, modules, registry, subjects)

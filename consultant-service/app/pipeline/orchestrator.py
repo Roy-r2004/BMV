@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import Request
 from app.pipeline import analyze, blueprint, consult, decompose, extras, images, plan, playbook, qa_experts, research, ui_spec
+from app.pipeline.structural import engagement_subjects as _subjects_of
 from app.pipeline.structural import preflight as _structural_preflight
 
 
@@ -24,6 +25,7 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
             (decomposition or {}).get("business_case") or {},
             (decomposition or {}).get("modules") or [],
             (decomposition or {}).get("registry"),
+            _engagement_subjects(db, request_id),
         ) if decomposition else []
         if decomposition and not issues:
             return decomposition
@@ -33,6 +35,27 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
     raise RuntimeError(
         f"structural preflight failed after {PREFLIGHT_ATTEMPTS} attempts: "
         + "; ".join(i["issue"][:80] for i in issues[:3]))
+def _engagement_subjects(db, request_id: int) -> set:
+    """The distinct systems this engagement serves, taken from the client's own
+    name for it. An estate named "Masar & MultiAI" legitimately gets one
+    instance of a shared capability per system; without this the overlap rule
+    reads them as one capability split in two and refuses the run."""
+    from app.models import Request
+
+    # Subjects only ever RELAX a rule, so failing to read them must never fail
+    # the preflight — a caller with no session (or a stub one) simply gets the
+    # stricter behaviour.
+    if db is None or not hasattr(db, "get"):
+        return set()
+    try:
+        row = db.get(Request, request_id)
+    except Exception:
+        return set()
+    if row is None:
+        return set()
+    return _subjects_of(getattr(row, "business_name", "") or "", getattr(row, "concept_name", "") or "")
+
+
 from app.pipeline._shared import emit
 
 
