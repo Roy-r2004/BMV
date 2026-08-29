@@ -1420,6 +1420,48 @@ def pilot_rules_only(modules: list, operator: str, tooling: str) -> list[dict]:
     return records
 
 
+def _declared_names(modules: list) -> list[str]:
+    """Every proper name the plan declares — modules, features, screens and
+    named systems. These are NAMES, whatever words they happen to contain."""
+    names: set[str] = set()
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+        for key in ("client_facing_name", "name", "original_name"):
+            if m.get(key):
+                names.add(str(m[key]))
+        spec = m.get("spec") if isinstance(m.get("spec"), dict) else {}
+        tech = m.get("tech") if isinstance(m.get("tech"), dict) else {}
+        for f in spec.get("features") or []:
+            n = f.get("name") if isinstance(f, dict) else f
+            if isinstance(n, str):
+                names.add(n)
+        for sc in list(spec.get("screens") or []) + list(tech.get("screens") or []):
+            n = sc.get("name") if isinstance(sc, dict) else sc
+            if isinstance(n, str):
+                names.add(n)
+        for key in ("integrations", "integration_details"):
+            for it in tech.get(key) or []:
+                n = it.get("system") if isinstance(it, dict) else it
+                if isinstance(n, str):
+                    names.add(n)
+    return sorted({n for n in names if len(n) >= 4}, key=len, reverse=True)
+
+
+def _without_names(text: str, names: list[str]) -> str:
+    """Blank out declared names before reading a sentence for behaviour.
+
+    Production request 16 was refused because the pilot spec said
+    "Multi-Model Inference Gateway" and `_AI_LOGIC` matched "Model Inference"
+    inside it. That is the name of a thing being procured, not AI logic the
+    pilot performs. Masking names first is the same rule the audience law
+    uses: a law that reads prose must not read a NAME."""
+    out = text or ""
+    for n in names:
+        out = out.replace(n, " " * len(n))
+    return out
+
+
 def pilot_isolation_findings(modules: list, procedures: list | None = None) -> list[dict]:
     """The pilot module and every pilot-phase procedure name no AI logic and
     no other module — proven on the structures, not the prompt."""
@@ -1429,10 +1471,15 @@ def pilot_isolation_findings(modules: list, procedures: list | None = None) -> l
     others = [str(m.get("client_facing_name") or m.get("name") or "") for m in mods if not m.get("pilot")]
     others += [str(m.get("name") or "") for m in mods if not m.get("pilot")]
     others = sorted({o for o in others if o}, key=len, reverse=True)
+    declared = _declared_names(mods)
     for pm in pilot:
         for key in ("purpose", "pain_point_addressed", "spec", "tech"):
             for s in _strings_in(pm.get(key)):
-                hit = _AI_LOGIC.search(s)
+                # a declared NAME that happens to contain an AI word is not AI
+                # logic the pilot performs; the dependency check below still
+                # reads the unmasked string, because naming another module IS
+                # the dependency this rule exists to catch
+                hit = _AI_LOGIC.search(_without_names(s, declared))
                 named = next((o for o in others if o in s), None)
                 if hit or named:
                     out.append({"severity": "high", "source": "structural", "where": f"modules.{pm.get('id')}.{key}",
