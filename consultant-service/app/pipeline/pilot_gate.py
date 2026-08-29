@@ -55,8 +55,13 @@ _DESIGN_TALK = re.compile(r"control group|control arm|treatment group|treatment 
 # -> questions. Words are taken until a participle, determiner or preposition
 # ends the noun phrase.
 _UNIT_LEAD = re.compile(r"^\s*(?:every|each|all|any|the)\s+", re.IGNORECASE)
-_UNIT_STOP = re.compile(r"(?:[a-z-]+(?:ed|ing)|that|which|who|whom|whose|the|a|an|from|in|into|on|at|to|"
-                        r"for|during|with|via|by|excluding|including|where|when|per|of)$", re.IGNORECASE)
+# Anything that ends a noun phrase. Possessives belong here: production run 21
+# said "Every council question MY team asks", "my" was not a boundary, and the
+# head noun became "my" -> "mies".
+_FUNCTION_WORD = (r"that|which|who|whom|whose|the|a|an|my|our|your|their|his|her|its|this|these|those|"
+                  r"from|in|into|on|at|to|for|during|with|within|via|by|of|about|across|per|under|over|"
+                  r"after|before|and|or|but|excluding|including|where|when|while|are|is|was|were|be|been")
+_UNIT_STOP = re.compile(rf"(?:[a-z-]+(?:ed|ing)|{_FUNCTION_WORD})$", re.IGNORECASE)
 
 
 def _plural(word: str) -> str:
@@ -84,6 +89,8 @@ def assignment_unit(g: dict | None) -> str:
         if _UNIT_STOP.match(w) or len(words) >= 3:
             break
         words.append(w)
+    # nothing but function words before the boundary: print the neutral word
+    # rather than a plural of "my"
     return _plural(words[-1]) if words else "units"
 
 

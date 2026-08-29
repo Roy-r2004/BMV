@@ -117,9 +117,27 @@ def test_a_target_with_no_number_at_all_raises_nothing():
     ("All first-attempt deliveries to new customers", "deliveries"),
     ("Every support ticket raised during the pilot", "tickets"),
     ("All patient enquiries received in the window", "enquiries"),
+    # production run 21: "the Masar team" had stopped the phrase because "the"
+    # was a boundary; "my team" did not, so the head noun became "my" and the
+    # gate randomised "comparable eligible MIES". A possessive ends a noun
+    # phrase exactly as an article does.
+    ("Every council question my team asks during the pilot", "questions"),
+    ("Every support ticket our staff raises", "tickets"),
+    ("All patient enquiries their clinic receives", "enquiries"),
+    ("Every claim his adjuster reviews", "claims"),
 ])
 def test_the_unit_comes_from_the_population(population, expected):
     assert assignment_unit({"population": population}) == expected
+
+
+@pytest.mark.parametrize("population", [
+    "Every my", "Every the a an", "All of the", "Each their",
+])
+def test_a_function_word_is_never_printed_as_the_unit(population):
+    """A population made only of function words yields no head noun at all, and
+    the neutral word is the honest answer -- never the plural of a pronoun.
+    Run 21 shipped "comparable eligible MIES" to a client-facing page."""
+    assert assignment_unit({"population": population}) == "units"
 
 
 def test_the_fallback_names_no_client_s_business():
