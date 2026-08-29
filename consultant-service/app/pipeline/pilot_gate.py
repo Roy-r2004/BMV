@@ -20,7 +20,12 @@ APPROVAL_REQUIRED = "consultant_proposed — client approval required"
 _NUM = re.compile(r"\d[\d,]*(?:\.\d+)?")
 _DURATION = re.compile(r"(\d+(?:\.\d+)?)\s*(weeks?|days?|months?)", re.IGNORECASE)
 _PP = re.compile(r"(\d+(?:\.\d+)?)\s*(?:percentage[- ]points?|pp\b|p\.p\.)", re.IGNORECASE)
-_PCT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
+# "90 percent" is the same quantity as "90%". Only the symbol was accepted,
+# so the word form fell through to the model's own numeric field -- which
+# holds the RATIO (0.9) -- and was then rendered with a percent sign.
+# "percent" needs no negative lookahead: \b already fails inside
+# "percentage", which _PP owns and which is tested first.
+_PCT = re.compile(r"(\d+(?:\.\d+)?)\s*(?:%|percent\b|per\s+cent\b|pct\b)", re.IGNORECASE)
 _ONE_IN = re.compile(r"\b1 in (\d+)\b", re.IGNORECASE)
 _EG = re.compile(r"\(\s*(?:e\.?g\.?,?|such as|for example,?)\s*([^)]+)\)", re.IGNORECASE)
 _UP = re.compile(r"increas|rise|improv|higher|lift|grow|up\b", re.IGNORECASE)
@@ -45,12 +50,49 @@ _DESIGN_TALK = re.compile(r"control group|control arm|treatment group|treatment 
                           r"serve as (?:the )?control|assigned to (?:treatment|control)", re.IGNORECASE)
 
 
+# The head noun of the pilot population: "All delivery orders placed for
+# individuals via the app" -> orders; "Every council question the team asks"
+# -> questions. Words are taken until a participle, determiner or preposition
+# ends the noun phrase.
+_UNIT_LEAD = re.compile(r"^\s*(?:every|each|all|any|the)\s+", re.IGNORECASE)
+_UNIT_STOP = re.compile(r"(?:[a-z-]+(?:ed|ing)|that|which|who|whom|whose|the|a|an|from|in|into|on|at|to|"
+                        r"for|during|with|via|by|excluding|including|where|when|per|of)$", re.IGNORECASE)
+
+
+def _plural(word: str) -> str:
+    w = word.lower()
+    if w.endswith("s") and not w.endswith("ss"):
+        return w
+    if re.search(r"[^aeiou]y$", w):
+        return w[:-1] + "ies"
+    if re.search(r"(?:s|ss|sh|ch|x|z)$", w):
+        return w + "es"
+    return w + "s"
+
+
+def assignment_unit(g: dict | None) -> str:
+    """The thing being randomised, in the engagement's OWN words.
+
+    This was hardcoded to "orders", which put a delivery client's vocabulary
+    into every engagement that followed. The AI-datacentre gate randomised
+    "comparable eligible orders" and counted "eligible deliveries" -- neither
+    exists in that estate. A default that names another client's business is
+    worse than a neutral one, so the fallback here is deliberately generic."""
+    pop = _strip_label(str((g or {}).get("population") or ""))
+    words: list[str] = []
+    for w in re.findall(r"[A-Za-z][A-Za-z-]*", _UNIT_LEAD.sub("", pop)):
+        if _UNIT_STOP.match(w) or len(words) >= 3:
+            break
+        words.append(w)
+    return _plural(words[-1]) if words else "units"
+
+
 def assignment_sentence(g: dict | None) -> str:
     """THE pilot design, rendered identically everywhere."""
     ratio = (g or {}).get("control_ratio") or 0.5
     t, c = int(round((1 - ratio) * 100)), int(round(ratio * 100))
-    return (f"Comparable eligible orders are randomized {t}/{c} between treatment and control — the control group "
-            "keeps today's process and is never drawn from another client, zone or period.")
+    return (f"Comparable eligible {assignment_unit(g)} are randomized {t}/{c} between treatment and control — "
+            "the control group keeps today's process and is never drawn from another client, zone or period.")
 
 
 def design_errors(g: dict | None) -> list[str]:
@@ -181,6 +223,12 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
         n = float(_ONE_IN.search(tgt).group(1))
         tv = round(100.0 / n, 1)
         kind = kind or "relative"
+    # Whether the number came from the labelled TEXT or was borrowed from the
+    # model's numeric field. When a parse fails silently the two can disagree
+    # by a factor of a hundred and nothing below notices, because the
+    # conflict check compares the value against the field -- and after a
+    # failed parse they are the same object.
+    g["target_value_from_text"] = tv is not None
     if tv is None:
         tv = field
     g["target_value"] = tv
@@ -258,7 +306,10 @@ def normalize_gate(raw: dict, claims: list[dict] | None = None) -> dict:
                                    if g.get("direction") != "fall" else
                                    f"control rate − treatment rate must be at least {_fmt(g.get('target_value'))} percentage points")
         if not (g.get("denominator") and re.search(r"group|assigned|arm", g["denominator"], re.IGNORECASE)):
-            g["denominator"] = "eligible deliveries assigned to each group"
+            # the denominator counts the same unit the assignment randomises;
+            # these were two different hardcoded nouns ("orders" and
+            # "deliveries") describing one population
+            g["denominator"] = f"eligible {assignment_unit(g)} assigned to each group"
     g["secondary_metrics"] = [str(x) for x in (raw.get("secondary_metrics") or []) if x]
     g["approvals_required"] = [str(x) for x in (raw.get("approvals_required") or []) if x]
     g["canonical_sentence"] = canonical_sentence(g)
@@ -276,6 +327,18 @@ def gate_errors(g: dict) -> list[str]:
         errors.append("missing pilot duration")
     if g.get("target_value") is None:
         errors.append("missing numeric target")
+    # `is False`, not falsy: the flag is written by normalize_gate, so a gate
+    # stored before this check existed simply has no opinion. Reading its
+    # absence as a failed parse condemns every engagement already on disk --
+    # request 53, a delivered package, went from clean to two findings on
+    # exactly that mistake. No evidence is not evidence of a defect.
+    if (g.get("target_value") is not None and g.get("target_value_from_text") is False
+            and _NUM.search(str(g.get("target") or ""))):
+        errors.append(
+            f"the target text states a number this gate could not parse "
+            f"({_strip_label(str(g.get('target') or ''))[:80]!r}), so target_value "
+            f"({_fmt(g.get('target_value'))}) came from the model's field instead of the "
+            f"text — state the target as a percentage, a percentage-point change or '1 in N'")
     if g.get("target_value_conflict"):
         errors.append(f"target_value ({g.get('target_value_field')}) contradicts the target text "
                       f"({_fmt(g.get('target_value'))} {_unit_words(g)}) — write target_value exactly as the number in "
