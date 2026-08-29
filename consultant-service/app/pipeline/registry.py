@@ -1445,6 +1445,19 @@ def _declared_names(modules: list) -> list[str]:
                 n = it.get("system") if isinstance(it, dict) else it
                 if isinstance(n, str):
                     names.add(n)
+        # data-model entities and API names are declared names too. Request 17
+        # tripped on "Candidate LLM Configuration", a data_model entity, after
+        # the first pass of this fix collected only modules, features, screens
+        # and systems.
+        for key in ("data_model", "data_models", "entities"):
+            for entity in tech.get(key) or []:
+                n = entity.get("name") if isinstance(entity, dict) else entity
+                if isinstance(n, str):
+                    names.add(n)
+        for api in tech.get("apis") or []:
+            n = api.get("name") if isinstance(api, dict) else api
+            if isinstance(n, str):
+                names.add(n)
     return sorted({n for n in names if len(n) >= 4}, key=len, reverse=True)
 
 

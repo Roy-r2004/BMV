@@ -48,3 +48,20 @@ def test_naming_another_module_is_still_a_dependency():
              "purpose": "Hands the order to the Multi-Model Inference Gateway for processing.", "spec": {}}
     out = pilot_isolation_findings([pilot, GATEWAY])
     assert out and "depends on" in out[0]["issue"]
+
+
+def test_every_declared_name_is_masked_not_only_module_names():
+    """Request 17 tripped on "Candidate LLM Configuration" — a data_model
+    entity. The first pass of this fix collected modules, features, screens and
+    systems but not data models or API names."""
+    pilot = {
+        "id": "p", "pilot": True, "client_facing_name": "Council A/B Trial",
+        "purpose": "Randomly assign half of councils to include a local candidate and score the verdicts.",
+        "tech": {"data_model": [{"name": "Candidate LLM Configuration"}],
+                 "apis": [{"name": "POST /api/v1/trials/assign"}]},
+        "spec": {},
+    }
+    names = _declared_names([pilot])
+    assert "Candidate LLM Configuration" in names
+    assert "POST /api/v1/trials/assign" in names
+    assert pilot_isolation_findings([pilot]) == []
