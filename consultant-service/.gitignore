@@ -8,6 +8,10 @@ __pycache__/
 uploads/images/*
 !uploads/images/.gitkeep
 uploads/exports/
+# Engagement payloads and their downloaded deliverables. These carry client
+# briefs, auth tokens and the internals of the systems being consulted on --
+# and this repository is public. Nothing under here is ever committed.
+uploads/requests/
 
 # Ad-hoc bake-off/comparison images dropped at the service root during testing.
 compare_*.png

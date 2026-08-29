@@ -105,10 +105,63 @@ _AI_NAME = re.compile(
 _NUM = re.compile(
     r"(?<![\w.])(~?\$?\d[\d,]*(?:\.\d+)?)"
     r"(\s*(?:%|percent|percentage[- ]points?|pp\b|ms\b|milliseconds?|seconds?|minutes?|hours?|"
-    r"days?|weeks?|months?|years?))?", re.IGNORECASE)
+    r"days?|weeks?|months?|years?|"
+    # hardware and load. Bandwidth before memory, or "GB/s" matches "GB" and
+    # leaves "/s" behind; the time words stay first so "2 weeks" never reaches
+    # a hardware branch.
+    r"gi?b\s*/\s*s\b|gbps\b|mbps\b|tflops\b|"
+    r"tokens?\s*/\s*(?:s|sec|secs|second|seconds)\b|tok/s\b|tps\b|"
+    r"requests?\s*/\s*(?:s|sec|secs|second|seconds)\b|req/s\b|rps\b|qps\b|"
+    r"gi?b\b|gigabytes?\b|mi?b\b|megabytes?\b|ti?b\b|terabytes?\b|"
+    r"kw\b|kilowatts?\b|watts?\b"
+    r"))?", re.IGNORECASE)
+
+# Surface form -> canonical unit. Bare "W" is deliberately absent from the
+# grammar above: a lone "w" after a number is far more often a typo or a
+# truncated word than a watt, and kW is what an engagement actually quotes.
+_CAPACITY_CANON = {
+    "gb": "GB", "gib": "GB", "gigabyte": "GB", "gigabytes": "GB",
+    "mb": "MB", "mib": "MB", "megabyte": "MB", "megabytes": "MB",
+    "tb": "TB", "tib": "TB", "terabyte": "TB", "terabytes": "TB",
+    "gb/s": "GB/s", "gib/s": "GB/s", "gbps": "Gbps", "mbps": "Mbps",
+    "tflops": "TFLOPS",
+    "kw": "kW", "kilowatt": "kW", "kilowatts": "kW", "watt": "W", "watts": "W",
+    "tps": "tokens/sec", "tok/s": "tokens/sec",
+    "rps": "requests/sec", "req/s": "requests/sec", "qps": "requests/sec",
+}
+# what may be compared with what: a memory size is never a throughput
+_CAPACITY_FAMILY = {
+    "GB": "memory", "MB": "memory", "TB": "memory",
+    "GB/s": "bandwidth", "Gbps": "bandwidth", "Mbps": "bandwidth",
+    "TFLOPS": "compute", "kW": "power", "W": "power",
+    "tokens/sec": "throughput", "requests/sec": "throughput",
+}
+_TOKENS_PER_SEC = re.compile(r"^tokens?\s*/\s*(?:s|sec|secs|second|seconds)$", re.IGNORECASE)
+_REQS_PER_SEC = re.compile(r"^requests?\s*/\s*(?:s|sec|secs|second|seconds)$", re.IGNORECASE)
+
+
+def canonical_capacity_unit(unit: str) -> str | None:
+    """The canonical hardware/load unit for a parsed unit string, or None when
+    it is not one. Spacing and case vary in client prose ("GB / s", "Gb/s")
+    and must not produce two different units for one quantity."""
+    u = re.sub(r"\s+", "", str(unit or "")).lower()
+    if not u:
+        return None
+    if _TOKENS_PER_SEC.match(u):
+        return "tokens/sec"
+    if _REQS_PER_SEC.match(u):
+        return "requests/sec"
+    return _CAPACITY_CANON.get(u)
+# hardware and model families whose designation is a number: the token after
+# one of these names a product, it does not measure anything
+_DESIGNATOR = (r"rtx|gtx|radeon|rx|quadro|tesla|geforce|nvidia|amd|intel|xeon|ryzen|epyc|"
+               r"llama|mixtral|mistral|qwen|gemma|phi|falcon|command[- ]r|deepseek|yi|"
+               r"gpt|claude|gemini|whisper|sdxl|clip|bert|t5|cuda|rocm|pytorch|python")
 _SKIP_BEFORE = re.compile(
     r"((phase|section|page|volume|step|week|tier|level|version|part|top|chapter|figure|table|"
-    r"option|v|q|run|no\.|#|tls|ssl|oauth|https?/?|api\s?v|http status|status code|error code)\s*|[A-Za-z0-9]-|claim\s+[A-Z]{2}-[\w-]*)$",
+    r"option|v|q|run|no\.|#|tls|ssl|oauth|https?/?|api\s?v|http status|status code|error code|"
+    + _DESIGNATOR +
+    r")\s*|[A-Za-z0-9]-|claim\s+[A-Z]{2}-[\w-]*)$",
     re.IGNORECASE)
 _SKIP_AFTER = re.compile(
     r"^\s*(/7|x\b|×|am\b|pm\b|:\d|-\w|\.\s+[A-Z]|\(proposed[^)]*\)\.\s+[A-Z]|"  # "3. Then, we …" is an inline ordinal
@@ -188,12 +241,24 @@ def _numbers(text: str) -> list[tuple[str, float, str, int, int]]:
         raw = tok.replace("$", "").replace("~", "").replace(",", "")
         if _YEAR.match(raw) and not unit and "$" not in tok:
             continue
+        # a parameter count welded to the number ("70B", "8x22B") is part of a
+        # model's name. "$70M" is money and keeps its meaning, so the currency
+        # marker wins over this rule.
+        if not unit and "$" not in tok and re.match(r"[BM]\b", text[m.end():m.end() + 2]):
+            continue
         v = _value(tok)
         if v is None:
             continue
         if unit and ("%" in unit or "percent" in unit.lower()):
             v = v / 100.0
             unit = "%"
+        else:
+            canon = canonical_capacity_unit(unit)
+            if canon:
+                # canonical case is meaningful here ("GB" vs "Gbps"), so this
+                # one returns before the lower() that every other unit takes
+                out.append((tok, v, canon, m.start(), m.end()))
+                continue
         out.append((tok, v, unit.lower(), m.start(), m.end()))
     return out
 
@@ -215,7 +280,11 @@ def _claim(cid: str, ctype: str, value, unit: str, *, time_basis: str = "n/a",
 _UNIT_WORDS = (("deliver", "deliveries"), ("inquir", "inquiries"), ("hour", "hours"),
                ("order", "orders"), ("staff", "staff"), ("day", "days"), ("message", "messages"),
                ("call", "calls"), ("attempt", "attempts"), ("customer", "customers"),
-               ("client", "clients"), ("visit", "visits"), ("week", "weeks"), ("month", "months"))
+               ("client", "clients"), ("visit", "visits"), ("week", "weeks"), ("month", "months"),
+               # hardware hints, deliberately unambiguous ones only: "card"
+               # would fire inside "scorecard", "node" inside "nodes of the
+               # journey". These four cannot appear except about hardware.
+               ("vram", "GB"), ("gpu", "GPUs"), ("rtx", "GPUs"), ("concurrent", "concurrent requests"))
 _BASIS_WORDS = (("a day", "day"), ("per day", "day"), ("/day", "day"), ("daily", "day"),
                 ("a week", "week"), ("per week", "week"), ("/week", "week"), ("weekly", "week"),
                 ("a month", "month"), ("per month", "month"), ("/month", "month"), ("monthly", "month"),
@@ -1598,6 +1667,11 @@ def classify_threshold(tok: str, value: float, unit: str, before: str, after: st
         return "functional_requirement"
     if unit in ("ms", "millisecond", "milliseconds"):
         return "performance_target"
+    if unit in _CAPACITY_FAMILY:
+        # a rate the system must sustain is a target it can miss; a size, draw
+        # or bandwidth is an assumption about the load it must carry
+        return ("performance_target" if _CAPACITY_FAMILY[unit] == "throughput"
+                else "capacity_assumption")
     if unit == "%":
         return "performance_target"
     if unit in ("second", "seconds", "minute", "minutes", "hour", "hours", "day", "days",
@@ -1635,8 +1709,14 @@ def _unit_compatible(unit: str, claim: dict) -> bool:
         return cu in ("%", "ratio")
     if u.startswith("$") or u == "usd":
         return cu == "usd"
-    # a bare number: never a time or a currency claim, anything else goes
-    return cu not in ("usd",) and cu not in _TIME_UNITS
+    fam = _CAPACITY_FAMILY.get(unit or "") or _CAPACITY_FAMILY.get(canonical_capacity_unit(unit) or "")
+    if fam:
+        cfam = _CAPACITY_FAMILY.get(str(claim.get("unit") or ""))
+        return cfam == fam
+    # a bare number: never a time, a currency or a hardware claim -- 24 cards
+    # is not the client's 24 GB. Anything else goes.
+    return (cu not in ("usd",) and cu not in _TIME_UNITS
+            and str(claim.get("unit") or "") not in _CAPACITY_FAMILY)
 
 
 def _matches_claim(value: float, unit: str, claims: list[dict], types: tuple | None = None) -> dict | None:
