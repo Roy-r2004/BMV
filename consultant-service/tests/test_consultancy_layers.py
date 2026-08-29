@@ -1821,12 +1821,27 @@ def test_preflight_guards_the_prose_spend(client, monkeypatch):
     monkeypatch.setattr(orch.decompose, "decompose_business", fake_decompose)
     out = orch._decompose_with_preflight(None, 1)
     assert calls["n"] == 2 and out is good
-    # persistent failure stops the run instead of spending prose
+    # Persistent failure does NOT kill the run. Every other stage here fails
+    # open; the preflight was the one that did not, and requests 15-18 each
+    # cost real money and delivered nothing. It now retries its full budget,
+    # then continues with the best skeleton — the same findings are recomputed
+    # by the integrity layer and the release gate, which refuse FINAL while any
+    # of them stands, so the client gets a DRAFT naming its own defects rather
+    # than an error message.
     calls["n"] = 0
-    monkeypatch.setattr(orch.decompose, "decompose_business", lambda *a, **k: bad)
-    import pytest as _pytest
-    with _pytest.raises(RuntimeError):
-        orch._decompose_with_preflight(None, 1)
+
+    def always_bad(db, request_id, *a, **k):
+        calls["n"] += 1
+        return bad
+
+    monkeypatch.setattr(orch.decompose, "decompose_business", always_bad)
+    out = orch._decompose_with_preflight(None, 1)
+    assert calls["n"] == orch.PREFLIGHT_ATTEMPTS, "the full retry budget must still be spent"
+    assert out is bad, "the best skeleton is carried forward, not discarded"
+    # and the defect it carries is still detectable downstream, which is what
+    # keeps it out of FINAL
+    from app.pipeline.structural import preflight
+    assert preflight(bad["business_case"], bad["modules"], None)
 
 
 def test_structural_findings_flow_into_the_gate(client, monkeypatch):

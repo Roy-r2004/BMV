@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
@@ -32,9 +34,28 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
         if not decomposition:
             return None
         feedback = [f"{i['where']}: {i['issue']} Fix: {i['fix']}" for i in issues]
-    raise RuntimeError(
-        f"structural preflight failed after {PREFLIGHT_ATTEMPTS} attempts: "
-        + "; ".join(i["issue"][:80] for i in issues[:3]))
+    # Out of attempts. Every other stage in this pipeline fails OPEN — a bad
+    # call degrades the package instead of killing it — and the preflight was
+    # the one place that did not, so requests 15, 16, 17 and 18 each cost real
+    # money and delivered nothing at all.
+    #
+    # Carry on with the best skeleton we have. The same findings are recomputed
+    # downstream by the integrity layer and the release gate, which refuse
+    # FINAL while any of them stands: the client gets a DRAFT that names its
+    # own defects, never a FINAL built over them. A partial deliverable that
+    # says what is wrong with it beats an error message.
+    logging.getLogger("consultant.orchestrator").warning(
+        "structural preflight unresolved after %s attempts, continuing to a DRAFT: %s",
+        PREFLIGHT_ATTEMPTS, "; ".join(i["issue"][:80] for i in issues[:3]))
+    try:
+        emit(db, request_id, "decomposing",
+             "Some structural checks could not be satisfied — continuing to a draft", 42,
+             detail="; ".join(i["issue"][:120] for i in issues[:3]))
+    except Exception:
+        # telling the client about the degradation must never itself end the
+        # run — that would reintroduce the very failure this change removes
+        logging.getLogger("consultant.orchestrator").warning("could not emit the degradation notice")
+    return decomposition
 def _engagement_subjects(db, request_id: int) -> set:
     """The distinct systems this engagement serves, taken from the client's own
     name for it. An estate named "Masar & MultiAI" legitimately gets one

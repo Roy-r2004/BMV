@@ -1461,18 +1461,30 @@ def _declared_names(modules: list) -> list[str]:
     return sorted({n for n in names if len(n) >= 4}, key=len, reverse=True)
 
 
-def _without_names(text: str, names: list[str]) -> str:
-    """Blank out declared names before reading a sentence for behaviour.
+# A slug or snake_case token is an identifier, not a sentence:
+# "multi-ai-council-pilot-evaluator", "local_ai_core", "model_inference_api".
+_IDENTIFIER = re.compile(r"\b[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+)+\b")
 
-    Production request 16 was refused because the pilot spec said
-    "Multi-Model Inference Gateway" and `_AI_LOGIC` matched "Model Inference"
-    inside it. That is the name of a thing being procured, not AI logic the
-    pilot performs. Masking names first is the same rule the audience law
-    uses: a law that reads prose must not read a NAME."""
+
+def _without_names(text: str, names: list[str]) -> str:
+    """Blank out declared names AND identifiers before reading a sentence for
+    behaviour.
+
+    Three production runs were refused by this rule reading things that were
+    never prose. Request 16 tripped on "Multi-Model Inference Gateway" (a
+    module name); request 17 on "Candidate LLM Configuration" (a data-model
+    entity); request 18 on "multi-ai-council-pilot-evaluator" (a module slug,
+    where "ai" sits between hyphens and reads as a whole word). In an
+    engagement whose subject is AI, every name and every identifier carries
+    those tokens by necessity.
+
+    Names come from the plan; identifiers are recognised by shape. What is
+    left is the sentence — and THAT is what the rule was written to judge:
+    whether the pilot DOES AI, not whether AI appears in something's label."""
     out = text or ""
     for n in names:
         out = out.replace(n, " " * len(n))
-    return out
+    return _IDENTIFIER.sub(lambda m: " " * len(m.group(0)), out)
 
 
 def pilot_isolation_findings(modules: list, procedures: list | None = None) -> list[dict]:
