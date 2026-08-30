@@ -14,6 +14,14 @@ and the test that kills each:
   remove sorted section order
       -> test_identical_registry_renders_identical_pdf_bytes
          test_section_entities_are_ordered_by_entity_id
+
+Two follow-up laws and the mutation each kills:
+
+  draw the Contents heading in _S["h1toc"] again (D5)
+      -> test_the_contents_page_does_not_list_itself
+         test_the_contents_heading_is_invisible_as_a_change
+  re-declare ArtifactRef locally instead of importing the laws' class
+      -> test_artifact_ref_is_the_laws_class_and_not_a_local_copy
 """
 from __future__ import annotations
 
@@ -74,6 +82,7 @@ from app.engine.work_products.render_md import (
 )
 from app.engine.work_products.render_pdf import (
     DRAFT_STAMP,
+    _TOC_HEAD,
     header_label,
     render_markdown_artifact,
     render_pdf,
@@ -514,6 +523,54 @@ def test_the_draft_stamp_is_the_string_r30_draws():
     import app.pipeline.export_pdf as ep
 
     assert DRAFT_STAMP in open(ep.__file__, encoding="utf-8").read()
+
+
+def test_the_contents_page_does_not_list_itself(tmp_path, view):
+    """D5. `_EngagementDoc` notifies a table-of-contents entry for every
+    paragraph styled "h1toc", and r30's own `_toc` styles the word "Contents"
+    that way - so the contents page opens by listing itself as entry 1. The
+    release gate strips the whole block as front matter and never sees it; the
+    client does. The word appears once on that page: as the heading."""
+    import pymupdf
+
+    product = render_product(brief_decl(), view)
+    ref = render_pdf(product, out_path=str(tmp_path / "brief.pdf"), draft=True)
+    doc = pymupdf.open(ref.path)
+    try:
+        front = doc[0].get_text()
+    finally:
+        doc.close()
+
+    assert front.count("Contents") == 1
+    # and it is a real table of contents, not an empty one: every section of
+    # the product is listed under that heading
+    for section in product.sections:
+        assert section.title in front
+
+
+def test_the_contents_heading_is_invisible_as_a_change(view):
+    """The fix is a style NAME, not a restyle: the heading is drawn exactly as
+    r30 draws it, so the page is unchanged and only the notification stops.
+    A heading that merely looked different would be a design change smuggled
+    in under an integrity fix."""
+    from app.pipeline.export_pdf import _S
+
+    assert _TOC_HEAD.name != _S["h1toc"].name          # what afterFlowable reads
+    for attr in ("fontName", "fontSize", "textColor", "leading",
+                 "spaceBefore", "spaceAfter", "alignment", "leftIndent"):
+        assert getattr(_TOC_HEAD, attr) == getattr(_S["h1toc"], attr), attr
+
+
+def test_artifact_ref_is_the_laws_class_and_not_a_local_copy():
+    """One shape for "one rendered file". A renderer that declared its own
+    ArtifactRef would hand the gate an object of a different class with the
+    same name - the kind of duplicate the r30 lesson S15 exists to prevent."""
+    import app.engine.work_products.render_md as md
+    from app.engine.gates.laws import ArtifactRef as LawArtifactRef
+
+    assert md.ArtifactRef is LawArtifactRef
+    source = open(md.__file__, encoding="utf-8").read()
+    assert "class ArtifactRef" not in source
 
 
 def test_engine_chrome_is_stripped_before_the_semantic_laws_read(tmp_path, view):

@@ -57,21 +57,12 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # ArtifactRef (contracts section 14)
 # ---------------------------------------------------------------------------
-# The laws own this shape and gates/laws.py is its home; it is declared here
-# only so the renderers that produce artifacts have it before that module
-# lands, and the import below hands over the moment it does. One class either
-# way - a renderer and a law must be talking about the same artifact.
-try:  # pragma: no cover - exercised by whichever component lands first
-    from app.engine.gates.laws import ArtifactRef  # type: ignore
-except Exception:  # pragma: no cover
-    @dataclass(frozen=True)
-    class ArtifactRef:  # type: ignore[no-redef]
-        product_id: str
-        fmt: str
-        path: str
-        sha256: str
-        registry_hash: str
-        extracted_text: str = ""
+# The laws own this shape and gates/laws.py is its home, so it is IMPORTED and
+# never re-declared. A renderer and a law that each carried their own version
+# of "one rendered file" would be two shapes with one name: an artifact the
+# renderer described and the gate could not read, or worse, could read and
+# judge against a field the renderer never filled. One class, one home.
+from app.engine.gates.laws import ArtifactRef
 
 
 LAW_DRIFT = "L6.statement_drift"

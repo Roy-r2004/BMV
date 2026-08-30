@@ -28,6 +28,12 @@ The laws this module lives by:
     nobody chose, which is exactly how work gets done without a mandate.
   * No bound is a literal here: every ceiling comes from Settings (ENGINE_*)
     or a BOUNDS mapping, so an operator moves it without a code change.
+  * `settings_bounds()` is exactly the BOUNDS names and nothing else. It is the
+    operator's side of what a method reads, so a per-call binding (a database
+    session a callable closes over, the account a run is billed to) is not
+    added here: the analysis round merges those over this mapping in loop.py.
+    Returning one from here would make a caller's value indistinguishable from
+    a ceiling an operator set, and no operator would see it.
 """
 from __future__ import annotations
 
@@ -113,9 +119,17 @@ class EngagementState:
         return _bound(self.bounds, name)
 
     def settings_bounds(self) -> Mapping[str, Any]:
-        """Every BOUNDS name with this state's value - what MethodContext and
-        Assignment budgets read. Derived from the frozen name table, so a bound
-        the engine reads cannot exist without a setting an operator can move."""
+        """Every BOUNDS name with this state's value, and no other key - what
+        MethodContext and Assignment budgets read.
+
+        Derived from the frozen name table by construction, so a bound the
+        engine reads cannot exist without a setting an operator can move, and
+        nothing that is not a bound can arrive through here. The seam a costed
+        method needs (the r30 commissioning callable and the account it runs
+        under) is bound per call by the thread that owns the session and merged
+        over this mapping in `loop._method_settings`; the two stay separable
+        because this one is derived and that one is given.
+        """
         return {name: self.bound(name) for name in BOUNDS}
 
 

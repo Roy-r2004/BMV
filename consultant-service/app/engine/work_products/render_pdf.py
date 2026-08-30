@@ -26,6 +26,9 @@ The laws this module enforces:
       three lines kept together (presentation_findings' last-page law, and
       the r30-r29 lesson that a closing block and its heading travel
       together)
+  D5  the table of contents lists the document's sections and NOT itself. It
+      is drawn from the same pieces as r30's `_toc`, with the one difference
+      that makes that true (see _TOC_HEAD)
 """
 from __future__ import annotations
 
@@ -35,9 +38,19 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
-from reportlab.platypus import Frame, KeepTogether, PageTemplate, Paragraph, Spacer
+from reportlab.platypus import (
+    Frame,
+    HRFlowable,
+    KeepTogether,
+    PageBreak,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+)
+from reportlab.platypus.tableofcontents import TableOfContents
 
 from app.pipeline.export_pdf import (
     _EngagementDoc,
@@ -48,9 +61,9 @@ from app.pipeline.export_pdf import (
     _page_chrome,
     _rich,
     _table,
-    _toc,
     strip_page_chrome,
     F_SB,
+    LINE,
 )
 
 from app.engine.work_products.render_md import ArtifactRef, RenderedProduct, RenderedSection
@@ -128,6 +141,36 @@ def extract_text(path: str) -> str:
 # Flowables
 # ---------------------------------------------------------------------------
 
+# D5. `_EngagementDoc.afterFlowable` (export_pdf.py:307) turns a paragraph into
+# a table-of-contents entry by its STYLE NAME: every Paragraph styled "h1toc"
+# is notified as a level-0 entry. `export_pdf._toc` (export_pdf.py:819) styles
+# its own "Contents" heading with _S["h1toc"], so an r30 volume's contents page
+# opens by listing itself as entry 1. The release gate never catches it -
+# strip_page_chrome removes the whole contents block as front matter before any
+# law reads the page - but a client opening the file sees it. So the engine
+# draws that heading in a style that INHERITS every visual attribute of h1toc
+# under a different name: the same heading on the same page, absent from the
+# list beneath it. export_pdf.py is frozen (section 13.5) and is not edited to
+# fix this; the fix lives here, where the engine builds its own front matter.
+_TOC_HEAD = ParagraphStyle("engine_toc_head", parent=_S["h1toc"])
+
+
+def _toc_flowables() -> list:
+    """r30's `_toc` (export_pdf.py:819) rebuilt from the same pieces - the same
+    level styles, the same rule, the same page break - with _TOC_HEAD in place
+    of _S["h1toc"] on the heading. Rebuilt rather than post-filtered because
+    the notification happens during multiBuild, where there is nothing left to
+    filter."""
+    toc = TableOfContents()
+    toc.levelStyles = [_S["toc0"], _S["toc1"]]
+    return [
+        Paragraph("Contents", _TOC_HEAD),
+        HRFlowable(width="100%", thickness=0.7, color=LINE, spaceAfter=8),
+        toc,
+        PageBreak(),
+    ]
+
+
 def _title_block(title: str, subtitle: str) -> list:
     return [
         Spacer(1, 18),
@@ -173,7 +216,7 @@ def _closing_flowables(draft: bool) -> list:
 def build_flowables(product: RenderedProduct, *, subtitle: str, draft: bool) -> list:
     _SECTION_COUNTER["n"] = 0                       # D1: the numbering starts at 1 for every document
     flows = _title_block(product.title, subtitle)
-    flows += _toc()
+    flows += _toc_flowables()
     for section in product.sections:
         flows += _section_flowables(section)
     flows += _closing_flowables(draft)

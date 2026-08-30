@@ -8,6 +8,8 @@ Pinned mutations (work breakdown C17):
 - run RESEARCH methods directly      -> test_research_waits_for_the_charter_while_deterministic_runs
 - remove the SPAWN branch            -> test_paid_and_tied_selections_become_assignments
 - cache the live summary             -> test_live_summary_is_recomputed_not_stored
+- drop the merge of the caller's bindings -> test_a_binding_reaches_a_free_method
+- let a binding shadow a bound       -> test_a_binding_cannot_move_an_operators_ceiling
 
 Every provider here is the FakeProvider driven by a case-agnostic structural
 oracle: one answer per model purpose, reused for every call of that purpose, so
@@ -624,3 +626,169 @@ def test_a_reproposed_charter_with_the_same_content_is_not_rewritten(registry):
     again = C.propose(reg, turn_number=2, methods=MethodRegistry())
     assert again.reproposed and again.charter.id == first.charter.id
     assert len(reg.query(K.CHARTER)) == 1
+
+
+# ===========================================================================
+# 11. The bindings a round hands its methods (design 13.2)  [MUTATION x2]
+# ===========================================================================
+
+# The three keys the r30 adapter reads out of ctx.settings. They are named here
+# as the strings the method reads, not imported, so this file stays a test of
+# the seam rather than of one method that happens to use it.
+COMMISSION_KEY = "legacy_r30_commission"
+BUSINESS_NAME_KEY = "legacy_r30_business_name"
+OWNER_EMAIL_KEY = "legacy_r30_owner_email"
+
+
+class _SettingsSpy(_Writer):
+    """A method that records the mapping its context was given. Everything else
+    about it is _Writer, so it is admissible under S1-S6 and the seam is the
+    only thing under test."""
+
+    def __init__(self, method_spec, questions=()):
+        super().__init__(method_spec, questions)
+        self.seen = []
+
+    def run(self, ctx):
+        self.seen.append(dict(ctx.settings))
+        return super().run(ctx)
+
+
+def spy_free(mid="det"):
+    return _SettingsSpy(spec(mid, T.ExecutionType.DETERMINISTIC, SHAPE_FREE))
+
+
+def spy_paid(mid="research"):
+    return _SettingsSpy(spec(mid, T.ExecutionType.RESEARCH, SHAPE_PAID, calls=3, cost=3))
+
+
+def bindings():
+    """One binding of each kind the seam carries: a callable the caller closed
+    over its own session, and the two plain strings that are facts about the
+    account rather than about the business."""
+    def commission(_inputs):                             # pragma: no cover - never called here
+        raise AssertionError("nothing in this test commissions anything")
+
+    return commission, {COMMISSION_KEY: commission,
+                        BUSINESS_NAME_KEY: "the engagement's filing name",
+                        OWNER_EMAIL_KEY: "owner@example.com"}
+
+
+def test_a_binding_reaches_a_free_method(registry, fake_provider):
+    """A method is a pure function of its context and opens no session of its
+    own, so what it cannot compute from the registry has to arrive in
+    ctx.settings. Removing the merge leaves the bounds only, and a costed
+    adapter would report a missing seam on a round that supplied one."""
+    reg = registry(EID)
+    method = spy_free()
+    methods = registry_of(method)
+    dec = decision(reg)
+    objective(reg)
+    fact(reg, decision_id=dec.id)
+    issue(reg, dec.id, SHAPE_FREE)
+    partner = partner_for(methods, fake_provider(oracle=oracle()))
+    state = state_for(reg, Phase.DISCOVERY)
+    commission, given = bindings()
+
+    reply = partner.turn(state, "orders are late", context_settings=given)
+
+    assert reply.ran, "the deterministic method ran during discovery"
+    assert method.seen, "the method was given a context"
+    settings = method.seen[0]
+    assert settings[COMMISSION_KEY] is commission, "the callable arrives itself, not a copy"
+    assert settings[BUSINESS_NAME_KEY] == given[BUSINESS_NAME_KEY]
+    assert settings[OWNER_EMAIL_KEY] == given[OWNER_EMAIL_KEY]
+    # The bounds are still all there: the bindings are merged over them, not
+    # instead of them, so a method reads one mapping and finds both.
+    assert set(settings) >= set(T.BOUNDS)
+    assert settings["MAX_ANALYSIS_ROUNDS"] == state.bound("MAX_ANALYSIS_ROUNDS")
+
+
+def test_a_binding_reaches_a_method_that_runs_under_an_assignment(registry, fake_provider):
+    """The r30 adapter is MODEL_ASSISTED, so the only path it ever takes is the
+    assignment one. A seam that reached free runs alone would be a seam the
+    method that needs it never sees."""
+    reg = registry(EID)
+    method = spy_paid()
+    methods = registry_of(method)
+    dec = decision(reg)
+    owner(reg)
+    objective(reg)
+    fact(reg, decision_id=dec.id)
+    issue(reg, dec.id, SHAPE_PAID, text="why the delay happens")
+    provider = fake_provider(oracle=oracle())
+    partner, state, _, _ = approved_engagement(reg, methods, provider)
+    commission, given = bindings()
+
+    run = partner.run_analysis(state, context_settings=given)
+
+    assert run.assignments, "a RESEARCH selection runs under an Assignment"
+    assert method.seen, "the specialist ran the method"
+    settings = method.seen[0]
+    assert settings[COMMISSION_KEY] is commission
+    assert settings[OWNER_EMAIL_KEY] == given[OWNER_EMAIL_KEY]
+    assert set(settings) >= set(T.BOUNDS), "the assignment's context still carries every bound"
+
+
+def test_a_binding_cannot_move_an_operators_ceiling(registry, fake_provider):
+    """A bound comes from Settings so an operator can move it and see it. A
+    per-call binding that could overwrite one would make the ceiling whatever
+    the last caller said, which is why a colliding key is dropped."""
+    reg = registry(EID)
+    method = spy_free()
+    methods = registry_of(method)
+    dec = decision(reg)
+    objective(reg)
+    fact(reg, decision_id=dec.id)
+    issue(reg, dec.id, SHAPE_FREE)
+    partner = partner_for(methods, fake_provider(oracle=oracle()))
+    state = state_for(reg, Phase.DISCOVERY)
+    operator_value = state.bound("MAX_SPECIALISTS_PER_ROUND")
+
+    partner.turn(state, "orders are late",
+                 context_settings={"MAX_SPECIALISTS_PER_ROUND": operator_value + 99,
+                                   COMMISSION_KEY: "kept"})
+
+    assert method.seen
+    settings = method.seen[0]
+    assert settings["MAX_SPECIALISTS_PER_ROUND"] == operator_value
+    assert settings[COMMISSION_KEY] == "kept", "only the colliding key is dropped"
+
+
+def test_settings_bounds_carries_bounds_and_nothing_else(registry):
+    """state.settings_bounds() is the operator's side of the mapping: derived
+    from the frozen name table, so a binding can never be mistaken for a
+    ceiling. The merge that adds bindings lives in the loop, per call."""
+    reg = registry(EID)
+    state = state_for(reg)
+
+    assert set(state.settings_bounds()) == set(T.BOUNDS)
+    assert COMMISSION_KEY not in state.settings_bounds()
+    # No caller and no bindings: the mapping a method reads is exactly the
+    # bounds, so nothing about the seam changes an engagement that has none.
+    assert L._method_settings(state) == dict(state.settings_bounds())
+    assert L._method_settings(state, None) == dict(state.settings_bounds())
+
+
+def test_methods_read_the_same_mapping_whichever_path_they_take(registry, fake_provider):
+    """Free run and assignment run are two doors into one library. If they
+    handed different mappings, a method's behaviour would depend on how it
+    happened to be selected rather than on what it was told."""
+    reg = registry(EID)
+    free, paid = spy_free("det"), spy_paid("research")
+    methods = registry_of(free, paid)
+    dec = decision(reg)
+    owner(reg)
+    objective(reg)
+    fact(reg, decision_id=dec.id)
+    issue(reg, dec.id, SHAPE_FREE, text="what the current state is")
+    issue(reg, dec.id, SHAPE_PAID, text="why the delay happens")
+    provider = fake_provider(oracle=oracle())
+    partner, state, _, _ = approved_engagement(reg, methods, provider)
+    _, given = bindings()
+
+    partner.run_analysis(state, context_settings=given)
+
+    assert free.seen and paid.seen, "both doors were used"
+    for key in (COMMISSION_KEY, BUSINESS_NAME_KEY, OWNER_EMAIL_KEY):
+        assert free.seen[0][key] == paid.seen[0][key]

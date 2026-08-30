@@ -25,6 +25,15 @@ the order the design states and to enforce the four laws that are its own:
   * The live summary is recomputed from registry queries on every read and
     never stored. A cached summary is prose that drifts from the rows, which is
     exactly the class of defect this engine exists to make impossible.
+  * A MethodContext carries every bound, and on top of them whatever the caller
+    of this round bound for it: the r30 commissioning callable and the account
+    the run is filed under are the first of these (design 13.2). They are not
+    bounds and not registry facts - a callable holding a database session
+    belongs to the thread that opened the session, not to the engagement - so
+    they arrive per call and are merged OVER `state.settings_bounds()` here.
+    `settings_bounds()` stays exactly the BOUNDS names, so a binding can never
+    be mistaken for a ceiling an operator set, and a binding that shadows a
+    BOUNDS name is dropped rather than obeyed.
 
 `Partner` holds no engagement state: the state is the `EngagementState` handed
 to each call, and the registry inside it. Two engagements can share one Partner
@@ -57,7 +66,7 @@ from app.engine.specialists.runner import run_free
 from app.engine.synthesis.conflicts import detect_conflicts, reevaluate_materiality
 from app.engine.synthesis.regulated import screen_candidates
 from app.engine.types import (
-    FREE_EXECUTION, Actor, Add, AnalysisPayload, AnalysisState, Confidence, Entity, EntityDelta,
+    BOUNDS, FREE_EXECUTION, Actor, Add, AnalysisPayload, AnalysisState, Confidence, Entity, EntityDelta,
     FillStrategy, Finding, Kind, Phase, Provenance, RegistryError, RelationToCentralDecision,
     Relevance, Status, make_entity,
 )
@@ -129,6 +138,32 @@ def _material_ask_ids(view) -> set[str]:
             if q.payload.strategy in ASKABLE_STRATEGIES}
 
 
+def _method_settings(state: EngagementState,
+                     extra: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """What one MethodContext is given: every BOUNDS name with this state's
+    value, then the caller's bindings on top.
+
+    The bindings are the seam a method cannot open for itself - the r30
+    commissioning callable bound to this round's database session, the name the
+    engagement is filed under, the account the run is billed to (design 13.2).
+    A method is a pure function of its context and never opens a session of its
+    own, so anything it cannot compute from the registry has to be handed to
+    it, and the mapping it already reads is where it is handed.
+
+    A binding whose key is a BOUNDS name is dropped. A bound comes from
+    Settings so an operator can move a ceiling without a code change; if a
+    per-call argument could overwrite MAX_SPECIALISTS_PER_ROUND the ceiling
+    would be whatever the last caller happened to say, and nothing an operator
+    reads would show it.
+    """
+    merged: dict[str, Any] = dict(state.settings_bounds())
+    for key, value in (extra or {}).items():
+        if key in BOUNDS:
+            continue
+        merged[key] = value
+    return merged
+
+
 class Partner:
     """The one agent the client sees (spec section 2)."""
 
@@ -147,11 +182,18 @@ class Partner:
     # -----------------------------------------------------------------------
 
     def turn(self, state: EngagementState, message: str,
-             attachments: Sequence[tuple[str, bytes]] = ()) -> PartnerReply:
+             attachments: Sequence[tuple[str, bytes]] = (), *,
+             context_settings: Mapping[str, Any] | None = None) -> PartnerReply:
         """Design 6.2, step by step. Every step that can decline records why in
-        `refusals`; a step that declined never becomes a default."""
+        `refusals`; a step that declined never becomes a default.
+
+        `context_settings` are this caller's bindings for the methods that run
+        in this turn (`_method_settings`). They are merged over the bounds and
+        never kept on the Partner, which serves more than one engagement.
+        """
         registry = state.registry
         calc = self._calculator(state)
+        settings = _method_settings(state, context_settings)
         state.turn_n += 1
         refusals: list[str] = []
         touched: list[Entity] = []
@@ -179,7 +221,7 @@ class Partner:
             refusals.append(f"{TurnStep.RECONCILE}: {exc}")
 
         # 3. free methods may run during discovery (S6); paid ones may not
-        ran = self._run_free_methods(state, touched, refusals)
+        ran = self._run_free_methods(state, touched, refusals, settings=settings)
 
         # 4. hypothesis
         try:
@@ -263,12 +305,20 @@ class Partner:
     # 3. Analysis
     # -----------------------------------------------------------------------
 
-    def run_analysis(self, state: EngagementState) -> AnalysisRun:
+    def run_analysis(self, state: EngagementState, *,
+                     context_settings: Mapping[str, Any] | None = None) -> AnalysisRun:
         """Design 6.7. Bounded rounds; free methods run directly, paid and tied
         selections run as assignments; a new material question pauses; a moved
-        diagnosis amends the charter."""
+        diagnosis amends the charter.
+
+        `context_settings` carries this round's bindings into every method that
+        runs, free or under an assignment: the caller of this method is the
+        thread that owns the database session those bindings close over, which
+        is why they are an argument here and not a field of the state.
+        """
         registry = state.registry
         calc = self._calculator(state)
+        settings = _method_settings(state, context_settings)
 
         # The mandate is checked before the phase moves, so "no approved
         # charter" is the reason the caller hears whatever phase it is in.
@@ -301,13 +351,13 @@ class Partner:
                     # becomes an assignment when its producer is selectable.
                     continue
                 if spec.execution in FREE_EXECUTION and not selection.tied:
-                    if self._run_free(state, selection, spec, refusals):
+                    if self._run_free(state, selection, spec, refusals, settings=settings):
                         ran.append((selection.method_id, selection.issue_id))
                         worked = True
                 else:
                     if spawned >= max_specialists:
                         continue                          # the round's ceiling, not a refusal
-                    outcome = self._assign(state, selection, refusals)
+                    outcome = self._assign(state, selection, refusals, settings=settings)
                     if outcome is None:
                         continue
                     assignments.append(outcome.assignment_id)
@@ -350,7 +400,8 @@ class Partner:
     # -----------------------------------------------------------------------
 
     def _run_free_methods(self, state: EngagementState, touched: list[Entity],
-                          refusals: list[str]) -> tuple[tuple[str, str], ...]:
+                          refusals: list[str], *,
+                          settings: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
         """S6: during discovery, a method that costs nothing and calls no model
         may run on what the registry already holds, so its outputs feed
         uncertainty and question value this turn. A RESEARCH or MODEL_ASSISTED
@@ -366,13 +417,13 @@ class Partner:
             if selection.inputs.missing or attempted(registry, selection.method_id, selection.issue_id):
                 continue
             before = len(registry.rows())
-            if self._run_free(state, selection, spec, refusals):
+            if self._run_free(state, selection, spec, refusals, settings=settings):
                 ran.append((selection.method_id, selection.issue_id))
                 touched.extend(registry.rows()[before:])
         return tuple(ran)
 
     def _run_free(self, state: EngagementState, selection: Selection, spec,
-                  refusals: list[str]) -> bool:
+                  refusals: list[str], *, settings: Mapping[str, Any]) -> bool:
         """Direct execution through the one door that refuses a paid or tied
         selection (`run_free`). Whatever the method produced is written as one
         batch: a half-written analysis would leave conclusions with no inputs."""
@@ -380,7 +431,7 @@ class Partner:
         actor_ref = f"method:{spec.id}@{spec.version}"
         ctx = MethodContext(registry=registry, provider=self._provider,
                             calc=self._calculator(state), actor=Actor.METHOD, actor_ref=actor_ref,
-                            issue_ids=(selection.issue_id,), settings=state.settings_bounds())
+                            issue_ids=(selection.issue_id,), settings=settings)
         try:
             result = run_free(selection, ctx, methods=self._methods)
         except Exception as exc:
@@ -410,7 +461,7 @@ class Partner:
         return True
 
     def _assign(self, state: EngagementState, selection: Selection,
-                refusals: list[str]) -> RunOutcome | None:
+                refusals: list[str], *, settings: Mapping[str, Any]) -> RunOutcome | None:
         """The mechanical specialist trigger (MF1.2): a RESEARCH or
         MODEL_ASSISTED selection, or a tie at equal rank, becomes an Assignment
         with a frozen evidence window and a budget, and runs under S1-S6."""
@@ -420,8 +471,12 @@ class Partner:
             return None
         assignment = Assignment.from_selection(issue, selection, registry, methods=self._methods,
                                                settings_bounds=state.settings_bounds())
+        # The budget above is built from the bounds alone; what the specialist's
+        # own MethodContext reads is the merged mapping, so a method reached
+        # through an assignment - every RESEARCH and MODEL_ASSISTED one, the r30
+        # adapter included - finds the same seam a free run would have found.
         outcome = run_assignment(assignment, registry, self._provider, self._calculator(state),
-                                 methods=self._methods, settings_bounds=state.settings_bounds())
+                                 methods=self._methods, settings_bounds=settings)
         if outcome.outcome != "done":
             refusals.append(f"{selection.method_id}: assignment {outcome.assignment_id} "
                             f"{outcome.outcome}{': ' + outcome.rejection_rule if outcome.rejection_rule else ''}")
