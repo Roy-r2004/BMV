@@ -64,6 +64,7 @@ from app.engine.types import (
 )
 
 __all__ = [
+    "ASKABLE_STRATEGIES",
     "GAP_LABEL_PREFIX",
     "PHRASE_PURPOSE",
     "QuestionBatch",

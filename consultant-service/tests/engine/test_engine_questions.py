@@ -9,6 +9,7 @@ Pinned mutations (work breakdown C8):
 - drop path_impact                   -> test_deep_leaf_scores_under_a_top_level_node
 - let model-added questions through  -> test_model_added_question_is_dropped
 - drop the one-per-leaf rule         -> test_at_most_one_question_per_issue_leaf
+- drop ASKABLE_STRATEGIES from __all__ -> test_askable_strategies_is_exported
 """
 from __future__ import annotations
 
@@ -557,3 +558,48 @@ def test_scrambling_every_text_field_leaves_the_batch_identical(registry):
                 for s in Q.scored_gaps(reg, methods=one_method())]
 
     assert scene("alpha") == scene("omega")
+
+
+# ===========================================================================
+# 8. The declared surface: __all__ is what the siblings may import
+# ===========================================================================
+
+def test_askable_strategies_is_exported():
+    """loop.py imports ASKABLE_STRATEGIES to keep an already-open question off
+    the next agenda. __all__ is this module's declared surface, so a name a
+    sibling imports belongs in it; leaving it out makes the export list lie
+    about what the module offers."""
+    assert "ASKABLE_STRATEGIES" in Q.__all__
+
+
+def test_every_exported_name_resolves():
+    """A name in __all__ that the module does not define breaks
+    `from ... import *` at import time. The list is checked, never trusted."""
+    missing = [name for name in Q.__all__ if not hasattr(Q, name)]
+    assert missing == []
+
+
+def test_every_name_a_sibling_imports_is_exported():
+    """The law behind the two above, read off the code rather than a list kept
+    by hand: whatever another engine module imports by name from questions.py
+    must appear in __all__, or the next reader trims a symbol that is in use.
+    Sibling files are read, never written - this test owns neither."""
+    import ast
+    from pathlib import Path
+
+    engine = Path(__file__).resolve().parents[2] / "app" / "engine"
+    imported: dict[str, set[str]] = {}
+    for path in sorted(engine.rglob("*.py")):
+        if path.name == "questions.py":
+            continue                      # the module does not import itself
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.ImportFrom)
+                    and node.module == "app.engine.partner.questions"):
+                for alias in node.names:
+                    if alias.name != "*" and not alias.name.startswith("_"):
+                        imported.setdefault(alias.name, set()).add(path.name)
+
+    undeclared = {name: sorted(where) for name, where in imported.items()
+                  if name not in Q.__all__}
+    assert undeclared == {}
