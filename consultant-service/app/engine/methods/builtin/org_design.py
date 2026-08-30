@@ -175,9 +175,11 @@ def cited(out: ProposedOutput, permitted: frozenset[str]) -> tuple[str, ...]:
     return tuple(i for i in out.derived_from if i in permitted)
 
 
-# Registry-style ids ("OWN-3") carry digits that are names, not figures; they
-# are cut out before the figure scan so a reporting line never reads as an
-# invented number.
+# Registry-style ids ("OWN-3") carry digits that are names, not figures; their
+# spans are skipped by the figure scan so a reporting line never reads as an
+# invented number. The spans are skipped rather than substituted away: no
+# module outside corrections.py rewrites text, so this file reads and never
+# re-renders (design 14, "broad regex and prose replacement are prohibited").
 _ID_TOKEN_RE = re.compile(r"\b[A-Z]{2,4}-\d+\b")
 _FIGURE_RE = re.compile(r"\d+(?:[.,]\d+)*")
 
@@ -190,8 +192,12 @@ def coined_figures(texts: Iterable[str], cited_texts: Iterable[str]) -> tuple[st
     haystack = " ".join(t or "" for t in cited_texts).replace(",", "")
     out: list[str] = []
     for t in texts:
-        clean = _ID_TOKEN_RE.sub(" ", t or "")
-        for tok in _FIGURE_RE.findall(clean):
+        t = t or ""
+        id_spans = [m.span() for m in _ID_TOKEN_RE.finditer(t)]
+        for m in _FIGURE_RE.finditer(t):
+            if any(start <= m.start() < end for start, end in id_spans):
+                continue
+            tok = m.group(0)
             if tok.replace(",", "") not in haystack:
                 out.append(tok)
     return tuple(dict.fromkeys(out))

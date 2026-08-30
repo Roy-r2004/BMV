@@ -95,10 +95,17 @@ def known_formulas(view: RegistryView) -> set[str]:
 
 
 def calculated_fact(ctx: MethodContext, method_id: str, cr: CalcResult, *,
-                    measure_id: str | None = None, statement: str | None = None) -> Add:
+                    measure_id: str | None = None, statement: str | None = None,
+                    status: Status = Status.CONFIRMED) -> Add:
     """A CalcResult as the registry records arithmetic (Q1/Q3): the formula
     over entity ids, the input ids, the exact quantity, written by the
-    CALCULATOR and CONFIRMED because recompute() reproduces it exactly."""
+    CALCULATOR and CONFIRMED because recompute() reproduces it exactly.
+
+    `status` is the one thing a caller may lower. A method that runs under a
+    specialist assignment proposes rather than confirms (design 8, admission
+    S2: every Add a specialist makes is PROPOSED), and the arithmetic is
+    confirmed after admission by the actor that owns it - the same figure,
+    the same formula, one authority later."""
     text = statement or f"{cr.formula} = {format_quantity(cr.quantity)}"
     payload = FactPayload(statement=text, basis=FactBasis.CALCULATED, measure_id=measure_id,
                           quantity=cr.quantity, formula=cr.formula, inputs=cr.inputs)
@@ -107,7 +114,7 @@ def calculated_fact(ctx: MethodContext, method_id: str, cr: CalcResult, *,
         provenance=Provenance(actor=Actor.CALCULATOR, actor_ref=f"calc:{method_id}", derived_from=cr.inputs),
         confidence=Confidence(1.0, "computed"),
         relevance=Relevance(decision_id(ctx.registry), 0.4),
-        relation=RelationToCentralDecision.INFORMS, status=Status.CONFIRMED)
+        relation=RelationToCentralDecision.INFORMS, status=status)
     return Add(entity)
 
 

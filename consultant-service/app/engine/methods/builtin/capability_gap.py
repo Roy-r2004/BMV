@@ -20,7 +20,12 @@ method's tests at once:
 * a Quantity reaches an output only by copying a cited input's registered
   quantity through quantity_from (EvidenceRequirement.forbid_new_quantities).
   No builder reads a number out of the free-text fields dict, so there is no
-  path from prose to a coined figure.
+  path from prose to a coined figure; coined_figures() closes the other
+  direction, refusing a figure that the proposed PROSE states and no cited
+  input contains.
+* what a method declares about its own outputs is not a model field:
+  step_deltas() stamps the method's perspective and numbers the steps, and
+  perspective_validator re-checks it on a doctored result.
 * every model candidate is written PROPOSED: the model words things, the
   registry decides things (design 1, consequence 3).
 * a model failure returns a finding and zero deltas. Absent evidence is not
@@ -28,12 +33,14 @@ method's tests at once:
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any, Iterable, Iterator, Sequence
 
 from pydantic import Field
 
 from app.engine import types as T
+from app.engine.authority import MAY_CONFIRM
 from app.engine.calc.units import format_quantity
 from app.engine.llm import ModelCall, ModelResponse, StructuredFailure, structured_call
 from app.engine.methods.contract import (
@@ -247,6 +254,134 @@ def capability_class_of(value: Any) -> T.CapabilityClass | None:
         return None
 
 
+def flag_of(value: Any) -> bool:
+    """A boolean the model stated, and nothing else. `bool("false")` is True,
+    which is how a model's word for absence becomes a claim of presence; the
+    closed list below is the only thing that sets a flag."""
+    if isinstance(value, bool):
+        return value
+    return isinstance(value, str) and value.strip().lower() in ("true", "yes", "1")
+
+
+def int_of(value: Any) -> int | None:
+    """A positive integer the model stated, or None. None is a typed hole the
+    caller refuses; it is never replaced by a position the method invented."""
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return n if n >= 1 else None
+
+
+# Registry ids ("FCT-3", "CAP-12") carry digits that are names, not figures;
+# they are cut out before the figure scan so a citation never reads as an
+# invented number.
+_ID_TOKEN_RE = re.compile(r"\b[A-Z]{2,4}-\d+\b")
+_FIGURE_RE = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def coined_figures(texts: Iterable[str], cited_texts: Iterable[str]) -> tuple[str, ...]:
+    """Figures in proposed prose that appear in no cited input.
+
+    forbid_new_quantities closes the typed door: a Quantity reaches a payload
+    only by copy or calculation. This closes the prose door beside it. A
+    hypothesis that reads "the backlog costs 250 hours a month" states a
+    figure the engagement never recorded just as surely as a Quantity field
+    would, and it renders into a page the same way (spec section 7: unknown
+    information remains unknown).
+    """
+    haystack = " ".join(t or "" for t in cited_texts).replace(",", "")
+    out: list[str] = []
+    for t in texts:
+        for tok in _FIGURE_RE.findall(_ID_TOKEN_RE.sub(" ", t or "")):
+            if tok.replace(",", "") not in haystack:
+                out.append(tok)
+    return tuple(dict.fromkeys(out))
+
+
+def evidenced_status(view: Any, requirement: EvidenceRequirement, cited: Sequence[str],
+                     actor: T.Actor, authority: T.Authority) -> T.Status:
+    """PROPOSED unless the evidence requirement is met AND `actor` is one the
+    row's owning authority lets confirm (I1).
+
+    Two independent gates, because they answer different questions. The
+    requirement asks whether what this rests on is strong enough
+    (min_authority_for_confirmed, and each input settled rather than merely
+    proposed); may_advance asks whether this producer is allowed to say so at
+    all - which is why a method summarising client facts still writes a
+    current-state FACT as PROPOSED: a method is not a record.
+
+    Absence decides downwards. An input the view cannot resolve leaves the
+    output PROPOSED rather than condemning or promoting it: unseen evidence
+    is not strong evidence, and a scoped specialist view legitimately hides
+    rows (design 8.1).
+    """
+    if not cited:
+        return T.Status.PROPOSED
+    for cid in cited:
+        src = view.get(cid)
+        if src is None or src.authority not in requirement.min_authority_for_confirmed:
+            return T.Status.PROPOSED
+        if src.status not in (T.Status.CONFIRMED, T.Status.APPROVED):
+            return T.Status.PROPOSED
+    return T.Status.CONFIRMED if actor in MAY_CONFIRM[authority] else T.Status.PROPOSED
+
+
+def step_deltas(ctx: MethodContext, spec: MethodSpec, proposal: Proposal,
+                rows: Sequence[tuple[int, ProposedOutput, T.Kind, tuple[str, ...], T.Quantity | None]],
+                perspective: T.StepPerspective, findings: list[T.Finding]) -> list[T.Add]:
+    """The PROCESS_STEP rows of one admitted proposal, in one evidenced order.
+
+    Two laws are enforced here rather than left to the model:
+
+    * the perspective is the METHOD's declared subject, never a field the
+      model fills. process_map and journey answer the same
+      HOW-on-PROCESS_STEP shape and differ only in what they look at; if the
+      model could choose, a run could file a customer journey as an internal
+      process and the customer-journey product would count steps nobody ever
+      saw from the customer's side.
+    * a step that states no place in the sequence is refused, and the
+      surviving steps are numbered 1..n in the order the model stated. An
+      unplaced step given a position would be an ordering the evidence never
+      supported; renumbering closes the gap a refusal leaves, so the drawn
+      sequence is always 1..n (sequential_steps_validator re-checks it).
+    """
+    placed: list[tuple[int, int, ProposedOutput, tuple[str, ...]]] = []
+    by_id = proposal.inputs_by_id
+    for i, o, kind, derived, _q in rows:
+        if kind is not T.Kind.PROCESS_STEP:
+            continue
+        text = o.text.strip()
+        if not text:
+            findings.append(dropped(spec.id, i, "a process step without wording says nothing"))
+            continue
+        seq = int_of(o.fields.get("sequence"))
+        if seq is None:
+            findings.append(dropped(spec.id, i, "the step states no place in the sequence", law="unplaced_step"))
+            continue
+        placed.append((seq, i, o, derived))
+    placed.sort(key=lambda row: (row[0], row[1]))
+    out: list[T.Add] = []
+    for position, (_seq, _i, o, derived) in enumerate(placed, start=1):
+        actor_id = o.fields.get("actor_id")
+        systems = o.fields.get("system_ids")
+        payload = T.ProcessStepPayload(
+            text=o.text.strip(),
+            perspective=perspective,
+            sequence=position,
+            # An actor or a system named by an id the run was never shown is
+            # not a reference, it is a guess; the step still stands without it.
+            actor_id=actor_id if isinstance(actor_id, str) and actor_id in by_id else None,
+            system_ids=tuple(s for s in (systems if isinstance(systems, (list, tuple)) else ())
+                             if isinstance(s, str) and by_id.get(s) is not None
+                             and by_id[s].kind is T.Kind.CAPABILITY),
+            pain_point=flag_of(o.fields.get("pain_point")),
+            evidence=derived)
+        out.append(T.Add(proposed_entity(ctx, proposal.issue, T.Kind.PROCESS_STEP, payload, derived,
+                                         proposal.response.call_id if proposal.response else None)))
+    return out
+
+
 # =============================================================================
 # Shared validators (factories, so every finding names its method)
 # =============================================================================
@@ -316,6 +451,22 @@ def sequential_steps_validator(spec_id: str) -> Validator:
                                      issue="a process step cites no evidence",
                                      fix="derive every step from registered facts"))
         return out
+    return _v
+
+
+def perspective_validator(spec_id: str, perspective: T.StepPerspective) -> Validator:
+    """Every step a method writes carries the perspective that method
+    declared. The work-product plan counts PROCESS_STEP rows by perspective
+    (design 10.1, customer_journeys), so a step filed under the wrong one
+    silently changes which deliverables an engagement gets - and prints an
+    internal handover as something the customer experienced."""
+    def _v(view: Any, result: MethodResult) -> list[T.Finding]:
+        return [T.Finding(law=f"M.{spec_id}.wrong_perspective", where=s.id or s.kind.value,
+                          issue=f"a step of {spec_id} carries perspective "
+                                f"{s.payload.perspective.value}, not {perspective.value}",
+                          fix="the perspective is the method's declared subject, never a model field",
+                          entity_ids=(s.id,) if s.id else ())
+                for s in added_of(result, T.Kind.PROCESS_STEP) if s.payload.perspective is not perspective]
     return _v
 
 
