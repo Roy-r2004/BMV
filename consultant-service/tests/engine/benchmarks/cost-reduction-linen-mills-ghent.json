@@ -1,0 +1,280 @@
+{
+ "id": "cost-reduction-linen-mills-ghent",
+ "title": "Vandewalle Textiel: fifteen percent out of the cost base",
+ "opening_statement": "We need to cut costs. Board wants 15% gone by next year and I've already frozen hiring. Where do I start?",
+ "client_persona": {
+  "name": "Els Vandewalle",
+  "role": "Managing Director (third-generation family owner, 42% shareholding)",
+  "company": "Vandewalle Textiel NV",
+  "sector": "Technical textiles: flax/linen and flame-retardant blended fabrics for contract upholstery, hospitality and rail interiors",
+  "country": "Belgium (Flanders, near Ghent, plant in Deinze)",
+  "size": "€48M revenue, 214 employees, one plant plus a finishing subcontractor",
+  "temperament": "Direct, slightly defensive about headcount, jumps to people costs because that is what the board keeps pointing at. Answers with numbers when she has them and says 'I'd have to check' when she does not. Does not volunteer anything about supplier contracts because she does not think of them as 'costs she controls'."
+ },
+ "dossier": [
+  {
+   "topic": "Financials",
+   "fact": "Revenue FY2025 was €48.2M, down from €51.6M in FY2024; volumes fell 4%, price mix fell the rest.",
+   "reveals_when": "Any question about revenue trend or top line",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Financials",
+   "fact": "EBITDA margin fell from 11.8% (FY2023) to 5.1% (FY2025). The board's 15% cost target is meant to restore roughly 10% EBITDA.",
+   "reveals_when": "Question about what 'margins shrinking' means or where the 15% number came from",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Financials",
+   "fact": "Total cost base excluding depreciation is €45.7M. 15% is therefore about €6.9M.",
+   "reveals_when": "Question about the size of the cost base or what 15% equals in euros",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Cost structure",
+   "fact": "Cost breakdown FY2025: raw materials and purchased finishing €26.4M (58%), personnel €12.1M (26%), energy €3.9M (9%), other overhead €3.3M (7%).",
+   "reveals_when": "Question asking for a breakdown of the cost base by category",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Cost structure",
+   "fact": "Els's own working assumption is that the savings come from personnel, because the board deck she was shown only compared headcount per €M revenue against two competitors.",
+   "reveals_when": "Question about where she or the board expects the savings to come from",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "Flax yarn and FR-blend yarn are bought under a single long-term supply agreement with Linificio Roubaix SAS (France), signed in 2019 by her late father, running to 31 December 2029.",
+   "reveals_when": "Question about the biggest suppliers, or about raw material sourcing, or who they buy yarn from",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "The Linificio Roubaix contract accounted for €19.8M of the €26.4M materials spend in FY2025, i.e. 43% of the entire cost base.",
+   "reveals_when": "Question about spend concentration or the largest single line of spend",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "The contract has a minimum annual take-or-pay volume of 1,450 tonnes of yarn. FY2025 actual consumption was 1,290 tonnes; the shortfall of 160 tonnes was invoiced at 70% of the contract price, roughly €1.1M for yarn never delivered.",
+   "reveals_when": "Question about contract terms, minimum volumes, or whether they pay for material they do not use",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "Contract price is indexed to a 2019 flax fibre reference plus a fixed 6.5% conversion uplift, with no downward re-opener. Spot flax yarn prices in H1 2026 are 14 to 18% below the indexed contract price according to the purchasing manager's own quotes from two Polish spinners.",
+   "reveals_when": "Question about pricing mechanism, or whether the contract price is competitive versus market",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "Nobody at Vandewalle has re-read the Linificio Roubaix contract since 2021. It sits with the company's external law firm in Ghent; the purchasing manager works from a two-page summary.",
+   "reveals_when": "Question about when the contract was last reviewed or who owns it",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "The contract has a change-of-control clause and a mutual renegotiation clause triggered if the reference index moves more than 20% in either direction over 24 months. Purchasing has never checked whether that trigger has been hit.",
+   "reveals_when": "Question about exit, renegotiation or termination provisions",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "Linificio Roubaix is also the only spinner currently certified for the specific FR-blend yarn used in the rail interior fabrics (EN 45545-2 certification held jointly for the fabric).",
+   "reveals_when": "Question about whether alternative suppliers exist or about certification/qualification of materials",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Supplier contract",
+   "fact": "Rail interior fabrics are 22% of revenue but carry the highest gross margin (38% versus 24% blended).",
+   "reveals_when": "Question about margin by product line or which products matter most",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Personnel",
+   "fact": "Headcount is 214: 158 in production (three shifts, weaving and inspection), 21 in finishing/quality, 14 in sales and customer service, 21 in admin, finance, IT, purchasing and management.",
+   "reveals_when": "Question about headcount and how it is split",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Personnel",
+   "fact": "Production workers are covered by the Belgian textile sector collective agreement (Paritair Comité 120). Redundancies above a threshold trigger the collective dismissal procedure (Renault law) with union information and consultation.",
+   "reveals_when": "Question about what it would take to reduce headcount, or about unions and works council",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Personnel",
+   "fact": "Average fully loaded cost per production employee is €54,000 per year. Cutting 15% of the cost base through headcount alone would mean roughly 125 people, i.e. more than half the workforce.",
+   "reveals_when": "Question that does the arithmetic on personnel savings or asks how many people 15% would be",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Personnel",
+   "fact": "The hiring freeze has been in place since March 2026; 9 vacancies unfilled, 4 of them in weaving where overtime is now running at 11% of hours.",
+   "reveals_when": "Question about the effect of the hiring freeze or overtime",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Personnel",
+   "fact": "Temporary economic unemployment (tijdelijke werkloosheid) was used for 6 weeks in Q4 2025 for the second and third shift.",
+   "reveals_when": "Question about how they have handled low volumes so far",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Operations",
+   "fact": "The plant runs 64 Dornier rapier looms; average loom utilisation in FY2025 was 71% against a planning norm of 85%.",
+   "reveals_when": "Question about capacity, utilisation or the plant",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Operations",
+   "fact": "Finishing (dyeing, FR treatment, coating) is subcontracted to Veredeling Waregem BV, €4.1M in FY2025, priced per running metre with a 3-year agreement ending June 2027.",
+   "reveals_when": "Question about what is outsourced or about the finishing step",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Operations",
+   "fact": "Second-quality and waste rate was 6.8% of woven metres in FY2025, up from 4.9% in FY2023; the quality manager attributes it to yarn lot variability from the current supplier and to overtime fatigue.",
+   "reveals_when": "Question about quality, waste, rework or yield",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Energy",
+   "fact": "Energy is €3.9M: gas for the humidification and heating of the weaving hall plus electricity for the looms. Electricity contract with Luminus is fixed until March 2027 at a rate set in late 2022 at the peak of the crisis.",
+   "reveals_when": "Question about energy costs or energy contracts",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Energy",
+   "fact": "A 1.2 MWp rooftop solar project was costed in 2024 at €890k with a 5.5-year payback and shelved when the board froze capex.",
+   "reveals_when": "Question about capex options or previously shelved projects",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Systems",
+   "fact": "The ERP is an on-premise Infor M3 installation from 2014. Purchasing data is in M3 but contract terms are not; contract compliance (minimum volumes, index resets) is tracked in an Excel file called 'Roubaix_contract_tracker_v7.xlsx' maintained by the purchasing manager.",
+   "reveals_when": "Question about systems, data, or how they monitor spend",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Systems",
+   "fact": "Spend cube analysis has never been done; the finance team reports cost by GL account, not by supplier.",
+   "reveals_when": "Question about whether they have analysed spend by supplier",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Customers",
+   "fact": "Top 5 customers are 47% of revenue: two hotel-chain procurement groups, one Belgian rail rolling-stock builder (Bombardier-legacy site in Bruges now Alstom), one German office furniture maker, one Dutch contract distributor.",
+   "reveals_when": "Question about customer concentration",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Customers",
+   "fact": "The Alstom rail contract requires 12 months' notice for any change of yarn source because of re-certification.",
+   "reveals_when": "Question about customer constraints on material changes or qualification lead times",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Governance",
+   "fact": "The board is five people: Els, her brother Pieter (28% shareholding, not operational), two independent directors appointed in 2023 by the bank as a loan condition, and the family's long-time accountant.",
+   "reveals_when": "Question about who sits on the board or who is pushing for the target",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Governance",
+   "fact": "The 15% target originated from KBC, the house bank, as an informal condition for renewing the €6M working capital facility in September 2026. The covenant is net debt to EBITDA below 3.5x; it was 3.9x at last test.",
+   "reveals_when": "Question about why 15% specifically, or about bank covenants and financing",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Governance",
+   "fact": "Pieter has privately floated selling the company; a Portuguese textile group approached informally in early 2026.",
+   "reveals_when": "Question about shareholder alignment or whether a sale is on the table",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Timing",
+   "fact": "The board expects a plan by the 15 July 2026 board meeting and the savings run-rate visible in H1 2027 accounts.",
+   "reveals_when": "Question about deadline or timeline",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Timing",
+   "fact": "The Linificio Roubaix contract's annual volume nomination for calendar 2027 must be submitted by 30 September 2026; once nominated, the minimum is locked.",
+   "reveals_when": "Question about upcoming contract deadlines or decisions in the next months",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Previous attempts",
+   "fact": "In 2024 a local consultancy (Delta Advies) ran a 'lean office' project that cut €310k of overhead; the board considers it a disappointment.",
+   "reveals_when": "Question about what they have tried before",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Purchasing",
+   "fact": "The purchasing manager, Dirk Callewaert, has been in post 23 years, personally negotiated the 2019 contract alongside her father, and has a close relationship with Linificio Roubaix's commercial director.",
+   "reveals_when": "Question about who runs purchasing or the relationship with the supplier",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Purchasing",
+   "fact": "Dirk obtained the two Polish spinner quotes on his own initiative in April 2026 but has not shown them to Els or the board.",
+   "reveals_when": "Question about whether alternative quotes exist or what purchasing has investigated",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Working capital",
+   "fact": "Yarn stock is 4.1 months of consumption, roughly €6.5M, partly because take-or-pay volumes arrive whether needed or not.",
+   "reveals_when": "Question about inventory or working capital",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Tax",
+   "fact": "The company benefits from the Flemish investment deduction and a partial withholding tax exemption for shift work (ploegenarbeid), worth about €410k per year, which depends on maintaining the three-shift pattern.",
+   "reveals_when": "Question about subsidies, tax incentives, or hidden consequences of changing shift patterns",
+   "changes_recommendation": true
+  }
+ ],
+ "documents": [
+  {
+   "name": "Board pack extract, June 2026: Cost reduction mandate",
+   "kind": "board_minutes_extract",
+   "content": "VANDEWALLE TEXTIEL NV - Extract from board minutes, 12 June 2026\n\nItem 4. Cost base and financing.\n\nThe Chair (E. Vandewalle) presented the FY2025 accounts and the Q1 2026 management figures. Revenue €48.2M (FY2024: €51.6M). EBITDA €2.5M, 5.1% of revenue. Net debt/EBITDA 3.9x against a covenant of 3.5x.\n\nMr. De Smet (independent director) reported on his discussion with KBC. The bank will consider renewing the €6M working capital facility in September provided the board adopts a credible plan to reduce the cost base by 15% with the run-rate visible in H1 2027.\n\nMr. De Smet tabled a benchmarking slide comparing the company's revenue per FTE (€225k) with two peer companies (€287k and €301k). He noted that the gap, if closed, would represent roughly €10M of cost. The Chair questioned the comparability of the peers (both fully outsource weaving). No conclusion was reached.\n\nMr. P. Vandewalle asked whether the board should also consider strategic alternatives. The Chair asked that this be minuted as a question, not a proposal.\n\nRESOLVED: management to present a cost reduction plan at the 15 July 2026 meeting targeting savings of €6.9M annualised. A hiring freeze remains in force. Capital expenditure remains suspended except safety-critical items.\n\nItem 5. Supplier matters. The Purchasing Manager's written report was noted without discussion. Raw material costs were described as 'in line with contract'.\n\nItem 6. Any other business. None.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "FY2025 cost breakdown by GL group (finance team spreadsheet)",
+   "kind": "financial_schedule",
+   "content": "VANDEWALLE TEXTIEL NV - Cost base FY2025 (excl. depreciation), prepared by Finance, 3 June 2026, from Infor M3 GL export\n\nGL group / Amount € / % of total\n\n600 Raw materials (yarn, flax, FR blends) / 22,300,000 / 48.8%\n610 Purchased finishing (Veredeling Waregem) / 4,100,000 / 9.0%\n620 Packaging and consumables / 640,000 / 1.4%\n700 Salaries and wages, production / 8,530,000 / 18.7%\n701 Salaries, indirect and staff / 3,570,000 / 7.8%\n710 Temporary labour / 380,000 / 0.8%\n720 Social security and benefits (net of shift-work exemption) / included above\n800 Electricity / 2,450,000 / 5.4%\n801 Gas / 1,450,000 / 3.2%\n810 Maintenance and spares / 890,000 / 1.9%\n820 Logistics outbound / 720,000 / 1.6%\n830 IT and licences / 310,000 / 0.7%\n840 Professional fees (legal, audit, consulting) / 260,000 / 0.6%\n850 Insurance / 210,000 / 0.5%\n860 Other overhead / 290,000 / 0.6%\n\nTOTAL / 46,100,000 / 100%\n\nNote from Finance: GL 600 includes the take-or-pay shortfall invoice from Linificio Roubaix (booked as material cost, not as an exceptional item). Supplier-level breakdown is not available from the GL; see Purchasing for supplier detail.\n\nNote 2: Personnel figures exclude €410k of shift-work withholding tax relief, which is netted in GL 720.",
+   "contains_contradiction": "Contradicts the dossier total cost base (€45.7M) and the raw materials figure: this schedule totals €46.1M and shows raw materials at €22.3M rather than the €26.4M 'materials and purchased finishing' the client quotes (the client's figure lumps finishing into materials, and the schedules were prepared from different cut-offs). A careful engine should ask which number the 15% is measured against."
+  },
+  {
+   "name": "Purchasing summary of the Linificio Roubaix supply agreement (internal two-pager)",
+   "kind": "contract_summary",
+   "content": "INTERNAL - Purchasing Department - Summary of Supply Agreement with Linificio Roubaix SAS\nPrepared by D. Callewaert, last updated February 2021\n\nParties: Vandewalle Textiel NV (Buyer), Linificio Roubaix SAS (Supplier).\nSigned: 4 November 2019. Term: 1 January 2020 to 31 December 2029.\n\nScope: All flax (linen) yarn Nm 10 to Nm 40, and FR-blend yarn (flax/modacrylic/aramid) per Supplier's specification LR-FR-7 used in rail and hospitality qualities.\n\nVolumes: Minimum annual quantity 1,450 tonnes across all yarn types. Annual nomination for the following calendar year due by 30 September. Shortfall against nominated minimum invoiced at 70% of applicable price.\n\nPricing: Base price per kg set at signature, adjusted each 1 January by the movement of the CELC European flax fibre reference (12-month average) plus a fixed conversion uplift of 6.5%. Price adjustments apply in both directions to the fibre component. Conversion uplift is fixed for the term.\n\nExclusivity: Buyer agrees to source not less than 85% of its annual flax and FR-blend yarn requirement from Supplier.\n\nQuality: Supplier holds EN 45545-2 test reports for fabrics woven from LR-FR-7 on Buyer's looms; reports are jointly owned and may not be used with third-party yarn.\n\nTermination: Either party for material breach with 90 days' cure. Change of control of Buyer gives Supplier a right to terminate on 6 months' notice.\n\nRenegotiation: Clause 14 - either party may call for a price review if the reference index moves more than 20% over any 24-month period. (Note DC: not relevant, index stable.)\n\nPayment: 60 days end of month. Delivery: DAP Deinze, monthly call-offs.\n\nContacts: Supplier commercial director M. Lefebvre; Buyer D. Callewaert.\n\nFull signed contract held at Advocatenkantoor Ghent, file VT/2019/112.",
+   "contains_contradiction": "Quietly contradicts the dossier on the renegotiation clause: the summary describes the 20% trigger as 'not relevant, index stable' (as of 2021), whereas the dossier says nobody has checked whether it has since been hit, and the 2026 spot quotes suggest the index component has moved materially. The engine should notice the note is five years old."
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The stated problem ('cut costs', assumed to mean headcount) hides where the money is: a single ten-year yarn supply contract is about 43% of the entire cost base and has not been read by anyone in the company since 2021.",
+  "The 15% target through people alone is arithmetically absurd (roughly 125 of 214 employees) and legally slow (Belgian collective dismissal procedure), while also risking a €410k shift-work tax relief tied to the three-shift pattern.",
+  "The contract contains take-or-pay leakage (about €1.1M paid for undelivered yarn), an above-market indexed price (14 to 18% gap), and an unexamined renegotiation trigger, together worth several million euros without touching a single job, but it is tangled with a certification lock-in on the most profitable product line and a 12-month customer re-qualification lead time.",
+  "There is a hard decision date the client did not mention: the 2027 volume nomination is due 30 September 2026, before the bank facility renewal, so the sequencing of contract actions versus bank plan matters more than the July board deck.",
+  "The 15% number is a bank condition dressed as a board target, and one shareholder is quietly considering a sale; the change-of-control clause in the supplier contract links these two facts, so the engine should ask what the owner actually wants before optimising the cost base.",
+  "The three cost figures in play (client's €45.7M, finance's €46.1M, the board's €6.9M) do not reconcile, and supplier-level spend has never been analysed because the ERP reports by GL account only."
+ ],
+ "regulated_matters": [
+  "Belgian employment law: collective dismissal procedure (Renault law), works council and union consultation under Paritair Comité 120, temporary economic unemployment rules, and any change to shift patterns.",
+  "Belgian tax: the shift-work withholding tax exemption (ploegenarbeid) and Flemish investment deduction, and how restructuring or shift changes affect eligibility.",
+  "French and Belgian contract law: interpretation and enforceability of the take-or-pay, exclusivity, index re-opener and change-of-control clauses in the Linificio Roubaix supply agreement, and any termination or renegotiation strategy.",
+  "EU competition law considerations around an 85% exclusivity obligation in a long-term supply agreement.",
+  "Product safety certification: EN 45545-2 fire performance for rail interiors and the ownership and transferability of joint test reports when changing yarn source.",
+  "Banking and corporate finance: covenant negotiation and facility renewal with KBC, and directors' duties if the company approaches covenant breach.",
+  "M&A and shareholder matters: any sale process, shareholder agreement rights between Els and Pieter, and confidentiality obligations toward the Portuguese approach."
+ ],
+ "realistic_central_decision_candidates": [
+  "Whether to build the 15% plan around renegotiating or partially exiting the Linificio Roubaix supply agreement before the 30 September 2026 nomination, rather than around headcount, and how to protect the certified rail product line while doing so.",
+  "How to sequence three linked deadlines (the July board plan, the September contract nomination, the September bank facility renewal) so that the largest lever is exercised before the minimum volume is locked for another year.",
+  "Whether the real question is the cost base at all, or the company's ownership future, given the bank-driven target, a shareholder contemplating a sale, and a supplier change-of-control clause that would surface in any transaction."
+ ]
+}

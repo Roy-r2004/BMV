@@ -1,0 +1,301 @@
+{
+ "id": "governance-risk-teluk-frost",
+ "title": "Teluk Frost Logistics: after the invoice that nearly went out",
+ "opening_statement": "We had a scare a couple of weeks ago with a payment that almost went to the wrong people. My father wants me to make sure this never happens again. Can you help us tighten things up?",
+ "client_persona": {
+  "name": "Lim Wei Jian",
+  "role": "Deputy Managing Director (second generation, eldest son)",
+  "company": "Teluk Frost Logistics Sdn Bhd",
+  "sector": "Temperature-controlled warehousing and cold-chain road distribution (seafood, poultry, pharma)",
+  "country": "Malaysia (Port Klang, Selangor; depots in Penang and Johor Bahru)",
+  "size": "About 320 staff, MYR 214 million revenue FY2025, 3 cold stores, 96 reefer trucks",
+  "temperament": "Brisk and practical, wants a checklist. Answers the question asked and not more. Becomes noticeably vague or protective when relatives are mentioned; will reframe anything embarrassing as 'a process gap'. Gives precise numbers when pressed on operations, rounds or hedges on money and family matters."
+ },
+ "dossier": [
+  {
+   "topic": "timing",
+   "fact": "The conversation is taking place on 28 August 2026, ten days after the diversion was discovered on 18 August 2026.",
+   "reveals_when": "Any question about when this happened or how long ago it was.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "incident",
+   "fact": "On 14 August 2026 the accounts team received an email, apparently from long-standing reefer maintenance vendor Kejuruteraan Sejuk Maju, asking to change their bank account for future payments. A batch payment of MYR 184,000 was released to the new account on 17 August.",
+   "reveals_when": "Any question about what actually happened, the timeline, or the amount involved.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "incident",
+   "fact": "On 18 August the company's bank (CIMB) flagged the beneficiary as newly opened and froze part of the transfer. MYR 112,000 was recovered; MYR 72,000 was not. Wei Jian and his father describe this internally as 'a near miss' because most of it came back.",
+   "reveals_when": "Asking whether any money was actually lost, or the difference between what was sent and what came back.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "incident",
+   "fact": "The bank account change was approved in the ERP (SAP Business One) by Lim Wei Shen, Wei Jian's cousin, who is Finance Manager. He approved it from his own login without a call-back to the vendor.",
+   "reveals_when": "Asking who approved the change, and what the approver's relationship is to the family.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "incident",
+   "fact": "The vendor master change and the payment release were both done under Wei Shen's credentials on the same day. The company's written policy requires two different people for these steps.",
+   "reveals_when": "Asking whether the written approval policy was followed in practice, or who did each step.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "incident",
+   "fact": "The email came from a lookalike domain (kejuruteraansejukmaju-my.com instead of .com.my). No one at Teluk Frost has checked whether the vendor's own mailbox was compromised or whether it was purely an external impersonation.",
+   "reveals_when": "Asking about the origin of the email or whether the vendor has been contacted about it.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "incident",
+   "fact": "A police report was not filed. The father decided against it to avoid 'noise' with the bank and customers. No insurer notification was made either.",
+   "reveals_when": "Asking about reporting, police, insurance, or who has been told.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "incident",
+   "fact": "The company holds a commercial crime / fidelity policy with Allianz Malaysia (limit MYR 500,000, notification within 30 days of discovery). Discovery was 18 August 2026, so the 30-day window closes on 17 September 2026. The policy also requires a police report as a condition of any claim.",
+   "reveals_when": "Asking specifically what insurance the company has and its conditions.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "detection",
+   "fact": "The person who first noticed something was wrong was Lim Mei Ling, Wei Jian's younger sister, who runs the Penang depot and is not on the board. She recognised that Sejuk Maju had never asked to change accounts in 11 years and phoned the bank herself.",
+   "reveals_when": "Asking who spotted it, or how it was caught.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "detection",
+   "fact": "Mei Ling had raised, in writing in February 2026, that the finance function had no independent check on vendor changes. Her email was acknowledged by the father and not acted on.",
+   "reveals_when": "Asking whether anyone had warned about this before, or whether there is a history.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "family",
+   "fact": "Ownership: father Lim Boon Hock 60%, Wei Jian 15%, Mei Ling 15%, uncle (Wei Shen's father, Lim Boon Teck) 10%. The uncle is a director but rarely attends.",
+   "reveals_when": "Asking about shareholding or who owns what.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "family",
+   "fact": "The board is the father, Wei Jian, and the uncle. There is no independent director. Board meetings happen 'when needed', usually over dinner; minutes are written afterwards by the company secretary from the father's notes.",
+   "reveals_when": "Asking how the board works, its composition, or how decisions are recorded.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "family",
+   "fact": "The father is 71 and has told Wei Jian privately that he intends to step back from day-to-day management by end 2027. Nothing is written down and Mei Ling has not been told.",
+   "reveals_when": "Asking about succession, the father's plans, or the horizon for the family.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "family",
+   "fact": "Wei Jian believes the father will not remove Wei Shen from finance because it would mean a confrontation with the uncle. Wei Jian himself would rather move Wei Shen to a non-financial role.",
+   "reveals_when": "Asking what consequences followed for the approver, or what the family's appetite is for personnel change.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "finance-function",
+   "fact": "The finance team is 6 people: Wei Shen, one senior accountant (Puan Rohana, 14 years' service), three AP/AR clerks and one payroll clerk. Rohana prepares payment batches; Wei Shen approves and releases.",
+   "reveals_when": "Asking about the size or structure of the finance team.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance-function",
+   "fact": "The bank's online portal (BizChannel) is set up with a single-authoriser profile for payments up to MYR 250,000. Dual authorisation was configured in 2019 and switched off in 2022 'because it was slowing supplier payments'.",
+   "reveals_when": "Asking about bank mandates, authorisation thresholds, or how payments are released.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance-function",
+   "fact": "Vendor master data: 412 active vendors. 37 vendor bank account changes were processed in the last 12 months. Nobody has reviewed them since the incident.",
+   "reveals_when": "Asking whether other vendor changes could have the same problem, or about vendor master controls.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance-function",
+   "fact": "External auditors are a mid-size KL firm, Tan, Ooi & Partners. The FY2025 management letter (March 2026) noted 'segregation of duties in accounts payable should be strengthened'. The same point appeared in the FY2024 letter.",
+   "reveals_when": "Asking about auditors, management letters, or previous findings.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance-function",
+   "fact": "There is no internal audit function. The father considers it 'for public companies'.",
+   "reveals_when": "Asking whether internal audit or a risk committee exists.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "IT",
+   "fact": "Email runs on Microsoft 365 with 340 mailboxes. Multi-factor authentication is enabled for management only (about 40 accounts). Finance clerks do not have MFA.",
+   "reveals_when": "Asking about email security, MFA, or IT configuration.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "IT",
+   "fact": "IT is one in-house administrator (Hafiz) plus an outsourced support firm, Nexatech Solutions, on a MYR 9,500/month contract. There is no CISO or IT steering group.",
+   "reveals_when": "Asking who runs IT or how it is staffed.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "IT",
+   "fact": "Wei Jian initially framed the engagement as an 'IT security project' and has a quote from Nexatech dated 25 August 2026 for MYR 180,000 covering email filtering, endpoint tools and staff phishing training.",
+   "reveals_when": "Asking what solutions have already been considered or quoted.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "bank-covenant",
+   "fact": "A MYR 38 million term loan from Maybank (for the Johor cold store, drawn 2024) carries a covenant requiring 'maintenance of adequate internal financial controls' and notification of 'any fraud or material loss event' within 14 days of becoming aware. Awareness was 18 August, so the window closes on 1 September 2026, four days from now.",
+   "reveals_when": "Asking about debt, lenders, or covenants.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "bank-covenant",
+   "fact": "Maybank has not been told about the August incident. The relationship manager is due for an annual review visit in the last week of October 2026.",
+   "reveals_when": "Asking whether lenders have been informed.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "Top customer is a pharma distributor, Pharmaniaga-affiliated contract, 22% of revenue, under a GDP (Good Distribution Practice) audited contract renewing March 2027. Their contract includes a right to audit supplier controls including 'financial integrity'.",
+   "reveals_when": "Asking about customer concentration or customer contractual requirements.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "The pharma customer's last supplier audit (November 2025) gave a 'minor' finding on document control at the Penang cold store. Next audit expected Q4 2026.",
+   "reveals_when": "Asking about customer audits or compliance history.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "safety",
+   "fact": "On 3 May 2026 an ammonia refrigerant leak alarm triggered at the Port Klang cold store; two workers were sent to a clinic and released the same day. It was logged internally as an 'equipment fault' and not reported to DOSH (Department of Occupational Safety and Health).",
+   "reveals_when": "Asking whether there have been other incidents or near misses of any kind in the past year, not just financial.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "safety",
+   "fact": "The ammonia plant at Port Klang is 19 years old. The maintenance vendor for it is the same Kejuruteraan Sejuk Maju involved in the payment incident; their servicing contract is MYR 640,000 per year.",
+   "reveals_when": "Asking about the vendor's role, asset age, or maintenance arrangements.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "safety",
+   "fact": "There is an HSE officer (Encik Faizal) who reports to the operations manager, not to the board. He has no direct line to the father or Wei Jian.",
+   "reveals_when": "Asking about safety governance or reporting lines.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "operations",
+   "fact": "Utilisation of the three cold stores averages 87% by pallet position (Port Klang 14,000 positions, Penang 6,500, Johor 11,000). Reefer fleet on-time delivery is 94.2% for the last quarter.",
+   "reveals_when": "Asking about operational performance or capacity.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "operations",
+   "fact": "Operations run on a WMS called ColdTrack (local vendor) integrated with SAP Business One; temperature telemetry from trucks goes to a separate platform, FleetSense, that is not integrated.",
+   "reveals_when": "Asking what systems the business runs on.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Staff turnover among drivers is 28% a year; among office staff 9%. The company has no whistleblowing channel; complaints go to the HR manager, who is the father's sister-in-law.",
+   "reveals_when": "Asking about culture, turnover, or how staff can raise concerns.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Puan Rohana has told Wei Jian privately she was uncomfortable with the payment but 'did not want to question Wei Shen'.",
+   "reveals_when": "Asking how staff felt, or whether anyone besides Mei Ling had doubts.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "financials",
+   "fact": "FY2025: revenue MYR 214m, EBITDA MYR 31m, net debt MYR 52m. Cash on hand about MYR 9m. Cash is not the pressure; reputation with the bank and the pharma customer is.",
+   "reveals_when": "Asking about financial position.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "financials",
+   "fact": "The company is a Sdn Bhd (private limited) and files audited accounts with SSM (Companies Commission of Malaysia). It has never had a regulatory enquiry.",
+   "reveals_when": "Asking about legal form or regulatory history.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "appetite",
+   "fact": "Budget the father has in mind: 'a few hundred thousand ringgit, one-off'. Timeline: 'before the bank visit at the end of October'. He wants something he can show the bank.",
+   "reveals_when": "Asking about budget, timing, or what success looks like to the father.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "appetite",
+   "fact": "Wei Jian's own worry, which he will only say if asked what keeps him up at night: if the father steps back and Wei Shen is still in finance with the uncle behind him, Wei Jian does not think he can run the company.",
+   "reveals_when": "Asking what the client personally is worried about beyond the incident.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "prior-advice",
+   "fact": "No lawyer has been consulted about the incident, the insurance policy, the loan covenant, or the DOSH reporting question.",
+   "reveals_when": "Asking who has advised them so far.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "data",
+   "fact": "The company holds personal data of about 2,100 drivers and staff past and present, and customer consignment data. There has been no PDPA (Personal Data Protection Act) compliance review. No data breach is believed to have occurred in the August incident.",
+   "reveals_when": "Asking about personal data or data protection.",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Internal Incident Note - Vendor Payment, 17 August 2026",
+   "kind": "Internal memo (prepared by Finance Manager for the MD)",
+   "content": "TELUK FROST LOGISTICS SDN BHD\nINTERNAL NOTE - CONFIDENTIAL\nTo: Dato' Lim Boon Hock, Managing Director\nFrom: Lim Wei Shen, Finance Manager\nDate: 22 August 2026\nSubject: Attempted vendor payment diversion - Kejuruteraan Sejuk Maju\n\nSummary\nOn 14 August 2026 Accounts Payable received an email purporting to be from Kejuruteraan Sejuk Maju Sdn Bhd requesting that future remittances be sent to a new CIMB account. The request was processed in line with the vendor's outstanding invoice cycle. The monthly maintenance batch of MYR 184,000 was released on 17 August.\n\nOn 18 August our bank contacted us regarding the beneficiary account. The transfer was frozen and reversed. No funds were lost. The vendor's correct account has been reinstated and the August maintenance invoice was settled on 21 August.\n\nRoot cause\nThe email originated from an external lookalike domain. Our email filtering (Microsoft 365 default) did not flag it. The request appeared genuine, referencing correct invoice numbers.\n\nActions taken\n1. Vendor account details reverted.\n2. Reminder circulated to AP team to call vendors before processing bank changes.\n3. Nexatech Solutions asked to quote for enhanced email filtering and staff awareness training.\n\nRecommendation\nThat the company proceed with the Nexatech proposal (est. MYR 180,000) and adopt a call-back procedure for vendor bank changes. No further action is considered necessary. Police report not recommended as no loss occurred.\n\nWei Shen",
+   "contains_contradiction": "States 'No funds were lost' and that the transfer was 'reversed'. The dossier says only MYR 112,000 of MYR 184,000 was recovered and MYR 72,000 was not. The memo is also written by the person who approved the change and does not mention who approved it."
+  },
+  {
+   "name": "Payment Authorisation Matrix v3 (2019)",
+   "kind": "Policy document",
+   "content": "TELUK FROST LOGISTICS SDN BHD\nPAYMENT AUTHORISATION MATRIX\nVersion 3 - approved by the Board, 11 March 2019\n\n1. Purpose\nThis matrix sets out who may approve and release payments and changes to vendor records.\n\n2. Vendor master data\n2.1 Creation of a new vendor: prepared by AP clerk; approved by Finance Manager.\n2.2 Change of vendor bank details: prepared by AP clerk; independently verified by the Senior Accountant by telephone call-back to a number already on file; approved by Finance Manager. The preparer, verifier and approver must be three different persons.\n\n3. Payment release\n3.1 Up to MYR 50,000: Finance Manager alone.\n3.2 MYR 50,001 to MYR 250,000: Finance Manager plus one Director.\n3.3 Above MYR 250,000: two Directors.\n3.4 Bank portal (BizChannel) to be configured to enforce the above with dual authorisation.\n\n4. Segregation\n4.1 No individual may both amend a vendor record and release a payment to that vendor within the same 5 working days.\n\n5. Review\nThis matrix is to be reviewed annually by the Board. Last review: 11 March 2019.\n\nSigned: Lim Boon Hock, Managing Director\nLim Boon Teck, Director",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Maybank Term Loan - Extract of Facility Letter, Clause 14 (Undertakings)",
+   "kind": "Loan agreement extract",
+   "content": "FACILITY: Term Loan MYR 38,000,000\nBORROWER: Teluk Frost Logistics Sdn Bhd\nDATE: 6 February 2024\n\n14. UNDERTAKINGS OF THE BORROWER\nThe Borrower undertakes, for so long as any amount remains outstanding:\n\n14.3 Financial controls. To maintain internal financial controls adequate for a business of its size and nature, including appropriate segregation of duties in the authorisation of payments, and to remedy promptly any material weakness identified by its external auditors.\n\n14.6 Notification of events. To notify the Bank in writing within fourteen (14) days of becoming aware of (a) any fraud, attempted fraud or misappropriation involving the Borrower's funds or assets where the amount involved exceeds MYR 100,000; (b) any material loss event; (c) any litigation, regulatory enquiry or enforcement action.\n\n14.9 Management. To ensure that any change in the Managing Director or in the ownership of more than 25% of the issued shares is notified to the Bank not less than 30 days in advance, and to obtain the Bank's consent to any such change of control.\n\n14.12 Insurance. To maintain insurance customary for the business including property, public liability and, where reasonably available, commercial crime cover, and to make claims under such policies diligently.\n\nBreach of any undertaking in this Clause 14 shall constitute an Event of Default under Clause 19 unless remedied within the cure period (if any) specified therein.\n\nRelationship Manager: Encik Azlan Shah, Maybank Commercial Banking, Klang Branch",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "FY2025 Auditors' Management Letter - Extract",
+   "kind": "External audit letter extract",
+   "content": "TAN, OOI & PARTNERS\nChartered Accountants (AF 1187)\n\nTo the Board of Directors\nTeluk Frost Logistics Sdn Bhd\n18 March 2026\n\nMANAGEMENT LETTER - FINANCIAL YEAR ENDED 31 DECEMBER 2025\n\nWe set out below matters arising from our audit that we consider should be brought to the attention of the Board. These do not affect our opinion on the financial statements.\n\nObservation 1 (repeated from FY2024) - Segregation of duties in accounts payable\nWe noted that the Finance Manager has system access in SAP Business One to create and amend vendor master records and to approve payment runs. In a sample of 25 vendor amendments during the year, 19 were both amended and approved by the same user. We further noted that the bank portal is configured for single authorisation up to MYR 250,000. We recommend that dual authorisation be reinstated and that vendor master maintenance be assigned to a user without payment approval rights.\nManagement response: Noted. Management considers the current arrangement practical given the size of the team and will review.\n\nObservation 2 - Board minutes\nMinutes for three of the five board meetings held during the year were signed more than 60 days after the meeting date. We recommend timely preparation and circulation.\nManagement response: Noted.\n\nObservation 3 - Related party transactions\nRental of the Penang depot land from Boon Teck Holdings Sdn Bhd (a company controlled by a director) at MYR 1.2 million per annum has not been subject to independent valuation since 2017. We recommend periodic benchmarking and Board approval with the interested director abstaining.\nManagement response: The rental is considered fair.\n\nWe would be pleased to discuss these matters further.\n\nOoi Chee Keong, Partner",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The client frames this as a technology or process problem (email security, a call-back rule) but the control that failed was a human one: a family member with unchecked authority, a written policy that was switched off in the bank portal, and two consecutive auditor warnings that were acknowledged and ignored.",
+  "It was not a near miss. MYR 72,000 was actually lost, and calling it a near miss has already shaped decisions (no police report, no insurer notice, no lender notice) that carry live deadlines as of 28 August: the Maybank 14-day covenant notice closes on 1 September (four days away) and the Allianz 30-day notification closes on 17 September, with a police report as a claim condition. The engine should surface the time pressure rather than discuss controls in the abstract.",
+  "The person who caught the fraud is a shareholder with no board seat; the person who caused it is a relative the founder will not confront. The governance question is really about how family authority is distributed, not about accounts payable procedure, and any recommendation that leaves Wei Shen's role and the board composition untouched will not survive the founder's retirement.",
+  "There is a second unreported incident (the ammonia leak) with a regulator (DOSH) involved, and it involves the same vendor. The pattern is under-reporting across domains, which suggests the problem is the absence of any independent line to the board, not a gap in one procedure.",
+  "Undisclosed succession (father stepping back by end 2027, sister not told) and a related-party rental with the uncle's company mean the family's ownership and control arrangement is the real engagement; the fraud is the trigger that makes it discussable.",
+  "The stated budget and timeline ('something to show the bank by the end of October') would tempt a quick IT-and-policy fix. A good engine should distinguish what must be done this week (lender and insurer notices), what must be visible before the bank visit, and what actually reduces the chance of recurrence, and say plainly that the three are not the same."
+ ],
+ "regulated_matters": [
+  "Whether the August incident must be reported to the police under Malaysian law and any consequences of delay; whether the lookalike-domain attack constitutes an offence to be reported under the Computer Crimes Act 1997.",
+  "The company's obligations and rights under the Allianz commercial crime policy, including the 30-day notification condition (closing 17 September 2026), the police-report condition, and whether any delay prejudices the claim.",
+  "Whether the incident triggers the Maybank covenant notification under Clause 14.6, the consequences of missing the 14-day window on 1 September 2026, and how to approach the lender: a matter for legal counsel before any contact.",
+  "Whether the 3 May ammonia leak was a reportable occurrence under the Occupational Safety and Health Act 1994 and DOSH regulations, and the exposure from not having reported it.",
+  "Employment-law treatment of any change to Wei Shen's role or termination (Employment Act 1955, Industrial Relations Act 1967), including constructive dismissal risk, and of any disciplinary action against finance staff.",
+  "Directors' duties under the Companies Act 2016 regarding the related-party rental to Boon Teck Holdings, the interested director's abstention, and board minute requirements.",
+  "Tax treatment of the unrecovered MYR 72,000 loss and of any restructuring of shareholdings or director remuneration as part of a succession plan.",
+  "Shareholder agreement, share transfer and estate matters connected to the founder's planned step-back, including any change-of-control consent required from the lender under Clause 14.9.",
+  "Personal Data Protection Act 2010 obligations for staff and customer data, and whether any element of the incident constitutes a notifiable breach under the 2025 amendments.",
+  "Good Distribution Practice and pharma customer contractual audit rights: what must be disclosed to the customer and when."
+ ],
+ "realistic_central_decision_candidates": [
+  "How should Teluk Frost redistribute financial authority and board oversight, including the roles of family members, so that a single person cannot move money or suppress bad news, and what must be done in the next 4 to 20 days on the lender (1 September), police, insurer (17 September) and DOSH fronts before the late-October bank visit.",
+  "Should the family use this incident to establish formal governance (independent director, audit or risk oversight, a whistleblowing route, a written succession plan) ahead of the founder's 2027 step-back, or make narrower control fixes and defer the family question.",
+  "What is the minimum credible control and disclosure package the company must put in place and communicate to Maybank, Allianz and the pharma customer, and how is it sequenced against the harder decision about the Finance Manager and board composition."
+ ]
+}

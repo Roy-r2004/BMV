@@ -1,0 +1,298 @@
+{
+ "id": "casa-lume-repeat-rates",
+ "title": "Casa Lume: customers are not coming back",
+ "opening_statement": "We sell furniture and home stuff, nine shops plus a website. Customers used to come back for the second room, the second sofa, whatever. They don't anymore and I don't know why. Can you help?",
+ "client_persona": {
+  "name": "Petra Havlíčková",
+  "role": "Founder, managing director and 70% owner",
+  "company": "Casa Lume s.r.o.",
+  "sector": "Furniture and home décor retail (stores + e-commerce, with home delivery and assembly service)",
+  "country": "Czech Republic (South Moravian, Olomouc, Zlín and Moravian-Silesian regions)",
+  "size": "9 stores, 1 web shop, 1 central warehouse in Vyškov; 214 employees; CZK 960M revenue FY2025",
+  "temperament": "Warm, talks in anecdotes about specific customers and staff, guesses at causes readily and changes her guess mid-sentence. Gives round numbers unless pushed for the exact figure, then asks Radek (finance) and comes back precise. Slightly deferential to the investor's board member and to the head of marketing he recommended, because 'they have done this before'. Gets impatient if asked about 'strategy' in the abstract; answers concretely when asked about a specific store, order, or week."
+ },
+ "dossier": [
+  {
+   "topic": "Repeat rate headline",
+   "fact": "The board pack figure 'customers with 2+ purchases in trailing 24 months' fell from 41.2% (Dec 2023) to 27.0% (Jun 2026).",
+   "reveals_when": "Any question about what 'not coming back' means or how it is measured",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Revenue",
+   "fact": "Revenue FY2025 was CZK 960M, down 6% on FY2024 (CZK 1,022M); H1 2026 is running 9% below H1 2025.",
+   "reveals_when": "Question about financial impact or trend",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Channel mix",
+   "fact": "Stores are 71% of revenue, web shop 29%; web share was 18% in 2022.",
+   "reveals_when": "Question about channels",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Average order",
+   "fact": "Average furniture order is CZK 29,500; average décor/accessory basket is CZK 1,600.",
+   "reveals_when": "Question about what customers buy or basket size",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Stores",
+   "fact": "Stores: Brno Vaňkovka, Brno Královo Pole, Olomouc, Zlín, Prostějov, Ostrava Nová Karolina, Ostrava Poruba, Frýdek-Místek, Opava. Opava opened March 2025.",
+   "reveals_when": "Question about locations",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Repeat rate by store (raw)",
+   "fact": "Radek can produce repeat rate (2+ purchases, T24M) per store, Dec 2023 vs Jun 2026: Brno Vaňkovka 43.0% -> 37.5%; Brno Královo Pole 40.2% -> 34.8%; Olomouc 41.8% -> 36.9%; Zlín 39.5% -> 32.1%; Prostějov 38.9% -> 34.0%; Ostrava Nová Karolina 42.6% -> 22.4%; Ostrava Poruba 40.7% -> 21.9%; Frýdek-Místek 39.1% -> 20.8%; Opava n/a -> 12.0% (opened 2025); web shop 37.4% -> 16.2%. Nobody has looked at this table; the board only sees the total.",
+   "reveals_when": "Question asking for the decline broken down by store or channel; Petra does not volunteer it because she has never seen it cut that way",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Active customers by store",
+   "fact": "Active customers T24M, Jun 2026: Brno Vaňkovka 9,800; Brno Královo Pole 7,100; Olomouc 6,900; Zlín 4,600; Prostějov 3,300; Ostrava Nová Karolina 8,200; Ostrava Poruba 5,900; Frýdek-Místek 3,700; Opava 2,100; web 16,800. Total 68,400.",
+   "reveals_when": "Question about the size or weighting of each store's customer base",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Delivery zones",
+   "fact": "Home delivery and assembly for stores within about 90 km of the Vyškov warehouse (Brno x2, Olomouc, Zlín, Prostějov) is done by Casa Lume's own 6 two-man crews. Since Oct 2024, delivery for the Moravian-Silesian stores (Ostrava x2, Frýdek-Místek, Opava) and for ALL web orders nationwide is subcontracted to Moravalog Logistics s.r.o. Before Oct 2024, 6 further in-house crews based in Ostrava covered that territory and web orders.",
+   "reveals_when": "Question about how delivery/assembly works, which stores use which service, or what changed in 2024",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Moravalog contract",
+   "fact": "Moravalog contract signed 12 Sep 2024 for 36 months, minimum monthly volume 900 drops, early termination penalty of CZK 5.2M or 6 months of minimum billing, whichever is higher. Signed by operations director Martin Kříž (an employee, not an owner) under a board mandate tied to the investor's cost plan.",
+   "reveals_when": "Question about the contract terms, exit options, or who owns the delivery decision",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Moravalog savings",
+   "fact": "The outsourcing saves approximately CZK 8.5M per year versus the in-house crews; this saving is listed as 'delivered' in the investor's value-creation plan and was the whole case for it.",
+   "reveals_when": "Question about why outsourcing was done",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Delivery performance",
+   "fact": "Moravalog on-time delivery (within the promised 4-hour window) is 71%; in-house crews run 93%. Moravalog damage-on-delivery claims are 4.8% of drops vs 1.1% in-house. These figures come from Radek's own reconciliation, not from the supplier's report.",
+   "reveals_when": "Question about delivery quality or service metrics",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Assembly",
+   "fact": "Moravalog drivers assemble only if the order is flagged 'montáž' in the delivery note; roughly 30% of web orders that paid for assembly were not flagged because the web checkout and the WMS field are mapped differently since the CRM migration.",
+   "reveals_when": "Question about complaints about assembly, or about data flow between systems",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Complaints",
+   "fact": "Formal complaints (written reklamace + email) rose from 38 per month (2023 avg) to 117 per month (H1 2026); 64% concern delivery or assembly.",
+   "reveals_when": "Question about complaints",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Complaints by store",
+   "fact": "H1 2026 complaints per month by originating store/channel: Brno Vaňkovka 6, Brno Královo Pole 5, Olomouc 4, Zlín 5, Prostějov 2, Ostrava Nová Karolina 17, Ostrava Poruba 12, Frýdek-Místek 8, Opava 6, web 52.",
+   "reveals_when": "Question asking where complaints come from",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Complaint handling",
+   "fact": "Complaints are handled by two people in the Vyškov warehouse office, Šárka and Pavel, via a shared Outlook mailbox; average first response is 6 working days; no ticketing system.",
+   "reveals_when": "Question about how complaints are handled or response time",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "CRM migration",
+   "fact": "Customer data moved from the Money S5 ERP customer module to Salesforce in Feb 2025; matching of old records was done on email address only, so customers who bought in-store without giving an email before 2025 appear as new customers.",
+   "reveals_when": "Question about systems, data quality, or how the repeat metric is computed",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Metric definition change",
+   "fact": "Before Feb 2025 'repeat customer' was computed by customer number/phone in Money S5; after, by Salesforce contact ID. Radek estimates the definition change alone accounts for 5-7 points of the 14-point fall, roughly evenly across stores, but has not verified it.",
+   "reveals_when": "Question about whether the metric is like-for-like over time",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "NPS",
+   "fact": "NPS is collected by SMS 3 days after a delivery is marked complete in Moravalog's portal or by an in-house crew lead; failed or rescheduled deliveries never trigger the survey. Reported NPS is 46.",
+   "reveals_when": "Question about customer satisfaction measurement and who gets surveyed",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Loyalty program",
+   "fact": "The 'Karta Lume' loyalty card (3% back as vouchers) was replaced in Jan 2025 by an app-based program with points that expire after 6 months; 61,000 card holders, 14,000 have installed the app.",
+   "reveals_when": "Question about loyalty schemes or retention tools",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Discounting",
+   "fact": "Since mid-2025 marketing sends a 40%-off 'Vraťte se k nám' voucher to anyone who has not bought in 9 months; 4 campaigns so far, redemption 11%, and store managers report customers now ask staff when the next voucher is coming.",
+   "reveals_when": "Question about promotions, marketing spend, or price perception",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Marketing leadership",
+   "fact": "Marketing is run by Lucie Nováková, 34, ex-agency, hired Nov 2024 on the recommendation of the investor's board member; her budget is CZK 47M, of which CZK 27M is Meta and Google ads.",
+   "reveals_when": "Question about who owns marketing or its budget",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Acquisition cost",
+   "fact": "Paid acquisition cost per first web order rose from CZK 950 (2023) to CZK 2,280 (H1 2026).",
+   "reveals_when": "Question about acquisition economics",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Competition",
+   "fact": "IKEA Ostrava expanded its delivery radius and now offers next-day delivery across the Ostrava agglomeration; Polish online furniture brand Vox opened a showroom in Ostrava in 2025.",
+   "reveals_when": "Question about competitors",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Product",
+   "fact": "Own-brand sofas and beds (made by two suppliers near Valašské Meziříčí) are 44% of revenue with 52% gross margin; imported décor is 31% of revenue at 58% margin; third-party branded furniture 25% at 31% margin.",
+   "reveals_when": "Question about product range or margins",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Quality",
+   "fact": "Warranty claims on own-brand sofas are 2.1% of units, stable for 5 years; no product-quality trend.",
+   "reveals_when": "Question about product quality or returns",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Store staff",
+   "fact": "Store staff turnover was 34% in 2025; Ostrava-area stores are worst at 48%. Sales staff commission is 1.5% of ticket with no component for after-sales.",
+   "reveals_when": "Question about staff, incentives, or turnover",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Store experience",
+   "fact": "In-store customers are offered a free room design consultation; conversion of consultations is 58% but only 3 of 9 stores (Brno Vaňkovka, Olomouc, Ostrava Nová Karolina) have a trained designer since two left in 2025; Zlín lost its designer in Feb 2025.",
+   "reveals_when": "Question about what happens in the store or services offered",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Web platform",
+   "fact": "Web shop runs on Shopify Plus (migrated from Magento Sep 2024); order status page shows 'Připravujeme' until Moravalog marks delivery complete, so customers get no tracking for 5-12 days.",
+   "reveals_when": "Question about the online experience or order tracking",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Lead time",
+   "fact": "Own-brand sofa lead time is 5-7 weeks made-to-order; promised on the website as 'do 4 týdnů'.",
+   "reveals_when": "Question about delivery promises or lead times",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Customer interviews",
+   "fact": "Nobody has spoken to lapsed customers. Petra has personal anecdotes from three acquaintances in Ostrava whose deliveries went wrong.",
+   "reveals_when": "Question about customer research or what customers say",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Investor",
+   "fact": "Moravia Growth Capital holds 30% since 2023; partner Jakub Doležal sits on the board. The shareholders' agreement gives the fund consent rights over any single commitment above CZK 6M and over any change of a 'key supplier'. Jakub considers the outsourcing a completed saving and has said reopening it would 'undo the only cost win we have'.",
+   "reveals_when": "Question about who decides, ownership, or alignment among owners",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Operations director",
+   "fact": "Martin Kříž (operations director, employee since 2019) executed the outsourcing, receives the Moravalog monthly report, and has not forwarded Radek's reconciled service figures to the board; he believes the complaints are 'mostly web customers who ordered wrong'.",
+   "reveals_when": "Question about who manages the supplier or sees the service data",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Finance",
+   "fact": "Radek Souček is CFO; EBITDA FY2025 CZK 57.6M (6.0%), down from CZK 90M; bank covenant with Česká spořitelna requires net debt/EBITDA below 3.0x, currently 2.6x.",
+   "reveals_when": "Question about profitability, cash, or constraints",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Budget",
+   "fact": "Petra can commit up to CZK 6M in 2026 without board approval; anything larger, or any supplier change, needs the fund's consent.",
+   "reveals_when": "Question about budget or authority",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Expansion plan",
+   "fact": "The board-approved plan includes a tenth store in Ostrava (Avion) opening in Oct 2026 (fit-out CZK 18M, already contracted) and a target of web at 35% of revenue by 2027, both served by Moravalog.",
+   "reveals_when": "Question about growth plans or what else is committed for 2026",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Timing",
+   "fact": "Peak season is October-December (38% of annual revenue); Petra wants something changed before October.",
+   "reveals_when": "Question about timing or urgency",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Data access",
+   "fact": "Salesforce, Shopify and the Moravalog portal are not integrated; Radek builds the board figures manually in Excel each month from three exports.",
+   "reveals_when": "Question about reporting or data availability",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Employees affected",
+   "fact": "The 12 former delivery crew staff in Ostrava were made redundant in Oct 2024 (organisational redundancy with statutory severance); the 6 Vyškov-based crews remain employees and are at about 85% utilisation.",
+   "reveals_when": "Question about what happened to the in-house crews or about headcount and capacity",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Customer data",
+   "fact": "The lapsed-customer voucher list includes ~9,000 pre-2018 Karta Lume holders whose marketing consent status was never migrated; Lucie assumed consent.",
+   "reveals_when": "Question about consent, GDPR, or where marketing lists come from",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Board pack extract, June 2026 - Customer KPIs",
+   "kind": "Excel/PDF extract prepared by Radek Souček (CFO)",
+   "content": "CASA LUME - Zákaznické ukazatele - červen 2026 (trailing 24 months)\n\nActive customers (1+ purchase, T24M): 68,400 (Dec 2023: 74,900)\nRepeat customers (2+ purchases, T24M): 18,470 = 27.0% (Dec 2023: 41.2%)\nRepeat by channel: stores 30.1%, web 16.2%\nAverage furniture ticket: CZK 29,500 | Décor basket: CZK 1,600\nNPS (SMS post-delivery, T3M): 46 (n = 2,110 responses, 31% response rate)\nComplaints per month (H1 2026 avg): 117 (2023 avg: 38)\nComplaints by category: delivery/assembly 64%, product 19%, store service 9%, billing 8%\nLoyalty: Karta Lume legacy holders 61,000; app installs 14,000; app monthly active 3,900\nVoucher campaigns 'Vraťte se k nám' (40%): 4 waves, 52,300 sent, 5,750 redeemed (11.0%), incremental margin est. negative CZK 2.1M\nPaid acquisition CPA (first web order): CZK 2,280 (2023: CZK 950)\n\nAppendix A - Repeat rate by store (T24M), Dec 2023 / Jun 2026 / active customers Jun 2026\nBrno Vaňkovka: 43.0% / 37.5% / 9,800\nBrno Královo Pole: 40.2% / 34.8% / 7,100\nOlomouc: 41.8% / 36.9% / 6,900\nZlín: 39.5% / 32.1% / 4,600\nProstějov: 38.9% / 34.0% / 3,300\nOstrava Nová Karolina: 42.6% / 22.4% / 8,200\nOstrava Poruba: 40.7% / 21.9% / 5,900\nFrýdek-Místek: 39.1% / 20.8% / 3,700\nOpava: n/a (opened Mar 2025) / 12.0% / 2,100\nWeb shop: 37.4% / 16.2% / 16,800\n(Appendix not presented at board; included for completeness.)\n\nNote (RS): Repeat metric computed from Salesforce contact ID from Feb 2025; prior periods from Money S5 by customer number. Series is presented as continuous for board purposes.\n\nRevenue H1 2026: CZK 427M (-9.0% vs H1 2025)\nEBITDA H1 2026: CZK 17.5M\nNet debt / EBITDA (LTM): 2.6x (covenant 3.0x)",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Moravalog Logistics - Monthly Service Report, June 2026",
+   "kind": "Supplier service report (PDF sent to Martin Kříž)",
+   "content": "MORAVALOG LOGISTICS s.r.o. - Měsíční report služeb - Klient: Casa Lume - červen 2026\n\nDrops completed: 1,042 (contract minimum 900)\nAverage drops per route: 9.6\nOn-time performance: 94% (deliveries completed on the agreed date)\nDeliveries with assembly performed: 312\nDamage claims opened: 22 (2.1%)\nClaims closed within 15 days: 18\nCustomer no-shows / rescheduled by customer: 131\nInvoice for period: CZK 1,547,000 + DPH\n\nComments: Continued strong performance in the Ostrava agglomeration. We note 41 orders received without 'montáž' flag where the customer requested assembly at the door; these were completed as goodwill where time allowed. We recommend Casa Lume review the order flag mapping from Shopify.\n\nContract reference: CTR-2024-0912, term to 30 Sep 2027. Minimum volume clause 4.2 applies. Early termination per clause 11.3.\n\nSigned: Karolína Menšíková, Account Manager",
+   "contains_contradiction": "Reports on-time performance as 94% 'on the agreed date' and damage at 2.1%, contradicting the dossier's 71% within the promised 4-hour window and 4.8% damage rate; the supplier measures date-level, not window-level, and counts only claims it accepts. Also frames rescheduled deliveries as customer-caused."
+  },
+  {
+   "name": "Delivery zone allocation and complaint log summary, H1 2026",
+   "kind": "Operations spreadsheet maintained by the Vyškov warehouse office",
+   "content": "CASA LUME - Rozvozové zóny a reklamace - H1 2026\n\nZone A (in-house crews, Vyškov base, 6 crews): Brno Vaňkovka, Brno Královo Pole, Olomouc, Zlín, Prostějov. Drops/month avg: 1,180. Crew utilisation: 85%.\nZone B (Moravalog, since 1 Oct 2024): Ostrava Nová Karolina, Ostrava Poruba, Frýdek-Místek, Opava. Drops/month avg: 610.\nZone W (Moravalog, since 1 Oct 2024): all web-shop orders, nationwide. Drops/month avg: 430.\nNote: before Oct 2024, Zone B and Zone W were served by 6 Ostrava-based in-house crews (disbanded).\n\nComplaints received per month (H1 2026 average), by originating store/channel:\nBrno Vaňkovka 6 | Brno Královo Pole 5 | Olomouc 4 | Zlín 5 | Prostějov 2\nOstrava Nová Karolina 17 | Ostrava Poruba 12 | Frýdek-Místek 8 | Opava 6\nWeb 52\nTotal 117\n\nComplaints by category (all zones): delivery timing 31%, assembly missing/incomplete 21%, damage 12%, product 19%, store service 9%, billing 8%.\n\nHandling: shared mailbox reklamace@casalume.cz, two staff (Šárka, Pavel). Average first response 6 working days. Backlog at 30 Jun: 143 open items.\n\nZone A crews also handle 'montáž' on all their drops by default; Zone B/W assembly depends on the order flag from Shopify/WMS.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Marketing plan H2 2026 - 'Vraťte se k nám'",
+   "kind": "Internal slide deck by Lucie Nováková (head of marketing), reviewed by Jakub Doležal",
+   "content": "CASA LUME - Marketingový plán H2 2026\n\nObjective: recover 8,000 lapsed customers by December.\n\nDiagnosis: customers have more choice (IKEA next-day delivery, Vox showroom Ostrava); our brand awareness in the Ostrava region is weaker than in Brno; the app has low adoption.\n\nActions:\n1. Voucher wave 5 and 6 (40% off, 30-day validity) to all contacts with no purchase in 9 months - 38,000 contacts incl. legacy Karta Lume base.\n2. Paid social budget +CZK 7.5M H2 focused on Ostrava/Frýdek-Místek/Opava, creative 'Váš domov si to zaslouží'.\n3. App relaunch with welcome bonus 500 points; push notifications weekly.\n4. Influencer programme: 6 Ostrava home-décor creators, CZK 2.2M.\n5. New in-store 'Klub Lume' desk at Nová Karolina and Poruba; launch support for Ostrava Avion opening in October.\n\nKPIs: voucher redemption 15%, app installs 30,000, repeat rate back to 35% by Dec 2026.\n\nBudget H2: CZK 31M.\n\nRisks: brand dilution from discounts (mitigated by limiting to lapsed base); delivery capacity in peak (Moravalog confirmed capacity).\n\nNote: retention decline is primarily a brand/awareness issue in the Ostrava market where we are a newer name; Brno is our home turf and holds up. Board (JD) agrees marketing is the lever; operations savings must be protected.",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The opening statement can be misread as a marketing/loyalty engagement; the client, the head of marketing and the investor all frame it that way. The engine has to ask for the store-level table and the delivery-zone allocation separately and join them: the Zone A stores fell 4-7 points (consistent with the metric break alone), while every Zone B store and the web shop fell 16-21 points. Nobody in the company has made that cut.",
+  "Part of the measured decline is an artefact: the repeat metric changed definition (Money S5 customer number to Salesforce contact ID) mid-series and the CFO knows it. The roughly uniform 5-7 point effect must be subtracted per store before the residual pattern is read and before any target is set.",
+  "Confounders exist in the same territory and must be separated from the delivery explanation: IKEA and Vox competition in Ostrava, 48% staff turnover in Ostrava stores, Opava being too new to have a baseline, and Zlín's larger-than-Brno drop despite in-house delivery (it lost its designer). The engine should treat these as hypotheses to test, not dismiss them.",
+  "Every customer-satisfaction signal the company has is filtered by the failure it should detect: NPS is only sent after a completed delivery, complaints go to a shared mailbox with a 6-day response, and the supplier's own report defines on-time and damage more generously than the customer experiences them; the operations director has not forwarded the CFO's reconciled figures to the board.",
+  "The planned response (40% vouchers, more paid ads, app relaunch) spends money on the front of the journey while the back of the journey is broken, is already training customers to wait for discounts, and is endorsed by the investor because it protects the outsourcing saving listed as 'delivered' in the fund's value-creation plan.",
+  "The real decision is bound by a 36-month supplier contract with a large exit penalty, a shareholders' agreement giving the fund consent rights over key-supplier changes and spend above CZK 6M, and an already-contracted tenth store plus web-growth target that will push more volume through the same supplier from October. The engine should distinguish the cheap, fast fixes (the 'montáž' flag mapping, tracking, complaint handling) from the contract-level and expansion-level questions."
+ ],
+ "regulated_matters": [
+  "Marketing to ~9,000 legacy card holders whose consent status was never migrated: GDPR and Czech data-protection (ÚOOÚ) compliance of the voucher lists, SMS surveys and app push notifications must be checked by a qualified data-protection adviser.",
+  "Early termination or renegotiation of the Moravalog contract (clauses 4.2 and 11.3, CZK 5.2M penalty): Czech contract law (občanský zákoník) advice needed before any exit or dispute strategy.",
+  "Any move to bring delivery crews back in-house after the 2024 organisational redundancies in Ostrava: Czech Labour Code (zákoník práce) rules on rehiring after redundancy and on the status of subcontracted workers require an employment lawyer.",
+  "Consumer-protection obligations on complaint (reklamace) handling deadlines and on delivery promises 'do 4 týdnů' that are not met: consumer law adviser (ČOI exposure).",
+  "Points expiry and voucher terms in the loyalty app and 40% promotions: consumer law and VAT (DPH) treatment of vouchers need qualified advice.",
+  "Bank covenant (net debt/EBITDA 3.0x with Česká spořitelna) implications of any investment or contract-exit payment: to be confirmed with the company's financial/legal advisers, not assumed.",
+  "Consent rights of Moravia Growth Capital over key-supplier changes and commitments above CZK 6M: governed by the shareholders' agreement and articles; corporate law advice, not consultant opinion."
+ ],
+ "realistic_central_decision_candidates": [
+  "Should Casa Lume renegotiate, supplement, or exit the Moravalog arrangement for the Ostrava-region stores and the web shop (versus fixing the integration defects and service standards within it), and how should the founder take that decision with an investor whose plan counts the outsourcing as a delivered saving?",
+  "Should Casa Lume proceed with the October Ostrava Avion opening and the web-share push as planned, or pause growth into the outsourced territory and redirect the H2 marketing and fit-out money to after-sales capacity until repeat rates there recover?",
+  "How should Casa Lume rebuild the way it measures and manages the customer journey after the sale (like-for-like repeat metric, unfiltered satisfaction and complaint data, supplier SLA reconciliation) so that the true retention problem is visible to the board before any retention target or spend is agreed?"
+ ]
+}

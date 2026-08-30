@@ -363,6 +363,40 @@ class Settings:
 
     UPLOADS_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 
+    # -- Universal engine bounds (ENGINE_*) --------------------------------
+    # Same rule as the role/module bounds above: never a fixed count of
+    # anything per engagement -- a floor against a degenerate answer and a
+    # ceiling against a runaway one; the registry decides the actual number.
+    # The NAMES and defaults are frozen in app/engine/types.py BOUNDS so that
+    # a bound the engine reads cannot exist without a setting an operator can
+    # move, and vice versa (tests/engine/test_engine_types.py pins the pair).
+    # Each is read from ENGINE_<NAME> and cast to the type of its default.
+    ENGINE_MIN_QUESTIONS_PER_TURN: int
+    ENGINE_MAX_QUESTIONS_PER_TURN: int
+    ENGINE_MIN_QUESTION_VALUE: float
+    ENGINE_ASK_FLOOR: float
+    ENGINE_MAX_FANOUT: int
+    ENGINE_SYMPTOM_MARGIN: float
+    ENGINE_CHARTER_MIN_WEIGHT: float
+    ENGINE_CHARTER_MIN_MARGIN: float
+    ENGINE_MAX_DISCOVERY_TURNS: int
+    ENGINE_MAX_ANALYSIS_ROUNDS: int
+    ENGINE_MIN_WORK_PRODUCTS: int
+    ENGINE_MAX_WORK_PRODUCTS: int
+    ENGINE_MAX_SPECIALISTS_PER_ROUND: int
+    ENGINE_MIN_REVEALED_CHANGERS: int
+    ENGINE_MIN_DISTINCT_DELIVERABLE_SETS: int
+    ENGINE_MIN_DISTINCT_SECTION_SIGNATURES: int
+    ENGINE_RENDERED_RESTATEMENT_TOLERANCE: float
+    ENGINE_MAX_NARRATIVE_REGENERATIONS: int
+
+    def engine_bounds(self) -> dict:
+        """Every BOUNDS name with its live value -- what MethodContext.settings
+        carries, so a method reads bounds only, never a fixed count."""
+        from app.engine.types import BOUNDS
+
+        return {name: getattr(self, f"ENGINE_{name}") for name in BOUNDS}
+
     # The real BMV logo, composited onto every generated image as a corner
     # credit mark — more reliable than asking the image model to draw
     # legible "BMV" text (we've seen it garble small text like URLs/labels).
@@ -371,5 +405,18 @@ class Settings:
         "frontend", "public", "logo.png",
     )
 
+
+def _install_engine_bounds() -> None:
+    # Populated from the frozen table rather than written out by hand, so the
+    # set of settings IS the set of bounds: adding a bound without a setting,
+    # or a setting without a bound, is impossible by construction.
+    from app.engine.types import BOUNDS
+
+    for name, default in BOUNDS.items():
+        cast = float if isinstance(default, float) else int
+        setattr(Settings, f"ENGINE_{name}", cast(_env_or(f"ENGINE_{name}", str(default))))
+
+
+_install_engine_bounds()
 
 settings = Settings()

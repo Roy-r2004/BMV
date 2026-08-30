@@ -1,0 +1,297 @@
+{
+ "id": "operational-bottleneck-harrowgate-frozen-bakery",
+ "title": "Harrowgate Bakehouse: customers complaining about lead times",
+ "opening_statement": "We're a frozen bakery supplying grocery and foodservice, and our customers keep complaining about late deliveries. My plant manager says we need a second freezer and a proper floor system. I'm not sure that's it. Can you have a look?",
+ "client_persona": {
+  "name": "Dana Whitcombe",
+  "role": "President and majority owner (72%)",
+  "company": "Harrowgate Bakehouse Ltd.",
+  "sector": "Contract manufacturing of frozen par-baked and fully baked bakery goods (artisan loaves, rolls, flatbreads, pastry bases) for grocery private label and foodservice distributors",
+  "country": "Canada (Guelph, Ontario)",
+  "size": "81 employees, CAD 41m revenue (fiscal 2025), one plant",
+  "temperament": "Plain-spoken, protective of the plant she built up from a wholesale bakery, answers in shop-floor anecdotes rather than numbers; gives figures only when asked directly and then knows them well. Gets guarded when asked about her plant manager, whom she hired from a large competitor and does not want to lose."
+ },
+ "dossier": [
+  {
+   "topic": "symptom",
+   "fact": "Quoted lead time is 7 working days from firm order; actual average in June-July 2026 was 14 working days, up from 8 in 2024.",
+   "reveals_when": "Asking what customers actually complain about or for lead-time numbers",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "symptom",
+   "fact": "Two customers (Maple Crest Foods, a grocery private-label buyer, and Bistro Supply Co., a foodservice distributor) have moved roughly 30% of their volume to a competitor in Brampton since March 2026.",
+   "reveals_when": "Asking whether complaints have cost business",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "process",
+   "fact": "The line runs: ingredient staging and mixing, dividing and forming, proofing, one tunnel oven (par-bake or full bake), a single spiral freezer, then metal detection and QA release, bagging and case packing, cold store.",
+   "reveals_when": "Asking how a product moves through the plant",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "constraint",
+   "fact": "There is a single spiral freezer (a 2001 Frigoscandia ammonia-based unit, belt length 310 m, air at minus 35 C) and everything from the oven passes through it on one belt.",
+   "reveals_when": "Asking where work piles up or what the plant has only one of",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "constraint",
+   "fact": "The spiral belt runs at one fixed speed per shift, set so the slowest-freezing product on that shift reaches minus 18 C core; the speed is not changed between products within the shift.",
+   "reveals_when": "Asking how freezer speed is set or whether it varies",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "constraint",
+   "fact": "Required freezer dwell by product: 900 g artisan loaves 42 min; 450 g loaves 28 min; dinner rolls and buns 14 min; flatbreads 9 min; pastry bases 11 min. On most shifts loaves and at least one of the thin products share the belt.",
+   "reveals_when": "Asking about product mix on the freezer, dwell times or why the freezer is slow",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "constraint",
+   "fact": "By weight, weekly output is roughly 45% loaves (900 g and 450 g combined, about 2:1), 25% rolls and buns, 18% flatbreads, 12% pastry bases; belt area per kg is similar across products.",
+   "reveals_when": "Asking about volumes or product mix",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "constraint",
+   "fact": "Belt occupancy through the freezer averages 56% of available surface; oven-exit staff say they cannot load faster because product is held at the oven exit waiting for empty carrier trays and the belt is often running with gaps.",
+   "reveals_when": "Asking about belt utilisation or empty belt",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "constraint",
+   "fact": "There are 196 stainless carrier trays and 48 roll-in dollies in circulation; about 35 trays' worth are always held at the QA end waiting for release before product can be bagged and the trays returned.",
+   "reveals_when": "Asking about trays, dollies, or why the oven exit waits",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "quality",
+   "fact": "QA release (core temperature check, metal-detector log sign-off, allergen changeover verification) is done by one QA technician, Priya Sethi, who works 06:00-14:30; product finished after 14:30 waits on trays in the cold store until the next morning.",
+   "reveals_when": "Asking who does QA release, when, or why trays sit at the QA end",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "quality",
+   "fact": "Rework and scrap rate is 5.9% of product by weight (fiscal 2025), mostly under-baked cores and crust defects on 900 g loaves; rework cannot go back through the line and is sold as animal feed.",
+   "reveals_when": "Asking about defects, rework or scrap",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "quality",
+   "fact": "Harrowgate holds SQF Level 2 certification and a CFIA licence under the Safe Food for Canadians Regulations; losing either would end the grocery private-label business (about 58% of revenue).",
+   "reveals_when": "Asking about certifications or what customers require",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "demand",
+   "fact": "Volume is about 12,400 tonnes per year across roughly 140 SKUs, of which 22 SKUs make up 70% of weight.",
+   "reveals_when": "Asking about volumes or SKU count",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "demand",
+   "fact": "Demand is seasonal: September-December is 30% above the annual average because of holiday grocery programmes; the lead-time problem is much worse in these months.",
+   "reveals_when": "Asking whether the problem is constant or seasonal",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "demand",
+   "fact": "Maple Crest's private-label supply agreement (CAD 7.8m/year) carries a fill-rate chargeback of 2% of invoice per week of late delivery, capped at 10%; CAD 310k in chargebacks were deducted in the first half of 2026.",
+   "reveals_when": "Asking about contracts, penalties or the cost of lateness",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Production runs two shifts (06:00-14:30, 14:30-23:00), Monday to Friday; the oven is cold at weekends and takes 2 hours to reach temperature, and the freezer takes 1.5 hours to pull down after a wash.",
+   "reveals_when": "Asking about shifts, hours or start-up",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Plant manager is Rafael Ocampo, 44, hired in January 2025 from a large national bakery; he builds the daily schedule by hand from printed order lists and a whiteboard.",
+   "reveals_when": "Asking who plans production or how the schedule is made",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Rafael's bonus (up to 25% of salary) is tied to tonnes shipped per quarter; Dana set it that way to 'get the plant moving'.",
+   "reveals_when": "Asking how the plant manager is measured or paid",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "people",
+   "fact": "Allergen and product changeovers (sesame, dairy, egg) take 30-50 minutes each including line wash-down; Rafael sequences by due date, not by allergen family or freeze time, so there are typically 7-10 changeovers per shift.",
+   "reveals_when": "Asking about changeovers, allergens or how orders are sequenced",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "people",
+   "fact": "Absence rate on the oven-exit and tray-handling station is 12%; it is the hottest, most physical job and the seven staff there are all agency temps from a Kitchener staffing firm.",
+   "reveals_when": "Asking about staffing, absence or agency labour",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Hourly staff are covered by a collective agreement with UFCW Local 175; a third shift or scheduled weekend work would need to be negotiated with the union rep, Denise Marchand.",
+   "reveals_when": "Asking whether more shifts are possible",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Dana has had three plant managers in five years; the two before Rafael left within 18 months, and she is reluctant to override him on the floor because she thinks it would push him out too.",
+   "reveals_when": "Asking about management turnover or why the owner does not intervene in scheduling",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "systems",
+   "fact": "Orders and inventory live in an old Sage 300 installation with no production module; batch sheets are printed paper that travels with the dollies.",
+   "reveals_when": "Asking about ERP or systems",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "systems",
+   "fact": "Rafael started a 90-day trial of a cloud MES (tablet job tracking at oven exit and packing) in April 2026 at CAD 4,200/month; four tablets are installed, but operators only log about a third of batches and nobody looks at the dashboards.",
+   "reveals_when": "Asking about the floor system, what has been installed or what data exists",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "systems",
+   "fact": "No one currently measures freezer throughput, belt occupancy or WIP on an ongoing basis; the figures Dana quotes come from a two-week manual count Rafael did in May 2026.",
+   "reveals_when": "Asking where the numbers come from or what is measured",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "capacity",
+   "fact": "A second spiral freezer (GEA, 220 m belt, ammonia) was quoted at CAD 4.9m installed with a 10-month lead time, and would need a building extension because the plant is full; Rafael wrote the capex memo.",
+   "reveals_when": "Asking about adding capacity or freezer quotes",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "capacity",
+   "fact": "The ammonia refrigeration plant consumes about 3.1 GWh/year of electricity; energy cost was CAD 1.4m in fiscal 2025 and the utility's time-of-use rates make weekend running 20% more expensive per kWh than weekday off-peak.",
+   "reveals_when": "Asking about energy or running costs",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "capacity",
+   "fact": "Mixing, forming, proofing and the tunnel oven each have spare capacity of roughly 35-40% at the current belt speed; the oven is regularly slowed to match the freezer.",
+   "reveals_when": "Asking about the other steps or whether they are bottlenecks",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "inventory",
+   "fact": "WIP on the floor is typically 4-6 days of work: proofed dough held in retarders and baked product on trays in the cold store waiting for QA release.",
+   "reveals_when": "Asking about work in progress or what is lying around",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "inventory",
+   "fact": "Around 30% of orders are 'rush' orders that Rafael inserts ahead of the queue after phone calls from customers; Dana herself approves several per week.",
+   "reveals_when": "Asking about expediting or how priorities change",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "finance",
+   "fact": "EBITDA fiscal 2025 was CAD 3.7m (9.0%); the operating line and term loan with TD have a covenant of funded debt below 3x EBITDA and headroom is about CAD 2.2m.",
+   "reveals_when": "Asking about profitability or borrowing capacity",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance",
+   "fact": "Overtime cost rose to CAD 1.1m in fiscal 2025 from CAD 0.5m in 2023, mostly Saturday start-ups to catch up.",
+   "reveals_when": "Asking about overtime or catch-up measures",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "environment",
+   "fact": "The plant operates under an Environmental Compliance Approval from the Ontario Ministry of the Environment covering wastewater and the ammonia system; any freezer or building extension triggers an amendment and a TSSA review of the refrigeration plant.",
+   "reveals_when": "Asking about permits or expanding the building",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "environment",
+   "fact": "Wash-down wastewater exceeded the City of Guelph sewer-use bylaw limit for BOD twice in 2025; the City has requested a corrective plan by October 2026.",
+   "reveals_when": "Asking about compliance issues or environmental incidents",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customer",
+   "fact": "Customers submit orders by email PDF or EDI; about 20% arrive with incomplete spec (pack size, label version, allergen declaration) and wait in the office 1-3 days for clarification before release.",
+   "reveals_when": "Asking about order intake or what happens before production",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "customer",
+   "fact": "Maple Crest has asked for a fixed weekly slot (Tuesday and Wednesday) dedicated to its two 900 g loaf SKUs against an 8-week rolling forecast, which would allow long uninterrupted runs, but Rafael declined because it 'ties up the line'.",
+   "reveals_when": "Asking whether customers have offered anything or about the biggest account",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "history",
+   "fact": "In 2023 a Lean consultant from Toronto ran a two-day 5S event; the only surviving change is floor tape and a shadow board.",
+   "reveals_when": "Asking what has been tried before",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "history",
+   "fact": "The second-freezer and floor-system proposals both came from Rafael in the same memo; Dana has not said no to him yet because she has no alternative to put against them.",
+   "reveals_when": "Asking why the freezer and system are on the table",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "maintenance",
+   "fact": "The 2001 spiral had 11 unplanned stops in fiscal 2025 totalling 48 hours, mostly belt tracking and defrost faults; there is no planned maintenance schedule, the millwright fixes it when it stops.",
+   "reveals_when": "Asking about breakdowns or reliability",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "maintenance",
+   "fact": "Spare drive and belt parts for the spiral take 3-5 weeks from the US; a drive failure in October 2025 stopped the plant for 3 days in peak season.",
+   "reveals_when": "Asking about the worst breakdown or spare parts",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Rafael's May 2026 line count (spreadsheet summary)",
+   "kind": "internal spreadsheet summary",
+   "content": "HARROWGATE BAKEHOUSE – LINE COUNT MAY 4–15, 2026 (R. Ocampo)\n\nMethod: counted every 30 minutes, both shifts, 10 working days. Spiral belt speed recorded each shift.\n\nBelt speed by shift: set for 900 g loaves (42 min dwell) on 16 of 20 shifts; set for 450 g loaves (28 min) on 3 shifts; set for rolls (14 min) on 1 shift.\nProducts sharing the belt with 900 g loaves during those 16 shifts: rolls on 11 shifts, flatbreads on 9, pastry bases on 6.\n\nBelt occupancy (loaded surface / available surface, avg across counts): 56%.\nTrays empty at oven exit waiting for product: 19 avg.\nTrays at QA hold awaiting release: 34 avg (max 57 on Thursday May 7, 15:00).\nTrays in circulation total: 196 (per asset list).\n\nOven: at temperature 08:05 avg on Mondays (start 06:00). Freezer at set-point 07:30 avg after weekend wash.\nUnplanned stops during count: 2 (belt tracking 35 min, defrost fault 1h50).\n\nChangeovers per shift: 8.3 avg. Average duration 38 min. Allergen wash-downs: 4.1 per shift.\n\nOrders released to floor: 402. Orders with rush flag: 89 (22%).\nOrders held in office for spec clarification before release: 66 (16%), average hold 1.7 days.\n\nScrap/rework during period: 4.6% by weight.\n\nComment: Freezer is clearly full. Oven, proofers and mixers idle for long stretches each shift. Recommend second spiral or move to three shifts. Also Sage cannot show where any order is – customers call and we walk the floor. Need the MES rolled out properly.\n\nNote: flatbreads for Bistro Supply ran Tuesday and Wednesday afternoon at the loaf speed because Maple Crest 900 g loaves were on the belt at the same time.",
+   "contains_contradiction": "Rush order share: document says 22% over the two weeks; dossier says around 30%. Scrap 4.6% here vs 5.9% annual in dossier. Both are period-vs-year differences the engine should notice and ask about rather than pick one."
+  },
+  {
+   "name": "Capex memo – second spiral freezer and MES rollout",
+   "kind": "internal management memo",
+   "content": "TO: Dana Whitcombe, President\nFROM: Rafael Ocampo, Plant Manager\nDATE: June 9, 2026\nRE: Capacity and visibility investment – request for board approval\n\nSummary. Our spiral freezer is the plant constraint and is running at capacity in every peak week. Lead times have doubled since 2024 and Maple Crest chargebacks were CAD 310k in H1. I am requesting approval for two investments.\n\n1. Second spiral freezer. GEA quote CAD 4.9m installed (220 m belt, ammonia, tied into existing refrigeration plant with compressor upgrade). Lead time 10 months from order. Requires a 640 m2 extension on the north wall; preliminary estimate from Kestrel Construction CAD 1.6m. Target commissioning: Q3 2027, ahead of the 2027 holiday season. Adds roughly 70% to freezing capacity.\n\n2. MES rollout. Convert the current tablet trial to a full licence (CAD 4,200/month, plus CAD 85k implementation) with scanning at oven exit, freezer exit and packing, and an order-status view for customer service. Go-live 4 months.\n\nExpected benefits. Lead time back to 7 days; chargebacks eliminated; overtime reduced by at least CAD 600k/year; ability to take on the two prospects Sales has been holding off.\n\nRisks. Extension requires ECA amendment and TSSA review of the ammonia system (estimated 6-9 months, can run in parallel). Bank covenant headroom would need to be discussed with TD. Standard times do not exist yet; I will define them during MES implementation.\n\nAlternatives considered. Third shift: rejected because of union negotiation time and weekend energy rates. Doing nothing: not viable given the Maple Crest renewal.\n\nI would like to place the GEA order by end of July to hold the quoted price.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Maple Crest Foods – letter of June 19, 2026",
+   "kind": "customer letter",
+   "content": "To: Dana Whitcombe, Harrowgate Bakehouse Ltd.\nFrom: Carolyn Ng, Director of Supply Chain, Maple Crest Foods, Mississauga\nDate: June 19, 2026\nRe: Delivery performance under supply agreement MC-HB-2023\n\nDear Dana,\n\nAs discussed on the phone, I am writing to set out our position formally.\n\nOn-time-in-full for Harrowgate deliveries to our Mississauga DC over January-May 2026 was 63%, against a contractual target of 95%. Average delay on late deliveries was 5.8 working days. We have applied fill-rate chargebacks under clause 8.2 totalling CAD 310,000 for the period.\n\nSince March we have placed a share of our 900 g artisan loaf volume with an alternative supplier. We would prefer not to split further. Harrowgate's product quality remains the best in our programme and your SQF status matters to our category team.\n\nWe repeat our proposal from February: a fixed weekly slot, Tuesday and Wednesday, dedicated to our two 900 g loaf SKUs, with a firm 8-week rolling forecast from our side and a 5-day lead time from yours. We understand from Rafael that this is difficult for your line. We would be glad to discuss what would make it possible.\n\nPlease note that our supply agreement is up for renewal on December 31, 2026 and our category review will move to tender if OTIF is not above 85% by end of September.\n\nKind regards,\nCarolyn Ng",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The stated problem (lead times, and the proposed freezer plus floor system) is a symptom; the physical constraint is a single spiral freezer, but the engine has to compute from the raw dwell times and mix whether it is actually full: with the belt set for 42-minute loaves on most shifts while 9-14 minute products share it, and only 56% belt occupancy, a large share of freezer time is spent on product that does not need it or on empty belt.",
+  "The bottleneck is fed by a scheduling policy (due-date sequencing, 7-10 changeovers per shift, rush insertions approved by the owner herself, mixed freeze profiles on one shift) decided by people, not systems; an MES rollout would log the same rules, and a second freezer would freeze the same gaps.",
+  "Several non-obvious levers are cheap and fast: a second QA release shift or delegated release to free trays, grouping by freeze time and allergen family, accepting Maple Crest's fixed-slot offer, and cleaning up order intake, all before any capital decision.",
+  "The plant manager's tonnes-shipped bonus, his authorship of both capital proposals, and his refusal of the Maple Crest slot are connected; the owner's reluctance to intervene comes from management-turnover fear, and the engine must surface the incentive and authority problem without turning it into a personnel verdict.",
+  "Capital and compliance are entangled: a second freezer needs a building extension, an ECA amendment, a TSSA review of the ammonia plant and bank covenant headroom, while the sewer-bylaw BOD breach is a separate live regulatory deadline that must not be lost under the throughput story.",
+  "The numbers the client has come from a two-week manual count, and the documents disagree with the owner's recollection (rush share, scrap rate); recommendations should be conditional on a proper measurement rather than treated as established."
+ ],
+ "regulated_matters": [
+  "Changing shift patterns, adding a third shift or scheduled weekend work under the UFCW Local 175 collective agreement, and use of agency labour: Ontario employment-law and labour-relations advice required.",
+  "Environmental Compliance Approval amendment and TSSA review for any freezer or building extension, and the City of Guelph sewer-use bylaw corrective plan due October 2026: environmental-law and permitting specialists required.",
+  "SQF and CFIA/SFCR requirements when altering freezing parameters, QA release procedures, allergen changeover practice or introducing a second freezer: food-safety and certification specialists must be consulted before any process change.",
+  "Fill-rate chargeback clauses and renewal/tender terms in the Maple Crest supply agreement: contract-law advice, not consulting judgment.",
+  "Bank covenant implications of CAD 4.9m freezer capex plus extension under the TD facility, and Canadian tax treatment of capital investment: financial and tax advisers.",
+  "Changes to the plant manager's bonus structure or authority: employment-law advice on contract variation."
+ ],
+ "realistic_central_decision_candidates": [
+  "Whether to commit capital now (second freezer, MES) or first recover the capacity already lost at the existing freezer through freeze-time grouping, tray release and QA changes, and decide on capital after measured results.",
+  "Whether to restructure the customer commitment model around long-run private-label work (accepting Maple Crest's fixed slot and forecast) at the cost of flexibility for smaller foodservice customers, and what that does to the SKU count.",
+  "Whether the plant's governance is the real problem: how the plant manager is measured and who owns scheduling and rush approvals, and whether that must change before any operational or capital fix will stick."
+ ]
+}

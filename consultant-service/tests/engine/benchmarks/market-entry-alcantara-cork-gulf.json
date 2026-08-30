@@ -1,0 +1,312 @@
+{
+ "id": "market-entry-alcantara-cork-gulf",
+ "title": "Corchera Alcántara: \"We want to go into the Emirates\"",
+ "opening_statement": "We make cork flooring and wall panels in Extremadura and things are going well. My commercial director came back from a trade show in Dubai with a stack of contacts and now we want to go into the Emirates. Where do we start?",
+ "client_persona": {
+  "name": "Manuel Rebollo Gámez",
+  "role": "Owner and Managing Director (second generation)",
+  "company": "Corchera Alcántara, S.L.",
+  "sector": "Cork building products (flooring, acoustic wall panels, insulation boards)",
+  "country": "Spain (San Vicente de Alcántara, Badajoz province, Extremadura)",
+  "size": "74 employees, EUR 11.2M revenue (2025), owner-managed, single shareholder",
+  "temperament": "Warm, proud, tells stories about his father and the dehesa before answering; gives round numbers unless pressed, then goes to fetch the exact figure from Carmen in finance. Speaks of his commercial director Álvaro with a mix of admiration and unease. Does not volunteer bad news; answers honestly when asked a direct question."
+ },
+ "dossier": [
+  {
+   "topic": "revenue",
+   "fact": "2025 revenue was EUR 11.2M, up from EUR 9.8M in 2024 and EUR 8.1M in 2023.",
+   "reveals_when": "Any question about size, growth, or financial performance.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "profitability",
+   "fact": "EBITDA 2025 was EUR 1.9M (about 17%). Net profit after tax EUR 1.1M.",
+   "reveals_when": "Asked about margins or profit.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "cash",
+   "fact": "Cash at bank end of July 2026: EUR 2.3M. No term debt; a EUR 600k credit line with Caja Rural de Extremadura, undrawn.",
+   "reveals_when": "Asked about cash, debt or how an expansion would be funded.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "products",
+   "fact": "Three lines: glue-down cork flooring tiles (58% of revenue), click-floating cork planks with HDF core (27%), acoustic wall panels 'Susurro' range (15%).",
+   "reveals_when": "Asked what they sell or the product mix.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "Sales are 69% domestic Spain, 24% Portugal, 7% France. All export is through two distributors: Pavimentos Lusos Lda (Lisbon) and Naturosol SAS (Lyon).",
+   "reveals_when": "Asked where sales come from or whether they already export.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "Domestic sales are 60% through builders' merchants (largest: the BigMat buying group, 17% of total revenue, invoiced store by store), 40% direct to architects and contractors on projects.",
+   "reveals_when": "Asked about channels or customer concentration.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "the trigger",
+   "fact": "Álvaro Iturbe (41, commercial director, hired 18 months ago from a Valencian ceramic-tile exporter where he ran Middle East sales) attended The Big 5 construction show in Dubai in December 2025 and returned with 31 business cards and two verbal expressions of interest from fit-out contractors.",
+   "reveals_when": "Asked why the Emirates, or what happened at the show.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "the trigger",
+   "fact": "Neither expression of interest has been followed up with a quotation; no sample has been sent to the Gulf.",
+   "reveals_when": "Asked what concrete demand exists or what has happened since the show.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "the trigger",
+   "fact": "Of the 31 cards, 14 are UAE-based firms, 12 Saudi-based, 3 Qatar, 2 Oman. Manuel refers to all of them as 'the Emirates' and has not looked at the breakdown; Álvaro keeps the list.",
+   "reveals_when": "Asked which market specifically, or which country the contacts are in.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "the trigger",
+   "fact": "Álvaro's previous employer sold ceramic tile mainly into Saudi Arabia and Qatar, not the UAE; he still has a personal network of Riyadh-based contractors from that job.",
+   "reveals_when": "Asked about Álvaro's background or where his experience actually is.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "capacity",
+   "fact": "The San Vicente plant runs one shift, five days, at roughly 78% of press capacity. A second shift would need about 14 more operators.",
+   "reveals_when": "Asked whether they could supply more volume.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "raw material",
+   "fact": "Cork bark is bought from 41 dehesa landowners in Extremadura and northern Andalusia under annual handshake agreements; the bark harvest is only every 9 years per tree, so supply is fixed within a season.",
+   "reveals_when": "Asked about input supply or whether raw material could scale.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "raw material",
+   "fact": "Cork bark prices rose 34% between 2023 and 2026 because of wine-stopper demand from the big Portuguese groups; Alcántara's gross margin fell from 41% to 36% in the same period, masked by volume growth.",
+   "reveals_when": "Asked about input cost trends or why margin moved.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "raw material",
+   "fact": "Alcántara does not granulate its own bark; it buys cork granulate from two local preparers at a 22% mark-up over raw bark, and one of them, Aglomerados Vega del Alagón S.L., entered insolvency proceedings in May 2026.",
+   "reveals_when": "Asked about the supply chain steps, who processes the bark, or supplier risk.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "product fit",
+   "fact": "The glue-down tiles and floating planks use a water-based polyurethane finish rated for interiors at 18-26 C and 40-65% relative humidity. Above 30 C sustained the HDF core in the click planks has shown edge swelling in the Lyon distributor's warehouse during the 2025 heatwave.",
+   "reveals_when": "Asked about technical specifications, climate suitability, or past quality complaints.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "product fit",
+   "fact": "The 'Susurro' acoustic panels are pure agglomerated cork with no HDF and have no known climate issue; they are the line the Gulf contractors asked about (for hotel and office fit-out).",
+   "reveals_when": "Asked which product the Gulf contacts wanted.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "certification",
+   "fact": "Products carry CE marking under EN 14041 and a French A+ VOC label. No fire classification testing above Cfl-s1 has been done for the panels; Gulf hotel fit-out typically specifies a higher wall-lining fire class.",
+   "reveals_when": "Asked about certifications, standards, or what the Gulf buyers asked for.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "certification",
+   "fact": "Álvaro obtained a quote from AIDIMME in Valencia: EUR 18,500 and 10 weeks for the fire test package on the panels. It has not been approved.",
+   "reveals_when": "Asked what it would cost or take to comply.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "logistics",
+   "fact": "A 40ft container from Valencia to Jebel Ali currently quotes about EUR 2,700 and 21 days port-to-port; road from San Vicente to Valencia adds about EUR 900. One container holds roughly EUR 38,000 of flooring at ex-works price.",
+   "reveals_when": "Asked about shipping cost or landed cost.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "logistics",
+   "fact": "Nobody in the company has ever prepared an export shipment outside the EU; the Portuguese and French distributors collect ex-works with their own hauliers. Álvaro did it at his previous employer but through a forwarder he no longer has a contract with.",
+   "reveals_when": "Asked about export experience or who handles paperwork.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "team",
+   "fact": "Commercial team is Álvaro plus two inside sales staff (Rita and Pablo) who handle Spanish merchants. Nobody speaks Arabic; Álvaro's English is fluent, Manuel's is basic.",
+   "reveals_when": "Asked about the sales team or languages.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "team",
+   "fact": "Manuel (63) intends to retire in 2029; he has no children in the business. He is privately weighing whether Álvaro could be the next managing director, and sees the Gulf initiative partly as a test of him.",
+   "reveals_when": "Asked about succession, or why this matters to him personally, or what happens if it fails.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "team",
+   "fact": "Álvaro's contract carries a variable component of 3% of first-year invoiced revenue from any market outside Iberia and France, with no margin or collection condition, agreed when he was hired in early 2025.",
+   "reveals_when": "Asked how the commercial director is paid or what he gains personally from the Gulf plan.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "team",
+   "fact": "Álvaro told Manuel in June that a competitor (a Girona parquet manufacturer) has approached him about a Middle East export role; Manuel took the Gulf plan more seriously after that conversation.",
+   "reveals_when": "Asked whether Álvaro is likely to stay, or what would happen if he left.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "domestic market",
+   "fact": "Spanish residential construction permits in Extremadura and Andalusia fell 9% in the first half of 2026; two of their top ten merchant customers have slowed payment to 75+ days.",
+   "reveals_when": "Asked about domestic market conditions or why they want to grow abroad now.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "competing option",
+   "fact": "The insolvency administrator of Aglomerados Vega del Alagón has invited Alcántara to bid for the granulation plant (site, two granulators, drying line, 9 staff) as a going-concern unit; guide price EUR 1.6M, bids due 15 November 2026. Buying it would remove the 22% granulate mark-up and give control of about 60% of Alcántara's granulate needs.",
+   "reveals_when": "Asked about other growth or investment options, what else is on the table, or about the insolvent supplier.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "competing option",
+   "fact": "Carmen in finance estimates the granulation plant would add roughly EUR 550-650k a year to gross profit at current volumes, before financing, if the workforce and the landowner contracts transfer.",
+   "reveals_when": "Asked what the plant purchase would be worth or how it compares financially.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "competition",
+   "fact": "Amorim Cork Flooring (Wicanders brand) already sells in the UAE through a Dubai distributor and is roughly 30 times Alcántara's size.",
+   "reveals_when": "Asked who competes in the target market.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "competition",
+   "fact": "In Spain and Portugal, Alcántara competes on price (about 12% below Wicanders) and on lead time (2 weeks vs 6).",
+   "reveals_when": "Asked why customers buy from them.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "pricing",
+   "fact": "Average ex-works price EUR 24/m2 for tiles, EUR 31/m2 for click planks, EUR 46/m2 for Susurro panels.",
+   "reveals_when": "Asked about prices.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "pricing",
+   "fact": "Álvaro estimates a Gulf distributor would want 35-40% margin and hotel fit-out contractors expect 60-90 day payment terms.",
+   "reveals_when": "Asked about channel economics in the target market.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "systems",
+   "fact": "ERP is Sage 200 (Spanish edition); it handles one currency (EUR) and has no multi-entity or export documentation module.",
+   "reveals_when": "Asked about systems, invoicing, or currency.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "brand",
+   "fact": "The company has no English-language catalogue; the website is Spanish and Portuguese only. The Gulf leads were shown a Spanish PDF.",
+   "reveals_when": "Asked about marketing materials.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "regulatory",
+   "fact": "Álvaro has been told by a contact that a UAE distributor may need to be a local sponsor or that a mainland trade licence is needed; nobody has verified this, nor whether Saudi rules differ.",
+   "reveals_when": "Asked about legal setup or licensing in the target country.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "regulatory",
+   "fact": "Manuel assumes Gulf sales would be VAT-free like intra-EU sales; he has not asked the accountant (Asesoría Lozano) about GCC VAT, customs duty, or Spanish tax on a foreign entity.",
+   "reveals_when": "Asked about tax.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "budget",
+   "fact": "Manuel's mental budget for 'trying the Emirates' is EUR 150k over 12 months; he has not written it down or split it.",
+   "reveals_when": "Asked how much he is prepared to spend.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "budget",
+   "fact": "Extremadura Avante (the regional trade agency) has told Álvaro it would co-fund 40% of trade-show and certification costs for a Gulf entry under its 2026 internationalisation programme, capped at EUR 40k, if the application is filed by 30 September 2026.",
+   "reveals_when": "Asked about grants, public support, or why the timing feels urgent.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "timing",
+   "fact": "Álvaro has already booked a stand at The Big 5 Dubai for December 2026 (EUR 22,400 paid, non-refundable), signed under his own authority limit.",
+   "reveals_when": "Asked what commitments have already been made.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "history",
+   "fact": "In 2017 the company tried to sell into Germany through a Hamburg agent; it lost about EUR 90k in 18 months, mostly on unsold stock and a claim about VOC labelling. Manuel does not like to discuss it.",
+   "reveals_when": "Asked whether they have tried to enter a new market before.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "operations",
+   "fact": "Lead time to Portugal is 2 weeks because they keep 6 weeks of finished stock; stock is worth about EUR 1.4M and turns 5 times a year.",
+   "reveals_when": "Asked about inventory or working capital.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "workforce",
+   "fact": "Average operator tenure is 14 years; the San Vicente area has few available skilled workers, and the last three hires took 5 months to fill.",
+   "reveals_when": "Asked about hiring or labour.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "the Gulf leads",
+   "fact": "The two verbal expressions of interest were from Al Futtaim Interiors (Dubai) and Nesma & Partners (Riyadh), both for acoustic panels in hospitality projects; neither specified volumes.",
+   "reveals_when": "Asked to name the contacts or the projects.",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Informe de Gestión 2025 (extract, translated)",
+   "kind": "Annual management report extract",
+   "content": "Corchera Alcántara, S.L. — Management Report for the year ended 31 December 2025 (extract)\n\nTurnover reached EUR 11.2 million, an increase of 14.3% over 2024, driven by volume growth in Spain and continued expansion with our Portuguese partner Pavimentos Lusos. EBITDA was EUR 1.9 million. Net result after tax was EUR 1.1 million, all retained.\n\nProduct mix: glue-down tiles 58%, floating planks 27%, Susurro acoustic panels 15%. The Susurro range grew 41% year on year and is now specified by 23 architecture practices in Spain and Portugal.\n\nGeographic split: Spain 69%, Portugal 24%, France 7%. The BigMat group remained our largest merchant channel.\n\nRaw material: cork bark and granulate purchases totalled EUR 3.1 million from 41 producers and two preparers. Average bark price per arroba rose 9% in the year. Gross margin for the year was 39%, in line with our target range of 38-42%.\n\nInvestments: EUR 420k in the second sanding line and EUR 85k in the Sage ERP upgrade. No borrowing was required.\n\nPeople: headcount 74 at year end (2024: 70). Average tenure 14 years. Two apprentices joined from the IES Alcántara vocational programme. The new Commercial Director completed his first full year.\n\nOutlook: the Board notes softening in regional residential permits and intends to prioritise growth in the Iberian merchant channel and selected export opportunities in 2026. The Commercial Director attended The Big 5 in Dubai in December and reports strong interest in the Susurro range from hospitality fit-out contractors in the Gulf region.\n\nSigned, Manuel Rebollo Gámez, Managing Director. San Vicente de Alcántara, 28 March 2026.",
+   "contains_contradiction": "States gross margin for 2025 was 39% and 'in line with target'; the dossier says gross margin has fallen from 41% to 36% by 2026 due to bark prices. The report's figure is a year old and partially flatters (Carmen's management accounts for H1 2026 show 36%)."
+  },
+  {
+   "name": "Álvaro's Big 5 Dubai follow-up list",
+   "kind": "Spreadsheet export (CSV-style notes)",
+   "content": "BIG 5 DUBAI — DEC 2025 — CONTACTS (A. Iturbe)\n\nTotal cards collected: 31\nBy country: UAE 14, Saudi Arabia 12, Qatar 3, Oman 2\nBy type: fit-out contractor 11, distributor/trader 9, architect/designer 7, other 4\n\nHOT (2):\n1. Al Futtaim Interiors — Dubai — Procurement Mgr (Rashid A.) — asked for Susurro panel samples and fire cert for a 3-hotel package. Sent Spanish PDF. No quote yet. FOLLOW UP.\n2. Nesma & Partners — Riyadh — Interiors Division (Faisal, knew him from Porcelánicos days) — interested in acoustic panels for office towers. Asked 'are you in Saudi?' Sent Spanish PDF. No quote yet. FOLLOW UP.\n\nWARM (6):\n3. Depa Group — Dubai — need English catalogue first\n4. Alghanim Intl — Kuwait/UAE — wants distributor terms sheet\n5. Kinnarps ME — Dubai — asked about floating planks for showrooms — mentioned humidity in summer, need to check\n6. Havelock One — Bahrain/Dubai — samples\n7. Line Investments (Lulu Group) — asked price per m2 landed Jebel Ali\n8. Saudi Diyar Consultants — Riyadh — specification only; also 4 Riyadh contractors from old Porcelánicos list not at show, could call\n\nCOLD (23): see full list.\n\nActions:\n- English catalogue (ask Rita)\n- Fire test quote received EUR 18,500 AIDIMME — pending Manuel\n- Book Big 5 2026 stand — DONE, 36 m2, EUR 22,400 paid Jan\n- Extremadura Avante grant form — deadline 30 Sept\n- Ask Asesoría Lozano about VAT — pending\n- Check if we need a local partner — Rashid says 'everyone has a sponsor', need to confirm; Saudi probably different\n\nNext review: never scheduled.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Insolvency administrator — invitation to bid for the Vega del Alagón production unit",
+   "kind": "Legal/commercial correspondence",
+   "content": "Administración Concursal de Aglomerados Vega del Alagón, S.L. (Concurso 214/2026, Juzgado de lo Mercantil nº 1 de Badajoz)\nBadajoz, 21 July 2026\n\nTo: Corchera Alcántara, S.L. — attn. Sr. Manuel Rebollo Gámez\n\nRef: Sale of productive unit — cork granulation plant, Coria (Cáceres)\n\nDear Sr. Rebollo,\n\nAs a principal customer of the insolvent company, you are invited to submit a binding offer for the productive unit comprising: the industrial site at Polígono Los Rosales, Coria (4,200 m2 built), two granulation lines (2014 and 2019), a rotary drying line, screening and bagging equipment, the vehicle fleet, current stock of bark and granulate (approx. EUR 210k at cost), the employment contracts of 9 workers, and the supply relationships with 26 forest landowners.\n\nGuide price: EUR 1,600,000, of which not less than 30% payable on award and the balance within 90 days. Offers below the guide price will be considered where they include a commitment to maintain employment for at least 24 months.\n\nDeadline for binding offers: 15 November 2026, 14:00, at this office. Data room access is available on request from 1 September. The administrator expects the court to rule on the award before 31 January 2027; the plant continues to operate at reduced capacity until then.\n\nPlease note that any offer must be accompanied by proof of funds or a financing commitment.\n\nAtentamente,\nLucía Ferrer Moyano\nAdministradora Concursal",
+   "contains_contradiction": "Lists 26 landowner supply relationships; the dossier says buying the plant would give control of about 60% of Alcántara's granulate needs. Carmen's estimate of EUR 550-650k gross profit uplift assumes those 26 relationships transfer, but handshake supply agreements do not automatically transfer in an insolvency sale — the uplift is unproven until the data room is examined."
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "'The Emirates' is not a market: the card list splits almost evenly between UAE and Saudi firms, the champion's prior network and one of the two hot leads are in Riyadh, and the two countries differ in licensing, certification and channel. The engine must infer this from the breakdown and pin down which market before anything else.",
+  "The stated question (how do we enter the Gulf) sits on top of a choice the owner has not framed: the insolvent granulate supplier's plant (bids due 15 November, EUR 1.6M) competes for the same cash reserve and management attention, and it addresses the margin erosion that the Gulf plan would worsen. The real decision is what to do with the EUR 2.3M reserve and the next 12 months of attention.",
+  "The Gulf 'demand' is two unquantified verbal interests and no quotation; the company has already committed EUR 22,400 to a stand and is being asked to spend EUR 18,500 on fire testing on the strength of that, with a grant deadline adding artificial urgency.",
+  "The internal champion is a hired outsider whose bonus pays 3% of top-line non-Iberian revenue with no margin or collection condition, who has a competing job offer, and whom the owner is quietly auditioning as successor. The incentive structure and the retention question are driving momentum more than analysis; the engine should separate 'is the Gulf worth it' from 'how do we keep and test Álvaro'.",
+  "The product the Gulf actually wants (Susurro acoustic panels) is not the core product, lacks the fire classification hotel fit-out requires, but has no climate issue; the core flooring lines have a known HDF swelling problem above 30 C. A Gulf entry, if any, is a single-product panel play, not a flooring play.",
+  "Gross margin is quietly eroding (41% to 36%) under a raw-material supply that cannot be scaled and a granulate mark-up paid to third parties; volume growth is masking it. The 2017 Germany failure (EUR 90k) is a direct precedent the owner avoids. A bounded, staged commitment with evidence gates matters more than a market-sizing exercise."
+ ],
+ "regulated_matters": [
+  "UAE and Saudi commercial agency, distributorship and local-sponsor/trade-licence requirements (mainland vs free zone; Saudi foreign-investment rules) — route to a licensed lawyer in the target jurisdiction.",
+  "GCC VAT registration, UAE/Saudi customs duties on wood and cork products, and Spanish corporate tax and transfer-pricing consequences of a foreign entity or agent — route to Asesoría Lozano and a cross-border tax adviser.",
+  "Fire-classification and building-product conformity requirements for wall linings in UAE (Civil Defence) and Saudi (SBC/SASO) — route to an accredited test laboratory and local certification consultant; do not state which class is required.",
+  "Purchase of a productive unit from an insolvent company under the Spanish Ley Concursal: transfer of employment contracts and liabilities, succession of debts, treatment of supplier relationships — route to an insolvency lawyer and the data room; do not opine on what transfers.",
+  "Eligibility, state-aid and clawback conditions of the Extremadura Avante internationalisation grant — route to the agency and the company's adviser.",
+  "Spanish employment law on posting staff abroad, and visa/labour rules for any employee based in the Gulf — route to an employment lawyer.",
+  "The commercial director's variable-pay clause and any amendment to it under Spanish labour law — route to an employment lawyer; do not draft terms.",
+  "Export-credit insurance and letters-of-credit arrangements for 60-90 day Gulf terms — route to a bank or credit insurer (e.g. CESCE), not answered as advice.",
+  "Product liability and warranty exposure for HDF-core flooring sold into climates outside its rated range — route to legal counsel and the company's insurer."
+ ],
+ "realistic_central_decision_candidates": [
+  "Capital allocation: should Corchera Alcántara put its EUR 2.3M reserve and 2026-27 management attention into buying the Vega del Alagón granulation plant (bid by 15 November), into a Gulf entry, or into a sequenced combination — and what does each do to the reserve, debt and risk?",
+  "Margin per tonne: given fixed bark supply and a gross margin sliding from 41% to 36%, which option raises gross profit per tonne of cork — vertical integration into granulate, a premium single-product (Susurro) export niche, or neither — and what minimum evidence (one quoted order, one fire test result, data-room figures) is needed before spending beyond the EUR 22,400 already committed?",
+  "People and incentives: how should Manuel restructure the Gulf initiative and Álvaro's variable pay so that it becomes a bounded, budgeted test of both the market and the potential successor (which country, which product, what proof-of-demand gate, what payout on margin rather than revenue) without the retention worry dictating the company's investment choice?"
+ ]
+}

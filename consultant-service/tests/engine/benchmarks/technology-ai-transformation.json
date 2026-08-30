@@ -1,0 +1,313 @@
+{
+ "id": "technology-ai-transformation",
+ "title": "Ferrante Spedizioni Doganali: \"everyone says we need AI\"",
+ "opening_statement": "Everyone keeps telling me we need AI. We're a customs brokerage in Genoa, my father founded it, and I'm hearing it from clients, from my new commercial director, from a vendor who came in last month. I don't want to be the last one standing still, but I honestly don't know what we'd even use it for.",
+ "client_persona": {
+  "name": "Marco Ferrante",
+  "role": "Managing Director and majority shareholder (second generation, 58)",
+  "company": "Ferrante Spedizioni Doganali S.r.l.",
+  "sector": "Customs brokerage and freight forwarding (import/export documentation, ports of Genoa and La Spezia)",
+  "country": "Italy",
+  "size": "142 staff, EUR 18.6M revenue (2025), two offices (Genoa Sampierdarena, La Spezia) plus a desk at Milan Malpensa cargo",
+  "temperament": "Affable and rambling; tells stories about clients and competitors instead of giving numbers; only produces figures when asked a direct, specific question and then knows them precisely; becomes prickly when the conversation touches the minority investor or the commercial director he hired; agrees too quickly with whatever the last person said."
+ },
+ "dossier": [
+  {
+   "topic": "Trigger",
+   "fact": "The AI conversation started because the Commercial Director, Davide Sanna (38, hired in January 2026 from a rival broker), presented a slide deck to Marco in June 2026 titled 'Why we lose reefer volume' that ended with a vendor recommendation; Marco has not read past the summary page.",
+   "reveals_when": "Asking what actually happened that made him raise this now / who is saying 'you need AI'",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Client concentration",
+   "fact": "Gran Mercato Nord S.p.A., a supermarket chain, is the largest client at 31% of revenue (approx EUR 5.8M) under a rolling annual service agreement with a three-month notice period; there is no re-tender under way and no contractual deadline.",
+   "reveals_when": "Asking about the largest clients, revenue concentration, or contract terms",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Client drift",
+   "fact": "Gran Mercato Nord's monthly declaration count with Ferrante has fallen from around 1,150 in early 2025 to 870 in June 2026 while the client's total import volume grew; its logistics manager, Silvia Brambilla, confirmed informally that reefer shipments are being routed step by step to a second broker that receives their data electronically.",
+   "reveals_when": "Asking whether the big client is happy, whether volumes are stable, or about service failures",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Client complaint",
+   "fact": "Silvia Brambilla raised the reefer delays in phone calls in March and May 2026 and has started deducting demurrage charges from invoices rather than sending a formal complaint; there has been no letter and no ultimatum.",
+   "reveals_when": "Asking whether the big client has complained or about disputes",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Volume",
+   "fact": "The company filed 31,400 customs declarations in 2025 (import and export combined), up from 22,000 in 2023, with no increase in declaration staff.",
+   "reveals_when": "Asking about volumes or workload",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Staffing",
+   "fact": "Declarations are prepared by 46 declaration clerks and signed by 9 licensed customs brokers (spedizionieri doganali iscritti all'albo); the licensed brokers are the only people legally allowed to sign a declaration on the company's behalf.",
+   "reveals_when": "Asking who does the work or how a declaration gets made",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Process timing",
+   "fact": "Internal measurement (a two-week stopwatch study by the ops director in April 2026) puts the average clerk handling time at 38 minutes per declaration, of which about 23 minutes is retyping data from client PDFs and emails into the system.",
+   "reveals_when": "Asking how long a declaration takes and where the time goes",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Root cause of lateness",
+   "fact": "The same study found that 61% of late submissions were caused by missing or inconsistent documents from the client (commercial invoice, packing list, certificate of origin), not by internal slowness; clerks chase clients by email and phone.",
+   "reveals_when": "Asking why declarations are late, or what causes rework",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Error rate",
+   "fact": "Customs (ADM - Agenzia delle Dogane e dei Monopoli) raised 214 post-clearance queries in 2025; internal review attributes 70% of them to tariff classification (HS code) mistakes and typos in values and weights.",
+   "reveals_when": "Asking about errors, penalties, or customs queries",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Existing tool",
+   "fact": "The core system 'Dogasys' already includes a rules-based HS-code suggestion module bought in 2019; only 4 of 46 clerks use it because it was never configured for the company's main commodity groups and nobody was trained.",
+   "reveals_when": "Asking what tools or automation they already have, or whether anything similar was tried",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Core system",
+   "fact": "Dogasys is a packaged application from a Padua software house, DogaSoft S.r.l., first installed in 2009, running on a Microsoft SQL Server 2012 database on a server in the Genoa office; it connects to the Italian customs telematic service via a file-based interface.",
+   "reveals_when": "Asking what system they run on",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Platform end-of-life",
+   "fact": "DogaSoft was acquired in 2025 by Nexora Group (Bologna), which wrote to all customers in April 2026 announcing that Dogasys will reach end-of-support on 31 December 2028 and offering migration to its cloud product 'Nexora Customs' at a list price of EUR 1,900/month plus EUR 85,000 migration; nobody at Ferrante has replied to the letter.",
+   "reveals_when": "Asking about the system's future, vendor support, or IT risks",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Integration",
+   "fact": "Dogasys has no API exposed to the customer; the only way data goes in is by keyboard or by a nightly CSV import that DogaSoft built as paid customisation for one client in 2021.",
+   "reveals_when": "Asking whether clients can send data electronically or how data enters the system",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Customs interface deadline",
+   "fact": "ADM has announced that the file-exchange interface used by Dogasys will be withdrawn in favour of a web-service interface with the transition window closing at the end of 2027; DogaSoft's roadmap covers this only in Nexora Customs, not in the on-premise product.",
+   "reveals_when": "Asking about regulatory changes, customs system changes, or what must happen regardless",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Vendor proposal",
+   "fact": "A vendor called Kairos Logistics AI (Barcelona) presented in July 2026 and quoted EUR 480,000 for a two-year 'AI document intelligence platform' plus EUR 96,000/year subscription; the proposal assumes replacing Dogasys's data-entry front end.",
+   "reveals_when": "Asking what the vendor proposed or what it costs",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Vendor proposal detail",
+   "fact": "The Kairos proposal was built on 2023 volume figures given informally by Davide Sanna from a brochure he found; the vendor's savings case therefore understates current volume by roughly 30%.",
+   "reveals_when": "Asking where the vendor's numbers came from or asking to see the proposal",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Vendor hosting",
+   "fact": "Kairos processes documents on cloud infrastructure in the United States; the company has not checked whether that is compatible with its client contracts or its AEO obligations.",
+   "reveals_when": "Asking where data would be processed or about data protection",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Internal champion",
+   "fact": "Davide Sanna's variable pay is 40% of salary and tied to net new revenue; he sourced the Kairos meeting, has no IT background, and sees 'AI-enabled clearance' as a sales claim to win two prospects he brought from his previous employer.",
+   "reveals_when": "Asking who owns digital internally, who is pushing for AI, or what the commercial director's incentives are",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Ownership and governance",
+   "fact": "Marco holds 65%; Liguria Capital Partners, a regional private-equity fund, took 35% in 2023 to finance the La Spezia expansion, with a shareholders' agreement giving it a veto on any capital commitment above EUR 250,000 and requiring a written business case to a quarterly investment committee; the next committee sits in mid-November 2026.",
+   "reveals_when": "Asking who decides, who signs off on investment, or about the shareholders",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Investor stance",
+   "fact": "The fund's board representative, Elena Cardone, has said in two board meetings that she will not support 'technology for its own sake' but would back spending that demonstrably protects the Gran Mercato Nord relationship or reduces the cost per declaration; she has asked twice for a cost-per-declaration figure and never received one.",
+   "reveals_when": "Asking what the investor wants or how to get approval",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Financials",
+   "fact": "2025 EBITDA was EUR 1.1M (5.9% margin); cash at bank at end of July 2026 was EUR 2.1M; there is an unused EUR 750,000 credit line with the company's house bank.",
+   "reveals_when": "Asking about profitability, cash, or what they can afford",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Pricing",
+   "fact": "Declaration fees are flat per document (EUR 38 to EUR 65 depending on client tier) and have not been raised since 2021; Gran Mercato Nord is on the lowest tier plus a volume rebate.",
+   "reveals_when": "Asking how they charge or about pricing",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Competitors",
+   "fact": "The broker gaining Gran Mercato Nord's reefer volume is Doganalia Nord S.p.A. (large, national, own client portal and SAP-connected intake); a Dutch entrant, ClearPort Digital, is also marketing 'AI-driven clearance in under 2 hours' to Genoa importers.",
+   "reveals_when": "Asking who the competition is or what clients compare them to",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Client mix",
+   "fact": "Beyond Gran Mercato Nord, the next four clients are an olive oil exporter, a pharmaceutical importer, a wine exporter and an automotive parts importer, together 24% of revenue; the remaining 45% is spread across around 310 small importers.",
+   "reveals_when": "Asking about the client base or segments",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Staff turnover",
+   "fact": "Clerk turnover was 22% in 2025; exit interviews cite repetitive retyping and evening overtime during peak weeks (before Christmas and Easter).",
+   "reveals_when": "Asking about staff, retention, or morale",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Overtime",
+   "fact": "Overtime cost EUR 186,000 in 2025, concentrated in November and the two weeks before Easter.",
+   "reveals_when": "Asking about labour cost or peaks",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Licensing",
+   "fact": "Four of the nine licensed customs brokers are over 60; the licence requires passing a state exam and the company has had no new licensed broker in six years.",
+   "reveals_when": "Asking about the licensed brokers, succession, or capacity constraints in signing",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "AEO status",
+   "fact": "The company holds AEO-C (Authorised Economic Operator, customs simplification) status since 2017, which requires documented internal controls over data accuracy and IT security; it is due for re-assessment in 2027.",
+   "reveals_when": "Asking about certifications, customs status, or regulatory obligations",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Works council",
+   "fact": "There is a unitary union representation (RSU) that must be consulted on changes to work organisation; in December 2025 it filed a grievance about compulsory overtime in the pre-Christmas peak that is still open.",
+   "reveals_when": "Asking about unions, employee representation, or staff relations",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Client's actual ask",
+   "fact": "When asked directly, Silvia Brambilla has said what Gran Mercato Nord wants is (a) to send shipment data from their SAP system instead of PDFs, (b) to see clearance status per container without phoning, and (c) a predictable turnaround for reefer containers; she has never mentioned AI.",
+   "reveals_when": "Asking what the client actually wants or asked for",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Client ERP",
+   "fact": "Gran Mercato Nord runs SAP and already sends Doganalia Nord shipment data as EDI messages; Silvia Brambilla has offered the same feed to Ferrante twice, and it was never taken up because Dogasys cannot receive it.",
+   "reveals_when": "Asking whether the client could send data electronically",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "IT staff",
+   "fact": "Internal IT is one person, Paola Meneghini, who manages laptops, the network and the Microsoft 365 tenant; she has no development background, and DogaSoft support is by ticket with a two-business-day response.",
+   "reveals_when": "Asking about the IT team",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Data",
+   "fact": "Dogasys holds 17 years of declaration history (about 340,000 declarations) with invoice line descriptions, HS codes as filed, and customs outcomes, but the descriptions are free text and there is no standard product master.",
+   "reveals_when": "Asking what data they have or its quality",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Peak capacity",
+   "fact": "In the last week of November 2025 the Genoa office processed 1,180 declarations with 41 clerks, against a normal week of 600; 34 declarations for Gran Mercato Nord that week missed the vessel cut-off.",
+   "reveals_when": "Asking about peak periods or the worst week",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Grants",
+   "fact": "Davide Sanna has put 'EUR 200k in Transizione 5.0 tax credits and regional digitalisation grants' on his slide to the investor; nobody has checked eligibility, and the tax credit requires certified energy-efficiency effects that a document-capture tool would not obviously deliver.",
+   "reveals_when": "Asking how the project would be funded or about subsidies",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "La Spezia office",
+   "fact": "The La Spezia office (28 staff) handles bulk and energy cargo with far simpler declarations; it has no lateness problem and its branch manager regards the Genoa problems as 'a management issue, not a software issue'.",
+   "reveals_when": "Asking about the two offices or whether the problem is everywhere",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Marco's own view",
+   "fact": "Marco wants the company to stay independent and family-controlled; he turned down an approach from a national forwarding group in 2024 and worries mainly about being squeezed out of the reefer segment by bigger networks.",
+   "reveals_when": "Asking about his personal goals or what success looks like in five years",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Timing",
+   "fact": "There is no client-imposed deadline; the real dates are the investment committee in mid-November 2026, the ADM interface cut-off at end-2027, the AEO re-assessment in 2027, and Dogasys end-of-support on 31 December 2028.",
+   "reveals_when": "Asking about deadlines",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Cost of demurrage dispute",
+   "fact": "The demurrage charges Gran Mercato Nord has deducted total EUR 47,300 across 2026 to date; the service agreement's liability clause is ambiguous and the company's lawyer has not been consulted.",
+   "reveals_when": "Asking what the complaint could cost or about contractual exposure",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Pharma client",
+   "fact": "The pharmaceutical importer (Farmaligure) requires that shipment and consignee data are not processed outside the EU, written into its 2024 service agreement.",
+   "reveals_when": "Asking about client contractual constraints on data or cloud",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Cost per declaration",
+   "fact": "Nobody has computed a cost per declaration; a quick estimate from payroll and overhead puts it at about EUR 44 fully loaded against an average fee of EUR 49, which is why the investor keeps asking.",
+   "reveals_when": "Asking about unit economics or margin per declaration",
+   "changes_recommendation": true
+  }
+ ],
+ "documents": [
+  {
+   "name": "Kairos Logistics AI - Proposal to Ferrante Spedizioni Doganali (July 2026)",
+   "kind": "Vendor proposal (executive summary)",
+   "content": "KAIROS LOGISTICS AI, S.L. - Barcelona\nProposal ref. KL-2026-0417 - Prepared for Sig. Davide Sanna, Commercial Director\n\n1. Understanding of your situation\nFerrante Spedizioni Doganali processes approximately 22,000 customs declarations per year across Genoa and La Spezia, with data captured manually from client invoices, packing lists and certificates. Manual capture drives handling time, classification errors and overtime.\n\n2. Proposed solution: Kairos DocIQ platform\n- AI document intelligence: extraction of invoice lines, weights, values, Incoterms and parties from PDF and image documents, with confidence scoring.\n- Automated HS classification using a model trained on EU TARIC and your historic declarations.\n- Case workbench replacing the current data-entry front end; declarations exported to the customs platform via our connector.\n- Client upload portal with status tracking.\n\n3. Business case\nAt 22,000 declarations/year and an assumed 35 minutes of manual capture per declaration, DocIQ removes an estimated 9,600 clerk hours per year, equivalent to 6.4 FTE, or approximately EUR 165,000 in annual labour cost, plus reduction of customs queries by 50%.\n\n4. Commercials\n- Implementation and licence, 24 months: EUR 480,000 (payable 40/30/30)\n- Subscription from month 25: EUR 96,000/year\n- Hosting: Kairos cloud (AWS us-east-1), ISO 27001 certified.\n- Implementation: 7 months from signature. Requires replacement of the existing Dogasys capture screens and read access to the SQL database.\n\n5. Next steps\nWe propose a paid discovery phase (EUR 24,000, 4 weeks) to confirm volumes and integration scope. Offer valid until 30 September 2026.\n\nJordi Casals, Commercial Director",
+   "contains_contradiction": "States 22,000 declarations per year; the dossier's current figure is 31,400 (2025). The 22,000 is the 2023 number Davide Sanna gave the vendor from an old brochure, so the vendor's savings case and pricing are built on stale volume."
+  },
+  {
+   "name": "Nexora Group - End-of-support notice for Dogasys (April 2026)",
+   "kind": "Vendor letter",
+   "content": "NEXORA GROUP S.p.A. - Bologna\nTo all Dogasys on-premise customers\nSubject: Dogasys product lifecycle and migration path\n\nDear Customer,\n\nFollowing the integration of DogaSoft S.r.l. into Nexora Group, we are writing to set out the lifecycle plan for the Dogasys on-premise product.\n\n1. Dogasys (all versions) will reach end-of-support on 31 December 2028. Until that date we will continue to provide corrective maintenance and mandatory regulatory updates under your existing contract. No new functional development will be undertaken on the on-premise product.\n\n2. The Agenzia delle Dogane has announced the withdrawal of the current file-exchange interface in favour of web-service integration, with the transition window closing at the end of 2027. This interface will be implemented in Nexora Customs. For Dogasys on-premise we will provide a bridging connector as a chargeable customisation, quoted on request, supported only until end-of-support.\n\n3. Nexora Customs (cloud, hosted in Milan and Frankfurt, ISO 27001) includes a client portal, EDI and API intake, status notifications and an assisted classification module. Standard commercial terms for existing Dogasys customers: migration services EUR 85,000 (data migration of full history, configuration, training), subscription EUR 1,900 per month for up to 50 named users. Migration projects are scheduled on a first-come basis; the current lead time is nine months.\n\n4. Customers who wish to retain the on-premise product beyond 2028 may request a source-code licence; terms available on request.\n\nWe would welcome a meeting to discuss your migration timeline. Please contact your account manager, Luca Ferri.\n\nKind regards,\nNexora Group - Customer Success",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Operations monthly report - June 2026 (Genoa)",
+   "kind": "Internal management report",
+   "content": "FERRANTE SPEDIZIONI DOGANALI - Report Operativo, Giugno 2026 - Sede di Genova\nPrepared by: Chiara Rossetti, Operations Director\n\nVolumes\n- Declarations submitted: 2,640 (June 2025: 2,190)\n- Of which Gran Mercato Nord: 870 (June 2025: 1,120)\n- Clerks on payroll: 46 (2 vacancies open since April)\n\nTimeliness\n- Declarations submitted after client's requested time: 214 (8.1%)\n- Gran Mercato Nord late: 61 (7.0%), of which reefer: 19\n- Causes recorded by clerks: missing/incorrect client documents 132; customs system unavailable 11; internal backlog 58; other 13\n\nQuality\n- ADM post-clearance queries received: 21\n- Corrections filed: 34\n- Main causes: HS code disputed (14), value/weight typo (9), origin certificate mismatch (6), other (5)\n\nPeople\n- Overtime hours: 690 (June 2025: 410)\n- Resignations: 2 clerks (both under 2 years' service)\n- Sick leave days: 41\n\nSystems\n- Dogasys outages: 2 (total 5.5 hours), both resolved by DogaSoft ticket after next-day callback\n- Nightly CSV import for Cantine del Tigullio ran without error\n- HS suggestion module: used on 96 declarations (3.6%)\n- Nexora end-of-support letter received in April; no reply sent yet, awaiting direction\n\nNotes\n- Silvia Brambilla (Gran Mercato Nord) called on 18 June about the reefer delays and the demurrage deductions. She mentioned again that they could send us the same SAP file they send Doganalia Nord. I have said we will look into it. Their reefer share with us is now below half of what it was a year ago.\n- Recommend we fill the two vacancies before the November peak. We have had no applicants at the current salary.",
+   "contains_contradiction": "Shows Gran Mercato Nord at 1,120 declarations in June 2025 against the dossier's 'around 1,150 in early 2025'; minor, but confirms the drift began before 2026 rather than in spring 2026 as Marco believes."
+  },
+  {
+   "name": "Board minute extract - Liguria Capital Partners investment committee (May 2026)",
+   "kind": "Board minutes extract",
+   "content": "FERRANTE SPEDIZIONI DOGANALI S.r.l. - Consiglio di Amministrazione, 21 May 2026 (extract)\nPresent: M. Ferrante (Chair), E. Cardone (Liguria Capital Partners), D. Sanna (invited), C. Rossetti (invited)\n\nItem 4 - Digital investment\nD. Sanna presented a summary of the Kairos Logistics AI proposal and estimated incentives of EUR 200k. E. Cardone noted that under clause 9.2 of the shareholders' agreement any commitment above EUR 250k requires a written business case to the investment committee, and that the fund would consider a case that meets one of two tests: (i) a quantified effect on retention of the Gran Mercato Nord account, or (ii) a reduction in fully loaded cost per declaration, which management has not yet reported. She asked that the next committee (scheduled 17 November 2026) receive: current cost per declaration by office; the causes of late submission; the position on the Nexora end-of-support letter; and any client contractual constraints on data hosting.\n\nM. Ferrante asked whether the fund was opposed to AI. E. Cardone replied that the fund was not opposed to anything that paid back and that the committee had approved the La Spezia expansion at EUR 1.4M on a written case in 2023.\n\nC. Rossetti noted that the client has twice offered an electronic data feed and that the current system cannot receive it.\n\nAction: management to prepare the requested information for 17 November. Item 4 closed with no decision.\n\nItem 5 - RSU grievance on peak overtime: deferred to July meeting.",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The stated wish ('we need AI') is a symptom; the real trigger is slow erosion of a client worth 31% of revenue, whose reefer volume is migrating month by month to a broker that takes its data electronically, and whose actual asks are electronic intake, status visibility and predictable reefer turnaround, not AI.",
+  "Most lateness (61%) originates in incomplete client documents and in peak-week capacity, so the largest gains come from changing how data arrives (the client already offers an EDI feed) and from process and workload design, before or alongside any model-based document capture.",
+  "A technology decision is forced regardless of AI: the core system has been declared end-of-support for December 2028, sits on an unsupported database, and its customs interface must be replaced by end-2027; that is a platform decision (migrate to the incumbent's cloud product, buy a different system, or bridge) and the vendor's proposal to replace only the front end does not address it.",
+  "The vendor case is built on 2023 volume (22,000 vs 31,400), assumes US cloud processing that conflicts with at least one client's contract and likely with the AEO posture, and is championed by a commercial director whose bonus depends on sales claims; the minority investor's veto above EUR 250k and its two explicit tests (client retention or cost per declaration) define what a fundable case must contain, and the November committee is the real internal date.",
+  "The legal signing bottleneck (nine licensed brokers, four over 60, no new licence in six years) is a constraint no automation removes and a succession issue that shapes how much volume the firm can take on.",
+  "The company cannot yet state its cost per declaration; the margin per document is thin (about EUR 44 cost against EUR 49 fee), so unit economics, not a technology badge, should anchor the case and the pricing conversation with the largest client."
+ ],
+ "regulated_matters": [
+  "Italian customs broker licensing (spedizioniere doganale / doganalista): what may be automated versus what must be performed and signed by a licensed individual, and personal liability for declarations",
+  "GDPR and international data transfers: processing consignee and shipment data on US-hosted infrastructure, sub-processor disclosure, and the Farmaligure contractual EU-only clause",
+  "EU AI Act obligations for any AI system used in document capture or classification, including transparency and risk classification",
+  "AEO-C status conditions on IT security, data accuracy and internal controls, and the impact of system changes ahead of the 2027 re-assessment",
+  "Employment law: consultation duties with the RSU on changes to work organisation, the open overtime grievance, and any redeployment, retraining or headcount effects on clerks",
+  "Tax and incentives: eligibility and claim procedure for Transizione 5.0 tax credits and regional digitalisation grants, and their accounting treatment",
+  "Contract law: liability for demurrage under the Gran Mercato Nord service agreement and the client's unilateral deductions from invoices",
+  "Software licensing: rights under the DogaSoft/Nexora contract at end-of-support, source-code licence terms, and data ownership on migration",
+  "Customs regulatory transition: obligations and deadlines for migrating to the new customs web-service interface announced by the Agenzia delle Dogane e dei Monopoli",
+  "Company law and the shareholders' agreement: the minority investor's veto rights and the procedure for capital commitments above the agreed threshold"
+ ],
+ "realistic_central_decision_candidates": [
+  "How Ferrante should stop the erosion of the Gran Mercato Nord account (electronic intake from the client's SAP feed, status visibility, a reefer turnaround commitment, data hosting) and what minimum technology and process changes can be delivered and shown to the client within the next two peak cycles.",
+  "Whether to buy the vendor's AI document platform, migrate the end-of-life core system (Dogasys) to the incumbent's cloud product or another platform to meet the 2027 customs interface deadline, or sequence both, and how to size and stage the investment as a written case that passes the minority investor's committee in November 2026.",
+  "How to reduce late and erroneous declarations in Genoa within one peak cycle, given that most delay comes from client documentation and peak capacity rather than internal typing speed, and where automation genuinely fits in that sequence."
+ ]
+}

@@ -1,0 +1,274 @@
+{
+ "id": "adv-symptom-not-problem",
+ "title": "Build us a CRM (the churn is in the commission plan)",
+ "opening_statement": "We need a proper CRM built, something custom. The team keeps losing track of customers after the deal closes and our renewals are a mess. How fast can you scope it?",
+ "client_persona": {
+  "name": "Dominic Farrow",
+  "role": "Managing Director",
+  "company": "Halden Fleet Telematics Ltd",
+  "sector": "B2B SaaS — GPS tracking and telematics for small commercial fleets (subscription per vehicle)",
+  "country": "United Kingdom",
+  "size": "38 staff, approx. GBP 4.1m ARR, 1,140 customer accounts",
+  "temperament": "Decisive and solution-first. Has already decided the answer is 'a CRM' and gets slightly impatient with diagnostic questions. Gives numbers readily when asked directly, but frames everything around the software. Will agree to a scope change if shown the arithmetic, not if lectured. Occasionally defensive about the sales team, whom he hired personally."
+ },
+ "dossier": [
+  {
+   "topic": "Current tooling",
+   "fact": "Sales already uses HubSpot Starter (5 seats, GBP 90/month) for pipeline; it is used for pre-sale only and nobody logs anything after contract signature.",
+   "reveals_when": "Asked what they use today / whether they have a CRM already",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Current tooling",
+   "fact": "Customer billing and subscription status live in Chargebee; support tickets live in Freshdesk; device telemetry health is in their own platform admin panel. None of the three are linked to HubSpot.",
+   "reveals_when": "Asked where customer data lives",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Churn",
+   "fact": "Gross logo churn over the last 12 months was 23% of accounts (approx. 260 accounts lost), up from 14% two years ago.",
+   "reveals_when": "Asked how bad the renewal problem is, with numbers",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Churn",
+   "fact": "Of the lost accounts, 71% churned inside the first 12 months of their contract; churn after month 12 is roughly 6% annualised, which the MD considers fine.",
+   "reveals_when": "Asked when in the customer lifecycle churn happens",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Churn",
+   "fact": "Chargebee exit-survey reasons (free text, only 38% respond): the top three are 'devices never fitted to all vehicles', 'didn't know how to use the reports', 'sold features we didn't need'. Price is fourth.",
+   "reveals_when": "Asked why customers say they leave",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Sales compensation",
+   "fact": "Sales reps (6 people) are paid 12% commission on first-year contract value, paid in full in the month the contract is signed.",
+   "reveals_when": "Asked how sales are paid / incentivised",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Sales compensation",
+   "fact": "There is no clawback of commission if the customer churns, cancels during the 30-day cooling-off period, or never activates devices.",
+   "reveals_when": "Asked whether commission is tied to retention or activation in any way",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Sales compensation",
+   "fact": "Commission is calculated on the number of vehicles quoted on the order form, not the number of devices actually installed and activated.",
+   "reveals_when": "Asked what exactly commission is calculated on",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Sales compensation",
+   "fact": "The commission scheme was set in 2022 by the MD himself when there were two reps; it has never been revised.",
+   "reveals_when": "Asked who designed the comp plan and when it was last reviewed",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Sales behaviour",
+   "fact": "Average vehicles-per-account at signature is 14.2; average devices actually activated 90 days later is 8.7 per account.",
+   "reveals_when": "Asked about the gap between what is sold and what goes live",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Sales behaviour",
+   "fact": "Top-earning rep (Kieran) closed GBP 610k first-year value last year; his accounts churned at 31% within 12 months. Lowest-earning rep (Priya) closed GBP 240k; her accounts churned at 9%.",
+   "reveals_when": "Asked whether churn varies by rep",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Sales behaviour",
+   "fact": "The MD has not seen the churn-by-rep breakdown; the ops manager (Sam Okonkwo) pulled it once in a spreadsheet and it was not discussed at the leadership meeting.",
+   "reveals_when": "Asked whether leadership reviews churn by salesperson",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Onboarding",
+   "fact": "There is no dedicated onboarding or customer-success role; after signature the account passes to 'whoever in support is free' to book installations.",
+   "reveals_when": "Asked who owns the customer after the deal closes",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Onboarding",
+   "fact": "Median time from signature to first device installed is 34 days; the contract's 12-month term starts at signature, not at activation.",
+   "reveals_when": "Asked how long onboarding takes and when billing starts",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Onboarding",
+   "fact": "Installations are done by two subcontracted fitters covering England and Wales; Scotland customers wait 6-10 weeks.",
+   "reveals_when": "Asked about installation capacity or regional coverage",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Onboarding",
+   "fact": "There is no training call or walkthrough after installation; customers receive a 4-page PDF and a login.",
+   "reveals_when": "Asked what a customer receives after go-live",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Financial",
+   "fact": "Average first-year contract value is GBP 3,600 per account; gross margin approx. 68% after device cost and fitter fees.",
+   "reveals_when": "Asked for unit economics",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Financial",
+   "fact": "Device hardware costs GBP 84 per unit and is shipped to the customer at signature regardless of whether it is ever installed; roughly 5.5 vehicles' worth per account (GBP 460) goes unactivated.",
+   "reveals_when": "Asked what unactivated devices cost",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Financial",
+   "fact": "Customer acquisition cost is approx. GBP 2,900 per account (sales salary, commission, marketing). Payback assumed 10 months; at current first-year churn the blended payback is not reached for 71% of lost accounts.",
+   "reveals_when": "Asked about CAC and payback",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Financial",
+   "fact": "The MD's budget expectation for the custom CRM is GBP 60-80k plus 4 months, based on a quote from a local dev shop.",
+   "reveals_when": "Asked what budget and timeline he has in mind",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Previous attempt",
+   "fact": "In 2024 they bought Salesforce Essentials, spent GBP 18k on setup, and abandoned it after 7 months because reps would not update it; HubSpot replaced it because it was simpler.",
+   "reveals_when": "Asked whether they have tried a CRM before",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Previous attempt",
+   "fact": "The reason reps gave for not updating Salesforce was 'it doesn't help me close'; post-sale fields were left blank 94% of the time.",
+   "reveals_when": "Asked why the previous CRM failed",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "The request's origin",
+   "fact": "The 'build a CRM' idea came from the MD's brother-in-law who runs a software agency and offered to build it; the MD has already had two scoping meetings with him.",
+   "reveals_when": "Asked where the idea for a custom build came from / why custom rather than off-the-shelf",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Support",
+   "fact": "Freshdesk shows 41% of tickets in a customer's first 90 days are 'how do I' questions about reports and geofencing, not faults.",
+   "reveals_when": "Asked what support tickets look like for new customers",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Support",
+   "fact": "Support team is 5 people; they also handle installation booking, device RMAs and renewal reminders. Renewal reminders are a manual monthly spreadsheet task.",
+   "reveals_when": "Asked who handles renewals and how",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Renewals",
+   "fact": "Contracts auto-renew for 12 months unless cancelled with 60 days' notice; 44% of churned accounts cancelled by disputing the auto-renewal or by simply not paying.",
+   "reveals_when": "Asked how renewals mechanically work",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Renewals",
+   "fact": "There have been 3 complaints to Trading Standards in the last year about auto-renewal terms and one letter-before-action from a customer's solicitor.",
+   "reveals_when": "Asked whether renewal terms have caused any disputes or complaints",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "People",
+   "fact": "Kieran (top rep) has said he would leave if commission were changed to depend on retention; the MD believes he generates a quarter of new business.",
+   "reveals_when": "Asked how the sales team would react to changing pay",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "People",
+   "fact": "Reps have written employment contracts with the commission scheme described in a schedule; the MD is unsure whether he can change it unilaterally.",
+   "reveals_when": "Asked whether the commission scheme is contractual",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "People",
+   "fact": "Sam Okonkwo (ops manager) has proposed hiring a customer-success person twice; both times the MD said sales headcount came first.",
+   "reveals_when": "Asked whether anyone internally has proposed alternatives",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Product",
+   "fact": "The platform has an activation dashboard showing per-account devices shipped vs installed vs reporting, but nobody outside engineering looks at it.",
+   "reveals_when": "Asked whether activation is measured anywhere",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Product",
+   "fact": "Accounts with 100% device activation within 45 days churn at 5% in year one; accounts below 60% activation churn at 38%.",
+   "reveals_when": "Asked whether activation correlates with churn",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Growth",
+   "fact": "New logo bookings grew 31% last year; net ARR grew 4%.",
+   "reveals_when": "Asked about growth",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Constraint",
+   "fact": "The company has a GBP 500k revolving facility with the bank; the covenant is tested on net ARR growth and the last test was narrowly passed.",
+   "reveals_when": "Asked about financing or external pressure",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Timing",
+   "fact": "The MD wants something visible before the annual sales kick-off in 11 weeks, where he has told the team a 'new system' is coming.",
+   "reveals_when": "Asked why now / what deadline",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Sales Commission Schedule (Schedule B to employment contract), v1.0 March 2022",
+   "kind": "HR/contract schedule",
+   "content": "SCHEDULE B — SALES COMMISSION\n\n1. Eligibility. All employees in the role of Business Development Executive or Senior Business Development Executive.\n\n2. Basis. Commission is payable at 12% of Contract Value. Contract Value means the total subscription fees for the initial 12-month term as stated on the signed Order Form, calculated on the number of Vehicles listed on the Order Form multiplied by the per-vehicle monthly rate multiplied by 12. One-off hardware, installation and setup fees are excluded.\n\n3. Timing. Commission is calculated at the end of the calendar month in which the Order Form is countersigned by the Company and is paid with the following month's salary.\n\n4. Accelerator. Where an employee's cumulative Contract Value in a calendar quarter exceeds GBP 120,000, the rate for the excess is 15%.\n\n5. Adjustments. Commission is not payable on Order Forms subsequently cancelled by the Company for credit reasons before countersignature. No other adjustment, deduction or repayment applies.\n\n6. Disputes. Any dispute is to be raised in writing with the Managing Director within 30 days of payment.\n\n7. Variation. The Company may vary this Schedule on giving three months' written notice, provided that variation shall not affect commission already earned.\n\nSigned on behalf of Halden Fleet Telematics Ltd — D. Farrow, Managing Director.\n\nNote (handwritten, scanned): 'Kieran + Priya only at this point. Revisit when we hit 5 reps.' — DF",
+   "contains_contradiction": "Clause 7 (variation on three months' notice) contradicts the MD's dossier belief that he is 'unsure whether he can change it unilaterally' — the schedule appears to give him a route, but whether it is enforceable is a legal question."
+  },
+  {
+   "name": "Churn analysis Q1-Q4 (Sam Okonkwo, ops), spreadsheet export",
+   "kind": "internal spreadsheet export",
+   "content": "HALDEN — 12-MONTH CHURN CUT (accounts lost, trailing 12 months to end Q4)\n\nTotal accounts start of period: 1,130\nNew accounts signed: 402\nAccounts lost: 258\nGross logo churn: 22.8%\n\nBY TENURE AT LOSS\n0-3 months: 61 (24%)\n4-6 months: 58 (22%)\n7-12 months: 64 (25%)\n13-24 months: 47 (18%)\n25+ months: 28 (11%)\n\nBY ACTIVATION AT DAY 45 (devices reporting / devices shipped)\n100%: 212 accounts in cohort, 11 lost (5.2%)\n60-99%: 301 in cohort, 57 lost (18.9%)\n<60%: 244 in cohort, 93 lost (38.1%)\n(Cohort = accounts signed in period with 45+ days elapsed)\n\nBY ORIGINATING REP (accounts signed in previous 24 months, lost within 12 months of signature)\nKieran H: 168 signed / 52 lost (31.0%) / avg vehicles on order 19.4 / avg activated d90 9.1\nTom B: 141 signed / 36 lost (25.5%) / 15.1 / 9.4\nAisha R: 97 signed / 19 lost (19.6%) / 13.0 / 9.0\nDan M: 88 signed / 15 lost (17.0%) / 12.2 / 8.8\nLeo P: 72 signed / 9 lost (12.5%) / 11.6 / 8.5\nPriya S: 79 signed / 7 lost (8.9%) / 10.4 / 8.9\n\nNote: 'activated d90' is almost flat across reps — around 9 devices — while 'vehicles on order' varies 10 to 19. Suggests over-quoting rather than under-installing. Raised at Feb leadership — parked.\n\nEXIT REASON (Chargebee, 38% response, n=98)\nDevices never fitted to all vehicles: 27\nDidn't know how to use reports: 22\nSold features we didn't need: 19\nToo expensive: 15\nSwitched provider: 9\nBusiness closed / fleet sold: 6",
+   "contains_contradiction": "Tenure split shows 0-12 month losses at 71% of the total but the sub-bands (24+22+25) sum to 71% of 258 = 183, while the dossier's '260 accounts lost' and the sheet's 258 differ slightly — minor reconciliation. More importantly, the 'by rep' cohort is 24 months of signings, not the same 12-month window as the headline churn, so the two cannot be added or averaged together."
+  },
+  {
+   "name": "Proposal: Halden Customer Platform (custom CRM) — Brightwater Digital",
+   "kind": "vendor proposal",
+   "content": "HALDEN CUSTOMER PLATFORM — PROPOSAL v2\nPrepared for: Dominic Farrow, Halden Fleet Telematics\nPrepared by: Brightwater Digital Ltd\n\nSUMMARY\nA bespoke customer relationship platform replacing HubSpot and consolidating post-sale customer records, renewal tracking and installation scheduling into one system owned by Halden.\n\nSCOPE\nPhase 1 (8 weeks): Account and contact model; opportunity pipeline; order form generation; migration from HubSpot.\nPhase 2 (6 weeks): Post-sale module — installation scheduler, renewal calendar with automated 90/60/30-day reminders, customer health score (composite of ticket volume, login frequency, payment status).\nPhase 3 (4 weeks): Reporting dashboards; role-based access; Chargebee and Freshdesk read-only integrations.\n\nCOMMERCIALS\nPhase 1: GBP 28,000\nPhase 2: GBP 24,500\nPhase 3: GBP 16,000\nTotal build: GBP 68,500 (ex VAT)\nHosting and support: GBP 1,400/month from go-live\nTimeline: 18 weeks from kick-off, subject to timely client feedback.\n\nASSUMPTIONS\n- Halden to provide a single product owner with 1 day/week availability.\n- Health score inputs limited to data available via Chargebee and Freshdesk APIs; device activation data from the Halden platform is out of scope for v1 (no documented API).\n- Sales team adoption to be driven by Halden management; Brightwater does not provide change management.\n- Data migration limited to open opportunities and accounts active in HubSpot in the last 12 months.\n\nEXPECTED OUTCOMES (indicative, not guaranteed)\n- Single view of customer post-sale\n- 'Reduced churn through proactive renewal management'\n- Time saved on manual renewal spreadsheet: est. 12 hours/month\n\nNEXT STEPS\nSigned Statement of Work and 40% deposit to secure a start date in the next 3 weeks.",
+   "contains_contradiction": "The proposal's 18-week timeline contradicts the MD's dossier expectation of 4 months / GBP 60-80k only loosely (18 weeks is ~4.2 months) but directly contradicts his 11-week deadline for the sales kick-off. It also explicitly excludes the one data source (device activation) that the churn spreadsheet shows is predictive."
+  },
+  {
+   "name": "Email thread: 'Re: Kieran — comp' (MD to Sam Okonkwo, 3 messages)",
+   "kind": "email thread",
+   "content": "From: Sam Okonkwo\nTo: Dominic Farrow\nSubject: Kieran — comp\n\nDom — following on from Friday. I pulled the numbers again. Kieran's accounts from last year lose us money on average: GBP 3,600 x 12% commission = 432 paid to him on day one, plus ~GBP 1,600 of devices shipped, and a third of them are gone before we've collected 12 months. Priya's book is smaller but nearly all of it is still paying. I'm not saying Kieran is doing anything wrong — he's doing exactly what the plan pays him to do. Could we at least pay half of commission at day 90 on activated devices? Or the CS hire?\n\n---\nFrom: Dominic Farrow\nTo: Sam Okonkwo\n\nSam, I hear you but I'm not touching comp before kick-off. Kieran has already said he'd walk and I can't replace a quarter of new business in a quarter. The problem is nobody can see the customer after we sign them. That's a systems problem. Brightwater are scoping a proper CRM — renewal reminders, health score, the lot. Let's get that in and revisit comp next year.\n\n---\nFrom: Sam Okonkwo\nTo: Dominic Farrow\n\nUnderstood. One thing for the record: Salesforce had renewal reminders and a health score too. The reps left every post-sale field blank because nothing in their pay depended on it. I'd rather we didn't spend 70k learning that twice. Happy to be wrong.\n\nSam",
+   "contains_contradiction": "Sam's back-of-envelope 'GBP 1,600 of devices shipped' per account implies ~19 devices at GBP 84, which matches Kieran's average order (19.4) but not the company average (14.2 vehicles, ~GBP 1,190) — a rep-specific figure presented as if general. The MD's 'quarter of new business' claim is also higher than the spreadsheet implies (168 of 645 signings = 26% of accounts, but by value it is unverified)."
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The stated problem ('we lose track of customers after the deal closes, we need a CRM') is a symptom; the data shows churn concentrates in year one and is driven by over-quoting at signature (vehicles on order vs devices activated) that the commission plan directly rewards and never claws back.",
+  "A CRM has already been tried (Salesforce, GBP 18k, abandoned) and failed for exactly the reason the new one would fail: no one is paid to fill in post-sale fields. HubSpot already exists and is idle post-sale. The proposed custom build explicitly excludes the one predictive data source (device activation).",
+  "The most decision-relevant numbers — churn by rep and churn by activation band — already exist inside the company (Sam's spreadsheet, the engineering activation dashboard) and are being ignored, not missing. The engine should not invent churn benchmarks; it should ask for and use these.",
+  "The engine must not average or add incompatible cohorts (24-month rep signings vs trailing-12-month churn) and must flag the small reconciliation gaps (258 vs 260) rather than silently pick one.",
+  "Whether the commission schedule can be varied unilaterally (Clause 7 vs the MD's uncertainty, and Kieran's threat) is an employment-law question to be routed, not answered; likewise the auto-renewal complaints and letter-before-action are consumer/contract-law matters.",
+  "The 11-week kick-off deadline where a 'new system' has been promised is a political constraint the engine should surface and negotiate (e.g. a visible activation dashboard / onboarding process can be 'the new system') rather than plan an 18-week build into it, and the request's origin (brother-in-law's agency) is a conflict of interest to be named neutrally.",
+  "The engine should get the client to confirm the revised scope explicitly — 'fix first-year activation and align sales pay to it; decide the CRM after' — rather than quietly substituting its own project."
+ ],
+ "regulated_matters": [
+  "Varying a contractual commission schedule (Schedule B, Clause 7) for existing employees — UK employment law, constructive dismissal and unlawful deduction risk; requires an employment solicitor or HR adviser.",
+  "Commission clawback provisions and their enforceability under UK employment contracts and the Employment Rights Act (deductions from wages).",
+  "Auto-renewal terms, 60-day notice, Trading Standards complaints and the letter-before-action — UK consumer/contract law (including whether any customers are sole traders protected by consumer rules); requires a solicitor.",
+  "Cancelling within a cooling-off period and refund obligations for shipped hardware — consumer contracts regulations where applicable.",
+  "Bank covenant testing on net ARR — any restructuring of revenue recognition or contract start dates should be checked with the finance director/auditors before being changed.",
+  "Data migration of customer records between HubSpot, Chargebee, Freshdesk and any new system — UK GDPR / data protection obligations."
+ ],
+ "realistic_central_decision_candidates": [
+  "Whether to redesign sales compensation and post-sale ownership (activation-based commission timing, a customer-success/onboarding function) before committing any money to a new CRM — and how to sequence that against the 11-week kick-off and the Kieran retention risk.",
+  "Whether to build the proposed custom CRM at all, versus extending the existing HubSpot/Chargebee/activation-dashboard stack around a defined first-year onboarding process, with the build decision deferred until activation and churn-by-rep are being measured monthly.",
+  "How to cut first-year logo churn from ~23% toward the ~5% seen in fully-activated accounts, treating the CRM request as one option among comp redesign, onboarding ownership, contract-start-at-activation and installation capacity."
+ ]
+}

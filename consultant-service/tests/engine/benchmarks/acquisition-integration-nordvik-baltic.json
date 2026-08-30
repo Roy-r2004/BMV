@@ -1,0 +1,288 @@
+{
+ "id": "acquisition-integration-nordvik-baltic",
+ "title": "Nordvik Marine Coatings absorbs Balticolor (Estonia)",
+ "opening_statement": "We bought a company in Estonia four months ago and the two teams still aren't really working together. I need to get them merged before it starts costing us customers.",
+ "client_persona": {
+  "name": "Henrik Solvang",
+  "role": "Managing Director and majority owner",
+  "company": "Nordvik Marine Coatings AS",
+  "sector": "Industrial coatings for shipyards and offshore (manufacturing and distribution)",
+  "country": "Norway (HQ in Bergen); acquired company in Tallinn, Estonia",
+  "size": "Nordvik: 186 staff, NOK 412m revenue; Balticolor: 54 staff, EUR 9.1m revenue",
+  "temperament": "Plain-spoken, impatient, thinks in people and customers rather than numbers; gives numbers when asked directly but rounds them; defensive about the deal price; tends to assume the Tallinn side is the problem."
+ },
+ "dossier": [
+  {
+   "topic": "Deal basics",
+   "fact": "Nordvik acquired 100% of Balticolor OÜ on 24 April 2026 for EUR 11.4m (EUR 9.6m cash at close, EUR 1.8m earn-out payable March 2027 if Balticolor's FY2026 EBITDA reaches EUR 1.35m).",
+   "reveals_when": "Asked about the deal structure, price, or what was agreed at closing.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Deal rationale",
+   "fact": "Rationale stated to the board: Balticolor's Tallinn plant gives Nordvik a lower-cost production site inside the EU customs area and a foothold with Baltic and Polish shipyards.",
+   "reveals_when": "Asked why the company was bought.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Balticolor scale",
+   "fact": "Balticolor: 54 employees (31 production, 9 sales/service, 6 lab/R&D, 8 admin), revenue EUR 9.1m in 2025, EBITDA EUR 1.1m.",
+   "reveals_when": "Asked about the size of the acquired company.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Nordvik scale",
+   "fact": "Nordvik: 186 employees across Bergen HQ, the Ågotnes plant, and a Stavanger service depot; revenue NOK 412m in 2025, EBITDA margin 13%.",
+   "reveals_when": "Asked about the size of the acquiring company.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Integration ownership",
+   "fact": "There is no named integration lead. Henrik is doing it himself 'between other things'; the CFO, Marit Eide, handles finance consolidation.",
+   "reveals_when": "Asked who is running the integration.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Integration plan",
+   "fact": "No written integration plan exists. Post-closing there was one joint all-hands in Tallinn (5 May) and a two-page email from Henrik listing 'priorities'.",
+   "reveals_when": "Asked what plan or timeline exists.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Former owner",
+   "fact": "Balticolor's founder, Andres Kuusk, stayed on as 'Country Manager Estonia' with a 24-month service agreement and is the only person the Tallinn staff take direction from.",
+   "reveals_when": "Asked about the former owner or local management.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Former owner incentive",
+   "fact": "Andres Kuusk personally receives 60% of the EUR 1.8m earn-out. He has told Henrik he will not move Balticolor customers onto Nordvik pricing or systems until the earn-out is settled, because it would depress FY2026 EBITDA.",
+   "reveals_when": "Asked whether the former owner has incentives that conflict with integration, or why Tallinn resists changes.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Key customer",
+   "fact": "Balticolor's largest customer, BLRT Grupp shipyard (Tallinn), is 38% of Balticolor revenue (about EUR 3.5m) under a framework agreement expiring 31 December 2026.",
+   "reveals_when": "Asked about customer concentration or key accounts.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Key customer clause",
+   "fact": "The BLRT framework agreement contains a change-of-control clause giving BLRT the right to terminate on 90 days' notice; BLRT has not been formally notified of the acquisition.",
+   "reveals_when": "Asked about contract terms, change-of-control, or whether customers were told.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Customer overlap",
+   "fact": "Seven customers buy from both companies, including Remontowa (Gdańsk) and Western Shipyard (Klaipėda); in three cases Balticolor's price is 12-18% below Nordvik's for equivalent products.",
+   "reveals_when": "Asked about overlapping customers or pricing conflicts.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Customer losses",
+   "fact": "Two Balticolor customers (combined EUR 340k/yr) moved to Hempel since June, citing 'uncertainty about who to call'.",
+   "reveals_when": "Asked whether any customers have already been lost.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Sales structure",
+   "fact": "Both sales teams still call on the same Polish yards separately; the Nordvik Baltic sales manager, Kjetil Brekke, and Balticolor's sales lead, Liina Tamm, have met once.",
+   "reveals_when": "Asked how the sales teams are organised.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "ERP - Nordvik",
+   "fact": "Nordvik runs Microsoft Dynamics 365 Business Central (implemented 2022, partner: Evidi) for finance, purchasing, and inventory.",
+   "reveals_when": "Asked about systems.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "ERP - Balticolor",
+   "fact": "Balticolor runs a locally built Directo ERP with a custom batch-costing module written by a freelance developer who now lives in Portugal and responds within 'a week or two'.",
+   "reveals_when": "Asked about the acquired company's systems.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Systems plan",
+   "fact": "Henrik assumed Balticolor would 'just move onto Business Central'. Evidi quoted NOK 2.1m and 7 months for a second-company rollout; nothing has been signed.",
+   "reveals_when": "Asked about the plan for systems or a quote.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Formulation data",
+   "fact": "Balticolor's 140 product formulations and their batch records live in the Directo custom module and in Excel files on a shared drive called 'LAB_VANA'; there is no formulation management system on either side.",
+   "reveals_when": "Asked about product data, recipes, or IP.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Reporting",
+   "fact": "Monthly consolidation is done by Marit in Excel from a Directo export; Balticolor's June and July numbers arrived 3 weeks late both months.",
+   "reveals_when": "Asked about financial reporting since closing.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Product certification",
+   "fact": "Balticolor's three antifouling products are registered under the EU Biocidal Products Regulation in Balticolor OÜ's name; Nordvik's products are registered separately in Norway. Re-registering under a different legal entity was estimated by their regulatory consultant at 9-14 months.",
+   "reveals_when": "Asked about product approvals, licences, or whether the legal entity can be merged.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Legal entity plan",
+   "fact": "Henrik's intention is to fold Balticolor OÜ into a Nordvik branch by the end of 2026 to 'simplify things'.",
+   "reveals_when": "Asked about the legal structure going forward.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Production capacity",
+   "fact": "Tallinn plant capacity is about 2,400 tonnes/yr, running at 61% utilisation; Ågotnes is at 94% and has been turning away small orders.",
+   "reveals_when": "Asked about plant capacity or utilisation.",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Production transfer",
+   "fact": "No product has been transferred from Ågotnes to Tallinn. Nordvik's production manager, Ole Kristian Hauge, says Tallinn 'can't meet our QA standards' but has visited the plant once, for half a day.",
+   "reveals_when": "Asked whether production has been moved or why not.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Quality systems",
+   "fact": "Both plants hold ISO 9001; Tallinn also holds ISO 14001. Balticolor's first-pass batch yield in 2025 was 96.8% vs Ågotnes 95.1%.",
+   "reveals_when": "Asked about quality data or certifications.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Raw materials",
+   "fact": "Both companies buy epoxy resin from the same supplier (Olin) on separate contracts; Balticolor pays about 7% more per tonne. Combined annual spend is roughly NOK 48m.",
+   "reveals_when": "Asked about procurement or supplier overlap.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Staff attrition",
+   "fact": "Since closing, 6 of Balticolor's 54 staff have resigned, including 2 of the 6 lab chemists. One chemist joined Teknos in Helsinki.",
+   "reveals_when": "Asked about staff turnover or resignations.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Pay gap",
+   "fact": "Average Balticolor production wage is about EUR 1,650/month; the comparable Ågotnes wage is about NOK 46,000/month (roughly EUR 3,950). Tallinn staff know this.",
+   "reveals_when": "Asked about pay levels or harmonisation.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Employment terms",
+   "fact": "Balticolor has no collective agreement; Nordvik's production staff are covered by the Industri Energi agreement. HR at Nordvik (one person, Sigrid Lunde) has no Estonian employment-law experience.",
+   "reveals_when": "Asked about HR, unions, or employment terms.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Language",
+   "fact": "Working language at Nordvik is Norwegian; at Balticolor it is Estonian with Russian on the shop floor. About half of Balticolor office staff are comfortable in English; almost none of the production staff are.",
+   "reveals_when": "Asked about language or communication.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Cultural signal",
+   "fact": "Tallinn staff refer to Nordvik as 'the Norwegians'; Bergen staff refer to Balticolor as 'the Estonian plant'. Henrik has visited Tallinn twice since closing.",
+   "reveals_when": "Asked how the teams relate to each other or how often leadership visits.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "IT and data",
+   "fact": "Balticolor's email is on a local provider (Zone.ee); staff have not been given Nordvik Microsoft 365 accounts. Customer data for Balticolor sits in a Directo CRM add-on and in Liina Tamm's personal Outlook.",
+   "reveals_when": "Asked about IT, email, or customer data.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Branding",
+   "fact": "Henrik wants to retire the Balticolor brand within 12 months. Balticolor's sales team says Polish and Lithuanian yards buy Balticolor specifically because it is 'not a Nordic-priced brand'.",
+   "reveals_when": "Asked about brand strategy.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Board pressure",
+   "fact": "Nordvik's board (including minority investor Sparebanken Vest Kapital, 22%) wants to see NOK 15m of annual synergies by end of 2027; that number was in the deal deck and was never broken down.",
+   "reveals_when": "Asked what the board expects or what synergies were promised.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Synergy reality",
+   "fact": "The only synergy actually captured so far is a combined insurance policy saving about NOK 380k/yr.",
+   "reveals_when": "Asked what synergies have been realised.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Cash",
+   "fact": "The acquisition was funded with NOK 85m of new bank debt (DNB) with a covenant of net debt/EBITDA below 3.0x, tested at 31 December 2026. Current pro-forma is 2.6x.",
+   "reveals_when": "Asked about financing or covenants.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Time budget",
+   "fact": "Henrik can give the integration one day a week; he is also negotiating a large Equinor maintenance contract that closes in October.",
+   "reveals_when": "Asked how much of his own time he can commit.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Due diligence gaps",
+   "fact": "Legal due diligence was done by a Bergen firm using an Estonian correspondent; the change-of-control clause in the BLRT contract was flagged in the DD report as 'to be addressed post-closing' and nobody has.",
+   "reveals_when": "Asked what due diligence found or what was left open.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Transfer pricing",
+   "fact": "Since June, Nordvik has been buying finished goods from Balticolor at a 'temporary' price set by Marit at Balticolor cost plus 5%; no transfer-pricing documentation exists.",
+   "reveals_when": "Asked about intercompany trading or tax.",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Definition of success",
+   "fact": "Asked what 'merged' means, Henrik says: one sales team, one price list, one ERP, one brand, everyone on Nordvik's org chart, by summer 2027.",
+   "reveals_when": "Asked what the end state should look like.",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Board deck extract - Project Amber (March 2026)",
+   "kind": "Board presentation excerpt",
+   "content": "PROJECT AMBER - Acquisition of Balticolor OÜ\nBoard of Nordvik Marine Coatings AS, 12 March 2026\n\nStrategic rationale\n1. Low-cost EU production. Tallinn plant capacity 2,400 t/yr at c. 60% utilisation; Ågotnes constrained above 90%. Enables transfer of standard-range epoxy primers to Tallinn from Q4 2026.\n2. Baltic and Polish shipyard access. Balticolor serves BLRT, Western Shipyard, Remontowa and 11 smaller yards. Nordvik has attempted to enter Poland since 2021 without a local base.\n3. Formulation capability. Six-person lab with EU BPR-registered antifouling range.\n\nFinancials\n- Purchase price EUR 11.4m (7.6x 2025 EBITDA of EUR 1.5m). Cash at close EUR 9.6m; earn-out EUR 1.8m on FY2026 EBITDA target.\n- Funding: NOK 85m new term facility (DNB), remainder from cash.\n- Synergy target: NOK 15m per annum run-rate by end 2027 (procurement, production transfer, overhead, sales overlap).\n\nIntegration approach\n- Andres Kuusk retained as Country Manager for 24 months to secure customer continuity.\n- Finance consolidation from month one (M. Eide).\n- ERP migration to Business Central within 12 months (indicative partner quote pending).\n- Brand: transition to Nordvik master brand over 12-18 months.\n\nKey risks identified\n- Customer concentration (BLRT).\n- Staff retention in lab and sales.\n- Currency (EUR/NOK).\n\nRecommendation: approve.",
+   "contains_contradiction": "States Balticolor 2025 EBITDA as EUR 1.5m (and the 7.6x multiple depends on it); the dossier says 2025 EBITDA was EUR 1.1m. The board deck figure was an adjusted/normalised number from the seller's information memorandum."
+  },
+  {
+   "name": "Henrik's post-closing priorities email (5 May 2026)",
+   "kind": "Internal email",
+   "content": "From: Henrik Solvang\nTo: All staff Nordvik; All staff Balticolor\nSubject: One company - our priorities\n\nDear colleagues,\n\nIt was good to meet everyone in Tallinn today. From now on we are one company, and I want to be clear about what matters in the coming months.\n\n1. Customers first. Nobody should notice any difference in service. If a customer asks, the answer is: same people, same products, more capability behind us.\n2. Keep doing what you do. There will be no changes to anyone's job, manager, or place of work this year without a conversation with you first.\n3. Sales. Kjetil and Liina will coordinate on shared accounts. Please copy both on anything involving Remontowa, Western Shipyard or Crist.\n4. Systems. We will move to a common system over time. Marit will be in touch with the Tallinn finance team about monthly numbers.\n5. Production. Ole Kristian will visit Tallinn to look at how we can share work between the plants.\n6. Language. English is our common language when we work across the two sites. We will arrange courses.\n\nAndres remains your local leader in Tallinn and my partner in making this work.\n\nI will be back in Tallinn in June. My door - and my phone - is open.\n\nHenrik",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Balticolor management accounts, July 2026 (summary)",
+   "kind": "Management accounts",
+   "content": "BALTICOLOR OÜ - Management accounts, July 2026 (prepared by A. Mägi, finance, Tallinn; sent 21 August 2026)\n\nRevenue YTD (Jan-Jul): EUR 5.02m (budget 5.45m; prior year 5.31m)\nOf which BLRT Grupp: EUR 1.92m (38%)\nOf which intercompany to Nordvik AS: EUR 0.41m (since June, at cost +5%)\n\nGross margin YTD: 31.2% (prior year 33.8%). Note: intercompany sales at cost +5% dilute margin; excluding intercompany 33.1%.\n\nEBITDA YTD: EUR 0.58m (budget 0.74m). Full-year forecast EUR 1.05m against earn-out threshold EUR 1.35m.\n\nHeadcount at 31 July: 48 (54 at closing). Open positions: 2 lab chemists, 1 sales engineer, 1 production shift lead. No offers accepted since June; two candidates declined citing 'unclear future of the company'.\n\nCustomer notes:\n- Kaisla Marine (Turku) and Mereside Repairs (Riga) terminated supply in June/July. Combined annualised revenue c. EUR 340k.\n- BLRT framework renewal discussion not yet scheduled. BLRT purchasing has asked twice 'who owns Balticolor now'.\n\nSystems: Directo month-end close delayed 12 working days due to batch-costing module error; developer contacted 4 July, fix received 29 July.\n\nCash at bank: EUR 0.62m. Trade debtors 71 days (prior year 58).",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The stated problem ('teams not working together') is a symptom: nobody owns the integration, there is no plan, and the only person with authority in Tallinn is financially rewarded for blocking it until March 2027.",
+  "The most urgent exposure is not cultural but contractual: 38% of the acquired revenue sits behind an unaddressed change-of-control clause with a contract that also expires this year, and the customer is already asking who owns the company.",
+  "The earn-out and the board's synergy target pull in opposite directions in FY2026; the earn-out is already unlikely to be met, which changes what the former owner will do and what Henrik can negotiate.",
+  "Henrik's definition of 'merged' (one entity, one brand, one ERP, one price list by summer 2027) collides with facts he has not connected: biocide registrations tied to the Estonian entity, a price gap that is why Baltic customers buy, and an ERP quote nobody has approved.",
+  "The largest available value (moving volume from the 94%-utilised Ågotnes plant to the 61%-utilised Tallinn plant, plus procurement consolidation) has been stalled by an internal opinion formed in a half-day visit, while the quality data points the other way.",
+  "The board deck's EBITDA figure differs from the actual 2025 figure, so the earn-out threshold and the synergy target were set against numbers the client may not have examined.",
+  "Attrition is concentrated where the acquired value sits (lab chemists) and is being driven by silence and pay-gap awareness, not by any decision that has been made."
+ ],
+ "regulated_matters": [
+  "Estonian employment law on changes to terms, redundancies, and any transfer of employees between Balticolor OÜ and a Nordvik entity; interaction with the Norwegian collective agreement (Industri Energi).",
+  "Whether the BLRT change-of-control clause has already been triggered, notification obligations, and termination risk under Estonian contract law.",
+  "Corporate restructuring of Balticolor OÜ into a branch or merger: Estonian company law, and the effect on EU Biocidal Products Regulation authorisations held in the OÜ's name.",
+  "Transfer pricing and VAT on intercompany sales between Estonia and Norway (non-EU), customs treatment, and the temporary cost-plus-5% arrangement.",
+  "Earn-out interpretation and the former owner's service agreement: what counts toward FY2026 EBITDA, and dispute/termination provisions.",
+  "GDPR: migrating Estonian customer and employee data (including data in a personal Outlook mailbox) to Norwegian systems and Microsoft 365.",
+  "Bank covenant and disclosure obligations to DNB and to the minority investor in relation to synergy and EBITDA shortfalls.",
+  "Product safety, REACH and chemical handling compliance if production is transferred between the two plants."
+ ],
+ "realistic_central_decision_candidates": [
+  "Whether to stop pursuing full absorption by summer 2027 and instead run Balticolor as a governed subsidiary with a small set of integrated functions (key-account protection, procurement, production transfer, reporting), and who should own that.",
+  "How to secure the BLRT relationship and the Tallinn lab and sales staff in the next 90 days, given the former owner's earn-out incentive, before any structural integration is attempted.",
+  "Whether to renegotiate or buy out the earn-out now so that the former owner's incentive and the integration timetable point the same way, and to sequence systems, brand and entity decisions after that."
+ ]
+}

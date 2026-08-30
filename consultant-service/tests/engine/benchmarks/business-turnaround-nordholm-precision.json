@@ -1,0 +1,294 @@
+{
+ "id": "business-turnaround-nordholm-precision",
+ "title": "Nordholm Precision Castings: a growth question hiding a cash countdown",
+ "opening_statement": "We make investment castings for pumps and valves, third generation. Orders are fine but we need to grow faster and I think we've outgrown how we run things. Can you help us build a plan?",
+ "client_persona": {
+  "name": "Katrine Vestergaard",
+  "role": "Managing Director and majority shareholder",
+  "company": "Nordholm Precision Castings A/S",
+  "sector": "Industrial manufacturing - lost-wax investment castings for pump, valve and marine components",
+  "country": "Denmark",
+  "size": "112 employees, DKK 118 million revenue last financial year, one foundry site in Herning",
+  "temperament": "Proud and upbeat by default; talks about customers, capacity and heritage; deflects money questions with 'the bank understands us' until asked directly and specifically, at which point she becomes precise and quietly frightened. Answers what is asked, rarely more. Says 'we' for the company and 'my father' for the past."
+ },
+ "dossier": [
+  {
+   "topic": "Ownership",
+   "fact": "Katrine owns 62% of Nordholm; her brother Mads (not active in the business) owns 28%; the remaining 10% is held by long-serving production director Henrik Lund.",
+   "reveals_when": "Asked who owns the company or who decides",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Revenue",
+   "fact": "Revenue last financial year (ended 30 June 2026) was DKK 118 million, down from DKK 131 million the year before.",
+   "reveals_when": "Asked for revenue or its trend",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Profitability",
+   "fact": "Last year's operating result was a loss of DKK 9.4 million; the year before was a profit of DKK 2.1 million.",
+   "reveals_when": "Asked about profit or margins",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Cash",
+   "fact": "Cash at bank on 25 August 2026 was DKK 3.1 million, against a DKK 20 million overdraft facility drawn to DKK 18.6 million.",
+   "reveals_when": "Asked directly about cash position or bank facilities",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Cash burn",
+   "fact": "Average net cash outflow over the last four months has been about DKK 1.4 million per month; at that rate the overdraft headroom and cash are gone in roughly 3 to 4 months.",
+   "reveals_when": "Asked how long the cash lasts or about monthly burn",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Bank",
+   "fact": "The overdraft is with Jyske Bank and is reviewed annually; the next review is 15 November 2026 and the relationship manager has asked for a 'credible plan' before then.",
+   "reveals_when": "Asked about bank covenants, reviews, or the lender relationship",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Bank covenant",
+   "fact": "The facility has an equity ratio covenant of 25%; the last audited balance sheet showed 26.8%, and management accounts for July suggest it is now around 23%.",
+   "reveals_when": "Asked about covenants or balance sheet strength",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Personal guarantee",
+   "fact": "Katrine has personally guaranteed DKK 5 million of the overdraft, secured on her house in Silkeborg.",
+   "reveals_when": "Asked about personal exposure or security given to the bank",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Customer concentration",
+   "fact": "Grundfos-tier supplier Halberg Flow Systems accounts for 34% of revenue; the top three customers account for 61%.",
+   "reveals_when": "Asked about customer mix or concentration",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Largest customer",
+   "fact": "Halberg Flow Systems has issued a Request for Quotation for re-sourcing its stainless impeller family to a dual-source setup from January 2027; Nordholm currently has 100% of that family.",
+   "reveals_when": "Asked about risks with the biggest customer or upcoming tenders",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Pricing",
+   "fact": "Prices to the top three customers have not been increased since the 2023 framework agreements despite alloy and energy cost rises; a 6% surcharge was requested in 2025 and refused.",
+   "reveals_when": "Asked about pricing, indexation or cost pass-through",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Order book",
+   "fact": "Firm order book is DKK 41 million, covering about four months of production; Katrine reads this as 'orders are fine'.",
+   "reveals_when": "Asked about order intake or backlog",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Order book quality",
+   "fact": "About DKK 9 million of the order book is a marine valve contract for Aalborg Marine Fittings at a contribution margin the finance manager estimates at 4%, because it was priced to fill the furnace.",
+   "reveals_when": "Asked about margin by customer or contract profitability",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Energy",
+   "fact": "Electricity for the induction furnaces and ceramic shell kilns cost DKK 14.2 million last year, up from DKK 8.9 million two years earlier; there is no hedge or fixed-price contract.",
+   "reveals_when": "Asked about cost drivers or energy",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Scrap",
+   "fact": "Internal scrap rate is 11.8% of poured weight against an industry benchmark Henrik quotes of 6 to 7%; the main cause is shell cracking on large stainless parts.",
+   "reveals_when": "Asked about quality, yield or scrap",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Capacity",
+   "fact": "The foundry is running at about 58% of rated capacity on a two-shift pattern; the third shift was dropped in March 2026.",
+   "reveals_when": "Asked about utilisation or shifts",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Headcount",
+   "fact": "112 employees: 78 in production, 11 in quality and metallurgy, 9 in sales and engineering, 14 in administration and management.",
+   "reveals_when": "Asked about staffing",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Wage cost",
+   "fact": "Total payroll including pension is DKK 52 million a year, about 44% of revenue; two years ago it was 38%.",
+   "reveals_when": "Asked about labour cost",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Union",
+   "fact": "Production staff are covered by the Dansk Metal collective agreement via DI; any redundancy above 10 people triggers the collective redundancy consultation procedure.",
+   "reveals_when": "Asked about unions, collective agreements, or how redundancies would work",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Finance function",
+   "fact": "Finance is run by Pernille Skov, a bookkeeper-turned-finance manager; there is no CFO and no 13-week cash forecast. Cash is tracked in a spreadsheet called 'Likviditet 2026.xlsx' updated weekly.",
+   "reveals_when": "Asked who manages cash or what forecasting exists",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "ERP",
+   "fact": "The company runs Microsoft Dynamics NAV 2017 (unsupported), with job costing that has not been recalibrated since 2021; standard costs are known to be wrong for stainless grades.",
+   "reveals_when": "Asked about systems or costing accuracy",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Receivables",
+   "fact": "Trade receivables are DKK 24 million, of which DKK 6.3 million is more than 60 days overdue; Halberg pays at 90 days by contract.",
+   "reveals_when": "Asked about debtors or working capital",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Payables",
+   "fact": "Trade payables are DKK 19 million; the alloy supplier Uddeholm Nordic moved Nordholm to prepayment in July 2026 after two late payments.",
+   "reveals_when": "Asked about suppliers or creditor pressure",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Tax arrears",
+   "fact": "The company is DKK 2.7 million behind on VAT and A-skat (withheld employee tax) with Skattestyrelsen and has an informal deferral that expires 30 September 2026.",
+   "reveals_when": "Asked about tax, statutory payments, or anything owed to public authorities",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Inventory",
+   "fact": "Inventory is DKK 21 million, including DKK 4.8 million of finished castings for a wind-sector customer, Vestas-supplier Aeroblade Components, that cancelled in 2025 and never collected.",
+   "reveals_when": "Asked about stock or slow-moving inventory",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Capex plan",
+   "fact": "Katrine's 'grow faster' plan is a DKK 22 million automated shell line from Wax & Ceramics GmbH, quoted in June 2026, which she hopes will win aerospace-adjacent work.",
+   "reveals_when": "Asked what growth means to her or what investment she has in mind",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Growth thesis",
+   "fact": "No customer has committed to volume that would justify the new shell line; the case rests on two conversations with a Norwegian subsea valve maker, Sørvik Subsea, which has not yet placed a trial order.",
+   "reveals_when": "Asked what evidence supports the growth plan",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Property",
+   "fact": "The company owns the 14,000 square metre site in Herning outright; a 2024 valuation put it at DKK 31 million and it is not charged to the bank.",
+   "reveals_when": "Asked about assets, property, or what could be sold or borrowed against",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Family",
+   "fact": "Brother Mads has twice offered to sell his 28% to Katrine and would prefer to exit; he has also said he would 'consider' lending against his stake if the bank supported it.",
+   "reveals_when": "Asked about shareholder alignment or family dynamics",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Management",
+   "fact": "Henrik Lund, production director, is 63 and has said he will retire within two years; there is no successor identified.",
+   "reveals_when": "Asked about the management team or key-person risk",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Sales",
+   "fact": "Sales consist of Katrine plus two engineer-salesmen; no new customer above DKK 1 million a year has been won since 2022.",
+   "reveals_when": "Asked about business development or pipeline",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Certifications",
+   "fact": "The foundry holds ISO 9001 and DNV marine approval; the DNV approval renewal audit is due in October 2026 and requires an investment of about DKK 350,000 in calibration and NDT equipment.",
+   "reveals_when": "Asked about quality approvals or upcoming compliance costs",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Insolvency awareness",
+   "fact": "Katrine has not spoken to a lawyer or accountant about directors' duties; she believes that as long as the overdraft is not exceeded, the company is 'fine'.",
+   "reveals_when": "Asked whether she has taken advice on the company's solvency position or her obligations as a director",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Auditor",
+   "fact": "The auditor, Beierholm in Herning, signed the last accounts in September 2025 with a going-concern emphasis paragraph; the 2026 audit is not yet started.",
+   "reveals_when": "Asked about the auditor or the last accounts",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Pension",
+   "fact": "Employer pension contributions of DKK 0.6 million due to Industriens Pension for July were paid ten days late.",
+   "reveals_when": "Asked about payroll obligations or late payments",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Previous advice",
+   "fact": "A local consultancy, Midtjysk Erhvervsrådgivning, was engaged in 2025 for a 'strategy day' that produced a vision statement and a target of DKK 180 million revenue by 2029.",
+   "reveals_when": "Asked whether outside advisers have been involved before",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Market",
+   "fact": "European pump and valve casting demand is flat; competitors in Poland (Odlewnia Rawicz) and Turkey are quoting 20 to 25% below Nordholm on standard stainless parts.",
+   "reveals_when": "Asked about competition or market conditions",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "Differentiator",
+   "fact": "Nordholm's genuine edge is duplex and super-duplex stainless castings up to 180 kg with full material traceability; these are about 30% of revenue and carry contribution margins around 38%.",
+   "reveals_when": "Asked what the company does better than anyone else or where it makes money",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "Timing",
+   "fact": "Payroll of about DKK 4.3 million is paid on the last banking day of each month; September payroll is the first one Pernille is 'not certain' can be covered without a supplier deferral.",
+   "reveals_when": "Asked about upcoming payments or the next cash crunch",
+   "changes_recommendation": true
+  }
+ ],
+ "documents": [
+  {
+   "name": "Likviditet 2026.xlsx (summary tab, exported to text)",
+   "kind": "Cash tracking spreadsheet summary",
+   "content": "NORDHOLM PRECISION CASTINGS A/S - LIKVIDITET 2026 - summary as at week 34 (25 Aug 2026)\nPrepared by: P. Skov\n\nBank balance (Jyske Bank driftskonto): DKK 3,112,400\nOverdraft limit: DKK 20,000,000\nOverdraft drawn: DKK 18,640,000\nAvailable headroom incl. cash: DKK 4,472,400\n\nMonthly net movement (actual):\nApril 2026: -1,180,000\nMay 2026: -1,520,000\nJune 2026: -1,310,000\nJuly 2026: -1,660,000\nAugust 2026 (to date): -940,000\n\nKnown outflows next 8 weeks:\n- Payroll 31 Aug: 4,300,000\n- Payroll 30 Sep: 4,300,000\n- Uddeholm prepayment (Sept alloy): 1,850,000\n- Skattestyrelsen instalment due 30 Sep: 2,700,000 (deferral ends)\n- Industriens Pension Aug: 610,000\n- Electricity (Norlys) Sept: 1,150,000\n- DNV audit equipment: 350,000\n\nKnown inflows next 8 weeks:\n- Halberg Flow Systems (July invoices, due 90 days): 5,900,000 expected mid-October\n- Aalborg Marine Fittings milestone: 2,100,000 (subject to acceptance test)\n- Other debtors on terms: approx. 6,400,000\n\nNote: This tab does not include a forecast beyond eight weeks. Overdue debtors > 60 days: DKK 6,300,000 (chased, no legal action).\n\nNote from P. Skov: I have listed the overdraft as DKK 18.6m drawn. We were at 19.4m on 20 Aug before the Halberg June receipt cleared.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Board update - August 2026",
+   "kind": "Internal board memo written by the MD",
+   "content": "TO: Board of Nordholm Precision Castings A/S (K. Vestergaard, M. Vestergaard, H. Lund, external member J. Thorsen)\nFROM: Katrine Vestergaard, adm. direktør\nDATE: 12 August 2026\nSUBJECT: Status and growth initiative\n\n1. Trading. Order intake remains solid with a firm order book of DKK 41m. Halberg, Aalborg Marine and Danfoss Hydraulics all confirmed schedules through Q4. Revenue for FY26 closed at DKK 118m.\n\n2. Result. FY26 shows an operating loss driven almost entirely by energy prices and the loss of the Aeroblade wind contract. Management believes this is a one-year event. Energy prices are now stabilising.\n\n3. Liquidity. The overdraft facility with Jyske Bank remains in place and we are operating within it. Cash is being managed tightly. We expect the position to improve as Halberg receipts land in October. Our equity ratio at year-end was 26.8%, comfortably above the 25% covenant.\n\n4. Growth initiative. I have received a quotation from Wax & Ceramics GmbH for an automated shell line (DKK 22m, 14-month lead time). This would cut shell labour by an estimated 40% and reduce shell cracking scrap. Combined with the Sørvik Subsea opportunity (potential DKK 12-15m a year), this is the route to the DKK 180m 2029 target agreed at last year's strategy day. I propose we approach Jyske Bank and Vækstfonden for financing in September.\n\n5. People. Henrik has agreed to lead the shell line project. We have paused the third shift and are holding recruitment.\n\n6. Ask. The board is asked to endorse the growth initiative and authorise me to engage an external adviser to build the plan for the bank.\n\nKatrine",
+   "contains_contradiction": "Contradicts the dossier on the equity ratio and the overdraft position: the memo says the ratio is 'comfortably above' 25% citing the year-end 26.8%, while July management accounts put it at about 23% (below covenant); it says 'operating within' the facility while the overdraft touched DKK 19.4m of a DKK 20m limit five days earlier. It also frames the loss as a one-year energy event, contradicting the structural pricing and scrap facts."
+  },
+  {
+   "name": "Halberg Flow Systems - RFQ cover letter",
+   "kind": "Customer correspondence",
+   "content": "Halberg Flow Systems A/S\nSupplier Development\nBjerringbro, 4 August 2026\n\nTo: Nordholm Precision Castings A/S, att. Katrine Vestergaard\n\nRe: RFQ 2026-114 - Stainless impeller family SI-300 to SI-900, dual sourcing from 1 January 2027\n\nDear Katrine,\n\nAs discussed at our supplier day in May, Halberg is moving its stainless impeller family (14 part numbers, approximately 96,000 pieces a year, current annual value approximately DKK 38m) to a dual-source model to strengthen supply security.\n\nNordholm has been our sole source for this family since 2016 and we value the quality and traceability you provide. We would like Nordholm to remain a supplier under the new model. Please note the following:\n\n- Quotations are requested for 50% and 70% volume share scenarios.\n- Target pricing reflects benchmark quotes received from two alternative foundries in Poland and Turkey; we anticipate a reduction of 12 to 18% on current unit prices for the 50% scenario.\n- Payment terms will remain 90 days end of month.\n- We require confirmation of financial stability as part of the award, including your latest audited accounts and a bank reference.\n\nQuotations are due by 30 September 2026. Award is expected in November.\n\nWe look forward to continuing our partnership.\n\nKind regards,\nSøren Bak Jensen\nHead of Supplier Development",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The stated ask (a growth plan, a DKK 22m capex case for the bank) is the opposite of what the situation needs: cash and headroom last roughly three to four months and a tax deferral, a bank review, a covenant breach and a sole-customer tender all land inside that window. Nothing about growth is decidable until the next ninety days are survivable.",
+  "The cash question must be asked directly and specifically; 'orders are fine' and 'the bank understands us' are true statements that conceal the position. An engine that accepts the growth framing and never asks about cash, bank, tax, or suppliers has failed the case.",
+  "The company has a real, profitable core (duplex and super-duplex traceable castings at about 38% contribution) buried under low-margin filler work priced to feed the furnace; the loss is structural (no indexation since 2023, 11.8% scrap, 44% payroll ratio at 58% utilisation), not the one-year energy event the board memo claims.",
+  "The Halberg RFQ is both the largest revenue risk and a solvency trap: bidding at a 12 to 18% price cut on a 90-day-terms customer while illiquid, with a financial-stability check as part of the award, cannot be answered in isolation from the cash plan.",
+  "The board memo and the spreadsheet disagree with each other and with the dossier on covenant compliance and facility headroom; the MD's own document to her board understates the danger, which is itself a governance and directors'-duty signal.",
+  "There are unpledged assets and aligned stakeholders not yet in play: an uncharged DKK 31m freehold site, a brother who wants to exit and might lend, DKK 4.8m of uncollected finished goods, and DKK 6.3m of overdue debtors. Whether and how these can be used are questions to surface, not conclusions to assume."
+ ],
+ "regulated_matters": [
+  "Directors' duties and personal liability under Danish company law when a company may be insolvent or approaching it (kapitaltab rules, obligation to convene a general meeting on loss of more than half of share capital, wrongful trading exposure) - requires a Danish lawyer.",
+  "The VAT and A-skat arrears with Skattestyrelsen, the informal deferral, and any formal instalment arrangement - requires a Danish tax adviser or lawyer; late A-skat can carry personal liability for management.",
+  "Any restructuring, moratorium or rekonstruktion under the Danish Bankruptcy Act (konkursloven), including whether preventive restructuring is available or advisable - requires an insolvency lawyer.",
+  "Collective redundancy consultation and notice obligations under the Dansk Metal / DI collective agreement and the Danish Act on Collective Redundancies if headcount reduction exceeds thresholds - requires employment law advice.",
+  "The personal guarantee and house security given by the MD, its enforceability and any renegotiation with Jyske Bank - requires independent personal legal advice separate from the company's adviser.",
+  "Any charge, sale-and-leaseback or mortgage on the Herning freehold, including tax on disposal and registration (tinglysning) - requires legal and tax advice.",
+  "Shareholder buy-out or shareholder loan from Mads Vestergaard, including valuation, tax treatment and the effect on the bank facility's change-of-control terms - requires corporate and tax advice.",
+  "The going-concern assessment and any required disclosure in the FY26 accounts - a matter for the auditor and the board, not the consultancy engine.",
+  "Late payment of employer pension contributions to Industriens Pension and the obligations arising - pension and employment law."
+ ],
+ "realistic_central_decision_candidates": [
+  "Whether Nordholm can stabilise cash through the November bank review and the 30 September tax deadline without external funding or formal restructuring, and what must be stopped, deferred, collected or sold in the next 90 days to do so - with the growth investment set aside until that is settled.",
+  "Whether to reshape the business around the high-margin duplex traceable-casting core (repricing or exiting filler work, right-sizing the two-shift foundry, and bidding the Halberg RFQ selectively) rather than investing to grow volume across the board.",
+  "Which funding path to take to bridge the gap - releasing value from the unpledged Herning freehold, a shareholder solution with Mads, a renegotiated facility with Jyske Bank, or a formal rekonstruktion - and in what order to approach the bank, the tax authority and the main customer so that none of them triggers the others."
+ ]
+}

@@ -1,0 +1,285 @@
+{
+ "id": "adv-contradictory-documents",
+ "title": "Three headcounts, two currencies, one hiring plan",
+ "opening_statement": "We're planning to hire quite a few people next year and I want someone to check the numbers add up before I take it to the board. I can send you what we've got.",
+ "client_persona": {
+  "name": "Marieke van der Steen",
+  "role": "CFO",
+  "company": "Bolder Fulfilment B.V.",
+  "sector": "Third-party e-commerce fulfilment and warehousing (NL headquarters, one Polish warehouse subsidiary)",
+  "country": "Netherlands",
+  "size": "Roughly EUR 38-45M revenue depending on which document you read; 240-310 people depending on definition",
+  "temperament": "Numbers-first and confident. Quotes figures from memory without stating definition, date, currency or entity, and gets mildly irritated when asked to reconcile them (\"it's roughly the same thing\"). Answers the question asked, not the one behind it. Will produce documents readily but does not read them before sending."
+ },
+ "dossier": [
+  {
+   "topic": "headcount",
+   "fact": "When asked directly how many people the company has, she says \"about 275, maybe 280 by now\" — a figure that matches neither shared document.",
+   "reveals_when": "Any direct question about headcount or team size",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "headcount",
+   "fact": "The 240 in the board pack is full-time-equivalent (FTE), Dutch entity only, permanent contracts only, as at 30 September 2025 (fiscal year end).",
+   "reveals_when": "Asking what the 240 in the board pack counts, or what date it refers to",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "headcount",
+   "fact": "The 310 in the HR export is heads (not FTE), as at 31 March 2026, and includes 48 agency workers (uitzendkrachten) and 22 employees of the Polish subsidiary Bolder Logistyka Sp. z o.o.",
+   "reveals_when": "Asking what the 310 counts, or whether temps and Poland are included",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "headcount",
+   "fact": "Her \"275\" is what she remembers from a payroll run in January 2026 — heads on Dutch payroll, which includes part-timers as 1 each but excludes agency workers and Poland.",
+   "reveals_when": "Asking where her figure comes from",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "headcount",
+   "fact": "Roughly 35% of the warehouse workforce is part-time (average 0.7 FTE), so heads and FTE differ by around 50 in the Dutch entity alone.",
+   "reveals_when": "Asking about part-time share or the head/FTE gap",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "headcount",
+   "fact": "Agency worker numbers swing between 20 and 90 across the year; the Q4 peak (Black Friday to Christmas) uses the most.",
+   "reveals_when": "Asking about seasonality of staffing",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "hiring plan",
+   "fact": "The hiring plan proposes 60 net new hires in FY27 (October 2026 to September 2027): 44 warehouse operatives, 9 team leads, 4 customer service, 3 IT.",
+   "reveals_when": "Asking what the plan contains",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "hiring plan",
+   "fact": "The 60 was derived by the COO as \"25% more people for 50% more volume\", not from a capacity or productivity model.",
+   "reveals_when": "Asking how the number 60 was arrived at",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "hiring plan",
+   "fact": "The plan's baseline is \"240 today\", so 60 hires is presented as +25%. Against 310 heads it is +19%; against the FTE-including-agency figure it is unclear because nobody has computed it.",
+   "reveals_when": "Asking what baseline the 25% is measured against",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "hiring plan",
+   "fact": "The plan assumes all 60 are permanent Dutch hires; it does not say whether the intention is to replace agency workers with permanent staff or add on top of them.",
+   "reveals_when": "Asking whether the hires replace temps or add to them",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "revenue",
+   "fact": "Management accounts show revenue of EUR 38.2M for the fiscal year ended 30 September 2025, Dutch entity plus consolidated Polish subsidiary.",
+   "reveals_when": "Asking about revenue or what the board pack shows",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "revenue",
+   "fact": "The investor one-pager shows USD 44.5M for calendar year 2025. It was prepared by the US-based lead investor's associate and uses an exchange rate nobody at Bolder has verified.",
+   "reveals_when": "Asking about the USD figure, the investor deck, or why the two revenue numbers differ",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "revenue",
+   "fact": "When asked what revenue was, she says \"we did about 41 million last year\" without stating a currency or period. Pressed, she thinks it is euros for calendar 2025 but is not certain.",
+   "reveals_when": "Asking for revenue directly",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "revenue",
+   "fact": "Calendar year and fiscal year differ by one quarter and Q4 (Oct-Dec) is the largest quarter at roughly 35% of annual revenue, so the period difference alone explains several million euros of gap.",
+   "reveals_when": "Asking about the fiscal year end or seasonality of revenue",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "revenue",
+   "fact": "The Polish subsidiary invoices in PLN (about PLN 21M in FY25, roughly EUR 4.9M at the rate used in consolidation); the investor deck may have converted PLN at a different rate or excluded it.",
+   "reveals_when": "Asking about the Polish entity's revenue or consolidation",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "growth target",
+   "fact": "The board has been told volume will grow 50% in FY27, based on two prospective clients whose contracts are not signed.",
+   "reveals_when": "Asking where the growth assumption comes from",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "growth target",
+   "fact": "One of the two prospective clients (a fashion retailer, ~30% of the projected new volume) has gone quiet since June 2026.",
+   "reveals_when": "Asking about the status of the pipeline clients",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "capacity",
+   "fact": "The Dutch warehouse in Tilburg (24,000 m2) is at roughly 88% storage utilisation in the off-season and hits 100% in Q4, when overflow goes to a rented 3,000 m2 unit at EUR 11/m2/month.",
+   "reveals_when": "Asking about physical capacity or space",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "capacity",
+   "fact": "Pick throughput is bounded by 14 pack stations; adding operatives beyond about 260 warehouse heads in Tilburg yields no additional throughput without more stations or a mezzanine.",
+   "reveals_when": "Asking about bottlenecks, throughput or whether more people would actually produce more output",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "capacity",
+   "fact": "A mezzanine extension was quoted at EUR 1.4M in 2025 and deferred; it would add roughly 40% picking capacity.",
+   "reveals_when": "Asking about capex options or what was previously considered",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "capacity",
+   "fact": "The Polish warehouse in Łódź (9,000 m2) runs at about 55% utilisation and has room for 30-40 more staff without capex.",
+   "reveals_when": "Asking about the Polish site's capacity",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "finance",
+   "fact": "Personnel cost was EUR 12.1M in FY25 (31.7% of revenue) including agency cost of EUR 2.3M.",
+   "reveals_when": "Asking about payroll cost or cost structure",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance",
+   "fact": "The hiring plan budgets the 60 hires at EUR 2.7M annualised, using an average of EUR 45k fully loaded, which matches the permanent-staff average but not the team-lead and IT roles.",
+   "reveals_when": "Asking how the hiring plan is costed",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance",
+   "fact": "The company has a EUR 6M revolving credit facility from ABN AMRO with a covenant that personnel cost must not exceed 34% of trailing-12-month revenue, tested quarterly.",
+   "reveals_when": "Asking about debt, banking or constraints on spend",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "finance",
+   "fact": "If the 60 hires land and the unsigned volume does not, personnel cost would be roughly 38-39% of revenue by Q2 FY27 on her own figures.",
+   "reveals_when": "Asking what happens to the ratio if growth slips",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "finance",
+   "fact": "EBITDA in FY25 was EUR 3.1M (8.1%); the investor one-pager shows USD 4.4M \"adjusted EBITDA\" with adjustments she cannot itemise.",
+   "reveals_when": "Asking about profit or what the investor deck adjusts",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "governance",
+   "fact": "The board meeting where the plan will be presented is on 24 September 2026; the board pack is due 15 September.",
+   "reveals_when": "Asking about timing or deadlines",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "governance",
+   "fact": "The company has a works council (ondernemingsraad) which has not been consulted on the hiring plan; the HR director believes an adviesrecht consultation is required for a change of this size but nobody has confirmed.",
+   "reveals_when": "Asking about employee consultation or who else needs to sign off",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "governance",
+   "fact": "The board pack figures come from the finance team; the HR export comes from AFAS (HR system); the investor one-pager was drafted by the investor; nobody owns reconciling the three.",
+   "reveals_when": "Asking who produced each document or which is authoritative",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "governance",
+   "fact": "The lead investor (Copenhagen-based growth fund, 38% stake) is the one pushing for the 50% growth story and has asked for \"the headcount to match the ambition\".",
+   "reveals_when": "Asking where the pressure to hire comes from",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "systems",
+   "fact": "The WMS is Descartes pixi; it can report picks per labour hour but nobody has pulled that report in over a year.",
+   "reveals_when": "Asking what productivity data exists",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "systems",
+   "fact": "AFAS (HR) and Exact (finance) are not integrated; headcount in the board pack is retyped from an AFAS export by a finance analyst each quarter.",
+   "reveals_when": "Asking why the numbers differ between systems or how the board pack is built",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "people",
+   "fact": "Annual attrition among warehouse operatives is about 28%; the 60 \"net new\" figure in the plan does not include backfill, so gross recruiting would be closer to 120.",
+   "reveals_when": "Asking about attrition, turnover or gross versus net hiring",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "people",
+   "fact": "Recruitment in the Tilburg area is tight; the last 20 permanent operative vacancies took an average of 11 weeks to fill.",
+   "reveals_when": "Asking about labour market or time-to-hire",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "people",
+   "fact": "Agency workers cost about EUR 27/hour versus EUR 21/hour fully loaded for permanent staff, but agency staff in NL acquire equal-pay and, after 26 weeks, additional rights, and several have been on site for over a year.",
+   "reveals_when": "Asking about the cost or legal position of agency workers",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "client",
+   "fact": "Top client (a Dutch electronics retailer) is 31% of revenue; its contract renews in March 2027 with a 6-month notice period.",
+   "reveals_when": "Asking about customer concentration",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "client",
+   "fact": "She has not shown the investor one-pager to the bank; she is aware the bank sees the EUR management accounts only.",
+   "reveals_when": "Asking who has seen which document",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Board pack extract, Q4 FY25 (fiscal year ended 30 September 2025)",
+   "kind": "Board report extract (PDF, 2 pages)",
+   "content": "BOLDER FULFILMENT B.V. — BOARD PACK — FY25 CLOSE\nPrepared by: Finance. Date: 28 October 2025.\n\n1. Financial summary (consolidated, EUR)\nRevenue FY25: 38.2M (FY24: 33.6M, +13.7%)\nGross margin: 24.1%\nPersonnel cost: 12.1M (31.7% of revenue), of which agency labour 2.3M\nEBITDA: 3.1M (8.1%)\nNet debt: 3.9M. RCF drawn: 2.2M of 6.0M.\nCovenant (personnel/revenue < 34%): compliant, 31.7%.\n\n2. People\nHeadcount at 30 September 2025: 240 FTE.\nBreakdown: warehouse 188, customer service 19, IT 9, finance/HR/admin 14, management 10.\nAttrition (warehouse, rolling 12m): 28%.\n\n3. Operations\nTilburg storage utilisation (Sept): 88%. Q4 overflow unit contracted (3,000 m2, 3 months).\nPick throughput Sept: 41,200 orders/week average; peak week capacity est. 58,000.\n\n4. Outlook FY26\nRevenue guidance: 42-44M EUR. Two material prospects in late-stage discussion (combined potential ~9M annualised).\n\n5. Matters for decision\n- Mezzanine extension (EUR 1.4M) deferred to FY27 pending prospect conversion.\n- FY27 workforce plan to be presented at the September 2026 board.",
+   "contains_contradiction": "Headcount 240 is FTE, permanent, Dutch entity, at 30 Sept 2025 — none of which is stated. Conflicts with the HR export (310) and the investor one-pager (\"300+\"), and with the client's spoken figure (275). Also, throughput figures here are per week while the hiring plan reasons in annual volume."
+  },
+  {
+   "name": "AFAS HR export summary, 31 March 2026",
+   "kind": "HR system export (spreadsheet summary)",
+   "content": "AFAS — Personeelsoverzicht — peildatum 31-03-2026\nExport by: HR (S. Bakker). Filter: all active persons, all entities.\n\nTotal active persons: 310\n\nBy entity:\n  Bolder Fulfilment B.V. (NL): 288\n  Bolder Logistyka Sp. z o.o. (PL): 22\n\nBy contract type (NL only):\n  Onbepaalde tijd (permanent): 162\n  Bepaalde tijd (fixed term): 78\n  Uitzendkracht (agency, registered on site): 48\n\nBy working pattern (NL employees excl. agency, n=240):\n  Fulltime (>= 36 h): 156\n  Parttime: 84 (average 0.68 FTE)\n\nFTE (NL employees excl. agency): 213.4\nFTE (NL incl. agency at recorded hours): 256.1\nFTE (group incl. PL): 277.3\n\nNotes:\n- Agency workers are registered in AFAS for access-badge and rostering purposes; contract and payroll sit with the agency (Randstad / Tempo-Team).\n- 11 agency workers have been on site > 52 weeks.\n- PL entity data entered manually by Łódź office monthly; last update 28-02-2026.\n- Open vacancies (NL): 14. Average time-to-fill last 20 hires: 11 weeks.",
+   "contains_contradiction": "310 heads vs board pack's 240. Different date (March 2026 vs Sept 2025), different unit (heads vs FTE), different scope (includes agency + Poland). Note the coincidence that NL employees excl. agency = 240 heads here, which a careless reader could mistake for confirming the board pack's 240 FTE. Also gives 277.3 group FTE, which is close to the client's spoken 275 for entirely different reasons."
+  },
+  {
+   "name": "Investor update one-pager, H1 2026",
+   "kind": "Investor summary (one page, prepared by lead investor)",
+   "content": "BOLDER FULFILMENT — PORTFOLIO UPDATE — H1 2026\nPrepared by Nordkap Growth Partners (portfolio team). For LP reporting. Figures in USD unless stated.\n\nSnapshot\nRevenue CY2025: $44.5M (+16% YoY)\nAdjusted EBITDA CY2025: $4.4M (9.9%)\nHeadcount: 300+\nSites: Tilburg (NL), Łódź (PL)\n\nThesis update\nBolder is positioned to double throughput by end-2027 on the back of two enterprise wins in late-stage negotiation (fashion and home-goods verticals). Management is preparing an FY27 workforce plan to add ~60 roles, taking headcount towards ~300 FTE. We expect the plan to be approved at the September 2026 board.\n\nKey metrics\n- Orders shipped CY2025: 2.31M\n- Revenue per order: $19.3\n- Storage utilisation: 88%\n- Net revenue retention (top 10 clients): 109%\n\nRisks\n- Client concentration: largest client 31% of revenue, renewal March 2027.\n- Labour availability in Noord-Brabant.\n\nNext steps\n- Board approval of workforce plan (Sept 2026)\n- Mezzanine capex decision (Q4 2026)\n\nNotes: EUR/PLN figures converted at Nordkap house rates. Adjusted EBITDA excludes one-off relocation and recruitment costs.",
+   "contains_contradiction": "Revenue $44.5M CY2025 vs board pack EUR 38.2M FY25: different currency, different period (calendar vs fiscal), unstated FX rate, and EBITDA is \"adjusted\" with unitemised add-backs. Headcount \"300+\" then \"+60 towards ~300 FTE\" is internally inconsistent (300 + 60 is not ~300). \"Double throughput by end-2027\" conflicts with the pack-station and space constraints and with the plan's own 50% volume assumption."
+  },
+  {
+   "name": "FY27 workforce plan, draft v3",
+   "kind": "Internal planning memo (COO to CFO)",
+   "content": "FY27 WORKFORCE PLAN — DRAFT v3 — 2 September 2026\nFrom: Jeroen Smits (COO). To: M. van der Steen (CFO). Status: for board pack.\n\nContext\nVolume forecast FY27: +50% vs FY26 driven by the two enterprise prospects (combined ~9M EUR annualised). We are at 240 people today. Fulfilment is labour-driven; a 50% volume increase cannot be absorbed by the current team.\n\nProposal\nAdd 60 net new permanent roles in FY27 (+25%):\n- Warehouse operatives: 44\n- Team leads / shift supervisors: 9\n- Customer service: 4\n- IT / WMS support: 3\nPhasing: 20 in Q1, 20 in Q2, 20 in Q3 FY27.\n\nCost\n60 x EUR 45,000 fully loaded = EUR 2.7M annualised. In-year FY27 cost with phasing: approx. EUR 1.6M.\n\nRationale for 25% people / 50% volume\nProductivity gains from shift restructuring and better rostering expected to deliver the remainder. Detailed productivity model to follow.\n\nAssumptions\n- All roles Dutch permanent contracts based in Tilburg.\n- Existing agency workforce continues at current levels for peak.\n- Mezzanine decision not required for this plan.\n\nRisks\n- Labour market: recruitment lead times.\n- Timing of prospect contracts.\n\nRequest\nCFO to confirm affordability and covenant headroom; board approval requested 24 September 2026.",
+   "contains_contradiction": "Baseline \"240 people today\" is a Sept 2025 FTE figure used a year later as if it were current heads. \"Net new\" ignores 28% attrition (so gross recruitment ~120, not 60). Assumes agency workforce continues on top of 60 hires, which the CFO believes is not the intent. States the mezzanine is not required, while the board pack and pack-station constraint indicate Tilburg cannot absorb 50% more volume without it. \"Productivity model to follow\" means the 25%/50% ratio is unsupported."
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The three headcount figures (240, 310, 275) are not errors to be averaged or a single truth to be picked; they differ by unit (FTE vs heads), scope (NL-only vs group, permanent vs incl. agency), and date (Sept 2025, Jan 2026, Mar 2026). The right output is a typed reconciliation with an explicit definition chosen for planning purposes, not a number.",
+  "The two revenue figures (EUR 38.2M FY25 vs USD 44.5M CY2025) differ by currency, period and FX rate; the client's spoken \"41 million\" has no stated currency or period. The engine should refuse to compute ratios (cost per head, personnel/revenue) until currency, period and entity are pinned, and should flag that the bank sees only one of these figures.",
+  "The stated problem (\"check the hiring numbers add up\") sits on an unsigned-pipeline growth assumption and a physical constraint: Tilburg cannot deliver +50% volume with more people alone because pack stations and space bind first. The real decision is whether to commit to Tilburg capex, shift growth to Łódź, or convert agency to permanent, and the 60-hire plan is not the answer to any of those framed as-is.",
+  "The plan's \"60 net new\" against 28% attrition and 11-week time-to-fill implies roughly 120 gross hires in a tight labour market, which is a different feasibility question from affordability.",
+  "The covenant (personnel cost < 34% of revenue) is the hard constraint; if hires land before volume does, the ratio breaches by Q2 FY27 on the client's own numbers. A good engine should model the downside (prospects slip) rather than only the board's upside case.",
+  "The investor one-pager's \"double throughput by end-2027\" and the plan's \"+50% volume\" are different targets; the engine should surface this rather than plan toward either as given."
+ ],
+ "regulated_matters": [
+  "Whether the works council (ondernemingsraad) has an adviesrecht under the Wet op de ondernemingsraden for this hiring plan, and the timing consequences if consultation is skipped — Dutch employment counsel.",
+  "Legal position and cost of agency workers on site over 26 and 52 weeks under Dutch law (WAB, ABU/NBBU CAO, equal-treatment provisions) and whether conversion to permanent is required or merely advisable — Dutch employment counsel.",
+  "Polish employment law and CAO-equivalent obligations if hiring shifts to the Łódź entity — Polish employment counsel.",
+  "Transfer pricing and VAT treatment of intra-group services between Bolder Fulfilment B.V. and Bolder Logistyka Sp. z o.o. if volume is rebalanced between sites — tax adviser.",
+  "Interpretation of the ABN AMRO covenant definition (which revenue, which personnel cost, treatment of agency labour) and the consequences of a breach — the facility agreement and the company's lawyers or bank relationship manager.",
+  "Whether the investor's USD one-pager with unitemised adjusted EBITDA creates any disclosure obligation toward the bank or other shareholders — corporate counsel."
+ ],
+ "realistic_central_decision_candidates": [
+  "Before any hiring decision, establish one planning baseline (defined headcount unit, scope and date; one revenue currency and period) that finance, HR and the investor all sign off on, and re-run the affordability and covenant case on it under both a signed-pipeline and slipped-pipeline scenario.",
+  "Decide where FY27 growth capacity should physically come from — Tilburg mezzanine capex, Łódź expansion, or agency-to-permanent conversion at existing volume — since the pack-station and space constraints, not headcount, bind first; the workforce plan follows from that choice.",
+  "Restructure the board proposal from an unconditional 60-hire plan into a staged, trigger-based plan (hires released on contract signature and covenant headroom), with the gross recruiting need and works-council consultation made explicit."
+ ]
+}

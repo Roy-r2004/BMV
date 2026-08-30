@@ -1,0 +1,285 @@
+{
+ "id": "clinic-pulse-launch-kenya",
+ "title": "Nyota Consulting: from custom work to ClinicPulse",
+ "opening_statement": "We're an accounting and advisory firm in Nairobi. Over the last year we built a little tool for our clinic clients and now we want to know how to sell it properly. Where do we start?",
+ "client_persona": {
+  "name": "Wanjiru Kamau",
+  "role": "Managing Partner",
+  "company": "Nyota Advisory Partners LLP",
+  "sector": "Accounting, bookkeeping and advisory for private healthcare providers",
+  "country": "Kenya",
+  "size": "38 staff (6 partners, 24 fee-earners, 8 support), KES 312M revenue FY2025",
+  "temperament": "Warm, proud of the product, tends to talk about clinic clients by name; answers vaguely on money until pressed, then precise. Deflects questions about her business partner Otieno with 'he's supportive'. Volunteers success stories, not risks."
+ },
+ "dossier": [
+  {
+   "topic": "product",
+   "fact": "The product is ClinicPulse: a web dashboard that pulls daily cash, claims and stock data from a clinic's existing systems and shows owners a one-page view of cash position, NHIF/SHA claim ageing and drug stock days.",
+   "reveals_when": "asking what the product actually does",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "product",
+   "fact": "ClinicPulse currently reads data from two clinic systems only: MediPro Lite (used by about 60% of Nyota's clinic clients) and manual Excel uploads for everyone else.",
+   "reveals_when": "asking about integrations or what systems it connects to",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "product",
+   "fact": "It was built by Brian Odhiambo, a 27-year-old junior associate on the audit team who taught himself Django; he is the only person who understands the codebase.",
+   "reveals_when": "asking who built it or who maintains it",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "product",
+   "fact": "Brian has been offered a developer role at a Nairobi fintech at roughly twice his current salary (KES 180,000/month vs KES 95,000) and has told Wanjiru he will decide by end of October 2026.",
+   "reveals_when": "asking about key-person risk, retention or what happens if Brian leaves",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "product",
+   "fact": "The code lives in Brian's personal GitHub account; there is no written IP assignment between Brian and the LLP, and his employment contract is the standard Nyota associate contract with no IP clause.",
+   "reveals_when": "asking who owns the product / IP / where the code is",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "customers",
+   "fact": "Eleven clinic clients use ClinicPulse today. None pay for it; it was included free with their monthly bookkeeping retainer.",
+   "reveals_when": "asking who uses it and what they pay",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "Of the 11 users, 4 log in weekly or more, 5 log in less than once a month, and 2 have never logged in since onboarding.",
+   "reveals_when": "asking about usage or engagement",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "customers",
+   "fact": "The 4 active users are all owner-operated clinics with 2-4 sites; the inactive ones are single-site clinics whose owners are doctors who see patients all day.",
+   "reveals_when": "asking what the active users have in common",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "Dr. Achieng of Mombasa Family Care (3 sites) said she would pay KES 15,000/month for it; nobody else has been asked a price question.",
+   "reveals_when": "asking about willingness to pay or pricing evidence",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "Nyota has 74 clinic and small-hospital clients in total, out of 210 total clients.",
+   "reveals_when": "asking about client base composition",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "Two clinic clients (Kilimani Dental and Ruaka Medical) left Nyota in the last 12 months for a cheaper bookkeeper; both were ClinicPulse non-users.",
+   "reveals_when": "asking about churn or why clients leave",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "market",
+   "fact": "Wanjiru estimates there are about 4,000 private clinics in Kenya; she has not checked this. The Kenya Medical Practitioners and Dentists Council register lists roughly 12,000 licensed private facilities of all sizes.",
+   "reveals_when": "asking about market size and where the number comes from",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "market",
+   "fact": "MediPro Lite's vendor (MediPro Systems, Nairobi) announced in June 2026 a built-in 'Owner Dashboard' module for its next release, expected Q1 2027.",
+   "reveals_when": "asking about competitors or what the clinic software vendors are doing",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "market",
+   "fact": "Nyota has a reseller referral arrangement with MediPro Systems: Nyota earns 10% on MediPro licences it refers, worth about KES 1.4M last year.",
+   "reveals_when": "asking about partnerships or relationships with software vendors",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "market",
+   "fact": "Wanjiru has heard of one competitor, a Lagos-based startup called Helium Health, but has not looked at it; she does not know of a Kenyan equivalent.",
+   "reveals_when": "asking about direct competitors",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finances",
+   "fact": "Nyota FY2025 (June year-end) revenue was KES 312M with partner profit of KES 68M; healthcare clients account for about 41% of revenue.",
+   "reveals_when": "asking about firm financials",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finances",
+   "fact": "Total spend on ClinicPulse so far: roughly KES 2.1M, mostly Brian's time (about 40% of his hours for 14 months) plus KES 180,000 in hosting on AWS Cape Town region.",
+   "reveals_when": "asking what has been invested so far",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finances",
+   "fact": "The partners have informally agreed they could put up to KES 8M into 'the software' over the next year, but nothing is minuted.",
+   "reveals_when": "asking about budget or investment capacity",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finances",
+   "fact": "Wanjiru's private target is KES 30M annual software revenue within 3 years; she has not shared this number with the other partners.",
+   "reveals_when": "asking what success looks like or what her ambition is",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "partners",
+   "fact": "Nyota has 6 equity partners; the partnership deed requires 75% by capital share for any new line of business or capital commitment above KES 5M.",
+   "reveals_when": "asking about governance or how decisions are made",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "partners",
+   "fact": "Senior partner James Otieno (28% capital share) thinks the software is a distraction and has said privately he would rather sell it to MediPro than build a sales team.",
+   "reveals_when": "asking whether all partners are aligned or what Otieno thinks",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "partners",
+   "fact": "Wanjiru holds 22% capital share; the two youngest partners (9% each) are enthusiastic; the other two (16% each) have not expressed a view.",
+   "reveals_when": "asking about partner shares or voting arithmetic",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "operations",
+   "fact": "Onboarding a clinic onto ClinicPulse takes Brian about 3 working days, mostly cleaning the chart of accounts and mapping stock codes.",
+   "reveals_when": "asking how a new customer gets set up",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "operations",
+   "fact": "ClinicPulse is only useful when the clinic's books are kept in Nyota's standard chart of accounts; for a clinic that uses a different bookkeeper, the data would not map without rework.",
+   "reveals_when": "asking whether it works for clinics that are not Nyota clients",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "operations",
+   "fact": "There is no documentation, no automated tests and no staging environment; Brian deploys from his laptop.",
+   "reveals_when": "asking about technical maturity or how releases happen",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "operations",
+   "fact": "Support requests go to Brian's personal WhatsApp; he handled 31 requests in July 2026, about half of which were login/password issues.",
+   "reveals_when": "asking about support load",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "sales",
+   "fact": "Nyota has never had a salesperson; all 210 clients came from partner referrals, KMA (Kenya Medical Association) events and word of mouth.",
+   "reveals_when": "asking how the firm currently wins clients",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "sales",
+   "fact": "Wanjiru plans to hire a 'head of sales' at about KES 350,000/month and has a candidate from a pharma distributor in mind.",
+   "reveals_when": "asking what she has already decided or is about to do",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "sales",
+   "fact": "Nyota speaks at the KMA annual conference (about 1,200 attendees, next in March 2027) and has a free exhibitor slot as a sponsor.",
+   "reveals_when": "asking about channels or events",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "data",
+   "fact": "ClinicPulse stores patient-level claim lines (name, national ID, diagnosis code) because that is how MediPro exports claims; the dashboard only shows totals but the raw data is in Nyota's database.",
+   "reveals_when": "asking what data is held or about data protection",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "data",
+   "fact": "Nyota is registered with the Office of the Data Protection Commissioner as a data processor for its bookkeeping work but has not assessed whether ClinicPulse changes that status.",
+   "reveals_when": "asking about regulatory registrations",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "data",
+   "fact": "Hosting is in AWS Cape Town (South Africa); Wanjiru is unsure whether health data of Kenyans may be stored outside Kenya.",
+   "reveals_when": "asking where data is hosted",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "regulatory",
+   "fact": "Nyota is a licensed ICPAK practice; Wanjiru is unsure whether selling software to audit clients creates an independence issue for the 9 clinics Nyota also audits.",
+   "reveals_when": "asking about professional rules or conflicts with audit work",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "regulatory",
+   "fact": "Nyota has not considered whether software subscriptions are VAT-able at 16% separately from professional fees, or whether a separate company should hold the product.",
+   "reveals_when": "asking about tax or legal structure",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "timeline",
+   "fact": "Wanjiru wants to 'launch' at the KMA conference in March 2027 and has already told two clinic owners it will be available then.",
+   "reveals_when": "asking about deadlines or promises already made",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "history",
+   "fact": "Nyota tried a productised 'Clinic Starter Pack' of templates in 2022 for KES 25,000 one-off; it sold 14 copies and was quietly dropped.",
+   "reveals_when": "asking whether they have tried selling anything productised before",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "history",
+   "fact": "ClinicPulse started because Dr. Achieng asked in April 2025 why she only saw her cash position 20 days after month end; Brian built the first version in a weekend.",
+   "reveals_when": "asking why it was built or where the idea came from",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "capacity",
+   "fact": "Wanjiru personally bills about 1,100 hours a year to clients and expects to run the product launch herself alongside that.",
+   "reveals_when": "asking who will lead the launch and how much time they have",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "ClinicPulse one-pager (draft for KMA)",
+   "kind": "marketing draft",
+   "content": "CLINICPULSE — See your clinic's money every morning.\n\nBuilt by Nyota Advisory Partners for Kenyan clinic owners.\n\nEvery morning at 7am, ClinicPulse sends you one page: cash in bank, cash collected yesterday, NHIF/SHA claims outstanding by age, drug stock days remaining for your top 20 items, and payroll due in the next 14 days. No spreadsheets. No waiting for month-end.\n\nWhat clinic owners say:\n'I used to find out we were short on cash on the 25th. Now I know on the 2nd.' — Dr. M. Achieng, Mombasa Family Care\n'It paid for itself the first month by showing me claims older than 90 days.' — Owner, 3-site clinic, Nakuru\n\nWorks with MediPro Lite, Afya Pro, eHealth Kenya and Excel.\n\nAlready trusted by 20 clinics across Nairobi, Mombasa and Nakuru.\n\nPricing: from KES 9,900 per month per clinic. Set-up in 48 hours.\n\nSecurity: your data is stored securely in Kenya and never shared.\n\nTalk to us at the KMA Annual Conference, Stand 14, or email clinicpulse@nyota.co.ke.\n\n[Internal note from W.K.: Brian, please confirm the Afya Pro and eHealth integrations are ready before we print. Also can we say 'trusted by 20' if we count the ones we're onboarding?]",
+   "contains_contradiction": "Claims 20 clinics (dossier: 11, of which 2 never logged in), claims integrations with Afya Pro and eHealth Kenya (dossier: only MediPro Lite and Excel exist), claims data stored in Kenya (dossier: AWS Cape Town), and quotes a 48-hour set-up (dossier: 3 working days of Brian's time). The internal note reveals the numbers are aspirational."
+  },
+  {
+   "name": "Partners' meeting minutes, 14 July 2026 (extract)",
+   "kind": "governance record",
+   "content": "NYOTA ADVISORY PARTNERS LLP — Partners' Meeting, 14 July 2026, Boardroom, Upper Hill.\nPresent: W. Kamau (chair), J. Otieno, P. Mwangi, S. Wekesa, L. Njeri, D. Kiprop. Secretary: F. Auma.\n\nItem 4 — ClinicPulse.\nW.K. presented usage from the 11 pilot clinics and reported strong feedback from Mombasa Family Care and Nakuru Wellness. She proposed that the firm treat ClinicPulse as a product line and recruit a sales lead before the KMA conference.\n\nJ.O. asked what the firm had spent to date. W.K. estimated 'under two million'. J.O. noted that the audit team was already behind on three June year-end files and that Brian Odhiambo's availability was part of the reason. J.O. asked whether MediPro Systems had been approached about acquiring or licensing the tool, given the existing referral relationship. W.K. said not yet.\n\nL.N. and D.K. spoke in favour of continuing. P.M. and S.W. asked for a written plan with numbers before committing.\n\nRESOLVED: (a) W.K. to bring a written business plan to the September meeting; (b) no external hire until the plan is approved; (c) F.A. to obtain a quote from Kaplan & Stratton on IP ownership and data protection for the tool; (d) the referral agreement with MediPro Systems to be circulated to all partners.\n\nItem 5 — Fee increases for FY2027. Deferred.\n\nMeeting closed 18:40.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "ClinicPulse pilot usage export, July 2026",
+   "kind": "system data",
+   "content": "ClinicPulse — login and report activity, 1–31 July 2026 (exported by B. Odhiambo)\n\nClinic | Sites | Onboarded | Logins (Jul) | Last login | Weekly email opened\nMombasa Family Care | 3 | May-25 | 27 | 31-Jul | 4/4\nNakuru Wellness Centre | 4 | Aug-25 | 19 | 30-Jul | 4/4\nKaren Paediatrics | 2 | Sep-25 | 12 | 29-Jul | 3/4\nThika Road Medical | 2 | Nov-25 | 9 | 28-Jul | 4/4\nEmbu Maternity Clinic | 1 | Jan-26 | 2 | 12-Jul | 1/4\nKisumu Eye Care | 1 | Jan-26 | 1 | 03-Jul | 0/4\nLangata Dental | 1 | Feb-26 | 1 | 15-Jul | 2/4\nNgong Family Health | 1 | Mar-26 | 0 | 19-Jun | 0/4\nMachakos Medical | 1 | Mar-26 | 1 | 22-Jul | 1/4\nRongai Clinic | 1 | Apr-26 | 0 | never | 0/4\nKitengela Health Point | 1 | May-26 | 0 | never | 0/4\n\nTotals: 11 clinics, 72 logins, 4 clinics with >5 logins.\nSupport tickets (WhatsApp): 31. Password resets: 16. Data mismatch queries: 9. Feature requests: 6 (4 of them asking for mobile app / M-Pesa view).\n\nNote: Excel-upload clinics (all single-site) show data lag of 5–12 days because uploads depend on the Nyota bookkeeper's cycle; MediPro clinics refresh nightly.",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The client frames this as a sales/marketing question ('how to sell it'), but the product's ownership, sole maintainer and data handling are unresolved; selling before those are settled creates liabilities rather than revenue.",
+  "The product only works well for clinics whose books Nyota already keeps in its standard chart of accounts, so the addressable market may be Nyota's own 74 healthcare clients, not '4,000 clinics'; the real question may be whether this is a product or a retention feature of the advisory business.",
+  "Usage data show the value concentrates in multi-site owner-operators (4 of 11), while single-site doctor-owners do not use it; the marketing one-pager's claims run ahead of the evidence.",
+  "The incumbent clinic-software vendor is about to ship the same feature, and Nyota earns referral income from that vendor; a partner already favours selling/licensing to it. The launch decision is entangled with a partnership decision.",
+  "The partnership is not aligned: a 75% capital-share threshold, a sceptical 28% partner, and an unshared personal revenue target mean the recommendation must survive the September partners' meeting, not just the managing partner's enthusiasm.",
+  "The March 2027 deadline and the head-of-sales hire were decided before the plan; the July minutes explicitly block the hire until a plan is approved."
+ ],
+ "regulated_matters": [
+  "IP ownership of code written by an employee without an IP clause and hosted in a personal repository (Kenyan employment and copyright law) — route to a qualified lawyer.",
+  "Data protection: processing patient-identifiable health data, data-processor vs controller status under the Kenya Data Protection Act 2019, and cross-border hosting in South Africa — route to a data protection lawyer / the ODPC.",
+  "Auditor independence and professional conduct when an ICPAK-licensed practice sells software to audit clients — route to ICPAK guidance / professional ethics adviser.",
+  "VAT treatment of software subscriptions versus professional fees, and whether to hold the product in a separate company (tax and LLP structuring) — route to a tax adviser and lawyer.",
+  "Employment terms, retention arrangements or equity-like incentives for Brian Odhiambo — route to an employment lawyer.",
+  "Any interpretation of the partnership deed's voting thresholds for a new line of business — route to the LLP's legal adviser."
+ ],
+ "realistic_central_decision_candidates": [
+  "Should Nyota commercialise ClinicPulse as a standalone product for the open market, keep it as a paid add-on for its own advisory clients, or license/sell it to MediPro Systems — and what must be fixed (ownership, key person, data) before any of these is safe?",
+  "Is ClinicPulse a product business the partnership should fund and govern separately, or a client-retention feature of the advisory practice, and how should the September partners' meeting be asked to decide?",
+  "Given the vendor's imminent competing feature and the evidence that only multi-site owner-operated clinics use it, what is the narrowest, fastest path to paid revenue that does not expose the firm to IP, data-protection or independence risk?"
+ ]
+}

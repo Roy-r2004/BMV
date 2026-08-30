@@ -1,0 +1,274 @@
+{
+ "id": "moreira-ferragens-founder-bottleneck",
+ "title": "Ferragens Moreira: the founder who wants his managers to decide",
+ "opening_statement": "My managers do not take decisions. I was away for eleven days in July and came back to 340 emails waiting for me, half of them things anyone could have answered. I need my team to step up.",
+ "client_persona": {
+  "name": "António Moreira",
+  "role": "Founder and sole gerente (managing director)",
+  "company": "Ferragens Moreira, Lda.",
+  "sector": "Architectural hardware manufacturing (door handles, hinges, locks) for the construction and DIY-retail channels",
+  "country": "Portugal (Águeda, Aveiro district)",
+  "size": "182 employees, EUR 31.4M revenue (2025), two plants",
+  "temperament": "Proud, anecdotal, answers with stories about specific people rather than structures; blames individuals first; deflects questions about himself with 'I've always done it this way'; becomes short and quiet when health or the family is mentioned; gives precise numbers when asked for them because he holds them all in his head."
+ },
+ "dossier": [
+  {
+   "topic": "company basics",
+   "fact": "Founded in 1989 by António Moreira; a sociedade por quotas; 182 employees at end of July 2026; EUR 31.4M revenue in 2025, EUR 28.9M in 2024.",
+   "reveals_when": "any question about the company, size, or history",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "footprint",
+   "fact": "Two plants: Águeda (main, 141 people, zinc die-casting, machining, finishing) and Oliveira de Azeméis (41 people, assembly and packing), 38 km apart.",
+   "reveals_when": "asked about sites, operations, or where people sit",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "customers",
+   "fact": "68% of revenue is export, mainly France and Germany; the largest account is Leroy Merlin France at roughly 22% of revenue under a supply framework renewed every two years.",
+   "reveals_when": "asked about customers or concentration",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "ownership",
+   "fact": "António holds 70% of the quotas, his wife Fernanda 20%, son Duarte 10%; Fernanda does not work in the company but is a second bank signatory.",
+   "reveals_when": "asked who owns the company or who signs",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "founder span",
+   "fact": "Fourteen people report directly to António: plant manager Águeda, plant manager Oliveira, commercial director (Duarte), head of finance, HR administrator, quality manager, purchasing manager, maintenance chief, tooling chief, IT technician, export sales manager, design office lead, logistics supervisor, and his personal assistant.",
+   "reveals_when": "asked who reports to him / to draw the org chart",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "founder workload",
+   "fact": "António works roughly 62 hours a week and signs or approves an estimated 200-250 items a week (purchase orders, quotes, holiday requests, credit notes, hires, supplier invoices).",
+   "reveals_when": "asked how he spends his time or what lands on his desk",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "approval thresholds",
+   "fact": "In the PHC ERP the purchase-order approval workflow routes every PO above EUR 500 to António personally; the threshold was set in 2011 and never revised. Quotes above EUR 5,000 and every credit note also require his approval.",
+   "reveals_when": "asked what the managers are actually allowed to approve, or about system workflows",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "bank signatures",
+   "fact": "Only António and Fernanda are signatories on the company's bank accounts (Millennium BCP and Caixa Geral); no manager, including the head of finance, can release a payment of any amount.",
+   "reveals_when": "asked about payments, treasury, or who can sign",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "personal guarantees",
+   "fact": "The EUR 2.1M working-capital line and the EUR 3.4M equipment loan both carry António's personal guarantee (aval), which is his stated reason for keeping every payment under his own signature.",
+   "reveals_when": "asked why he does not delegate financial authority, or about debt",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "management team",
+   "fact": "The management team has no formal budgets; there is one company budget prepared by António and the head of finance, and managers are not told their department's figures except when something is over.",
+   "reveals_when": "asked about budgets, targets, or what managers own",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "bonus",
+   "fact": "Managers receive a discretionary year-end bonus decided by António alone, ranging from one to three months' salary; no written criteria exist. Last year two managers received nothing and were not told why.",
+   "reveals_when": "asked about incentives, pay, or how performance is rewarded",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "reversals",
+   "fact": "Of the last four decisions the Águeda plant manager, Carlos Neves, took on his own (a shift change, a supplier switch, a hire, a scrap-tolerance change), António reversed three within a week, two of them by telling the affected staff directly rather than telling Carlos.",
+   "reveals_when": "asked for examples of managers deciding and what happened next",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "departure",
+   "fact": "The previous operations director, Rui Santos, resigned in February 2026 after 14 months, citing 'no real authority' in his exit conversation; the role has not been refilled and his 6 reports now report to António.",
+   "reveals_when": "asked about turnover, the org chart's history, or who left",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "meetings",
+   "fact": "There is a Monday 8:00 management meeting that lasts two to three hours; António speaks an estimated 70% of the time; there are no minutes except the assistant's handwritten notes, which are not circulated.",
+   "reveals_when": "asked how the management team meets or communicates",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "son",
+   "fact": "Duarte Moreira, 34, has been commercial director since 2021; staff perceive him as untouchable, and two managers have said privately that any decision that touches sales gets escalated to avoid conflict with him.",
+   "reveals_when": "asked about family in the business or about the commercial side",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "succession intent",
+   "fact": "António has told his wife but nobody at the company that he wants to be 'out of the day-to-day' by his 63rd birthday in October 2027; he has not decided whether Duarte should succeed him.",
+   "reveals_when": "asked about his own plans, time horizon, or what 'less involved' means",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "health",
+   "fact": "António had a cardiac event in March 2026 (stent, five days in hospital, told to work under 40 hours a week); the staff were told it was a planned check-up, and only Fernanda, Duarte and the head of finance know.",
+   "reveals_when": "asked directly about his health, why he was away, or what triggered the wish to change now",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "acquisition approach",
+   "fact": "In May 2026 the French group Sermat Quincaillerie made an informal approach to buy 60% of the company; António has had two lunches with them and has not said no; Duarte knows, nobody else does.",
+   "reveals_when": "asked whether he has considered selling, or about outside interest, or about why the timing matters",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "certification",
+   "fact": "The ISO 9001 surveillance audit in June 2026 (SGS) raised a minor nonconformity: 'responsibilities and authorities for key decisions are not defined or communicated'; corrective action evidence is due before the recertification audit scheduled for 12 November 2026.",
+   "reveals_when": "asked about quality systems, audits, or external deadlines",
+   "changes_recommendation": true
+  },
+  {
+   "topic": "customer condition",
+   "fact": "The Leroy Merlin France framework renewal (due January 2027) requires a valid ISO 9001 certificate and a named escalation contact who is not the owner.",
+   "reveals_when": "asked about the largest customer's requirements or contract renewal",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "finance head",
+   "fact": "Head of finance Paula Ribeiro, 51, has been with the company 19 years; she prepares everything but signs nothing; she is the person António trusts most and the one he most fears losing.",
+   "reveals_when": "asked about the finance function or who he trusts",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "HR capacity",
+   "fact": "HR is one administrator, Sónia, who handles payroll (outsourced to an accounting firm, Contabilidade Vaz), contracts and holiday records; there is no HR manager and no written job descriptions for any managerial role.",
+   "reveals_when": "asked about HR, job descriptions, or people processes",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "collective agreement",
+   "fact": "Production staff are covered by the metalworking CCT (negotiated with the union federation FIEQUIMETAL/SIMA); there is no works council, but a union delegate exists at the Águeda plant.",
+   "reveals_when": "asked about unions, collective agreements, or employee representation",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "second plant",
+   "fact": "The Oliveira de Azeméis plant manager, Miguel Tavares, is the one manager António says 'does decide'; he is 41 km from António and speaks to him about twice a week rather than daily.",
+   "reveals_when": "asked whether any manager is an exception, or about differences between the plants",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "information access",
+   "fact": "Managers cannot see margin by product or customer; only António and Paula have access to the PHC financial module; plant managers see output and scrap in a daily Excel prepared by the assistant.",
+   "reveals_when": "asked what information managers have to decide with",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "email volume",
+   "fact": "Suppliers and the larger customers email António directly by habit; he estimates 60% of his inbox is external and copied to nobody else.",
+   "reveals_when": "asked where the emails come from",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "previous attempt",
+   "fact": "In 2023 a Porto consultancy ran a two-day 'leadership and delegation' workshop for the management team (EUR 9,800); António attended the first morning only; nothing changed and he describes it as 'talk'.",
+   "reveals_when": "asked what has been tried before",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "growth",
+   "fact": "A second die-casting cell is on order (EUR 1.9M, delivery February 2027) which will add roughly 20 people and a night shift at Águeda.",
+   "reveals_when": "asked about investment plans or what changes in the next year",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "quality manager",
+   "fact": "Quality manager Helena Costa, 38, wrote the ISO corrective-action plan proposing a signed authority matrix; António has had it on his desk since 3 July without signing.",
+   "reveals_when": "asked how the audit finding is being handled",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "founder self-view",
+   "fact": "António believes the problem is that his managers 'were never trained to be managers' because most were promoted from the shop floor; average manager tenure is 12 years, average age 47.",
+   "reveals_when": "asked why he thinks they do not decide",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "capital availability",
+   "fact": "The company has EUR 1.6M cash and no covenant pressure; António states cost is not a constraint for a change programme 'if it works'.",
+   "reveals_when": "asked about budget for the engagement or financial room",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "decision record",
+   "fact": "Nobody keeps a record of decisions; when asked what the ten most important decisions of the last quarter were, António can list them, but no manager could.",
+   "reveals_when": "asked how decisions are recorded or communicated",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "export sales manager",
+   "fact": "Export sales manager Jean-Marc Lefèvre (French, based in Lyon, employed under a Portuguese contract) has quoting authority in practice because of time zones and distance, and his error rate on quotes is no worse than António's.",
+   "reveals_when": "asked for counter-examples where delegation already works",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "timing pressure",
+   "fact": "António wants 'visible change' before the November audit and before the Sermat conversation resumes in September, but has told nobody that these are his deadlines.",
+   "reveals_when": "asked what 'soon' means or what would count as success by when",
+   "changes_recommendation": false
+  },
+  {
+   "topic": "assistant",
+   "fact": "His assistant Lurdes, 58, has been with him 31 years, triages every paper item, and is retiring in June 2027; nobody else knows how the paper approval flow works.",
+   "reveals_when": "asked who supports him or about hidden dependencies",
+   "changes_recommendation": false
+  }
+ ],
+ "documents": [
+  {
+   "name": "Organograma Ferragens Moreira (versão 2025-09)",
+   "kind": "Organization chart, exported from PHC HR module to PDF",
+   "content": "FERRAGENS MOREIRA, LDA. - ORGANOGRAMA - Setembro 2025\n\nGerência: António Moreira (Gerente)\nAssistente de Gerência: Lurdes Almeida\n\nReportam à Gerência:\n- Direção de Operações: Rui Santos\n  - Fábrica de Águeda: Carlos Neves (Diretor de Fábrica) - 138 colaboradores\n  - Fábrica de Oliveira de Azeméis: Miguel Tavares (Diretor de Fábrica) - 39 colaboradores\n  - Manutenção: José Pinho (Chefe)\n  - Ferramentaria: Abel Marques (Chefe)\n  - Logística: Ana Freitas (Supervisora)\n  - Gabinete Técnico: Nuno Rocha\n- Direção Comercial: Duarte Moreira\n  - Vendas Exportação: Jean-Marc Lefèvre (Lyon)\n  - Vendas Nacionais: Rita Bastos\n- Direção Financeira: Paula Ribeiro\n  - Contabilidade externa: Contabilidade Vaz, Lda.\n- Recursos Humanos: Sónia Cardoso (Administrativa)\n- Qualidade: Helena Costa (Responsável ISO 9001)\n- Compras: Fernando Guedes\n- Sistemas de Informação: Tiago Lopes (Técnico)\n\nTotal de colaboradores: 187\n\nNota: Este organograma é a versão registada no sistema de qualidade e foi apresentado na auditoria SGS. Última atualização: 14/09/2025. Aprovado por: A. Moreira.",
+   "contains_contradiction": "Shows Rui Santos as Director of Operations with six reports under him and eight direct reports to the founder, and a headcount of 187. The dossier says Santos left in February 2026, his reports now go to António (fourteen direct reports), and headcount is 182. The chart presented to the ISO auditor in June 2026 was therefore already nine months out of date."
+  },
+  {
+   "name": "Relatório de Auditoria SGS - Não Conformidade NC-02 (junho 2026)",
+   "kind": "Excerpt from ISO 9001:2015 surveillance audit report",
+   "content": "SGS Portugal - Auditoria de Acompanhamento ISO 9001:2015\nOrganização: Ferragens Moreira, Lda.\nDatas: 17-18 junho 2026\nAuditor coordenador: M. Figueiredo\n\nNC-02 (menor) - Cláusula 5.3 Funções, responsabilidades e autoridades organizacionais\n\nEvidência: O organograma apresentado (versão 14/09/2025) identifica uma Direção de Operações cujo titular já não se encontra na organização. Não foi possível evidenciar quem detém a autoridade para: aprovar alterações de tolerância de sucata; libertar produto não conforme; aprovar alterações de fornecedor de matéria-prima; aprovar ações corretivas. Em entrevista, quatro responsáveis indicaram que estas decisões 'vão à Gerência'. Não existe matriz de responsabilidades ou descrições de funções para os cargos de direção.\n\nRequisito: A gestão de topo deve assegurar que as responsabilidades e autoridades para as funções relevantes são atribuídas, comunicadas e compreendidas na organização.\n\nAção requerida: Plano de ações corretivas no prazo de 30 dias; evidência de implementação a apresentar na auditoria de renovação agendada para 12 de novembro de 2026. A não resolução de uma não conformidade menor na auditoria de renovação poderá resultar na sua reclassificação como maior e na suspensão do certificado.\n\nObservações adicionais (não conformidades não levantadas): O sistema PHC contém um fluxo de aprovação de compras com um único aprovador para valores superiores a 500 EUR. Recomenda-se rever a adequação deste limite à dimensão atual da organização.\n\nResposta da organização (H. Costa, 3/7/2026): Plano de ações corretivas elaborado, propondo matriz de autoridades por função e atualização do organograma. Aguarda aprovação da Gerência.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Notas da reunião de segunda-feira, 20 de julho de 2026",
+   "kind": "Assistant's handwritten meeting notes, transcribed",
+   "content": "Reunião de Gerência - 20/07/2026 - 08:05 às 10:50\nPresentes: A. Moreira, D. Moreira, P. Ribeiro, C. Neves, M. Tavares, H. Costa, F. Guedes, J. Pinho, A. Marques, A. Freitas, N. Rocha, S. Cardoso, T. Lopes. Ausente: J-M. Lefèvre (Lyon).\n\n1. Sr. António relata os 11 dias de ausência. 340 emails. Refere que 'nada anda sem mim'. Pede que cada um explique porque não respondeu ao que era seu.\n2. C. Neves: pedido de compra de eletrodos (EUR 3,200) esteve parado 9 dias à espera de aprovação; a máquina 4 parou 2 turnos. Sr. António: 'Devias ter-me ligado.' C. Neves: 'Liguei, no dia 9.'\n3. F. Guedes: fornecedor de zamak pediu confirmação de preço para agosto; não respondeu porque o Sr. António negoceia sempre o zamak.\n4. Nota de crédito Leroy Merlin (EUR 14,700) por embalagem danificada: D. Moreira aprovou verbalmente; Sr. António pede que passe por ele na próxima vez. Ninguém comenta.\n5. H. Costa pergunta pela assinatura do plano de ações corretivas (entregue a 3/7). Sr. António: 'Esta semana.'\n6. M. Tavares apresenta proposta de segundo turno em Oliveira para setembro; Sr. António aprova na hora.\n7. Férias: 6 pedidos aguardam aprovação do Sr. António. S. Cardoso pergunta se pode passar a ser o diretor de fábrica a aprovar. Sr. António: 'Depois vemos.'\n8. Sr. António fala cerca de 15 minutos sobre a máquina nova (fevereiro 2027) e o turno da noite.\n9. Ponto de situação Sermat - Sr. António diz que não há nada a dizer e passa ao ponto seguinte. (Ninguém pergunta o que é a Sermat.)\n\nPróxima reunião: 27/07, 08:00.",
+   "contains_contradiction": ""
+  },
+  {
+   "name": "Resumo de responsabilidades financeiras (preparado por P. Ribeiro)",
+   "kind": "One-page internal memo, June 2026",
+   "content": "Para: A. Moreira\nDe: Paula Ribeiro\nAssunto: Quem pode aprovar o quê - situação atual\n\nPediu-me para pôr por escrito como funciona hoje. Fica aqui, sem opinião.\n\nPagamentos bancários (BCP e CGD): assinatura do Sr. António ou da D. Fernanda. Qualquer valor. Sem exceção. Eu preparo os ficheiros de transferência; não posso submeter.\n\nOrdens de compra (PHC): até EUR 500 - responsável de compras (F. Guedes). Acima de EUR 500 - Gerência. Em 2025 foram emitidas 4,180 ordens de compra, das quais 2,960 acima de EUR 500.\n\nOrçamentos a clientes: até EUR 5,000 - comercial (Duarte / Jean-Marc / Rita). Acima - Gerência. Na prática o Jean-Marc envia acima do limite quando não consegue esperar; nunca houve problema.\n\nNotas de crédito: Gerência, qualquer valor.\n\nContratações: Gerência. Renovações de contrato a termo: Gerência.\n\nFérias e faltas: Gerência (via Sónia).\n\nHoras extra: chefes de secção aprovam no dia; Gerência confirma no mapa mensal.\n\nInvestimentos: Gerência.\n\nLinhas de crédito: aval pessoal do Sr. António nas duas linhas (EUR 2.1M e EUR 3.4M). Os bancos aceitariam substituir por garantia societária com reforço de rácios; nunca pedimos.\n\nObservação minha: em 2025 assinou aproximadamente 11,000 documentos. Se tirasse de cima da sua mesa as ordens de compra até EUR 5,000 e as férias, ficariam cerca de 3,500.",
+   "contains_contradiction": ""
+  }
+ ],
+ "what_a_good_engine_should_notice": [
+  "The stated problem (managers who do not decide) is largely structural, not behavioural: the ERP threshold, sole bank signatures, no budgets, no job descriptions and a history of reversals mean managers are not permitted to decide and are punished when they do. A training or coaching engagement would repeat the 2023 failure.",
+  "The founder is the constraint and also the client; his reversals, his unsigned corrective-action plan and his unrevised EUR 500 threshold are the evidence. The engine has to surface this without losing him.",
+  "There are undisclosed drivers with hard dates: a cardiac event with a medical instruction to halve his hours, a possible 60% sale to Sermat, an ISO nonconformity due 12 November 2026, and a Leroy Merlin renewal in January 2027 that depends on the certificate. None will be volunteered; each changes what 'restructuring' is for and how fast it must happen.",
+  "A restructuring designed for continuity under a successor and one designed to make the company saleable to a strategic buyer are different designs; the engine needs to force that choice (or explicitly design for both) rather than propose a generic org chart.",
+  "The son's protected position and the absent HR function mean role and authority changes will hit family dynamics and employment-law constraints; the engine should separate what it can design from what a lawyer and the family must settle.",
+  "Existing counter-examples (Tavares at the distant plant, Lefèvre in Lyon) show delegation already works where distance forces it, which is diagnostic and usable."
+ ],
+ "regulated_matters": [
+  "Portuguese employment law (Código do Trabalho) on changing job duties, titles, reporting lines and pay of existing employees, including the metalworking collective agreement (CCT) and consultation with the union delegate",
+  "Legal form and liability of delegating signing authority in a sociedade por quotas (gerência, procurações, bank mandates) and replacing the founder's personal guarantees with corporate security",
+  "Tax and legal structuring of any partial sale to Sermat, family share transfers, and succession (Portuguese corporate, capital-gains and gift/inheritance tax rules)",
+  "Medical fitness-to-work and any workplace accommodation for the founder following his cardiac event; confidentiality of health information",
+  "Data protection (GDPR / CNPD) if decision logs, inbox analysis or approval-tracking involve monitoring of employees' communications",
+  "ISO 9001 corrective-action adequacy is judged by the certification body (SGS), not by the consultant",
+  "Bonus scheme design and any written incentive contracts under Portuguese labour and social-security rules"
+ ],
+ "realistic_central_decision_candidates": [
+  "Whether to redistribute formal decision authority (financial, HR, operational) away from the founder now, and by how much, given his health and the November certification deadline, versus phasing it behind a successor decision",
+  "Whether the company is being reorganized for family continuity (with or without Duarte as successor) or to be investment-ready for a strategic partial sale to Sermat, since the two imply different management structures and timelines",
+  "Whether to refill the vacant operations director role as the single layer between the founder and the plants, or to build a small management committee with delegated budgets and signing limits instead"
+ ]
+}
