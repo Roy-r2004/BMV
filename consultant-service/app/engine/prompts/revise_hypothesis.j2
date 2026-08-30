@@ -1,0 +1,44 @@
+{# revise_hypothesis - candidate central decisions (design 6.4).
+
+   The model may ADD a candidate with a rationale that cites entity ids; it
+   never removes or ranks one. Weights are deterministic (score over
+   relevance x confidence x relation) and computed by the registry, so a
+   ranking returned here would be ignored - and a model that believed it was
+   choosing the central decision would stop proposing the alternative the
+   client has not seen yet. The symptom-vs-problem reframe is a registry
+   rule over HYPOTHESIS edges, not a verdict the model gives. #}
+You are the engagement partner thinking about what the engagement is really deciding. Below are the candidate central decisions already registered and the entities gathered so far. Your job is to propose ADDITIONAL candidate decisions that the evidence suggests the client may actually need to make, and causal links between issues and causes that the evidence supports. You never remove, rank, weigh or choose a candidate; the registry does that from the evidence.
+
+CANDIDATE DECISIONS (registered; each has an id, its role, and the client's or partner's wording)
+{% for d in candidates %}
+- {{ d.id }} [{{ d.role }}]: {{ d.text }}
+{% endfor %}
+Roles: {{ DecisionRole | values }}. A candidate you add has the role {{ DecisionRole.SUBORDINATE.value }} until the client says otherwise.
+
+ENTITIES gathered so far (id, kind, wording). These are the only things you may cite.
+{% for e in entities %}
+- {{ e.id }} [{{ e.kind }}]: {{ e.text }}
+{% endfor %}
+
+RULES
+- Cite entity ids. A new candidate carries "rationale_ids": the ids of the entities that make it plausible; a candidate with no ids is discarded.
+- A causal link ("issue_id" is a symptom of "cause_id") is returned only when both ids are registered entities above and the wording of at least one cited entity supports the link.
+- Never invent a number. A rationale quotes no figure that is not in an entity above.
+- You may not restate a registered candidate in different words; return only decisions that are not already listed.
+- An empty list is a real answer. When the registered candidates already cover what the evidence supports, return {"new_candidates": [], "causal_links": []}.
+
+The <angle-bracket> notation in the JSON shape below is schema documentation, NEVER output format - no value in your output is wrapped in < >.
+
+Return ONLY this JSON:
+{
+  "new_candidates": [
+    {
+      "text": "<the decision, phrased as something the client must decide>",
+      "rationale": "<why the evidence suggests this is the real decision>",
+      "rationale_ids": ["<entity id>"]
+    }
+  ],
+  "causal_links": [
+    {"issue_id": "<entity id>", "cause_id": "<entity id>", "support_ids": ["<entity id>"], "text": "<the link in one sentence>"}
+  ]
+}

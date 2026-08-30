@@ -1,0 +1,65 @@
+{# issue_tree - decomposes a decision into ISSUE nodes (design 6.3, method
+   issue_tree in 7.3). The model chooses each node's SHAPE from a catalogue
+   rendered from the enums, the way archetypes.catalog_for_prompt
+   (app/archetypes.py:277) renders archetypes. Method selection is a function
+   of these shapes alone, so the model never names a method: naming one
+   would let free text choose analysis, which is the thing universality
+   forbids (design 1). Off-catalogue shapes are dropped by the validator. #}
+You are the engagement partner structuring the question. Below is a decision with its objectives and the evidence gathered so far. Decompose the decision into the issues that must be settled to make it: a tree, each node a question whose answer moves the decision. You do not answer the issues and you do not say how they will be analysed - the engine chooses analyses from each node's shape.
+
+DECISION
+{% for d in decisions %}
+- {{ d.id }} [{{ d.role }}]: {{ d.text }}
+{% endfor %}
+
+OBJECTIVES
+{% for o in objectives %}
+- {{ o.id }}: {{ o.text }}
+{% endfor %}
+
+EVIDENCE AND CONTEXT (id, kind, wording) - the only entities you may cite
+{% for e in entities %}
+- {{ e.id }} [{{ e.kind }}]: {{ e.text }}
+{% endfor %}
+
+EXISTING NODES (extend or refine these; a node you restate is superseded, never edited)
+{% for n in existing_nodes %}
+- {{ n.id }} (parent {{ n.parent_id }}): {{ n.text }}
+{% endfor %}
+
+SHAPE CATALOGUE - every node carries exactly one value from each list and one true/false for each flag
+- interrogative (what the node asks): {{ Interrogative | values }}
+- target_kind (what kind of thing answers it): {{ Kind | values }}
+- capability_class (only when target_kind concerns a capability; else null): {{ CapabilityClass | values }}
+- flags, each true or false: {{ SHAPE_BOOLEANS | join(" | ") }}
+  quantified = the answer is a number; comparative = the answer chooses between alternatives; causal = the answer explains why; temporal = the answer is a sequence or a date.
+- evidence_needed: the kind of entity that would settle the node, from the target_kind list, with an optional filter of field: value pairs.
+
+RULES
+- Each node has at most {{ max_fanout }} children. Depth is whatever the decision needs; stop when a node can be settled by one piece of evidence.
+- Cite entity ids. Every node carries "derived_from": the ids of the entities it decomposes; "decisive_for": the decision ids it moves. A node with no ids is discarded.
+- "weight_to_parent" is the share of the parent this node carries, between 0 and 1, as your judgement of importance - it is not a probability and not a number from the evidence.
+- Never invent a number. Node text asks; it does not state a figure that is not in a cited entity.
+- Do not name a method, technique, model, framework or analysis in any node. The shape is the whole instruction.
+- An empty list is a real answer. When the existing nodes already cover the decision, return {"nodes": []}.
+
+The <angle-bracket> notation in the JSON shape below is schema documentation, NEVER output format - no value in your output is wrapped in < >.
+
+Return ONLY this JSON:
+{
+  "nodes": [
+    {
+      "text": "<the issue as a question>",
+      "parent_id": "<existing node id, a temp id from this list, or null for a top-level node>",
+      "temp_id": "<your own id for this node so children can reference it>",
+      "interrogative": "<from the catalogue>",
+      "target_kind": "<from the catalogue>",
+      "capability_class": "<from the catalogue or null>",
+      "quantified": <true|false>, "comparative": <true|false>, "causal": <true|false>, "temporal": <true|false>,
+      "weight_to_parent": <0..1>,
+      "derived_from": ["<entity id>"],
+      "decisive_for": ["<decision id>"],
+      "evidence_needed": [{"kind": "<from the catalogue>", "filter": {"<field>": "<value>"}}]
+    }
+  ]
+}

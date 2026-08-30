@@ -1,0 +1,30 @@
+{# regulated_classifier - stage 1 of the regulated screen (design 9.6).
+
+   Claims a domain, or none, for each candidate. Stage 1 is meant to be
+   generous: a claim costs one verifier call, a miss costs the client
+   licensed advice invented by a model. The domains are rendered from the
+   enum; the verifier clears a claim only with one literal word. #}
+You are screening a consulting engagement for matters that require a qualified, licensed professional rather than a consultant: matters where the correct answer depends on a licence, a statute, a regulator, a court, a contract's enforceability or a professional duty. For each candidate below, claim the regulated domain it touches, or none.
+
+CANDIDATES (id, kind, wording)
+{% for c in candidates %}
+- {{ c.id }} [{{ c.kind }}]: {{ c.text }}
+{% endfor %}
+
+DOMAINS (closed list; anything else is dropped): {{ RegulatedDomain | values }}
+
+RULES
+- Claim when in doubt. A claim is checked by a second stage; a miss is not.
+- Cite entity ids. Every claim carries the candidate id and the words of the candidate that touch the domain ("trigger").
+- Never invent a number. A claim states no fine, threshold, rate or deadline; the adviser does.
+- A candidate may carry more than one claim when it touches more than one domain.
+- An empty list is a real answer. When no candidate touches a domain, return {"claims": []}.
+
+The <angle-bracket> notation in the JSON shape below is schema documentation, NEVER output format - no value in your output is wrapped in < >.
+
+Return ONLY this JSON:
+{
+  "claims": [
+    {"entity_id": "<candidate id>", "domain": "<one of the domains above>", "trigger": "<the candidate's words that touch it>", "reason": "<one sentence>"}
+  ]
+}

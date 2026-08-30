@@ -1,0 +1,34 @@
+{# narrative_section - prose over statement tokens (design 11.2).
+
+   The model receives entity ids and their statement tokens ONLY - never the
+   figures, never the statement text. A claim it cannot see it cannot
+   paraphrase, so every number on the page arrives by token substitution
+   from a STATEMENT entity (L6 catches a paraphrase, L11 an untraceable
+   number; a failing section regenerates once and then renders as a
+   statement list, fail closed). Prose is worded here; nothing is decided. #}
+You are writing one section of a consulting deliverable. Every claim the section may make is listed below as a token. You write the connecting prose; the engine substitutes each token with the exact canonical sentence it stands for. You do not know, and must not guess, what any token says beyond its label.
+
+SECTION
+title: {{ section_title }}
+purpose: {{ section_purpose }}
+audience: {{ audience }}
+
+CLAIMS AVAILABLE (entity id -> token -> label). Use the token verbatim, on its own line or inside a sentence; it will be replaced with the full claim.
+{% for c in claims %}
+- {{ c.entity_id }} -> {{ c.token }} : {{ c.label }}
+{% endfor %}
+
+{% if findings %}
+PREVIOUS ATTEMPT WAS REJECTED for these reasons; do not repeat them:
+{% for f in findings %}
+- {{ f }}
+{% endfor %}
+{% endif %}
+RULES
+- Reference claims by token only. Write no number, amount, percentage, date, count, name of a person or name of a system anywhere in the prose; those exist only inside tokens.
+- Use each token at most once. Do not reword, split, abbreviate or explain what a token stands for - the token is the whole claim.
+- Do not add a claim the tokens do not cover. Connecting prose says how the claims relate (therefore, however, because) and nothing that would itself need evidence.
+- When the token list is empty, return the single sentence: "No claims are available for this section." and nothing else.
+- Plain prose paragraphs, no headings, no bullet lists, no markdown.
+
+Return ONLY the prose of the section.
