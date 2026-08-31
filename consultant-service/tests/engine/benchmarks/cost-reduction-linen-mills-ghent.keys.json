@@ -1,0 +1,604 @@
+{
+ "adversarial": false,
+ "checks": [],
+ "topic_map": {
+  "Financials": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Cost structure": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Supplier contract": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Personnel": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Operations": [
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "action",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Energy": [
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Systems": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Customers": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Governance": [
+   {
+    "kind": "governance",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Timing": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Previous attempts": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Purchasing": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Working capital": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Tax": [
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "overrides": {
+  "0": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "1": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "2": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "4": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "6": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "7": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "8": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "9": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "10": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "11": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "12": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "14": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "15": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "16": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "17": [
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "19": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "20": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "22": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "action",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "24": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "26": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "34": [
+   {
+    "kind": "action",
+    "filter": {}
+   },
+   {
+    "kind": "initiative",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "regulated_domains": [
+  {
+   "text": "Belgian employment law: collective dismissal procedure (Renault law), works council and union consultation under Paritair Comité 120, temporary economic unemployment rules, and any change to shift patterns.",
+   "domain": "employment_law"
+  },
+  {
+   "text": "Belgian tax: the shift-work withholding tax exemption (ploegenarbeid) and Flemish investment deduction, and how restructuring or shift changes affect eligibility.",
+   "domain": "tax"
+  },
+  {
+   "text": "French and Belgian contract law: interpretation and enforceability of the take-or-pay, exclusivity, index re-opener and change-of-control clauses in the Linificio Roubaix supply agreement, and any termination or renegotiation strategy.",
+   "domain": "legal_contract"
+  },
+  {
+   "text": "EU competition law considerations around an 85% exclusivity obligation in a long-term supply agreement.",
+   "domain": "competition_and_trade"
+  },
+  {
+   "text": "Product safety certification: EN 45545-2 fire performance for rail interiors and the ownership and transferability of joint test reports when changing yarn source.",
+   "domain": "licensing_and_certification"
+  },
+  {
+   "text": "Banking and corporate finance: covenant negotiation and facility renewal with KBC, and directors' duties if the company approaches covenant breach.",
+   "domain": "company_law_and_governance"
+  },
+  {
+   "text": "M&A and shareholder matters: any sale process, shareholder agreement rights between Els and Pieter, and confidentiality obligations toward the Portuguese approach.",
+   "domain": "company_law_and_governance"
+  }
+ ],
+ "candidate_shapes": [
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  },
+  {
+   "interrogative": "how",
+   "target_kind": "decision"
+  },
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  }
+ ]
+}

@@ -101,9 +101,9 @@ def make_methods(run_fn, *, method_id="scripted", execution=T.ExecutionType.MODE
     return registry
 
 
-def assign(methods, reg, *, method_id="scripted", budget=None):
-    selection = Selection("ISS-1", method_id, InputState((), ()), rank_key=())
-    return Assignment.from_selection(reg.get("ISS-1"), selection, reg, methods=methods, budget=budget)
+def assign(methods, reg, *, method_id="scripted", budget=None, issue_id="ISS-1"):
+    selection = Selection(issue_id, method_id, InputState((), ()), rank_key=())
+    return Assignment.from_selection(reg.get(issue_id), selection, reg, methods=methods, budget=budget)
 
 
 def hypothesis(ctx, text="the cause is the handover", cites=("FCT-1",)):
@@ -130,13 +130,86 @@ def written_kinds(reg, kind):
 # the assignment
 # ---------------------------------------------------------------------------
 
-def test_permitted_evidence_is_the_inputs_and_their_closure(world):
+def test_permitted_evidence_is_the_inputs_their_closure_and_the_question(world):
     """The scope is derived, never declared: what the method's own InputSpecs
-    match, plus what those entities rest on."""
+    match, plus what those entities rest on, plus the node being answered."""
     methods = make_methods(lambda ctx: MethodResult())
     a = assign(methods, world)
-    assert a.permitted_evidence == ("EVI-1", "FCT-1", "FCT-2")   # EVI-1 only via the closure
+    assert a.permitted_evidence == ("EVI-1", "FCT-1", "FCT-2", "ISS-1")   # EVI-1 only via the closure
     assert a.issue_id == "ISS-1" and a.method_id == "scripted"
+
+
+def test_the_question_and_the_questions_it_decomposes_are_in_the_window(world):
+    """A specialist answers a node, so the node is readable, and so is the
+    chain it hangs from: a sub-question means nothing apart from the question
+    it decomposes. A sibling branch is somebody else's assignment and stays
+    out."""
+    world.apply(Add(_entity(K.ISSUE, replace(sample_payload(K.ISSUE), parent_id="ISS-1"),
+                            derived=("EVI-2",), eid="ISS-2")))
+    world.apply(Add(_entity(K.ISSUE, replace(sample_payload(K.ISSUE), parent_id="ISS-2"), eid="ISS-3")))
+    world.apply(Add(_entity(K.ISSUE, replace(sample_payload(K.ISSUE), parent_id="ISS-1"), eid="ISS-4")))
+    methods = make_methods(lambda ctx: MethodResult())
+    a = assign(methods, world, issue_id="ISS-3")
+    assert {"ISS-1", "ISS-2", "ISS-3"} <= set(a.permitted_evidence)
+    assert "ISS-4" not in a.permitted_evidence
+
+
+def test_the_chain_is_added_without_what_the_chain_rests_on(world):
+    """Reading the question is not a licence to read another node's evidence.
+    Only the node chain joins the window; the derived_from closure stays the
+    method's own InputSpecs' to draw, or the scope would widen one ancestor at
+    a time until it was the whole engagement."""
+    world.apply(Add(_entity(K.EVIDENCE_SOURCE, sample_payload(K.EVIDENCE_SOURCE), derived=(), eid="EVI-2")))
+    world.apply(Add(_entity(K.ISSUE, replace(sample_payload(K.ISSUE), parent_id="ISS-1"),
+                            derived=("EVI-2",), eid="ISS-2")))
+    methods = make_methods(lambda ctx: MethodResult())
+    a = assign(methods, world, issue_id="ISS-2")
+    assert "ISS-1" in a.permitted_evidence and "EVI-2" not in a.permitted_evidence
+
+
+def test_a_method_reads_and_cites_the_node_it_was_assigned(world):
+    """The failure this law prevents: with the node hidden, every
+    model-assisted method's own registry.get(issue_ids[0]) came back None and
+    it answered its no-issue finding instead of the question. Citing the node
+    it answers is lawful under S5 for the same reason."""
+    seen = {}
+
+    def script(ctx):
+        seen["node"] = ctx.registry.get(ctx.issue_ids[0])
+        return MethodResult(deltas=(hypothesis(ctx, cites=("ISS-1",)),))
+
+    methods = make_methods(script)
+    outcome = run(assign(methods, world), world, _NullProvider(), _NullCalc(), methods=methods)
+    assert seen["node"] is not None and seen["node"].kind is K.ISSUE
+    assert outcome.outcome == "done" and outcome.rejection_rule is None
+    assert outcome.written[0].provenance.derived_from == ("ISS-1",)
+
+
+class _CyclicRegistry:
+    """A parent chain that loops. The registry's own laws make one hard to
+    build, but building an assignment must never hang on data it did not
+    write itself."""
+
+    def __init__(self, *entities):
+        self._by_id = {e.id: e for e in entities}
+
+    def get(self, entity_id):
+        return self._by_id.get(entity_id)
+
+    def query(self, kind=None, **kwargs):
+        return [e for e in self._by_id.values() if kind is None or e.kind is kind]
+
+
+def test_a_looping_parent_chain_terminates(world):
+    """The walk marks what it has seen. Without that a malformed tree stops
+    the engagement dead in assignment building, before any law could report
+    it."""
+    a_node = _entity(K.ISSUE, replace(sample_payload(K.ISSUE), parent_id="ISS-9"), eid="ISS-8")
+    b_node = _entity(K.ISSUE, replace(sample_payload(K.ISSUE), parent_id="ISS-8"), eid="ISS-9")
+    methods = make_methods(lambda ctx: MethodResult())
+    selection = Selection("ISS-8", "scripted", InputState((), ()), rank_key=())
+    a = Assignment.from_selection(a_node, selection, _CyclicRegistry(a_node, b_node), methods=methods)
+    assert set(a.permitted_evidence) == {"ISS-8", "ISS-9"}
 
 
 def test_forbidden_decisions_are_every_live_decision_but_the_subordinate_one(world):
@@ -168,7 +241,7 @@ def test_assignment_row_records_the_scope_it_was_issued_under(world):
     outcome = run(assign(methods, world), world, _NullProvider(), _NullCalc(), methods=methods)
     row = world.get(outcome.assignment_id)
     assert row.kind is K.SPECIALIST_ASSIGNMENT
-    assert row.payload.permitted_evidence == ("EVI-1", "FCT-1", "FCT-2")
+    assert row.payload.permitted_evidence == ("EVI-1", "FCT-1", "FCT-2", "ISS-1")
     assert row.payload.outcome == "done" and row.payload.rejection_rule is None
 
 
@@ -178,7 +251,9 @@ def test_assignment_row_records_the_scope_it_was_issued_under(world):
 
 def test_specialist_reading_outside_permitted_evidence_gets_nothing(world):
     """ScopedView is the scope: a specialist cannot read what it was not
-    given, which is why it cannot cite it either (S5)."""
+    given, which is why it cannot cite it either (S5). Its own question is
+    inside the window -- an analyst who cannot read the question cannot
+    answer it -- and nothing else is."""
     seen = {}
 
     def script(ctx):
@@ -191,7 +266,8 @@ def test_specialist_reading_outside_permitted_evidence_gets_nothing(world):
 
     methods = make_methods(script)
     run(assign(methods, world), world, _NullProvider(), _NullCalc(), methods=methods)
-    assert seen["decisions"] == [] and seen["issue"] is None and seen["central"] is None
+    assert seen["decisions"] == [] and seen["central"] is None
+    assert seen["issue"] is not None and seen["issue"].id == "ISS-1"
     assert seen["facts"] == ["FCT-1", "FCT-2"]
     # The confirmed client preference is in the window whatever the assignment
     # listed: objectives are the frame every analysis works inside.

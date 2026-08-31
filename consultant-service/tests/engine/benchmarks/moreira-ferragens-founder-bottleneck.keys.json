@@ -1,0 +1,567 @@
+{
+ "adversarial": false,
+ "checks": [],
+ "topic_map": {
+  "company basics": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "footprint": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "customers": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "ownership": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "founder span": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "founder workload": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "approval thresholds": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "bank signatures": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "personal guarantees": [
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "management team": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "bonus": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "reversals": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "departure": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "meetings": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "son": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "succession intent": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "health": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "acquisition approach": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "certification": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "customer condition": [
+   {
+    "kind": "governance",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "finance head": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "HR capacity": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "collective agreement": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "second plant": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "information access": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "email volume": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "previous attempt": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "growth": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "quality manager": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "founder self-view": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "capital availability": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "decision record": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "export sales manager": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "timing pressure": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "assistant": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "overrides": {},
+ "regulated_domains": [
+  {
+   "text": "Portuguese employment law (Código do Trabalho) on changing job duties, titles, reporting lines and pay of existing employees, including the metalworking collective agreement (CCT) and consultation with the union delegate",
+   "domain": "employment_law"
+  },
+  {
+   "text": "Legal form and liability of delegating signing authority in a sociedade por quotas (gerência, procurações, bank mandates) and replacing the founder's personal guarantees with corporate security",
+   "domain": "legal_contract"
+  },
+  {
+   "text": "Tax and legal structuring of any partial sale to Sermat, family share transfers, and succession (Portuguese corporate, capital-gains and gift/inheritance tax rules)",
+   "domain": "tax"
+  },
+  {
+   "text": "Medical fitness-to-work and any workplace accommodation for the founder following his cardiac event; confidentiality of health information",
+   "domain": "medical"
+  },
+  {
+   "text": "Data protection (GDPR / CNPD) if decision logs, inbox analysis or approval-tracking involve monitoring of employees' communications",
+   "domain": "data_protection"
+  },
+  {
+   "text": "ISO 9001 corrective-action adequacy is judged by the certification body (SGS), not by the consultant",
+   "domain": "licensing_and_certification"
+  },
+  {
+   "text": "Bonus scheme design and any written incentive contracts under Portuguese labour and social-security rules",
+   "domain": "legal_contract"
+  }
+ ],
+ "candidate_shapes": [
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  },
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  },
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  }
+ ]
+}

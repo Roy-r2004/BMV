@@ -1,0 +1,556 @@
+{
+ "adversarial": false,
+ "checks": [],
+ "topic_map": {
+  "symptom": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "process": [
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "constraint": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "quality": [
+   {
+    "kind": "decision_owner",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "demand": [
+   {
+    "kind": "business_context",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "people": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "systems": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "capacity": [
+   {
+    "kind": "action",
+    "filter": {}
+   },
+   {
+    "kind": "initiative",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "inventory": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "finance": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "environment": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "customer": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "history": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "maintenance": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "overrides": {
+  "1": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "business_context",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "4": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "5": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "6": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "7": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "8": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "10": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "11": [
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "13": [
+   {
+    "kind": "action",
+    "filter": {}
+   },
+   {
+    "kind": "initiative",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "14": [
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "business_context",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "16": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "18": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "20": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "23": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "26": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "27": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "29": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "31": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "33": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "37": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "option",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "39": [
+   {
+    "kind": "risk",
+    "filter": {}
+   },
+   {
+    "kind": "control",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "regulated_domains": [
+  {
+   "text": "Changing shift patterns, adding a third shift or scheduled weekend work under the UFCW Local 175 collective agreement, and use of agency labour: Ontario employment-law and labour-relations advice required.",
+   "domain": "employment_law"
+  },
+  {
+   "text": "Environmental Compliance Approval amendment and TSSA review for any freezer or building extension, and the City of Guelph sewer-use bylaw corrective plan due October 2026: environmental-law and permitting specialists required.",
+   "domain": "environmental_permitting"
+  },
+  {
+   "text": "SQF and CFIA/SFCR requirements when altering freezing parameters, QA release procedures, allergen changeover practice or introducing a second freezer: food-safety and certification specialists must be consulted before any process change.",
+   "domain": "legal_contract"
+  },
+  {
+   "text": "Fill-rate chargeback clauses and renewal/tender terms in the Maple Crest supply agreement: contract-law advice, not consulting judgment.",
+   "domain": "legal_contract"
+  },
+  {
+   "text": "Bank covenant implications of CAD 4.9m freezer capex plus extension under the TD facility, and Canadian tax treatment of capital investment: financial and tax advisers.",
+   "domain": "tax"
+  },
+  {
+   "text": "Changes to the plant manager's bonus structure or authority: employment-law advice on contract variation.",
+   "domain": "employment_law"
+  }
+ ],
+ "candidate_shapes": [
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  },
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  },
+  {
+   "interrogative": "whether",
+   "target_kind": "decision"
+  }
+ ]
+}

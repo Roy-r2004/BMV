@@ -1,0 +1,545 @@
+{
+ "adversarial": false,
+ "checks": [],
+ "topic_map": {
+  "timing": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "incident": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "detection": [
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "family": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "finance-function": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "IT": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "bank-covenant": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "customers": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "safety": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "operations": [
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "people": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "financials": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "appetite": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "prior-advice": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "risk",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "data": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "overrides": {
+  "2": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "risk",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "5": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "risk",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "6": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "7": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "9": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "13": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "15": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "16": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "17": [
+   {
+    "kind": "option",
+    "filter": {}
+   },
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "18": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "20": [
+   {
+    "kind": "governance",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "21": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "23": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "27": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "risk",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "28": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "30": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "34": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "regulated_domains": [
+  {
+   "text": "Whether the August incident must be reported to the police under Malaysian law and any consequences of delay; whether the lookalike-domain attack constitutes an offence to be reported under the Computer Crimes Act 1997.",
+   "domain": "licensing_and_certification"
+  },
+  {
+   "text": "The company's obligations and rights under the Allianz commercial crime policy, including the 30-day notification condition (closing 17 September 2026), the police-report condition, and whether any delay prejudices the claim.",
+   "domain": "licensing_and_certification"
+  },
+  {
+   "text": "Whether the incident triggers the Maybank covenant notification under Clause 14.6, the consequences of missing the 14-day window on 1 September 2026, and how to approach the lender: a matter for legal counsel before any contact.",
+   "domain": "licensing_and_certification"
+  },
+  {
+   "text": "Whether the 3 May ammonia leak was a reportable occurrence under the Occupational Safety and Health Act 1994 and DOSH regulations, and the exposure from not having reported it.",
+   "domain": "licensing_and_certification"
+  },
+  {
+   "text": "Employment-law treatment of any change to Wei Shen's role or termination (Employment Act 1955, Industrial Relations Act 1967), including constructive dismissal risk, and of any disciplinary action against finance staff.",
+   "domain": "employment_law"
+  },
+  {
+   "text": "Directors' duties under the Companies Act 2016 regarding the related-party rental to Boon Teck Holdings, the interested director's abstention, and board minute requirements.",
+   "domain": "company_law_and_governance"
+  },
+  {
+   "text": "Tax treatment of the unrecovered MYR 72,000 loss and of any restructuring of shareholdings or director remuneration as part of a succession plan.",
+   "domain": "tax"
+  },
+  {
+   "text": "Shareholder agreement, share transfer and estate matters connected to the founder's planned step-back, including any change-of-control consent required from the lender under Clause 14.9.",
+   "domain": "company_law_and_governance"
+  },
+  {
+   "text": "Personal Data Protection Act 2010 obligations for staff and customer data, and whether any element of the incident constitutes a notifiable breach under the 2025 amendments.",
+   "domain": "data_protection"
+  },
+  {
+   "text": "Good Distribution Practice and pharma customer contractual audit rights: what must be disclosed to the customer and when.",
+   "domain": "legal_contract"
+  }
+ ],
+ "candidate_shapes": [
+  {
+   "interrogative": "how",
+   "target_kind": "decision"
+  },
+  {
+   "interrogative": "which",
+   "target_kind": "decision",
+   "comparative": true
+  },
+  {
+   "interrogative": "how",
+   "target_kind": "decision"
+  }
+ ]
+}

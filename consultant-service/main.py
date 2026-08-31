@@ -7,6 +7,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
+from app.engine.api import router as engine_router
+from app.engine.api.startup import engine_startup
 from app.routers import discovery as discovery_router
 from app.routers import requests as requests_router
 
@@ -44,12 +46,18 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads
 
 app.include_router(requests_router.router)
 app.include_router(discovery_router.router)
+# Importing the engine router registered its seven tables on Base, so the
+# init_db() below creates them; the engine's own startup sweep is called
+# AFTER init_db, never from the router (MF3.2 - a router startup handler runs
+# before this function and would query engagements on a table-less database).
+app.include_router(engine_router.router)
 
 
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
     _fail_stranded_requests()
+    engine_startup()
 
 
 def _fail_stranded_requests() -> None:

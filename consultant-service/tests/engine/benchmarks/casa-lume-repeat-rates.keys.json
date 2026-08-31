@@ -1,0 +1,609 @@
+{
+ "adversarial": false,
+ "checks": [],
+ "topic_map": {
+  "Repeat rate headline": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Revenue": [
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Channel mix": [
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Average order": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Stores": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Repeat rate by store (raw)": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "measure",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Active customers by store": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Delivery zones": [
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Moravalog contract": [
+   {
+    "kind": "decision_owner",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Moravalog savings": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Delivery performance": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "evidence_source",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Assembly": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Complaints": [
+   {
+    "kind": "risk",
+    "filter": {}
+   },
+   {
+    "kind": "control",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Complaints by store": [
+   {
+    "kind": "risk",
+    "filter": {}
+   },
+   {
+    "kind": "control",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Complaint handling": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "CRM migration": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Metric definition change": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "NPS": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Loyalty program": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Discounting": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Marketing leadership": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "business_context",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Acquisition cost": [
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Competition": [
+   {
+    "kind": "process_step",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Product": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Quality": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Store staff": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Store experience": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Web platform": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Lead time": [
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Customer interviews": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Investor": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Operations director": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Finance": [
+   {
+    "kind": "constraint",
+    "filter": {}
+   },
+   {
+    "kind": "cost",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Budget": [
+   {
+    "kind": "decision_owner",
+    "filter": {}
+   },
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Expansion plan": [
+   {
+    "kind": "objective",
+    "filter": {}
+   },
+   {
+    "kind": "success_criterion",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Timing": [
+   {
+    "kind": "deadline",
+    "filter": {}
+   },
+   {
+    "kind": "milestone",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Data access": [
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "benefit",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Employees affected": [
+   {
+    "kind": "owner",
+    "filter": {}
+   },
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ],
+  "Customer data": [
+   {
+    "kind": "stakeholder",
+    "filter": {}
+   },
+   {
+    "kind": "capability",
+    "filter": {}
+   },
+   {
+    "kind": "fact",
+    "filter": {
+     "basis": "client_stated"
+    }
+   }
+  ]
+ },
+ "overrides": {},
+ "regulated_domains": [
+  {
+   "text": "Marketing to ~9,000 legacy card holders whose consent status was never migrated: GDPR and Czech data-protection (ÚOOÚ) compliance of the voucher lists, SMS surveys and app push notifications must be checked by a qualified data-protection adviser.",
+   "domain": "data_protection"
+  },
+  {
+   "text": "Early termination or renegotiation of the Moravalog contract (clauses 4.2 and 11.3, CZK 5.2M penalty): Czech contract law (občanský zákoník) advice needed before any exit or dispute strategy.",
+   "domain": "legal_contract"
+  },
+  {
+   "text": "Any move to bring delivery crews back in-house after the 2024 organisational redundancies in Ostrava: Czech Labour Code (zákoník práce) rules on rehiring after redundancy and on the status of subcontracted workers require an employment lawyer.",
+   "domain": "employment_law"
+  },
+  {
+   "text": "Consumer-protection obligations on complaint (reklamace) handling deadlines and on delivery promises 'do 4 týdnů' that are not met: consumer law adviser (ČOI exposure).",
+   "domain": "licensing_and_certification"
+  },
+  {
+   "text": "Points expiry and voucher terms in the loyalty app and 40% promotions: consumer law and VAT (DPH) treatment of vouchers need qualified advice.",
+   "domain": "tax"
+  },
+  {
+   "text": "Bank covenant (net debt/EBITDA 3.0x with Česká spořitelna) implications of any investment or contract-exit payment: to be confirmed with the company's financial/legal advisers, not assumed.",
+   "domain": "legal_contract"
+  },
+  {
+   "text": "Consent rights of Moravia Growth Capital over key-supplier changes and commitments above CZK 6M: governed by the shareholders' agreement and articles; corporate law advice, not consultant opinion.",
+   "domain": "company_law_and_governance"
+  }
+ ],
+ "candidate_shapes": [
+  {
+   "interrogative": "how_much",
+   "target_kind": "decision",
+   "quantified": true
+  },
+  {
+   "interrogative": "which",
+   "target_kind": "decision",
+   "comparative": true
+  },
+  {
+   "interrogative": "how",
+   "target_kind": "decision"
+  }
+ ]
+}

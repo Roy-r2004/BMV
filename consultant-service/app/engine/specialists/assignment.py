@@ -14,12 +14,15 @@ or in the runner, so "the specialist stayed in scope" is a property of the
 code rather than a claim in a report.
 
   permitted_evidence   the entities the method's own InputSpecs match, plus
-                       the derived_from closure of those entities. The closure
-                       is what makes the scope honest: an analysis may always
-                       look at what its inputs rest on, and never at anything
-                       else. ScopedView adds every CONFIRMED client preference
-                       on top, because objectives, constraints and deadlines
-                       are the frame every analysis works inside.
+                       the derived_from closure of those entities, plus the
+                       assigned issue node and the nodes it hangs from. The
+                       closure is what makes the scope honest: an analysis may
+                       always look at what its inputs rest on, and never at
+                       anything else. The node chain is there because a
+                       specialist that cannot read its own question cannot
+                       answer it. ScopedView adds every CONFIRMED client
+                       preference on top, because objectives, constraints and
+                       deadlines are the frame every analysis works inside.
   forbidden_decisions  every live DECISION except the SUBORDINATE ones this
                        issue node is decisive_for. A specialist answers its
                        node; it does not get to settle the engagement.
@@ -147,6 +150,25 @@ class Assignment:
                 if d not in permitted:
                     permitted.add(d)
                     frontier.append(d)
+        # The node itself, and the nodes it hangs from, are always in the
+        # window. The question is not evidence, so the InputSpec pass above
+        # never matches it -- and with the assigned node hidden a method's
+        # own `ctx.registry.get(ctx.issue_ids[0])` came back None, so every
+        # model-assisted method answered its no-issue finding instead of the
+        # question, and a method that grafts children numbered them from an
+        # empty view and had the ids refused by I6. Ancestors come with it
+        # because a sub-question means nothing apart from the question it
+        # decomposes. Only the chain itself is added, never its derived_from
+        # closure: reading the question is not a licence to read the evidence
+        # some other node rests on, which is the scope the method's InputSpecs
+        # were meant to draw.
+        node: Entity | None = issue
+        walked: set[str] = set()
+        while node is not None and node.id not in walked:  # a malformed parent
+            walked.add(node.id)                            # cycle must not hang
+            permitted.add(node.id)                         # assignment building
+            parent = getattr(node.payload, "parent_id", None)
+            node = registry.get(parent) if parent else None
         decisive = set(issue.payload.decisive_for)
         # Every live decision is out of bounds except a subordinate one this
         # node was built to settle: answering the node is the job, and taking

@@ -22,6 +22,13 @@ the order the design states and to enforce the four laws that are its own:
     were already open when the run began, because analysis that stalled on
     every question discovery had left open would never start; the spec's law is
     "continue discovery during analysis if a NEW material gap appears".
+  * Analysis never begins on an empty tree. `select_methods` reads open ISSUE
+    rows and the only writer of an ISSUE row is `issue_tree`, itself selected
+    by an ISSUE row's shape; the approved charter is what breaks that circle
+    (`charter.seed_root_issue`), so the root is opened when the client signs
+    and, defensively, once more before the first analysis round for an
+    engagement that reached the mandate by some other door. Without it a run
+    would report a clean zero rounds and no method would ever have been asked.
   * The live summary is recomputed from registry queries on every read and
     never stored. A cached summary is prose that drifts from the rows, which is
     exactly the class of defect this engine exists to make impossible.
@@ -127,6 +134,7 @@ class AnalysisRun:
     conflicts: tuple[str, ...] = ()
     paused_on: tuple[str, ...] = ()                # the new material QUESTIONs that stopped it
     amendment: Entity | None = None                # the CHARTER proposed when the diagnosis moved
+    root_issue: str = ""                           # the root node this run had to open itself
     findings: tuple[Finding, ...] = ()
     refusals: tuple[str, ...] = ()
 
@@ -293,10 +301,16 @@ class Partner:
                         turn_id: str | None = None) -> CharterOutcome:
         """Apply the client's per-item verdicts and, if the charter was
         approved, move to CHARTER_CONFIRMED. A refused confirmation leaves the
-        phase where it was: the mandate is the charter, not the request."""
+        phase where it was: the mandate is the charter, not the request.
+
+        The approval is also what opens the engagement's root issue node
+        (`CharterOutcome.root_issue`); the bounds are handed down because the
+        node's id is derived from MAX_FANOUT, so an operator who moves that
+        ceiling moves it here too.
+        """
         result = charter_mod.confirm(state.registry, charter_id, verdicts=verdicts,
                                      corrections=corrections, turn_number=state.turn_n,
-                                     turn_id=turn_id)
+                                     turn_id=turn_id, bounds=state.settings_bounds())
         if result.approved and state.phase == Phase.CHARTER_PROPOSED:
             advance(state, Phase.CHARTER_CONFIRMED, methods=self._methods)
         return result
@@ -326,6 +340,15 @@ class Partner:
         if blockers:
             raise PhaseError(state.phase, Phase.ANALYSIS, blockers)
         advance(state, Phase.ANALYSIS, methods=self._methods)
+
+        # The tree has to have a first node or selection has nothing to read
+        # and this run would truthfully report that it did nothing. Charter
+        # approval opens it; this is the second door, for an engagement whose
+        # charter was approved before that law existed or through a path this
+        # Partner did not serve. It is a no-op the moment any ISSUE row exists,
+        # so it can never plant a second root beside a tree already growing.
+        root = charter_mod.seed_root_issue(registry, bounds=state.settings_bounds())
+        root_id = root.id if root is not None else ""
 
         max_rounds = int(state.bound("MAX_ANALYSIS_ROUNDS"))
         max_specialists = int(state.bound("MAX_SPECIALISTS_PER_ROUND"))
@@ -374,14 +397,14 @@ class Partner:
                 return AnalysisRun(phase=state.phase, rounds=rounds, ran=tuple(ran),
                                    assignments=tuple(assignments), conflicts=tuple(conflicts),
                                    paused_on=tuple(sorted(new_material)), findings=tuple(findings),
-                                   refusals=tuple(refusals))
+                                   root_issue=root_id, refusals=tuple(refusals))
 
             amendment = self._maybe_amend(state)
             if amendment is not None:
                 return AnalysisRun(phase=state.phase, rounds=rounds, ran=tuple(ran),
                                    assignments=tuple(assignments), conflicts=tuple(conflicts),
                                    amendment=amendment, findings=tuple(findings),
-                                   refusals=tuple(refusals))
+                                   root_issue=root_id, refusals=tuple(refusals))
             if not worked:
                 break
 
@@ -393,7 +416,8 @@ class Partner:
             advance(state, Phase.SYNTHESIS, rounds_used=rounds, methods=self._methods)
         return AnalysisRun(phase=state.phase, rounds=rounds, ran=tuple(ran),
                            assignments=tuple(assignments), conflicts=tuple(conflicts),
-                           findings=tuple(findings), refusals=tuple(refusals))
+                           findings=tuple(findings), root_issue=root_id,
+                           refusals=tuple(refusals))
 
     # -----------------------------------------------------------------------
     # 4. Running one selection

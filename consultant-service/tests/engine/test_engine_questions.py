@@ -14,6 +14,7 @@ Pinned mutations (work breakdown C8):
 from __future__ import annotations
 
 import json
+from dataclasses import replace as dc_replace
 from decimal import Decimal
 
 import pytest
@@ -561,7 +562,126 @@ def test_scrambling_every_text_field_leaves_the_batch_identical(registry):
 
 
 # ===========================================================================
-# 8. The declared surface: __all__ is what the siblings may import
+# 8. Retiring: an answered question does not outlive its answer (C23)
+# ===========================================================================
+
+def test_a_question_whose_gap_is_filled_is_closed(registry):
+    """The registry now holds what the question asked for, so the question is
+    finished whether or not anyone tied an answer entity to it. Leaving it
+    OPEN is the C23 defect: L5 blocks FINAL on a question already answered."""
+    from app.engine.llm import FakeProvider
+    reg = registry()
+    decision = scaffold(reg)
+    issue(reg, decision.id)
+    methods = one_method()
+    first = Q.ask(reg, FakeProvider(), turn_number=1, methods=methods)
+    asked = first.questions[0]
+    assert asked.status is S.OPEN and asked.payload.material is True
+    assert reg.open_material_questions() != []
+
+    fact(reg, conf=0.9, relation=DEFINES)                     # the client answers
+    second = Q.ask(reg, FakeProvider(), turn_number=2, methods=methods)
+
+    assert [q.id for q in second.retired] == [asked.id]
+    assert reg.get(asked.id).status is S.RESOLVED
+    assert reg.open_material_questions() == []
+
+
+def test_a_recorded_answer_closes_the_question(registry):
+    """The other half of the law: ingestion tied an answer to the question, so
+    it is answered even while the hole it names is still a hole (a method that
+    wanted five readings and got one). The question closes; the gap, still a
+    gap, is free to be asked again - which is the point of closing it."""
+    from app.engine.llm import FakeProvider
+    reg = registry()
+    decision = scaffold(reg)
+    issue(reg, decision.id)
+    hungry = methods_with(spec("m_facts", inputs=(
+        InputSpec("facts", K.FACT, min_count=5, effort=T.EffortClass.OFFHAND,
+                  why_needed="five readings, not one"),)))
+    asked = Q.ask(reg, FakeProvider(), turn_number=1, methods=hungry).questions[0]
+    answer = fact(reg, conf=0.9, relation=DEFINES)
+    # ingestion's own act (_record_answer): the answer id recorded on the
+    # question, the status left OPEN
+    linked = dc_replace(asked, payload=dc_replace(asked.payload,
+                                                  answer_entity_ids=(answer.id,)))
+    reg.apply(T.Supersede(asked.id, linked))
+    assert reg.get(asked.id).status is S.OPEN
+
+    gap_id = next(lbl[len(Q.GAP_LABEL_PREFIX):] for lbl in asked.labels
+                  if lbl.startswith(Q.GAP_LABEL_PREFIX))
+    assert gap_id in {sg.gap_id for sg in Q.sourced_gaps(reg, methods=hungry)}   # still a hole
+
+    closed = Q.retire_answered(reg, turn_number=2, methods=hungry)
+    assert [q.id for q in closed] == [asked.id]
+    row = reg.get(asked.id)
+    assert row.status is S.RESOLVED
+    assert row.payload.answer_entity_ids == (answer.id,)   # the answer survives the close
+    assert answer.id in row.provenance.derived_from
+
+
+def test_open_material_questions_do_not_accumulate(registry):
+    """The consequence C23 caught: turn after turn the client answers and the
+    partner asks again. The open material questions must never exceed one
+    turn's batch - if they pile up, L5 blocks FINAL for the rest of the
+    engagement over questions that were answered turns ago."""
+    from app.engine.llm import FakeProvider
+    reg = registry()
+    decision = scaffold(reg)
+    for n in range(4):
+        issue(reg, decision.id, text=f"issue {n}")
+    methods = one_method()
+    cap = int(T.BOUNDS["MAX_QUESTIONS_PER_TURN"])
+    seen = 0
+    for turn in range(1, 6):
+        Q.ask(reg, FakeProvider(), turn_number=turn, methods=methods)
+        fact(reg, conf=0.9, relation=DEFINES, statement=f"reading {turn}")
+        seen = max(seen, len(reg.open_material_questions()))
+    assert seen <= cap
+    # and once every gap is filled, nothing material is left open at all
+    Q.ask(reg, FakeProvider(), turn_number=6, methods=methods)
+    assert reg.open_material_questions() == []
+    assert len(reg.query(K.QUESTION)) >= 1                 # they were asked, then closed
+
+
+def test_a_question_naming_no_gap_survives(registry):
+    """Ingestion's provenance question (design 6.2) carries no gap label. A gap
+    nobody can find is not evidence that it was filled - absence is not an
+    answer - so a question naming no gap is closed only by a real answer."""
+    reg = registry()
+    scaffold(reg)
+    provenance = add(reg, K.QUESTION,
+                     T.QuestionPayload(text="what is the wms export?",
+                                       strategy=T.FillStrategy.ASK_CLIENT, material=True),
+                     status=S.OPEN, labels=(Q.RECORD_CLASS_LABEL,))
+    assert Q.answered_questions(reg, methods=one_method()) == []
+    assert Q.retire_answered(reg, turn_number=1, methods=one_method()) == ()
+    assert reg.get(provenance.id).status is S.OPEN
+
+
+def test_a_dont_know_left_open_is_closed(registry):
+    """RECORD_UNKNOWN: ingestion normally resolves it as it sets the flag, but
+    a row that somehow still stands OPEN is finished all the same - a question
+    the client cannot answer must not block FINAL forever. The flag is read
+    with `is True`, so a row without it is untouched by its absence."""
+    reg = registry()
+    scaffold(reg)
+    unknown = add(reg, K.QUESTION,
+                  T.QuestionPayload(text="how many orders a day?", unknown=True, material=True,
+                                    strategy=T.FillStrategy.ASK_CLIENT),
+                  status=S.OPEN, labels=())
+    plain = add(reg, K.QUESTION,
+                T.QuestionPayload(text="who signs off?", material=True,
+                                  strategy=T.FillStrategy.ASK_CLIENT),
+                status=S.OPEN, labels=())
+    closed = Q.retire_answered(reg, turn_number=1, methods=one_method())
+    assert [q.id for q in closed] == [unknown.id]
+    assert reg.get(unknown.id).payload.unknown is True     # the flag survives the close
+    assert reg.get(plain.id).status is S.OPEN
+
+
+# ===========================================================================
+# 9. The declared surface: __all__ is what the siblings may import
 # ===========================================================================
 
 def test_askable_strategies_is_exported():

@@ -40,12 +40,18 @@ The laws this module lives by:
   * A question carries its gap id as a label, so the next turn can see that a
     gap is already on the table and never asks it twice; a gap the client
     answered "don't know" becomes RECORD_UNKNOWN and is never re-asked.
+  * An answered question is CLOSED. "Don't know" is not the only answer there
+    is: a question the client answered, and a question whose gap the registry
+    has since filled, are both finished, and each turn retires them before it
+    asks anything (retire_answered). Leaving them OPEN was the defect C23
+    found - open material questions only ever accumulated, so L5 blocked
+    FINAL for the rest of the engagement over questions already answered.
 """
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
 from pydantic import BaseModel
@@ -60,7 +66,7 @@ from app.engine.templating import render
 from app.engine.types import (
     BOUNDS, SENSITIVITY, TERMINAL_STATUSES, Actor, Add, AsksFor, Authority, Confidence, EffortClass,
     Entity, FillStrategy, InfoType, Kind, Provenance, QuestionPayload, RelationToCentralDecision,
-    Relevance, SourceKind, Status, info_type_of, make_entity,
+    Relevance, SourceKind, Status, Supersede, info_type_of, make_entity,
 )
 
 __all__ = [
@@ -79,6 +85,7 @@ __all__ = [
     "SOURCE_STRUCTURAL",
     "SOURCE_UNPINNED_DIMENSION",
     "STRUCTURAL_INPUTS",
+    "answered_questions",
     "ask",
     "decision_weights",
     "downstream_factor",
@@ -91,6 +98,7 @@ __all__ = [
     "phrase_questions",
     "question_text",
     "question_why",
+    "retire_answered",
     "score_gap",
     "scored_gaps",
     "select_questions",
@@ -210,6 +218,9 @@ class QuestionBatch:
     asked: tuple[ScoredGap, ...] = ()
     scored: tuple[ScoredGap, ...] = ()
     model_call_id: str | None = None
+    # The questions this turn closed. Kept beside the ones it opened so the
+    # reply and the integrity record can account for both halves of the turn.
+    retired: tuple[Entity, ...] = ()
 
 
 # =============================================================================
@@ -756,13 +767,92 @@ def question_why(view, scored: ScoredGap) -> str:
 
 
 # =============================================================================
-# 7. Asking: OPEN QUESTION rows, one per gap
+# 7. Retiring: an answered question is closed
+# =============================================================================
+
+def answered_questions(view, *, methods: MethodRegistry = METHODS) -> list[Entity]:
+    """The OPEN questions the registry can already see the answer to.
+
+    "Don't know" is not the only answer there is. Three things close a
+    question, and every one of them is read off the registry, never off
+    wording:
+
+      * an answer entity recorded on it (`payload.answer_entity_ids`) - the
+        client said something and ingestion tied it to this question;
+      * the gap it was opened for is no longer a gap - whatever filled the
+        hole (a later turn, a document, a method's output) answered the
+        question whether or not anyone tied the two together;
+      * `unknown is True` - RECORD_UNKNOWN, which ingestion normally resolves
+        at the same moment it sets the flag; a row that somehow still stands
+        OPEN is finished all the same.
+
+    Without this every answered question stayed OPEN for the rest of the
+    engagement, so the open material ones only ever accumulated and L5 blocked
+    FINAL over questions the client had answered turns ago (C23).
+
+    Two guards. The gap-is-gone rule applies only to a question that carries a
+    gap label: a question opened by something other than `ask` (ingestion's
+    provenance question, design 6.2) names no gap, and a gap nobody can find
+    is not evidence that it was filled - absence is not an answer. And the
+    flags are read with `is True`, never falsily, so a row an older normaliser
+    left without one is not closed by its absence.
+    """
+    live_gap_ids = {sg.gap_id for sg in sourced_gaps(view, methods=methods)}
+    out: list[Entity] = []
+    for q in _questions(view):
+        if q.status is not Status.OPEN:
+            continue
+        if q.payload.unknown is True or q.payload.answer_entity_ids:
+            out.append(q)
+            continue
+        labelled = _gap_ids_on(q)
+        if labelled and not any(gid in live_gap_ids for gid in labelled):
+            out.append(q)
+    return out
+
+
+def retire_answered(registry, *, turn_number: int, methods: MethodRegistry = METHODS
+                    ) -> tuple[Entity, ...]:
+    """Move every answered question to RESOLVED, citing the answer.
+
+    The PARTNER is the actor because this is the engine reading its own
+    registry, and MAY_RESOLVE[QUESTION] admits it (I1 still checks). The
+    payload is carried across untouched - the answer ids and any `unknown`
+    flag survive on the resolved row, so a product can still label what was
+    asked and what came back.
+    """
+    actor_ref = f"partner:turn:{turn_number}"
+    closed: list[Entity] = []
+    for q in answered_questions(registry, methods=methods):
+        entity = replace(
+            q, status=Status.RESOLVED,
+            provenance=Provenance(
+                actor=Actor.PARTNER, actor_ref=actor_ref,
+                derived_from=tuple(dict.fromkeys(
+                    q.provenance.derived_from + tuple(q.payload.answer_entity_ids))),
+                source_locator=q.provenance.source_locator,
+                model_call_id=q.provenance.model_call_id),
+        )
+        closed.append(registry.apply(Supersede(q.id, entity)))
+    return tuple(closed)
+
+
+# =============================================================================
+# 8. Asking: OPEN QUESTION rows, one per gap
 # =============================================================================
 
 def ask(registry, provider: ModelProvider, *, turn_number: int, bounds: Any = BOUNDS,
         methods: MethodRegistry = METHODS, model: str | None = None) -> QuestionBatch:
-    """Score every gap, select this turn's batch, word it, and write one OPEN
-    QUESTION per gap. A gap whose question is already open is not re-asked."""
+    """Retire what has been answered, then score every gap, select this turn's
+    batch, word it, and write one OPEN QUESTION per gap. A gap whose question
+    is already open is not re-asked.
+
+    Retiring comes FIRST and unconditionally: every turn passes through here,
+    so this is the one place that can guarantee an answered question does not
+    outlive its answer. Doing it before `_open_gap_ids` also means a gap that
+    is still a gap after a partial answer is free to be asked again, rather
+    than being held shut by the stale question that asked it."""
+    retired = retire_answered(registry, turn_number=turn_number, methods=methods)
     scored = scored_gaps(registry, bounds=bounds, methods=methods)
     selected = select_questions(scored, bounds, exclude_gap_ids=_open_gap_ids(registry))
     worded, call_id = phrase_questions(registry, provider, selected, bounds=bounds, model=model)
@@ -794,4 +884,4 @@ def ask(registry, provider: ModelProvider, *, turn_number: int, bounds: Any = BO
             labels=(GAP_LABEL_PREFIX + item.gap_id,) + sourced.labels)
         written.append(registry.apply(Add(entity)))
     return QuestionBatch(questions=tuple(written), asked=selected, scored=tuple(scored),
-                         model_call_id=call_id)
+                         model_call_id=call_id, retired=retired)

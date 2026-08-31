@@ -10,6 +10,11 @@ Pinned mutations (work breakdown C17):
 - cache the live summary             -> test_live_summary_is_recomputed_not_stored
 - drop the merge of the caller's bindings -> test_a_binding_reaches_a_free_method
 - let a binding shadow a bound       -> test_a_binding_cannot_move_an_operators_ceiling
+- never seed the root issue          -> test_approving_the_charter_opens_the_root_issue
+- seed a root without the mandate    -> test_the_root_is_not_opened_before_the_client_signs
+- seed a root beside an existing tree -> test_the_root_is_opened_once_and_never_beside_a_tree
+- give the root the next free id     -> test_the_root_id_leaves_the_first_batch_of_children_room
+- drop run_analysis's own seeding    -> test_analysis_opens_the_root_a_side_door_left_missing
 
 Every provider here is the FakeProvider driven by a case-agnostic structural
 oracle: one answer per model purpose, reused for every call of that purpose, so
@@ -792,3 +797,187 @@ def test_methods_read_the_same_mapping_whichever_path_they_take(registry, fake_p
     assert free.seen and paid.seen, "both doors were used"
     for key in (COMMISSION_KEY, BUSINESS_NAME_KEY, OWNER_EMAIL_KEY):
         assert free.seen[0][key] == paid.seen[0][key]
+
+
+# ===========================================================================
+# 12. The root issue node an approved charter opens
+#     select_methods reads open ISSUE rows; the only writer of an ISSUE row is
+#     issue_tree, which is itself selected by an ISSUE row's shape. The charter
+#     is what breaks that circle, and these are its laws.  [MUTATION x5]
+# ===========================================================================
+
+def root_capable_method(mid="decompose"):
+    """A method that takes on the root's shape (WHICH on DECISION), so "the
+    root is selectable" is a fact about selection rather than about a label
+    this file happens to read."""
+    return _Writer(spec(mid, T.ExecutionType.DETERMINISTIC, SHAPE_TIE))
+
+
+def charter_ready_registry(reg):
+    dec = decision(reg)
+    owner(reg)
+    objective(reg)
+    fact(reg, decision_id=dec.id)
+    return dec
+
+
+def hand_approved(reg, methods):
+    """An APPROVED charter reached without Partner.confirm_charter and without
+    charter.confirm: what an engagement restored from an older store, or signed
+    through a door this Partner never served, looks like. Nothing here opens a
+    root, which is the point."""
+    proposal = C.propose(reg, turn_number=1, methods=methods)
+    dec = [d for d in reg.live(K.DECISION)][0]
+    reg.apply(T.Supersede(dec.id, T.make_entity(
+        kind=K.DECISION, engagement_id=EID,
+        payload=T.DecisionPayload(statement=dec.payload.statement, role=T.DecisionRole.CENTRAL),
+        provenance=T.Provenance(actor=Actor.PARTNER, actor_ref="partner:1"),
+        confidence=T.Confidence(None), relevance=T.Relevance(None), relation=INFORMS,
+        status=Status.PROPOSED, entity_id=dec.id)))
+    reg.apply(T.SetStatus(proposal.charter.id, Status.APPROVED,
+                          T.Provenance(actor=Actor.CLIENT, actor_ref="client:1")))
+    return proposal
+
+
+def test_approving_the_charter_opens_the_root_issue(registry, fake_provider):
+    """Without a first node the circle never closes: no ISSUE row means no
+    selection, and no selection means no method ever writes the ISSUE rows
+    selection needs. The client's signature is what opens it."""
+    reg = registry(EID)
+    methods = registry_of(root_capable_method())
+    dec = charter_ready_registry(reg)
+    assert not reg.query(K.ISSUE), "nothing has opened a node yet"
+
+    partner, state, proposal, outcome = approved_engagement(
+        reg, methods, fake_provider(oracle=oracle()))
+
+    root = C.root_issue(reg)
+    assert root is not None, "the approved charter opened the engagement's root question"
+    assert outcome.root_issue == root.id
+    assert [i.id for i in reg.live(K.ISSUE)] == [root.id], "exactly one node, not a tree"
+    # It is the mandate restated, and it says so: the charter and the central
+    # decision are both on its provenance, and it is decisive for that decision.
+    assert root.provenance.actor is Actor.PARTNER
+    assert set(root.provenance.derived_from) == {proposal.charter.id, dec.id}
+    assert root.payload.decisive_for == (dec.id,)
+    assert root.payload.text == dec.payload.statement
+    assert root.status is Status.PROPOSED, "the partner proposes; only the client confirms"
+    assert root.relation is DEFINES
+    # and selection can now see something to work on
+    assert "decompose" in [sel.method_id for sel in S.runnable_selections(reg, methods=methods)]
+
+
+def test_the_root_is_not_opened_before_the_client_signs(registry):
+    """The root question is the mandate. A charter that is merely proposed is
+    the partner's readiness, not the client's, and work that started from it
+    would be work nobody commissioned."""
+    reg = registry(EID)
+    dec = charter_ready_registry(reg)
+    proposal = C.propose(reg, turn_number=1, methods=MethodRegistry())
+
+    assert C.seed_root_issue(reg, proposal.charter) is None
+    assert C.seed_root_issue(reg) is None, "and there is no approved charter to find"
+    assert not reg.query(K.ISSUE)
+
+    # Everything else the root needs is in place - the decision is live and
+    # CENTRAL - so the client's signature is the only thing still missing, and
+    # nothing but the mandate check can be what refuses this.
+    reg.apply(T.Supersede(dec.id, T.make_entity(
+        kind=K.DECISION, engagement_id=EID,
+        payload=T.DecisionPayload(statement=dec.payload.statement, role=T.DecisionRole.CENTRAL),
+        provenance=T.Provenance(actor=Actor.PARTNER, actor_ref="partner:1"),
+        confidence=T.Confidence(None), relevance=T.Relevance(None), relation=INFORMS,
+        status=Status.PROPOSED, entity_id=dec.id)))
+    assert reg.central_decision() is not None
+    assert reg.get(proposal.charter.id).status is not Status.APPROVED
+    assert C.seed_root_issue(reg, proposal.charter) is None
+    assert not reg.query(K.ISSUE), "no mandate, no root, however ready everything else is"
+
+    # An approved charter whose central decision is not live and CENTRAL is no
+    # mandate either: a root over the wrong decision aims every method at the
+    # wrong question, which is worse than having none.
+    reg.apply(T.Supersede(dec.id, T.make_entity(
+        kind=K.DECISION, engagement_id=EID,
+        payload=T.DecisionPayload(statement=dec.payload.statement,
+                                  role=T.DecisionRole.SUBORDINATE),
+        provenance=T.Provenance(actor=Actor.PARTNER, actor_ref="partner:1"),
+        confidence=T.Confidence(None), relevance=T.Relevance(None), relation=INFORMS,
+        status=Status.PROPOSED, entity_id=dec.id)))
+    reg.apply(T.SetStatus(proposal.charter.id, Status.APPROVED,
+                          T.Provenance(actor=Actor.CLIENT, actor_ref="client:1")))
+    assert reg.central_decision() is None
+    assert C.seed_root_issue(reg) is None
+    assert not reg.query(K.ISSUE)
+
+
+def test_the_root_is_opened_once_and_never_beside_a_tree(registry, fake_provider):
+    """A second root would give selection two nodes each claiming the mandate,
+    and every method would be offered the engagement twice."""
+    reg = registry(EID)
+    methods = registry_of(root_capable_method())
+    charter_ready_registry(reg)
+    approved_engagement(reg, methods, fake_provider(oracle=oracle()))
+    root = C.root_issue(reg)
+    assert root is not None
+
+    assert C.seed_root_issue(reg) is None, "asking twice does not open a second root"
+    assert [i.id for i in reg.query(K.ISSUE)] == [root.id]
+
+    # and an engagement that already has a tree is left alone entirely
+    other = registry(EID)
+    other_dec = charter_ready_registry(other)
+    grown = issue(other, other_dec.id, SHAPE_FREE)
+    C.confirm(other, C.propose(other, turn_number=1, methods=methods).charter.id, turn_number=2)
+    assert [i.id for i in other.query(K.ISSUE)] == [grown.id]
+    assert C.root_issue(other) is None
+
+
+def test_the_root_id_leaves_the_first_batch_of_children_room(registry, fake_provider):
+    """issue_tree pre-assigns ISS-<n> to its children counting from the highest
+    ISSUE id it can see, and under an assignment it cannot see the root at all -
+    so its first child claims ISS-1. If the root held that id the whole batch
+    would be refused (I6, one id twice) and the tree would silently never be
+    built. The room is MAX_FANOUT-derived, so moving the ceiling moves it."""
+    reg = registry(EID)
+    methods = registry_of(root_capable_method())
+    dec = charter_ready_registry(reg)
+    approved_engagement(reg, methods, fake_provider(oracle=oracle()))
+    root = C.root_issue(reg)
+    assert root is not None
+
+    fanout = int(T.BOUNDS["MAX_FANOUT"])
+    prefix = T.ID_PREFIX[K.ISSUE]
+    assert int(root.id.rpartition("-")[2]) > fanout
+
+    # a whole first batch of children, pre-assigned the ids a blind counter
+    # would hand out, lands beside the root
+    children = [Add(T.make_entity(
+        kind=K.ISSUE, engagement_id=EID,
+        payload=T.IssuePayload(text=f"child {n}", interrogative=T.Interrogative.WHAT,
+                               target_kind=K.FACT, parent_id=root.id),
+        provenance=T.Provenance(actor=Actor.SPECIALIST, actor_ref="method:issue_tree@1",
+                                derived_from=(dec.id,)),
+        confidence=T.Confidence(None), relevance=T.Relevance(dec.id, 0.5), relation=DEFINES,
+        status=Status.PROPOSED, entity_id=f"{prefix}-{n}")) for n in range(1, fanout + 1)]
+    assert len(reg.apply_all(children)) == fanout
+    assert C.root_issue_id({"MAX_FANOUT": 3}) != C.root_issue_id({"MAX_FANOUT": 9}), \
+        "the room is read from the bound, never written as a literal"
+
+
+def test_analysis_opens_the_root_a_side_door_left_missing(registry, fake_provider):
+    """An engagement can reach an APPROVED charter without passing through this
+    Partner's confirmation. Analysis still may not begin on an empty tree: it
+    would run zero methods and report a clean, truthful, useless zero."""
+    reg = registry(EID)
+    methods = registry_of(root_capable_method())
+    charter_ready_registry(reg)
+    hand_approved(reg, methods)
+    assert not reg.query(K.ISSUE), "the side door opened no node"
+
+    partner = partner_for(methods, fake_provider(oracle=oracle()))
+    state = state_for(reg, Phase.CHARTER_CONFIRMED)
+    run = partner.run_analysis(state)
+
+    root = C.root_issue(reg)
+    assert root is not None and run.root_issue == root.id
+    assert run.ran, "and with a node to read, selection had something to run"

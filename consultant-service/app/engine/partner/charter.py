@@ -35,6 +35,16 @@ The laws this module lives by:
   * An amendment is a new CHARTER row citing the one it amends (`amends`). The
     previous charter is not edited and not retired: it is what the client
     approved, and it stays queryable as such.
+  * Approving the charter opens the engagement's root ISSUE, once
+    (`seed_root_issue`). `select_methods` reads open ISSUE rows and the only
+    method that writes an ISSUE row is `issue_tree`, which is itself selected
+    by an ISSUE row's shape - so without a first node nothing closes the
+    circle and analysis begins with an empty tree and no runnable method. The
+    root node is not analysis and coins nothing: it is the charter's own
+    central decision restated as the question the engagement exists to answer,
+    written by the PARTNER, PROPOSED, citing the charter and the decision. It
+    is written AFTER the confirmation batch has landed, never inside it, so a
+    root the registry refuses can never take the client's approval with it.
 """
 from __future__ import annotations
 
@@ -47,9 +57,10 @@ from app.engine.partner.hypothesis import central_decision_for_charter
 from app.engine.partner.questions import open_issues
 from app.engine.registry import EngagementRegistry
 from app.engine.types import (
-    TERMINAL_STATUSES, Actor, Add, AnalysisPayload, AnalysisState, Authority, CharterPayload,
-    Confidence, DecisionRole, Entity, EntityDelta, FillStrategy, Kind, Provenance,
-    RelationToCentralDecision, Relevance, SetStatus, Status, Supersede, make_entity,
+    BOUNDS, ID_PREFIX, TERMINAL_STATUSES, Actor, Add, AnalysisPayload, AnalysisState, Authority,
+    CharterPayload, Confidence, DecisionRole, Entity, EntityDelta, FillStrategy, Interrogative,
+    IssuePayload, Kind, Provenance, RelationToCentralDecision, Relevance, SetStatus, Status,
+    Supersede, make_entity,
 )
 from app.engine.work_products.plan import plan_work_products
 
@@ -63,6 +74,8 @@ __all__ = [
     "CharterProposal",
     "OUT_OF_SCOPE_LABEL",
     "REJECT",
+    "ROOT_ISSUE_ACTOR_REF",
+    "ROOT_ISSUE_LABEL",
     "VERDICTS",
     "amend",
     "assemble",
@@ -73,6 +86,9 @@ __all__ = [
     "plan_analyses",
     "playback",
     "propose",
+    "root_issue",
+    "root_issue_id",
+    "seed_root_issue",
     "understanding",
 ]
 
@@ -385,6 +401,10 @@ class CharterOutcome:
     corrected: tuple[str, ...] = ()
     rejected: tuple[str, ...] = ()
     central_decision: str | None = None
+    # The root ISSUE the approval opened, when this confirmation opened one.
+    # Empty on a re-confirmation and on an amendment: the tree already exists,
+    # and a second root would give selection two nodes claiming the mandate.
+    root_issue: str = ""
     refused: tuple[str, ...] = ()
 
 
@@ -405,7 +425,8 @@ def _rebuilt(e: Entity, *, payload: Any, actor: Actor, actor_ref: str,
 def confirm(registry: EngagementRegistry, charter_id: str, *,
             verdicts: Mapping[str, str] | None = None,
             corrections: Mapping[str, Any] | None = None,
-            turn_number: int = 0, turn_id: str | None = None) -> CharterOutcome:
+            turn_number: int = 0, turn_id: str | None = None,
+            bounds: Mapping[str, Any] | None = None) -> CharterOutcome:
     """The client's answer to the charter, applied as one batch.
 
     Every listed client-attributed PROPOSED item is CONFIRMED unless the client
@@ -508,9 +529,113 @@ def confirm(registry: EngagementRegistry, charter_id: str, *,
         # One decision: the correction that was refused takes the approval with
         # it, and the client is told which law refused it.
         return CharterOutcome(charter=registry.get(charter.id), refused=(str(exc),))
-    return CharterOutcome(charter=registry.get(charter.id), approved=True,
+    # The mandate has landed, so the engagement's root question is opened -
+    # after the batch, never inside it. A root the registry refused would
+    # otherwise roll back the client's own approval, and an engagement whose
+    # charter is signed is not one that should be told to sign it again.
+    approved_charter = registry.get(charter.id)
+    root = seed_root_issue(registry, approved_charter, bounds=bounds)
+    return CharterOutcome(charter=approved_charter, approved=True,
                           confirmed=tuple(confirmed), corrected=tuple(corrected),
-                          rejected=tuple(rejected), central_decision=central_id)
+                          rejected=tuple(rejected), central_decision=central_id,
+                          root_issue=root.id if root is not None else "")
+
+
+# ---------------------------------------------------------------------------
+# The root issue node an approved charter opens
+# ---------------------------------------------------------------------------
+
+# The label the seeded root carries, so a reader (and the benchmark) can tell
+# the node the mandate opened from the nodes a method decomposed it into. It is
+# a label rather than a payload flag because IssuePayload is frozen contract:
+# how the tree got its first node is engine bookkeeping, not tree structure.
+ROOT_ISSUE_LABEL = "charter_root"
+ROOT_ISSUE_ACTOR_REF = "partner:charter_root"
+
+
+def root_issue(view) -> Entity | None:
+    """The live root node this engagement's charter opened, or None."""
+    for i in _live(view, Kind.ISSUE):
+        if ROOT_ISSUE_LABEL in i.labels:
+            return i
+    return None
+
+
+def root_issue_id(bounds: Mapping[str, Any] | None = None) -> str:
+    """The id the root node takes.
+
+    Not the next free id, and the reason is a collision that would otherwise
+    empty every tree: `issue_tree` pre-assigns `ISS-<n>` to its children so a
+    child payload can carry its parent's real id before the batch lands, and it
+    counts from the highest ISSUE id IT can see. It runs under an assignment,
+    whose ScopedView shows only the entities its InputSpecs named - DECISION and
+    OBJECTIVE - never an ISSUE row, so it counts from zero and its first child
+    claims `ISS-1`. If the root holds that id the whole batch is refused (I6,
+    one id twice) and the tree is silently never built. The root therefore sits
+    above every id one batch can reach: a batch is capped at MAX_FANOUT children
+    per parent, so MAX_FANOUT squared is beyond it whatever an operator sets the
+    ceiling to. The bound is read, never written as a literal, so moving the
+    ceiling moves this with it. The durable fix belongs to the assignment's
+    scope (see this component's needs_from_others); until it lands this keeps a
+    seeded root from being the reason no tree exists.
+    """
+    if isinstance(bounds, Mapping):
+        fanout = bounds.get("MAX_FANOUT", BOUNDS["MAX_FANOUT"])
+    else:
+        fanout = getattr(bounds, "ENGINE_MAX_FANOUT", BOUNDS["MAX_FANOUT"])
+    fanout = max(1, int(fanout))
+    return f"{ID_PREFIX[Kind.ISSUE]}-{fanout * fanout + 1}"
+
+
+def seed_root_issue(registry: EngagementRegistry, charter: Entity | None = None, *,
+                    bounds: Mapping[str, Any] | None = None) -> Entity | None:
+    """Open the engagement's first issue node from the approved charter.
+
+    Four conditions, each of them a law rather than a convenience:
+
+      * an APPROVED charter, because the root question is the mandate and the
+        mandate is the client's signature, not the partner's readiness;
+      * that charter's `central_decision` is a live DECISION with role CENTRAL,
+        because a root node that decomposed a decision the client did not make
+        central would send every method after the wrong question;
+      * no ISSUE row exists yet - any row, live or retired - so the root is
+        opened once per engagement and never lands beside a tree that already
+        answers for it, and never re-uses an id a retired node still holds;
+      * the node cites the charter and the decision it restates, so its own
+        lineage names the mandate that authorised it.
+
+    Returns the node, or None when the engagement is not (yet) one that has a
+    root to open. Nothing is inferred from the None: the caller that wants
+    analysis will be told by the phase guard what is missing.
+    """
+    if charter is None:
+        approved = registry.query(Kind.CHARTER, status=Status.APPROVED)
+        charter = approved[-1] if approved else None
+    if charter is None or charter.kind != Kind.CHARTER or charter.status != Status.APPROVED:
+        return None
+    if registry.query(Kind.ISSUE):
+        return None
+    decision = registry.get(charter.payload.central_decision or "")
+    if decision is None or decision.kind != Kind.DECISION             or decision.status in TERMINAL_STATUSES             or decision.payload.role != DecisionRole.CENTRAL:
+        return None
+    # WHICH / comparative is the widest true shape of a decision node: a
+    # declared shape takes on a node when every dimension it constrains holds,
+    # so an open dimension on the node admits both the methods that ask for it
+    # and the methods that do not. Setting quantified, causal or temporal here
+    # would be the engine asserting something about the engagement it has no
+    # evidence for, and would drag methods onto a node they do not fit.
+    payload = IssuePayload(
+        text=getattr(decision.payload, "statement", "") or decision.id,
+        interrogative=Interrogative.WHICH, target_kind=Kind.DECISION,
+        parent_id=None, comparative=True, weight_to_parent=1.0,
+        decisive_for=(decision.id,))
+    return registry.apply(Add(make_entity(
+        kind=Kind.ISSUE, engagement_id=registry.engagement_id, payload=payload,
+        provenance=Provenance(actor=Actor.PARTNER, actor_ref=ROOT_ISSUE_ACTOR_REF,
+                              derived_from=(charter.id, decision.id)),
+        confidence=Confidence(None), relevance=Relevance(decision.id, 1.0),
+        relation=RelationToCentralDecision.DEFINES, status=Status.PROPOSED,
+        entity_id=root_issue_id(bounds), labels=(ROOT_ISSUE_LABEL,))))
 
 
 def _with_role(payload: Any, role: DecisionRole) -> Any:
