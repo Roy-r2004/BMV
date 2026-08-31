@@ -21,6 +21,14 @@ Two families:
     is missing, documents that disagree, an objective the arithmetic refutes,
     two specialists who disagree, a matter that needs a licence, a request that
     is a symptom of something else.
+  * THE CHARTER, over the same core bundles. Divergence proves the ten
+    engagements differ; it cannot tell whether the charter that started each
+    one was the RANKING's answer or the ask-floor's. `charter_failures` reads
+    the mechanism itself (design 6.4/6.6): the charter names the top of the
+    deterministic ranking, that top clears CHARTER_MIN_WEIGHT and
+    CHARTER_MIN_MARGIN, and the analysis the charter unlocks actually ran. A
+    build whose relevance links were all empty would pass every divergence
+    check above with the ranking dead and every charter opened by ASK_FLOOR.
 
 Where a law's full path is not reachable in this build, the check says so in its
 own words and exercises the law directly on a probe registry instead of
@@ -40,12 +48,14 @@ from app.engine.benchmark.harness import Bundle
 from app.engine.calc.arith import DecimalCalculator
 from app.engine.gates import laws as laws_mod
 from app.engine.gates.release import STATUS_DRAFT
-from app.engine.partner.hypothesis import PARTNER_INFERRED, maybe_reframe
-from app.engine.registry import EngagementRegistry, IncomparableInputs
+from app.engine.partner.hypothesis import PARTNER_INFERRED, maybe_reframe, ranked_candidates
+from app.engine.partner.state import approved_charter
+from app.engine.partner.ingest import TURN_ACTOR_PREFIX
+from app.engine.registry import EngagementRegistry, IncomparableInputs, ScopedView
 from app.engine.synthesis.conflicts import detect_conflicts
 from app.engine.synthesis.resolve import emit_decisions_required
 from app.engine.types import (
-    BOUNDS, Actor, Add, Authority, Confidence, ConflictKind, DecisionPayload, DecisionRole,
+    BOUNDS, Actor, Add, AnalysisState, Authority, Confidence, ConflictKind, DecisionPayload, DecisionRole,
     Dimensions, Entity, FactBasis, FactPayload, Feasibility, HypothesisPayload, Interrogative,
     IssuePayload, Kind, MeasurePayload, ObjectivePayload, Provenance, Quantity, Relevance,
     RelationToCentralDecision, SetStatus, SourceKind, Status, UnitFamily, make_entity,
@@ -57,6 +67,7 @@ __all__ = [
     "BLOCKED_CLAIMS",
     "adversarial_failures",
     "bound",
+    "charter_failures",
     "divergence_failures",
     "revealed_failures",
 ]
@@ -82,30 +93,49 @@ def bound(name: str, overrides: Mapping[str, Any] | None = None) -> Any:
 # `test_engine_benchmarks_fake.py` pins the list.
 BLOCKED_CLAIMS: Mapping[str, str] = {
     "deliverable_sets_reach_the_bound": (
-        "MIN_DISTINCT_DELIVERABLE_SETS distinct product-id sets across the core cases. Only the "
-        "mandatory products and the ones a deterministic method feeds are planned today, because "
-        "every MODEL_ASSISTED method fails before it starts: Assignment.from_selection does not put "
-        "the assigned ISSUE in the specialist's permitted set, so ctx.registry.get(ctx.issue_ids[0]) "
-        "is None and the method returns its no_issue finding. Nothing therefore writes CAPABILITY, "
-        "OPTION, ACTION, OWNER or WORKSTREAM, and the predicates that would vary the product set "
-        "never hold. The live check below still requires the sets not to be all identical."),
+        "MIN_DISTINCT_DELIVERABLE_SETS distinct product-id sets across the core cases; the ten core "
+        "bundles produce two. The old reason - an empty specialist evidence window - is retired: "
+        "Assignment.from_selection now puts the assigned node and its ancestors in the permitted set, "
+        "and the model-assisted methods run - issue_tree grafts 6-12 nodes, capability_gap and root_cause "
+        "reach ANALYSIS state done, as do the deterministic current_state, kpi_design and financial_model. "
+        "What is left is a method library whose option-and-delivery half is starved at its root: no run "
+        "writes a CAPABILITY, OPTION, EVALUATION_CRITERION or ACTION row, so make_buy_partner (the only "
+        "OPTION writer) sits at options 0/2 and capabilities 0/1, option_evaluation and prioritization are "
+        "selected and then blocked on those same empty kinds, and operating_model and roadmap match no "
+        "open node's shape at all. The product predicates that would vary the set therefore never hold. "
+        "The live check below still requires the sets not to be all identical."),
     "section_signatures_reach_the_bound": (
-        "MIN_DISTINCT_SECTION_SIGNATURES distinct section signatures. Same cause: sections are "
-        "planned per product from the same counts."),
+        "MIN_DISTINCT_SECTION_SIGNATURES distinct section signatures; the ten core bundles produce two. "
+        "Same cause: sections are planned per product from the same counts, and the product set cannot "
+        "vary until something writes the option-and-delivery kinds above."),
     "recommendations_are_distinct": (
-        "recommendation statements pairwise distinct. No RECOMMENDATION is written in a fake run: "
-        "option_evaluation needs OPTION and EVALUATION_CRITERION rows, which only the blocked "
-        "model-assisted methods produce."),
+        "recommendation statements pairwise distinct. No RECOMMENDATION is written in a fake run, and "
+        "the cause is not a blocked method: NOTHING in this build creates one. No MethodSpec names "
+        "Kind.RECOMMENDATION in its output_kinds, and synthesis only ever SUPERSEDES a recommendation "
+        "that already exists (synthesis/regulated.py routes a licensed one; recommend.py checks and "
+        "approves one). The registry, the gate (L2/L3) and the products all read RECOMMENDATION rows, "
+        "so the reading half of the law is exercised on probe registries; the writing half has no "
+        "producer to exercise."),
     "workstreams_are_distinct": (
-        "workstream name sets pairwise distinct. Same cause as recommendations: a WORKSTREAM is "
-        "written by operating_model and roadmap, and both are blocked behind the empty specialist "
-        "window, so every core bundle carries an empty set."),
+        "workstream name sets pairwise distinct; every core bundle carries an empty set. A WORKSTREAM "
+        "is written by operating_model, roadmap and the r30 adapter. None is reachable here: "
+        "operating_model requires capabilities 2 and matches no open node's shape, roadmap requires "
+        "workstreams 1 and actions 1 - inputs of the same starved chain - and the r30 adapter is not "
+        "selected by shape in any core case. Same root cause as the deliverable sets."),
     "central_decision_is_not_the_opening_statement": (
-        "the central decision differs from the client's opening words. The reframe that would "
-        "replace a stated request with an inferred decision cannot fire before the charter: "
-        "hypothesis weights come from Relevance rows, only methods write those, and no method runs "
-        "before the charter is approved. The symptom-vs-problem law is exercised on a probe by "
-        "`adv_symptom_not_problem` instead."),
+        "the central decision differs from the client's opening words. The old reason - that hypothesis "
+        "weights come only from methods, none of which runs before the charter - is retired: ingestion "
+        "now writes the relevance link at birth and every core engagement is ranked (weight 1.0, over "
+        "CHARTER_MIN_WEIGHT and CHARTER_MIN_MARGIN), which is what `charter_failures` asserts live. What "
+        "blocks the claim is that there is only ever ONE candidate to rank. The structural oracle "
+        "returns no new_candidates by design - a case-blind rule cannot word a rival decision without "
+        "reading the case - so no PARTNER_INFERRED row exists, and maybe_reframe returns None at its "
+        "first gate. Two further gates stand behind that one: an inferred candidate accrues no weight, "
+        "because a statement bears on the decision it was STATED under and no client statement is made "
+        "under a candidate the partner invented afterwards; and the reframe additionally needs a "
+        "HYPOTHESIS from an ISSUE under the stated request to a cause under the inferred one, while the "
+        "first ISSUE is the root the charter itself opens - after discovery has ended. The "
+        "symptom-vs-problem law is exercised on a probe by `adv_symptom_not_problem` instead."),
 }
 
 
@@ -166,6 +196,66 @@ def divergence_failures(bundles: Sequence[Bundle],
         distinct = {key(b) for b in bundles}
         if len(distinct) < 2:
             out.append(f"{code} {label}: all {len(bundles)} cases produced the same one")
+    return out
+
+
+def charter_failures(bundles: Sequence[Bundle],
+                     bounds: Mapping[str, Any] | None = None) -> list[str]:
+    """Every way in which a core engagement did NOT start from the ranking.
+
+    Design 6.4 makes the central decision a weight the registry computed from
+    relevance links; design 6.6 also lets ASK_FLOOR open a charter when nothing
+    left to ask could move it. Both are lawful, and only the second one needs
+    no evidence at all - so a build whose relevance links were empty would
+    still reach a charter, still diverge, and still pass every check above,
+    with the ranking dead underneath. This is the check that would notice.
+
+    Four claims per bundle: the client approved a charter; it names the top of
+    the deterministic ranking; that top clears CHARTER_MIN_WEIGHT and
+    CHARTER_MIN_MARGIN ON THE DISCOVERY EVIDENCE ALONE; and at least one method
+    reached `done`, because a charter that unlocks nothing is a charter nothing
+    rests on.
+
+    The ranking is recomputed over a ScopedView of the candidate decisions plus
+    the rows ingestion wrote (actor_ref TURN_ACTOR_PREFIX), never over the
+    finished registry. That is not a nicety: a method attaches relevance to
+    everything it writes, the root ISSUE alone carries weight 1.0 on the
+    central decision, and all of that lands AFTER the charter. Scored on the
+    final rows, a build whose discovery wrote no link at all would still show a
+    confident ranking - the check would pass on evidence that did not exist
+    when the charter was decided. The arithmetic is `ranked_candidates` itself,
+    not a copy of it; only the rows it may see are narrowed.
+    """
+    floor = float(bound("CHARTER_MIN_WEIGHT", bounds))
+    margin = float(bound("CHARTER_MIN_MARGIN", bounds))
+    out: list[str] = []
+    for b in bundles:
+        view = b.registry
+        if view is None:                                   # pragma: no cover - defensive
+            out.append(f"{b.case_id}: no registry rode along with the bundle")
+            continue
+        charter = approved_charter(view)
+        if charter is None:
+            out.append(f"{b.case_id}: no charter was approved")
+            continue
+        discovery = ScopedView(view, [
+            e.id for e in view.query()
+            if e.kind is Kind.DECISION or e.provenance.actor_ref.startswith(TURN_ACTOR_PREFIX)])
+        ranked = ranked_candidates(discovery)
+        if not ranked:
+            out.append(f"{b.case_id}: a charter was approved with no candidate decision")
+            continue
+        top, top_w = ranked[0]
+        second_w = ranked[1][1] if len(ranked) > 1 else 0.0
+        named = charter.payload.central_decision
+        if named != top.id:
+            out.append(f"{b.case_id}: the charter names {named} but discovery ranked {top.id} top")
+        if top_w < floor or (top_w - second_w) < margin:
+            out.append(f"{b.case_id}: the charter was not reached by the ranking - the discovery "
+                       f"evidence gives {top.id} weight {top_w:.3f} (floor {floor}) and margin "
+                       f"{top_w - second_w:.3f} (floor {margin}); only ASK_FLOOR could have opened it")
+        if not any(a.payload.state is AnalysisState.DONE for a in view.query(Kind.ANALYSIS)):
+            out.append(f"{b.case_id}: the charter was approved but no analysis reached done")
     return out
 
 

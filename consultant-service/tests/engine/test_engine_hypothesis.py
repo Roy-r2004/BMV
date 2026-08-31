@@ -7,6 +7,13 @@ Pinned mutations (work breakdown C7):
 - remove the margin check          -> test_reframe_needs_margin
 - remove the DECISION_REQUIRED gate -> test_charter_cannot_name_inferred_until_resolved
 - coerce unknown confidence to 0 in storage -> test_unknown_confidence_stays_none_in_storage
+
+Also here: the bearing law that fills the relevance links the score is made
+of (design 6.4). Its mutations are
+- give BEARING_BY_KIND a default    -> test_a_kind_with_no_derived_bearing_bears_on_nothing
+- let a candidate bear on a rival    -> test_a_candidate_decision_never_bears_on_a_decision
+- attach before a decision is stated -> test_nothing_is_attached_before_a_decision_is_stated
+- read the stated request past a central one -> test_a_statement_bears_on_the_central_decision
 """
 from __future__ import annotations
 
@@ -360,3 +367,108 @@ def test_open_pin_question_on_defining_fact_blocks(registry):
     assert not H.charter_ready(reg, bounds())
     reg.apply(SetStatus(q.id, S.RESOLVED, by=prov(Actor.CLIENT, "client:turn:2")))
     assert H.charter_ready(reg, bounds())
+
+
+# ---------------------------------------------------------------------------
+# the bearing: what a statement bears on, and how (design 6.4)
+# ---------------------------------------------------------------------------
+
+def _fact_payload(basis: T.FactBasis) -> T.FactPayload:
+    return T.FactPayload(statement="an observed figure", basis=basis)
+
+
+def test_bearing_is_derived_from_the_kind_and_the_basis(registry):
+    """The relation is a function of what the row IS - never of prose, never
+    of a field the model returned. That is what keeps the ranking a property
+    of the registry: with the table in place, ingesting more of a kind changes
+    the score with no model call anywhere in scope."""
+    reg = registry()
+    a = decision(reg, "fix the delays")
+    expected = [
+        (K.OBJECTIVE, None, DEFINES),
+        (K.DECISION_OWNER, None, DEFINES),
+        (K.CONSTRAINT, None, T.RelationToCentralDecision.CONSTRAINS),
+        (K.DEADLINE, None, T.RelationToCentralDecision.CONSTRAINS),
+        (K.MEASURE, None, T.RelationToCentralDecision.EVIDENCES),
+        (K.BUSINESS_CONTEXT, None, INFORMS),
+        (K.STAKEHOLDER, None, INFORMS),
+        (K.FACT, _fact_payload(T.FactBasis.CLIENT_STATED), T.RelationToCentralDecision.EVIDENCES),
+        (K.FACT, _fact_payload(T.FactBasis.DOCUMENT_VERIFIED), T.RelationToCentralDecision.EVIDENCES),
+        (K.FACT, _fact_payload(T.FactBasis.DOCUMENT_EXTRACTED), INFORMS),
+    ]
+    for kind, payload, relation in expected:
+        relevance, got = H.bearing(reg, kind, payload)
+        assert got is relation, kind
+        assert relevance.decision_id == a.id, kind
+        assert relevance.weight == H.STATEMENT_WEIGHT, kind
+        assert relevance.rationale == f"{H.BEARING_RATIONALE}:{kind.value}", kind
+    # every relation the table hands out is one the score actually prices
+    for relation in set(H.BEARING_BY_KIND.values()) | set(H.BEARING_BY_FACT_BASIS.values()):
+        assert H.REL_MULTIPLIER[relation] > 0.0
+
+
+def test_a_kind_with_no_derived_bearing_bears_on_nothing(registry):
+    """MUTATION give-BEARING_BY_KIND-a-default: an entity whose relevance is
+    genuinely unknown keeps relation UNKNOWN and contributes zero. A default
+    would let a process record - the turn row that merely carried the words,
+    the question that asked for them - vote in the ranking."""
+    reg = registry()
+    a = decision(reg, "fix the delays")
+    for kind in (K.EVIDENCE_SOURCE, K.QUESTION, K.ANALYSIS, K.CHARTER, K.WORK_PRODUCT):
+        relevance, relation = H.bearing(reg, kind)
+        assert relevance.decision_id is None, kind
+        assert relevance.weight == 0.0, kind
+        assert relation is T.RelationToCentralDecision.UNKNOWN, kind
+        assert H.REL_MULTIPLIER.get(relation, 0.0) == 0.0
+    assert H.hypothesis_scores(reg) == {a.id: 0.0}
+
+
+def test_a_candidate_decision_never_bears_on_a_decision(registry):
+    """MUTATION let-a-candidate-bear-on-a-rival: hypothesis_scores stops a
+    candidate voting for ITSELF, but nothing there stops one voting for a
+    rival. The bearing table is where that is refused: a DECISION is a
+    candidate, not evidence for one."""
+    reg = registry()
+    decision(reg, "fix the delays")
+    inferred_decision(reg)
+    relevance, relation = H.bearing(reg, K.DECISION,
+                                    T.DecisionPayload(statement="another", role=DecisionRole.SUBORDINATE))
+    assert relevance.decision_id is None
+    assert relation is T.RelationToCentralDecision.UNKNOWN
+    assert K.DECISION not in H.BEARING_BY_KIND
+
+
+def test_nothing_is_attached_before_a_decision_is_stated(registry):
+    """MUTATION attach-before-a-decision-is-stated: with no candidate on the
+    record there is nothing to bear on, and both halves of the envelope stay
+    empty. Half a link - a relation with no decision - would arm the gates
+    that read relation structurally on a decision nobody has named."""
+    reg = registry()
+    assert H.bearing_decision(reg) is None
+    relevance, relation = H.bearing(reg, K.OBJECTIVE)
+    assert relevance.decision_id is None
+    assert relation is T.RelationToCentralDecision.UNKNOWN
+    assert H.bearing(reg, K.OBJECTIVE) == H.UNATTACHED
+
+
+def test_a_statement_bears_on_the_central_decision(registry):
+    """MUTATION read-the-stated-request-past-a-central-one: once the client
+    has approved a charter the engagement has a CENTRAL decision, and what is
+    said afterwards is said about THAT. Reading the stated request first would
+    keep piling weight onto a request the charter already replaced."""
+    reg = registry()
+    stated = decision(reg, "fix the delays")
+    central = decision(reg, "choose a fulfilment model", role=DecisionRole.CENTRAL)
+    assert H.bearing_decision(reg).id == central.id
+    relevance, _ = H.bearing(reg, K.OBJECTIVE)
+    assert relevance.decision_id == central.id
+    assert relevance.decision_id != stated.id
+
+
+def test_bearing_relation_reads_a_fact_basis_it_does_not_know_as_unknown():
+    """Absence is not a verdict. A basis the table does not name returns
+    UNKNOWN - zero in the score - rather than the nearest neighbour, so a new
+    FactBasis cannot quietly inherit somebody else's weight."""
+    assert H.bearing_relation(K.FACT, None) is T.RelationToCentralDecision.UNKNOWN
+    assert set(H.BEARING_BY_FACT_BASIS) == set(T.FactBasis), (
+        "a FactBasis with no declared bearing would silently score zero")

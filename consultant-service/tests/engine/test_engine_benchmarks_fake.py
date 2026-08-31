@@ -238,6 +238,25 @@ def test_core_cases_diverge(loaded, bundles):
     assert failures == [], "\n".join(failures)
 
 
+def test_every_core_case_reaches_its_charter_by_the_ranking(loaded, bundles):
+    """The mechanism, not only the outcome (design 6.4/6.6).
+
+    Divergence proves the ten engagements differ. It cannot tell whether the
+    charter that started each one was the deterministic ranking's answer or
+    ASK_FLOOR's - and ASK_FLOOR needs no evidence at all, so a build with no
+    relevance links on any row would reach a charter anyway and pass every
+    check above with the ranking dead. This reads the ranking itself: the
+    charter names its top, that top clears CHARTER_MIN_WEIGHT and
+    CHARTER_MIN_MARGIN, and an analysis reached done behind it.
+
+    Mutation 'drop the bearing at birth' (partner/ingest._proposed): every
+    weight goes back to 0.0, the margin claim fails on all ten, and the
+    charters that still appear appear through the escape hatch.
+    """
+    failures = A.charter_failures(_core(loaded, bundles))
+    assert failures == [], "\n".join(failures)
+
+
 def test_every_core_case_surfaces_what_changes_the_recommendation(loaded, bundles):
     core = C.core_cases(loaded)
     failures = A.revealed_failures([bundles[c.id] for c in core], core)
@@ -303,7 +322,17 @@ def test_every_annotated_candidate_shape_is_one_some_method_answers(loaded):
 def test_the_claims_this_build_cannot_make_are_named_and_explained():
     """A gap that is written down is a gap somebody can close; a gap that is
     silently skipped is a law nothing tests. When the engine gains what these
-    need, this test fails and the claim moves into `divergence_failures`."""
+    need, this test fails and the claim moves into `divergence_failures`.
+
+    A stale explanation is the same defect as a missing one, so the reasons are
+    checked for the causes this build actually has. Two of them were rewritten
+    when the relevance link landed: the old text blamed an empty specialist
+    evidence window (`Assignment.from_selection` now supplies the node) and
+    said hypothesis weights come only from methods (ingestion writes them at
+    birth, and `test_every_core_case_reaches_its_charter_by_the_ranking`
+    asserts the ranking live). Neither is the reason any more, so neither may
+    still be given as one.
+    """
     expected = {
         "deliverable_sets_reach_the_bound",
         "section_signatures_reach_the_bound",
@@ -314,6 +343,15 @@ def test_the_claims_this_build_cannot_make_are_named_and_explained():
     assert set(A.BLOCKED_CLAIMS) == expected
     for name, reason in A.BLOCKED_CLAIMS.items():
         assert len(reason) > 80, f"{name} does not say what is missing"
+
+    # The two retired causes, named so a copy-paste cannot bring them back as
+    # live explanations. Each may only appear as the correction it now is.
+    for stale in ("does not put the assigned ISSUE in the specialist's permitted set",
+                  "only methods write those"):
+        for name, reason in A.BLOCKED_CLAIMS.items():
+            assert stale not in reason, f"{name} still gives a cause this build has fixed"
+    for name in ("deliverable_sets_reach_the_bound", "central_decision_is_not_the_opening_statement"):
+        assert "retired" in A.BLOCKED_CLAIMS[name], f"{name} does not say what stopped being the cause"
 
 
 def test_the_engine_never_reads_a_case_file():

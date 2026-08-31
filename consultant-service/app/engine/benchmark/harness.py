@@ -39,6 +39,7 @@ from app.engine.benchmark.cases import LoadedCase
 from app.engine.gates import laws as laws_mod
 from app.engine.gates.release import client_approval, release_status
 from app.engine.llm import ModelCall, ModelProvider, ModelResponse
+import app.engine.methods.builtin  # noqa: F401  - method registration is by import
 from app.engine.methods.contract import METHODS, MethodRegistry, QuestionShape
 from app.engine.partner.charter import ROOT_ISSUE_ACTOR_REF, root_issue_id
 from app.engine.partner.ingest import TURN_CANDIDATE_KINDS

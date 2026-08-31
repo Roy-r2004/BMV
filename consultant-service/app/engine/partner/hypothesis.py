@@ -33,8 +33,8 @@ from app.engine import templating
 from app.engine.llm import ModelCall, ModelProvider, structured_call
 from app.engine.types import (
     BOUNDS, TERMINAL_STATUSES, UNKNOWN_CONFIDENCE_PRIOR, Actor, Add, Authority, Confidence,
-    DecisionPayload, DecisionRequiredPayload, DecisionRole, Entity, HypothesisPayload, Kind,
-    Provenance, RelationToCentralDecision, Relevance, Status, Supersede, make_entity,
+    DecisionPayload, DecisionRequiredPayload, DecisionRole, Entity, FactBasis, HypothesisPayload,
+    Kind, Provenance, RelationToCentralDecision, Relevance, Status, Supersede, make_entity,
 )
 
 # DecisionPayload.origin value for a candidate the partner proposed (the closed
@@ -65,6 +65,66 @@ REL_MULTIPLIER: Mapping[RelationToCentralDecision, float] = {
     RelationToCentralDecision.EVIDENCES: 0.7,
     RelationToCentralDecision.INFORMS: 0.3,
 }
+
+
+# ---------------------------------------------------------------------------
+# What a statement bears on, and how (design 6.4)
+# ---------------------------------------------------------------------------
+#
+# The score above is only ever as real as the relevance links the registry
+# holds, and a link is a consultant judgement about how a piece of evidence
+# bears on a candidate decision. That judgement is DERIVED here, from what the
+# row IS - its kind, and for a FACT the basis that says where it came from -
+# and never asked of the model: a relation or a weight the model returned would
+# be the verdict this module exists to keep it away from, and "adding evidence
+# flips the ranking with no model call" would become a claim about a prompt.
+#
+# A kind this table does not name bears on nothing and keeps relation UNKNOWN,
+# which REL_MULTIPLIER prices at zero. The omissions are deliberate, not gaps:
+# a DECISION is a candidate, not evidence for one (and a candidate never votes,
+# for itself or for a rival); an EVIDENCE_SOURCE is a process record of where
+# words came from; a QUESTION is a hole, and asking about a decision is not
+# evidence for it.
+BEARING_BY_KIND: Mapping[Kind, RelationToCentralDecision] = {
+    Kind.OBJECTIVE: RelationToCentralDecision.DEFINES,          # what the decision is for
+    Kind.DECISION_OWNER: RelationToCentralDecision.DEFINES,     # whose decision it is
+    Kind.CONSTRAINT: RelationToCentralDecision.CONSTRAINS,      # what bounds it
+    Kind.DEADLINE: RelationToCentralDecision.CONSTRAINS,        # by when it must be taken
+    Kind.MEASURE: RelationToCentralDecision.EVIDENCES,          # what it will be judged by
+    Kind.BUSINESS_CONTEXT: RelationToCentralDecision.INFORMS,   # the setting it is taken in
+    Kind.STAKEHOLDER: RelationToCentralDecision.INFORMS,        # who else it touches
+}
+
+# A FACT's bearing is its basis. The client's own words and a quote the
+# document demonstrably contains are evidence; a quote verify_quote could NOT
+# find in the hashed text only informs, because that is the same distinction
+# the promotion test already makes (ingest.verify_quote) and a record the
+# document may never have made must not weigh as one it did.
+BEARING_BY_FACT_BASIS: Mapping[FactBasis, RelationToCentralDecision] = {
+    FactBasis.CLIENT_STATED: RelationToCentralDecision.EVIDENCES,
+    FactBasis.DOCUMENT_VERIFIED: RelationToCentralDecision.EVIDENCES,
+    FactBasis.EXTERNAL_SOURCED: RelationToCentralDecision.EVIDENCES,
+    FactBasis.CALCULATED: RelationToCentralDecision.EVIDENCES,
+    FactBasis.DOCUMENT_EXTRACTED: RelationToCentralDecision.INFORMS,
+    FactBasis.INFERRED: RelationToCentralDecision.INFORMS,
+}
+
+# One statement, one vote. How far a statement moves a candidate is priced by
+# its relation (REL_MULTIPLIER) and discounted by its confidence; a second,
+# separately chosen number would be a producer grading its own evidence, and
+# the ranking would stop being a function of what the rows ARE.
+STATEMENT_WEIGHT = 1.0
+
+# Recorded in Relevance.rationale so a link the partner derived is legible in
+# lineage as derived, and is never mistaken for one a method computed from
+# evidence. The kind it was derived from is appended.
+BEARING_RATIONALE = "partner:bearing:kind"
+
+# The envelope of a statement that bears on nothing. Named once so every
+# producer writes the same absence, and so "unattached" is a value rather than
+# two literals repeated at eight sites.
+UNATTACHED: tuple[Relevance, RelationToCentralDecision] = (
+    Relevance(None, 0.0), RelationToCentralDecision.UNKNOWN)
 
 
 def _bound(bounds: Any, name: str):
@@ -106,6 +166,55 @@ def stated_request(view) -> Entity | None:
         if d.payload.role == DecisionRole.STATED_REQUEST:
             return d
     return None
+
+
+def bearing_relation(kind: Kind, payload: Any = None) -> RelationToCentralDecision:
+    """How a statement of this kind stands to the decision it was made under.
+
+    A kind (or a fact basis) the tables do not name returns UNKNOWN, which is
+    zero in the score. That is absence, not a verdict: nothing here decides
+    that a row is irrelevant, only that nothing has been derived for it.
+    """
+    if kind is Kind.FACT:
+        return BEARING_BY_FACT_BASIS.get(getattr(payload, "basis", None),
+                                         RelationToCentralDecision.UNKNOWN)
+    return BEARING_BY_KIND.get(kind, RelationToCentralDecision.UNKNOWN)
+
+
+def bearing_decision(view) -> Entity | None:
+    """The decision a statement made now bears on: the CENTRAL decision once
+    the engagement has one, else the request the client stated.
+
+    Read from the registry alone. No candidate id is ever rendered into an
+    extraction prompt, so the model cannot choose which candidate a piece of
+    evidence counts for; and no ordering, hash or tie-break picks one, so a
+    registry with no stated request attaches nothing rather than guessing.
+    """
+    central = view.central_decision()
+    if central is not None:
+        return central
+    return stated_request(view)
+
+
+def bearing(view, kind: Kind, payload: Any = None) -> tuple[Relevance, RelationToCentralDecision]:
+    """The (relevance, relation) envelope a statement of this kind is born
+    with: what it bears on, and how.
+
+    Both halves or neither. A relation without a decision would arm the gates
+    that read relation structurally (charter situation, materiality, question
+    sensitivity) on a decision nobody has stated; a decision without a relation
+    would score zero anyway. When either is missing the row is born UNATTACHED,
+    checked with `is None` and an explicit UNKNOWN comparison so an absent link
+    stays absent rather than reading as a weak one.
+    """
+    relation = bearing_relation(kind, payload)
+    if relation is RelationToCentralDecision.UNKNOWN:
+        return UNATTACHED
+    decision = bearing_decision(view)
+    if decision is None:
+        return UNATTACHED
+    return (Relevance(decision.id, STATEMENT_WEIGHT, f"{BEARING_RATIONALE}:{kind.value}"),
+            relation)
 
 
 def hypothesis_scores(view) -> dict[str, float]:

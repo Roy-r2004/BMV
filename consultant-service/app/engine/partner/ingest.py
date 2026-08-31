@@ -33,6 +33,12 @@ registry decides them. The laws this module lives by:
   * xlsx is refused with a QUESTION asking for a CSV or PDF export (design 22,
     MF3.8): a workbook read through a guessed parser would be a record nobody
     can verify.
+  * A statement is born bearing on the decision it was stated under (design
+    6.4). What it bears on and how is DERIVED by hypothesis.bearing() from the
+    kind and the basis - never returned by the model, which is never even shown
+    a candidate decision id - so the ranking stays a function of the registry.
+    The decision a message states is registered before what the message says
+    about it, or the opening statement's own evidence would bear on nothing.
 """
 from __future__ import annotations
 
@@ -40,12 +46,13 @@ import csv
 import hashlib
 import io
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Sequence
 
 from pydantic import BaseModel
 
 from app.engine.calc.units import parse_quantity
 from app.engine.llm import ModelCall, ModelProvider, StructuredFailure, structured_call
+from app.engine.partner.hypothesis import bearing
 from app.engine.registry import EngagementRegistry
 from app.engine.templating import render
 from app.engine.types import (
@@ -59,6 +66,7 @@ from app.engine.types import (
 
 __all__ = [
     "IngestOutcome",
+    "TURN_ACTOR_PREFIX",
     "TURN_CANDIDATE_KINDS",
     "TurnExtraction",
     "DocumentExtraction",
@@ -68,6 +76,12 @@ __all__ = [
     "open_questions",
     "verify_quote",
 ]
+
+# The actor_ref every row ingestion writes carries, turn number appended. A
+# Name, not a literal at three sites: it is how a reader tells a row the client
+# put on the record in discovery from one an analysis wrote later, and the
+# benchmark reads it to rank a charter on the client's evidence alone.
+TURN_ACTOR_PREFIX = "partner:turn:"
 
 # The kinds one conversation turn may propose (design 6.2 step 1). A closed
 # list rendered into the prompt; anything else the model returns is dropped.
@@ -171,16 +185,28 @@ def open_questions(registry: EngagementRegistry) -> list[Entity]:
 
 def _proposed(engagement_id: str, kind: Kind, payload: Any, *, actor_ref: str,
               derived_from: tuple[str, ...], locator: str | None = None,
-              model_call_id: str | None = None) -> Entity:
+              model_call_id: str | None = None,
+              relevance: Relevance | None = None,
+              relation: RelationToCentralDecision = RelationToCentralDecision.UNKNOWN) -> Entity:
     """Every entity ingestion writes is a proposal: nothing ingested is ever
     CONFIRMED by ingestion - confirmation is an authority's recorded act, and
-    extraction is not an authority over anything."""
+    extraction is not an authority over anything.
+
+    `relevance`/`relation` are the bearing hypothesis.bearing() derived for the
+    row, passed in by the caller that could see the registry. They default to
+    unattached, so a process row (the turn's own EVIDENCE_SOURCE, a question)
+    stays out of the ranking without a caller having to say so. Attaching here,
+    at birth, is the only lawful moment for a client fact: I2 lets only the
+    client supersede one, so a partner pass that came back later to link it
+    would be refused on exactly the rows that carry the engagement.
+    """
     return make_entity(
         kind=kind, engagement_id=engagement_id, payload=payload,
         provenance=Provenance(actor=Actor.PARTNER, actor_ref=actor_ref, derived_from=derived_from,
                               source_locator=locator, model_call_id=model_call_id),
-        confidence=Confidence(None), relevance=Relevance(None, 0.0),
-        relation=RelationToCentralDecision.UNKNOWN,
+        confidence=Confidence(None),
+        relevance=Relevance(None, 0.0) if relevance is None else relevance,
+        relation=relation,
         status=Status.PROPOSED,
     )
 
@@ -233,10 +259,11 @@ def _resolve_measure(registry: EngagementRegistry, measure_id: str | None, measu
     key = name.lower()
     if key in batch:
         return batch[key], None
-    entity = _proposed(registry.engagement_id, Kind.MEASURE,
-                       MeasurePayload(name=name, unit_family=family or UnitFamily.OTHER),
+    payload = MeasurePayload(name=name, unit_family=family or UnitFamily.OTHER)
+    relevance, relation = bearing(registry, Kind.MEASURE, payload)
+    entity = _proposed(registry.engagement_id, Kind.MEASURE, payload,
                        actor_ref=actor_ref, derived_from=derived_from, locator=locator,
-                       model_call_id=model_call_id)
+                       model_call_id=model_call_id, relevance=relevance, relation=relation)
     row = registry.apply(Add(entity))
     batch[key] = row.id
     return row.id, row
@@ -248,6 +275,22 @@ def _turn_kind(value: str) -> Kind | None:
     except ValueError:
         return None
     return kind if kind in TURN_CANDIDATE_KINDS else None
+
+
+def _decision_first(candidates: Sequence[_TurnCandidate]) -> list[_TurnCandidate]:
+    """The decision a message states, before what the message says about it.
+
+    A statement is born bearing on the decision it was stated under, so on the
+    turn that states the request the DECISION row has to exist before the facts
+    that came in the same message are constructed - otherwise the opening
+    statement, the largest batch of the engagement, would bear on nothing and
+    the ranking would start empty. The partition is stable, so within each
+    group the model's order is preserved and the result is a fact about the
+    batch rather than about how the model happened to sort it.
+    """
+    first = [c for c in candidates if c.unknown is not True and _turn_kind(c.kind) is Kind.DECISION]
+    rest = [c for c in candidates if c.unknown is True or _turn_kind(c.kind) is not Kind.DECISION]
+    return first + rest
 
 
 def _turn_payload(kind: Kind, cand: _TurnCandidate, *, turn_number: int,
@@ -431,7 +474,7 @@ def ingest_turn(registry: EngagementRegistry, provider: ModelProvider, message: 
     """One client message -> one EVIDENCE_SOURCE turn row -> PROPOSED
     candidates citing it. The registry refuses what breaks its laws; the
     refusals are the outcome's to show, never this module's to hide."""
-    actor_ref = f"partner:turn:{turn_number}"
+    actor_ref = f"{TURN_ACTOR_PREFIX}{turn_number}"
     source = registry.apply(Add(_proposed(
         registry.engagement_id, Kind.EVIDENCE_SOURCE,
         EvidenceSourcePayload(name=f"turn {turn_number}", source_kind=SourceKind.CONVERSATION_TURN,
@@ -459,7 +502,7 @@ def ingest_turn(registry: EngagementRegistry, provider: ModelProvider, message: 
     refused: list[str] = []
     answered: list[str] = []
     batch: dict[str, str] = {}
-    for cand in extraction.candidates:
+    for cand in _decision_first(extraction.candidates):
         answers = tuple(qid for qid in cand.answers if qid in askable_ids)
         if cand.unknown is True:
             for qid in answers:
@@ -488,9 +531,13 @@ def ingest_turn(registry: EngagementRegistry, provider: ModelProvider, message: 
                                 measure_id=measure_id)
         if payload is None:
             continue
+        # Read fresh per candidate: the DECISION this message states is applied
+        # first (_decision_first) and is already in the registry by the time the
+        # rest of the same message is constructed.
+        relevance, relation = bearing(registry, kind, payload)
         entity = _proposed(registry.engagement_id, kind, payload, actor_ref=actor_ref,
                            derived_from=(source.id,), locator=cand.quote or None,
-                           model_call_id=response.call_id)
+                           model_call_id=response.call_id, relevance=relevance, relation=relation)
         try:
             row = registry.apply(Add(entity))
         except RegistryError as exc:
@@ -520,7 +567,7 @@ def ingest_document(registry: EngagementRegistry, provider: ModelProvider, *, na
     """One attachment -> one hashed EVIDENCE_SOURCE row (sha256, byte_size,
     text_ref), its extracted text registered for I2, and candidate FACTs whose
     basis is decided by verify_quote() alone."""
-    actor_ref = f"partner:turn:{turn_number}"
+    actor_ref = f"{TURN_ACTOR_PREFIX}{turn_number}"
     digest = hashlib.sha256(data).hexdigest()
     text, source_kind, refusal = extract_text(name, data)
     source = registry.apply(Add(_proposed(
@@ -594,9 +641,13 @@ def ingest_document(registry: EngagementRegistry, provider: ModelProvider, *, na
             created.append(measure_row)
         payload = FactPayload(statement=(f.statement or f.quote).strip(), basis=basis,
                               measure_id=measure_id, quantity=quantity, record_class=record_class)
+        # The bearing follows the basis verify_quote just decided: a quote the
+        # document actually contains evidences the decision, one it does not
+        # only informs it (hypothesis.BEARING_BY_FACT_BASIS).
+        relevance, relation = bearing(registry, Kind.FACT, payload)
         entity = _proposed(registry.engagement_id, Kind.FACT, payload, actor_ref=actor_ref,
                            derived_from=(source.id,), locator=f.quote or None,
-                           model_call_id=response.call_id)
+                           model_call_id=response.call_id, relevance=relevance, relation=relation)
         try:
             created.append(registry.apply(Add(entity)))
         except RegistryError as exc:

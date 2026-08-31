@@ -7,10 +7,15 @@ locator; a client fact whose statement is not a substring of the turn is
 refused by the registry; sha256 recorded; two equal-rank documents on one
 measure open a provenance question; a fact attaches to an existing MEASURE id
 when the model chose one; nothing ingested is CONFIRMED; a 'don't know'
-answer sets unknown=True and the question is never re-asked.
+answer sets unknown=True and the question is never re-asked; a statement is
+born bearing on the decision it was stated under, in the relation its kind
+stands in, and the model is never asked which decision that is.
 
 Named mutations: write CONFIRMED on extraction; promote on a similarity
-match; confirm record_class from the model's proposal.
+match; confirm record_class from the model's proposal; drop the bearing at
+birth; drop the decision-first ordering; attach a bearing to a kind the table
+does not name; let an unverified document quote evidence the decision; render
+a candidate decision id into the extraction prompt.
 """
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ from decimal import Decimal
 import pytest
 
 from app.engine import types as T
+from app.engine.partner import hypothesis as H
 from app.engine.partner import ingest as I
 
 MESSAGE = "We take 120 orders a week and a third arrive late."
@@ -349,3 +355,146 @@ def test_model_failure_keeps_the_turn_row_and_reports(registry, fake_provider):
     assert outcome.failure is not None
     assert outcome.created == ()
     assert reg.get(outcome.source.id) is not None
+
+
+# --- what a statement bears on (design 6.4) ---------------------------------
+
+def _decision_candidate(text: str = MESSAGE) -> dict:
+    return {"kind": "decision", "quote": text, "text": text}
+
+
+def test_a_statement_is_born_bearing_on_the_decision_it_was_stated_under(registry, fake_provider):
+    """The link the whole ranking is made of. Before this, every row ingestion
+    wrote carried relevance.decision_id None and relation UNKNOWN, so
+    score(d) was 0 for every candidate, charter_ready could never be confident
+    and no charter - and therefore no analysis - ever happened.
+
+    Mutation 'drop the bearing at birth': stop passing relevance/relation into
+    _proposed and every assertion below fails, the last one loudest - the
+    ranking goes back to all zeros.
+    """
+    reg = registry()
+    fake = fake_provider(script={"extract_turn": [_turn_json(
+        _decision_candidate(),
+        {"kind": "objective", "quote": "a third arrive late", "text": "cut late deliveries"},
+        {"kind": "constraint", "quote": "a third arrive late", "text": "no new hires"},
+        {"kind": "stakeholder", "quote": "We take 120 orders a week", "text": "the depot team"},
+        _fact_candidate("We take 120 orders a week"),
+    )]})
+    outcome = I.ingest_turn(reg, fake, MESSAGE, turn_number=1)
+    by_kind = {e.kind: e for e in outcome.created}
+    decision = by_kind[T.Kind.DECISION]
+
+    for kind, relation in ((T.Kind.OBJECTIVE, T.RelationToCentralDecision.DEFINES),
+                           (T.Kind.CONSTRAINT, T.RelationToCentralDecision.CONSTRAINS),
+                           (T.Kind.STAKEHOLDER, T.RelationToCentralDecision.INFORMS),
+                           (T.Kind.FACT, T.RelationToCentralDecision.EVIDENCES)):
+        row = by_kind[kind]
+        assert row.relevance.decision_id == decision.id, kind
+        assert row.relation is relation, kind
+        assert row.relevance.weight == H.STATEMENT_WEIGHT, kind
+        # the link says in lineage that the partner derived it, so it is never
+        # mistaken for one a method computed from evidence
+        assert row.relevance.rationale.startswith(H.BEARING_RATIONALE), kind
+
+    # A candidate never votes - for itself or for a rival.
+    assert decision.relevance.decision_id is None
+    assert decision.relation is T.RelationToCentralDecision.UNKNOWN
+
+    # ... and the ranking the charter reads is no longer empty.
+    assert H.hypothesis_scores(reg)[decision.id] > 0.0
+    assert H.hypothesis_weights(reg) == {decision.id: 1.0}
+
+
+def test_the_decision_a_message_states_is_registered_before_what_it_says_about_it(
+        registry, fake_provider):
+    """Mutation 'drop the decision-first ordering': with the model returning
+    the fact first, the fact is constructed while no DECISION exists and is
+    born unattached - the opening statement, the largest batch of the
+    engagement, would drop out of the ranking on the order the model happened
+    to answer in."""
+    reg = registry()
+    fake = fake_provider(script={"extract_turn": [_turn_json(
+        _fact_candidate("We take 120 orders a week"),
+        {"kind": "objective", "quote": "a third arrive late", "text": "cut late deliveries"},
+        _decision_candidate(),
+    )]})
+    outcome = I.ingest_turn(reg, fake, MESSAGE, turn_number=1)
+    by_kind = {e.kind: e for e in outcome.created}
+    decision = by_kind[T.Kind.DECISION]
+    assert by_kind[T.Kind.FACT].relevance.decision_id == decision.id
+    assert by_kind[T.Kind.OBJECTIVE].relevance.decision_id == decision.id
+
+
+def test_a_row_whose_bearing_is_not_derived_is_born_unattached(registry, fake_provider):
+    """Absent evidence is not evidence of a defect: the turn's own source row
+    is a process record of where words came from, not evidence about a
+    decision, and it stays out of the arithmetic entirely.
+
+    Mutation 'attach a bearing to a kind the table does not name': give
+    BEARING_BY_KIND a default and the source row starts voting for the
+    decision it merely carried.
+    """
+    reg = registry()
+    fake = fake_provider(script={"extract_turn": [_turn_json(_decision_candidate())]})
+    outcome = I.ingest_turn(reg, fake, MESSAGE, turn_number=1)
+    source = reg.get(outcome.source.id)
+    assert source.relevance.decision_id is None
+    assert source.relevance.weight == 0.0
+    assert source.relation is T.RelationToCentralDecision.UNKNOWN
+    # one candidate, and only the DECISION row is in the running
+    decision = next(e for e in outcome.created if e.kind is T.Kind.DECISION)
+    assert H.hypothesis_scores(reg) == {decision.id: 0.0}
+
+
+def test_an_unverified_document_quote_only_informs_the_decision(registry, fake_provider):
+    """The bearing follows the basis verify_quote just decided. A quote the
+    document does not actually contain must not weigh as much as one it does,
+    or an unverifiable reading would outrank the record.
+
+    Mutation 'let an unverified document quote evidence the decision': map
+    DOCUMENT_EXTRACTED to EVIDENCES and the two relations below become equal.
+    """
+    reg = registry()
+    fake = fake_provider(script={
+        "extract_turn": [_turn_json(_decision_candidate())],
+        "extract_document": [_doc_json(facts=[
+            {"quote": "weekly orders: 120", "statement": "weekly orders 120"},
+            {"quote": "WEEKLY ORDERS: 120", "statement": "weekly orders restated"},
+        ])],
+    })
+    turn = I.ingest_turn(reg, fake, MESSAGE, turn_number=1)
+    decision = next(e for e in turn.created if e.kind is T.Kind.DECISION)
+    outcome = _ingest_doc(reg, fake, turn=2)
+    by_basis = {e.payload.basis: e for e in outcome.created if e.kind is T.Kind.FACT}
+    verified = by_basis[T.FactBasis.DOCUMENT_VERIFIED]
+    extracted = by_basis[T.FactBasis.DOCUMENT_EXTRACTED]
+    assert verified.relation is T.RelationToCentralDecision.EVIDENCES
+    assert extracted.relation is T.RelationToCentralDecision.INFORMS
+    assert verified.relevance.decision_id == decision.id
+    assert extracted.relevance.decision_id == decision.id
+    # the arithmetic, not only the label: the verified record weighs more
+    assert H.REL_MULTIPLIER[verified.relation] > H.REL_MULTIPLIER[extracted.relation]
+
+
+def test_extraction_is_never_asked_which_decision_a_candidate_bears_on(registry, fake_provider):
+    """The prohibition that keeps design 6.4 a law about the registry. If the
+    prompt showed a candidate id and the schema had a field for it, the
+    ranking would be a number the model returned and 'adding evidence flips
+    the ranking with no model call' would become a claim about a prompt.
+
+    Mutation 'render a candidate decision id into the extraction prompt': add
+    a CANDIDATE DECISIONS block to extract_turn.j2 and the id assertion fails.
+    """
+    reg = registry()
+    fake = fake_provider(script={"extract_turn": [_turn_json(_decision_candidate()),
+                                                  _turn_json()]})
+    I.ingest_turn(reg, fake, MESSAGE, turn_number=1)
+    assert H.stated_request(reg) is not None            # there IS one to leak
+    I.ingest_turn(reg, fake, "A third arrive late.", turn_number=2)
+
+    prompt = fake.calls[-1].messages[0]["content"]
+    assert T.ID_PREFIX[T.Kind.DECISION] + "-" not in prompt
+    for schema in (I._TurnCandidate, I._DocumentFact):
+        for field in ("relation", "decision_id", "relevance", "weight", "relevance_decision_id"):
+            assert field not in schema.model_fields, f"{schema.__name__}.{field}"
