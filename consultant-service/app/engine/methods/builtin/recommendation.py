@@ -874,6 +874,16 @@ def pending(view: Any) -> bool:
     if not standing:
         if option is not None and comparison is not None:
             return True
+        # The impasse is already on the register over these very routes.
+        # Running again would add a DECISION_REQUIRED whose text is
+        # byte-identical to the standing one -- two benchmark engagements
+        # shipped DRQ-1 and DRQ-2 differing only in id, which is a client
+        # told twice, in the same words, that the same decision is
+        # unsettled. Refusing the node HERE rather than emitting nothing
+        # in the run is the difference between not needing to speak and
+        # being silent: an inert run is what R7 forbids, and T6 measures.
+        if already_declined(view, decision, options):
+            return False
         return not settling_producers(view)
     held = standing[0]
     if option is not None and comparison is not None:
@@ -984,7 +994,7 @@ def _standing_hole(ctx: MethodContext, view: Any, decision: T.Entity,
     routes = named_routes(view, options, ids)
     if reason == POINTS_TWO_WAYS:
         standing = (f"{decision.id} cannot be settled while what this engagement registered about "
-                    f"these routes points more than one way: {', '.join(details)} bear on {routes} "
+                    f"these routes points more than one way: {', '.join(details)} {_bears(details)} on {routes} "
                     "and do not agree.")
     else:
         standing = (f"{decision.id} cannot be settled while nothing tells these routes apart: "
@@ -1086,7 +1096,7 @@ def unsettled_because(view: Any, decision: T.Entity, options: Mapping[str, T.Ent
                 "so nothing records why one would be taken over another")
     if reason == POINTS_TWO_WAYS:
         return (f"what this engagement registered about these routes points more than one way: "
-                f"{', '.join(details)} bear on {comparison.id} ({', '.join(ids)}) and do not agree, "
+                f"{', '.join(details)} {_bears(details)} on {comparison.id} ({', '.join(ids)}) and do not agree, "
                 "so advising any of them would be preferring one reason over another without "
                 "recording why")
     if reason == UNEVIDENCED:
@@ -1096,6 +1106,13 @@ def unsettled_because(view: Any, decision: T.Entity, options: Mapping[str, T.Ent
     return (f"nothing this engagement has registered tells these routes apart: "
             f"{named_routes(view, options, ids)}. What would settle it: "
             f"{settles_this_choice(view, ids)}")
+
+
+def _bears(details: Sequence[str]) -> str:
+    """"bears" or "bear": a client reads "COS-3 bear on TRD-1" as a typo, and
+    a report that cannot count its own citations is not trusted about the
+    numbers inside them."""
+    return "bears" if len(details) == 1 else "bear"
 
 
 def _no_conclusion(ctx: MethodContext, decision: T.Entity, options: Mapping[str, T.Entity],
@@ -1151,6 +1168,28 @@ def _contested(ctx: MethodContext, decision: T.Entity, standing: T.Entity,
         derived_from=(standing.id, decision.id, comparison.id) + tuple(contests),
         relation=T.RelationToCentralDecision.RESOLVES, confidence=T.Confidence(None),
         decision_id=decision.id, weight=weight, status=T.Status.OPEN))
+
+
+def already_declined(view: Any, decision: T.Entity, options: Mapping[str, T.Entity]) -> bool:
+    """Whether this impasse is already on the register.
+
+    The advice path and the contest path are both guarded; this one was not,
+    so a second run over an unchanged register added a DECISION_REQUIRED whose
+    text was byte-identical to the standing row. Two benchmark engagements ship
+    DRQ-1 and DRQ-2 differing only in id, which is what an unguarded path looks
+    like from the outside: the client is told twice, in the same words, that
+    the same decision is unsettled.
+
+    Keyed on the decision and the routes it could not choose between, not on
+    the rendered text: two rows about the same decision over the same routes
+    are the same impasse however the wording differs, and text-keying would
+    let a row that merely gained an id through as new. The payload carries no
+    typed reason field, so this pair is the structural identity available --
+    an impasse over a DIFFERENT route set is still recorded."""
+    routes = tuple(sorted(options))
+    return any(getattr(d.payload, "decision_id", None) == decision.id
+               and tuple(sorted(getattr(d.payload, "options", ()) or ())) == routes
+               for d in live(view, T.Kind.DECISION_REQUIRED))
 
 
 def already_contested(view: Any, standing: T.Entity, contests: Sequence[str]) -> bool:
@@ -1285,7 +1324,7 @@ class RecommendationMethod:
 __all__ = ["AGAINST_KINDS", "FOR_KINDS", "NOTHING_SEPARATES", "NO_COMPARISON", "NO_ROUTE",
            "POINTS_TWO_WAYS", "SETTLING_KINDS", "SPEC", "SUPPORT_STATUS", "UNDIRECTED_KINDS",
            "UNEVIDENCED", "RecommendationMethod", "advice_statement", "already_asked_about",
-           "already_contested", "already_recommended", "bearing_rows", "bears_on", "borrowed",
+           "already_contested", "already_declined", "already_recommended", "bearing_rows", "bears_on", "borrowed",
            "contesting_rows", "criteria_for", "directed", "impasse", "is_support", "named_routes",
            "normalised", "points_to", "registered_claims", "route_phrase", "separates",
            "settles_this_choice", "settling_producers", "gaps_closed", "repeats_evidence",
