@@ -525,6 +525,34 @@ def test_I8_a_calculated_fact_carries_formula_and_registered_inputs(registry):
 
 
 # ---------------------------------------------------------------------------
+# I9: production is bounded at the door as well as at its cause
+# ---------------------------------------------------------------------------
+
+def test_I9_an_analysis_kind_stops_at_MAX_ENTITIES_PER_ANALYSIS_KIND(registry):
+    """The last line of defence against a runaway producer.
+
+    An adversarial sweep found this branch could be deleted outright and forty
+    tests still passed: the ceiling was enforced by nothing anybody could
+    break. Bounding generation at its cause is the real fix and lives
+    upstream, but a registry that will accept an unbounded number of rows has
+    no floor under it when that upstream work regresses -- so the door is
+    pinned here, separately, and the number comes from BOUNDS rather than from
+    this test."""
+    reg = registry()
+    kind = next(iter(T.ANALYSIS_KINDS))
+    ceiling = int(T.BOUNDS["MAX_ENTITIES_PER_ANALYSIS_KIND"])
+    for _ in range(ceiling):
+        reg.apply(Add(ent(kind, sample_payload(kind), Actor.PARTNER, "partner")))
+    assert len(reg.live(kind)) == ceiling
+    with pytest.raises(RegistryError) as ei:                     # the row past the ceiling
+        reg.apply(Add(ent(kind, sample_payload(kind), Actor.PARTNER, "partner")))
+    assert ei.value.invariant == "I9"
+    assert len(reg.live(kind)) == ceiling
+    evidence = T.Kind.FACT                                       # negative control:
+    assert evidence not in T.ANALYSIS_KINDS                      # evidence is never rationed
+
+
+# ---------------------------------------------------------------------------
 # read side
 # ---------------------------------------------------------------------------
 

@@ -252,7 +252,17 @@ def test_the_registry_family_finds_every_invariant():
     site is its own law. The family must reach every invariant id, not just
     eight sites of one."""
     ids = {v.label.split()[2] for v in driver.family_registry_invariants()}
-    assert {"I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8"} <= ids, ids
+    # Derived from the source, never listed: a subset check against a hand-written
+    # list silently excused I9 the day it was added -- the branch that enforces
+    # MAX_ENTITIES_PER_ANALYSIS_KIND went a whole round with no mutation proving it,
+    # and deleting it left 40 tests passing. What the registry raises is what the
+    # family must cover.
+    import re as _re
+    _src = open(os.path.join(SERVICE_ROOT, "app", "engine", "registry.py"),
+                encoding="utf-8").read()
+    raised = set(_re.findall(r'RegistryError\(\s*"(I\d+)"', _src))
+    assert raised, "no invariant ids found in registry.py -- the derivation broke"
+    assert raised <= ids, sorted(raised - ids)
 
 
 # ---------------------------------------------------------------------------

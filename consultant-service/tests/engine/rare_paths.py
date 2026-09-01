@@ -63,4 +63,9 @@ TRACE_SCOPE_FILES: tuple[str, ...] = (
 # A path walked by NO case is not what this law is about: `single_path_findings`
 # iterates the trace, so a function nothing reaches is never judged by it. The
 # entry would have to be re-added, with evidence, the day a case walks it once.
+# Empty, and that is a claim rather than an oversight: the two entries this
+# table held (gates/laws.py:_finding, gates/release.py:_reason) name functions
+# that no longer exist under those names, and the guard below refuses an entry
+# whose function the run never executed -- it fails on each of them if restored.
+# Nothing in the engine currently claims an exemption from the single-path law.
 RARE_PATHS: dict[str, str] = {}
