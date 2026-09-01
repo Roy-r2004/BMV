@@ -105,7 +105,86 @@ that reads it, so an old row can pass a check a new row would fail. That is the 
 alternative - treating a missing field as a violation - would condemn history for the crime of predating
 the rule.
 
-## 9. Not deployed
+## 9. The delivery half of the method library is reachable, not complete
+
+The analysis loop now runs past its first tier: `capability_gap` writes a CAPABILITY, `operating_model`
+and `org_design` turn capabilities into WORKSTREAM, GOVERNANCE, ACTION and OWNER rows, `make_buy_partner`
+writes the OPTIONs it is the only writer of, `decision_criteria` writes the EVALUATION_CRITERION nothing
+in the build used to write, and `recommendation` writes a RECOMMENDATION that carries the confirmed
+evidence it rests on. Four things are still missing, and each is a real hole rather than a fixture
+artefact:
+
+- **INITIATIVE has no creator.** `roadmap` only re-orders initiatives and `legacy_r30_technology_blueprint`
+  is the other declared producer, so no run writes one. MILESTONE is written per workstream that has work
+  in it, and "work in it" is read through INITIATIVE - so `transformation_roadmap` stays unplannable even
+  on engagements that hold workstreams and actions.
+- **BENEFIT, COST and ASSUMPTION are written by no reachable method.** `cost_benefit` is selected and is
+  blocked on a FACT filter no fake run satisfies; `scenario` is blocked on ASSUMPTION, which only the
+  legacy adapter writes.
+- **The legacy adapter cannot run under an assignment.** It writes CONFIRMED rows, and S2 admits only
+  PROPOSED ones from a specialist, so its one selection in the fifteen cases is refused and recorded
+  BLOCKED. Either the adapter proposes and something else confirms, or the rule needs a carve-out that
+  says why.
+- **Advice is not a copy of its evidence, and nothing in it is a client's sentence.** A RECOMMENDATION
+  selects one registered OPTION, names the routes it was taken over, cites the EVALUATION_CRITERIA the
+  decision is judged against and the TRADE_OFF that weighed the routes, and rests on evidence a support
+  law admits. A route is now named from the CAPABILITY gaps it would close, in the words this engagement
+  recorded them in - which is what makes an option about this engagement rather than about a class of
+  capability - so the recommender quotes a route only where that route's own wording is not already a
+  claim the register holds, and names it by id and mechanism otherwise (`route_phrase`). It refuses in
+  the same way to borrow any wording a live FACT, MEASURE or EVIDENCE_SOURCE already carries. `L16`
+  re-checks the same question at the door, over figures and scope.
+- **The choice follows registered evidence, and there is often none to follow.** A route is advised only
+  where the register tells it from every rival in the comparison AND everything that tells them apart
+  points the same way: a BENEFIT bearing on one route is a reason for it, a COST, a RISK or a CONSTRAINT
+  bearing on one route is a reason against it, and the direction comes from the KIND, never from the
+  words. An EVALUATION_CRITERION and a Score separate routes without pointing anywhere - a criterion
+  declares no direction - so a scored comparison the engine cannot read a direction in is handed back
+  with the scores visible. Where nothing separates the routes, the engagement does NOT choose: it
+  records a typed DECISION_REQUIRED against the decision, asks the client per route what that route
+  costs and gains, and leaves a standing SPAWN_SPECIALIST question naming the kinds of evidence that
+  would settle it. Under the case-blind fake this is what happens on all fifteen engagements: no COST,
+  no BENEFIT, no RISK, no CONSTRAINT and no score names one sourcing route rather than another, because
+  nothing in the library writes per-route evidence and the fake client's records are exhausted before
+  the routes exist. **The fake benchmark therefore produces no RECOMMENDATION at all**, and three
+  assertions that were green while the engine advised `make` on every engagement now fail:
+  `delivery_tier_failures` P3, the blocked-claims measurement beside it, and the two rare-path entries
+  that only a live recommendation reaches. That is the honest state: the engine advises whenever the
+  register separates the routes (proved on hand-built mirror registries, where mirroring the evidence
+  mirrors the advice), and a case-blind oracle cannot make a register that separates them.
+- **Not every engagement ends in advice, and none of the fake ones does.** An engagement that registers
+  the capability gaps, the sourcing routes and the comparison between them and still advises nothing -
+  because no route's lineage reaches a CONFIRMED FACT or an APPROVED ASSUMPTION, or because nothing
+  separates the routes - records a typed DECISION_REQUIRED against the central decision and an OPEN
+  question that names, in typed fields, the decision it blocks (`Relevance.decision_id`), the routes it
+  is about (`QuestionPayload.about_ids`) and the kinds of evidence that would settle it (`asks_for`).
+  How many is deliberately not written down here: the count moves with the trees the model proposes,
+  and a number in a paragraph goes stale without failing anything. This is written down in
+  `assertions.BLOCKED_CLAIMS["advice_on_every_core_case"]` and pinned by a test that measures the
+  stated cause rather than reading it.
+- **A model call can still be spent on an answer nothing keeps.** A method is no longer offered a node
+  once a run of it kept nothing, nor a window it has already been shown (`input_fingerprint`), nor one
+  it can say from the register alone it has nothing to do with (`MethodSpec.pending`). Across the
+  fifteen fake engagements that took generate-and-discard runs from 80 to 23 and runs that left the
+  registry untouched from 34 to 0, and no method is run twice after a run of it kept nothing. What
+  remains is 23 FIRST runs of four model-assisted methods - `market_sizing`, `market_competitor`,
+  `root_cause`, `capability_gap` - whose declared output kinds are also kinds their window is full of,
+  under an oracle that can only quote the window: every candidate they generate restates a wording the
+  engagement already holds and the admission law refuses all of it. The engine cannot know that before
+  the call without assuming the model quotes, and an engine that assumed it would silence those methods
+  in production, where they do not. `test_engine_decision_laws.py::test_t6_nothing_is_generated_and_thrown_away`
+  fails on exactly those 23 runs and is left failing rather than weakened.
+
+## 10. A client can confirm their own words only through the engine, not through the API
+
+`charter.confirm_understanding` is the act that moves a client-stated FACT from PROPOSED to CONFIRMED, and
+`registry._is_support` admits nothing else without a document - so it is the only path to a supported
+recommendation on an engagement with no records to hand (MF2.1). `Partner.confirm_understanding` exposes
+it and the benchmark's simulated client exercises it, but `app/engine/api/router.py` has no endpoint for
+it yet: the reply already carries `understanding`, and nothing lets a real client answer it. Until that
+endpoint exists, a real engagement can reach a recommendation only through documents.
+
+## 11. Not deployed
 
 Per the owner's constraint, the engine is not deployed and does not replace the r30 pipeline. r30 remains
 the proven path until the universal engine passes every benchmark independently, on real models, read by a

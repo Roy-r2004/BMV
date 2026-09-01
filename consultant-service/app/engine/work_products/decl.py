@@ -267,6 +267,15 @@ def _declare() -> None:
             _sec("the_decision", "The decision", "statement_list", _CENTRAL, required=True),
             _sec("recommendations", "Recommendations", "statement_list", _spec("recommendations", Kind.RECOMMENDATION), required=True),
             _sec("key_facts", "What the evidence shows", "evidence_table", _spec("facts", Kind.FACT)),
+            # What the client said the answer has to live within. No product
+            # read a CONSTRAINT at all before this: the limits a client states
+            # are the first thing that makes a recommendation wrong, and the
+            # brief that states the recommendation was not stating them. The
+            # section is planned only where the engagement holds one, so a
+            # brief on an engagement that declared no limits does not carry an
+            # empty heading claiming there are none.
+            _sec("constraints", "What the answer must live within", "label_list",
+                 _spec("constraints", Kind.CONSTRAINT)),
             _sec("open_questions", "Open questions", "label_list", _spec("questions", Kind.QUESTION)),
             _sec("risks", "Risks", "label_list", _spec("risks", Kind.RISK)),
         )))

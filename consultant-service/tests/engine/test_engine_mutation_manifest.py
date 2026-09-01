@@ -181,6 +181,17 @@ def test_check_is_clean_on_the_manifest_as_it_stands():
 # M3 - applicability. A mutation that cannot be applied proves nothing.
 # ---------------------------------------------------------------------------
 
+def _lf(text: str) -> str:
+    """Line endings normalised to LF.
+
+    Anchors are authored with LF; git checks the working tree out as CRLF on
+    Windows. Comparing them literally reported four live laws as retired --
+    the anchor matched nothing, so the mutation was never applied and the law
+    it guards was never proven. That is precisely the silent failure this
+    module exists to catch, so it must not be caused by this module."""
+    return '\n'.join(text.splitlines())
+
+
 def test_every_declared_anchor_matches_its_source_exactly_once():
     """The difference between a mutation regime and a decorative list of
     intentions. An anchor that matches nothing was silently retired by a
@@ -199,7 +210,11 @@ def test_every_declared_anchor_matches_its_source_exactly_once():
                     continue
                 with open(path, encoding="utf-8", newline="") as fh:
                     text = fh.read()
-                count = text.count(edit.old)
+                # An anchor is authored with LF; git checks the tree out as
+                # CRLF on Windows. Comparing them literally reports a live law
+                # as retired -- the one failure mode this test exists to catch
+                # -- so the newline convention is normalised on both sides.
+                count = _lf(text).count(_lf(edit.old))
                 if count != 1:
                     problems.append(
                         f"{m.mid} [{variant.label}]: anchor occurs {count}x in {edit.path}: "

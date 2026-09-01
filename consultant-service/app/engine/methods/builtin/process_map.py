@@ -26,6 +26,7 @@ The laws, and the failures they prevent:
 """
 from __future__ import annotations
 
+import dataclasses
 from app.engine import types as T
 from app.engine.methods.builtin.capability_gap import (
     ProposalSheet,
@@ -36,6 +37,7 @@ from app.engine.methods.builtin.capability_gap import (
     dropped,
     gap_of,
     model_proposals,
+    new_evidence_remains,
     perspective_validator,
     proposed_entity,
     question_payloads,
@@ -51,6 +53,7 @@ from app.engine.methods.contract import (
     QuestionShape,
     register,
 )
+from typing import Any
 
 PERSPECTIVE = T.StepPerspective.INTERNAL
 CAPABILITY_CLASS = T.CapabilityClass.PROCESS
@@ -108,6 +111,23 @@ _INSTRUCTIONS = (
     "themselves show a process capability, with a 'gap' field (one of: "
     + " | ".join(g.value for g in T.GapState) + ")."
 )
+
+
+def pending(view: Any) -> bool:
+    """Whether this method still has anything to conclude here.
+
+    a step is drawn from the facts and process rows this method has not already
+    mapped.
+
+    `new_evidence_remains` asks that in one place for every method that words
+    a conclusion through the shared admission law, because it is that law -
+    the door that refuses a restatement and an output citing rows it was not
+    shown - that decides what a further call could keep.
+    """
+    return new_evidence_remains(SPEC, view)
+
+
+SPEC = dataclasses.replace(SPEC, pending=pending)
 
 
 @register

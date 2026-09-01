@@ -44,7 +44,7 @@ from typing import Any, Sequence
 
 from app.engine import types as T
 from app.engine.calc.arith import quantity_of
-from app.engine.methods.builtin.capability_gap import added_of
+from app.engine.methods.builtin.capability_gap import added_of, wording
 from app.engine.methods.builtin.cost_benefit import live
 from app.engine.methods.contract import (
     EvidenceRequirement,
@@ -189,11 +189,25 @@ def already_registered(view: Any, payload: T.TradeOffPayload) -> bool:
     return False
 
 
+def _named(entity: T.Entity) -> str:
+    """A row as a question may name it: the row's own words, with its id kept
+    so the answer is unambiguous.
+
+    A question worded from ids alone says nothing to the person being asked -
+    "what evidence scores OPT-98 on CRI-1" is not a question a client can
+    answer - and it is the same sentence in every engagement, because ids are
+    counters. The words are the engagement's own, so two engagements ask two
+    different questions for the same structural reason.
+    """
+    return f"{wording(entity)} ({entity.id})"
+
+
 def evidence_question(ctx: MethodContext, option: T.Entity, criterion: T.Entity) -> T.QuestionPayload:
     """O2's typed hole: no evidenced score for this pair. Asked, never filled
     with a placeholder - an unscored option renders as unscored."""
     return T.QuestionPayload(
-        text=f"What evidence scores {option.id} on {criterion.id}? The option is listed unscored on that criterion until there is some",
+        text=(f"What evidence scores {_named(option)} on {_named(criterion)}? "
+              f"The option is listed unscored on that criterion until there is some"),
         asks_for=(T.AsksFor(T.Kind.FACT, {"has_quantity": True}),),
         issue_ids=ctx.issue_ids,
         why="a score with no evidence behind it is a judgement the engine is not entitled to make",
@@ -203,7 +217,7 @@ def evidence_question(ctx: MethodContext, option: T.Entity, criterion: T.Entity)
 def weights_question(ctx: MethodContext, decision_id: str, criteria: Sequence[T.Entity]) -> T.QuestionPayload:
     """O3's typed hole: the options are listed, not ranked, until the client
     weights the criteria. The criteria are named so the answer is one act."""
-    names = ", ".join(c.id for c in criteria)
+    names = ", ".join(_named(c) for c in criteria)
     return T.QuestionPayload(
         text=f"How do you weight {names} for {decision_id}? Until you do, the options are listed, not ranked",
         asks_for=(T.AsksFor(T.Kind.EVALUATION_CRITERION),),

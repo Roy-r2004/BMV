@@ -45,10 +45,12 @@ from app.engine.partner.charter import ROOT_ISSUE_ACTOR_REF, root_issue_id
 from app.engine.partner.ingest import TURN_CANDIDATE_KINDS
 from app.engine.partner.questions import ASKABLE_STRATEGIES as _ASKABLE
 from app.engine.partner.loop import Partner
-from app.engine.partner.state import EngagementState, PhaseError, advance, synthesis_blockers
+from app.engine.partner.state import (
+    EngagementState, PhaseError, advance, runnable_selections, synthesis_blockers,
+)
 from app.engine.registry import EngagementRegistry
 from app.engine.synthesis.conflicts import detect_conflicts, reevaluate_materiality
-from app.engine.synthesis.recommend import refresh_conditional_on
+from app.engine.synthesis.recommend import refresh_conditional_on, withdraw_licensed_advice
 from app.engine.synthesis.regulated import CLASSIFIER_PURPOSE, screen_synthesis
 from app.engine.synthesis.resolve import auto_resolve, emit_decisions_required
 from app.engine.templating import render
@@ -72,6 +74,7 @@ __all__ = [
     "outstanding",
     "run_case",
     "shape_signature",
+    "synthesise",
 ]
 
 # The simulated client's own model purpose, ledgered apart from the engine's
@@ -132,8 +135,18 @@ class AnnotatedClassifier:
 
     What this does NOT measure is the classification. That is a model
     capability, and only a real run is evidence about it (design 17.5, risk 5).
-    Claims are spread over the candidates the prompt showed, ordered by id, so
-    the same registry produces the same claims twice.
+
+    ONE claim per annotated matter, never one per candidate. The case file
+    states how many matters a good engine should hand over; claiming every
+    candidate instead would have the fixture assert that everything the
+    engagement says needs a licence, which is not what the annotations say and
+    is not a judgement any model would make. Over-claiming is not the safe
+    direction here either: it routes real advice to an adviser wholesale, and
+    the L4 path would then be measured on a registry where nothing was ever
+    allowed to stand. Which candidate carries which matter is decided by a
+    hash of the domain and the candidate ids the prompt showed, so the same
+    registry produces the same claims twice and no ordering accident decides
+    it.
     """
 
     def __init__(self, inner: ModelProvider, loaded: LoadedCase):
@@ -145,9 +158,16 @@ class AnnotatedClassifier:
             return self._inner.complete(call)
         prompt = _joined(call)
         candidates = sorted({m.group("id") for m in _CANDIDATE_ROW.finditer(prompt)})
-        claims = [{"entity_id": cid, "domain": self._domains[i % len(self._domains)],
-                   "trigger": "", "reason": "annotated regulated matter for this case"}
-                  for i, cid in enumerate(candidates)]
+        if not candidates:
+            return ModelResponse(json.dumps({"claims": []}), "stop",
+                                 {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0},
+                                 "annotated-classifier-0")
+        claims = []
+        for i, domain in enumerate(self._domains):
+            seed = f"{domain}:{i}:" + ",".join(candidates)
+            index = int.from_bytes(hashlib.sha256(seed.encode("utf-8")).digest()[:8], "big")
+            claims.append({"entity_id": candidates[index % len(candidates)], "domain": domain,
+                           "trigger": "", "reason": "annotated regulated matter for this case"})
         return ModelResponse(json.dumps({"claims": claims}), "stop",
                              {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0},
                              f"annotated-classifier-{len(candidates)}")
@@ -297,6 +317,21 @@ class SimulatedClient:
         if response.error is not None or not response.text:
             return deterministic
         return response.text
+
+    def confirms(self, shown: Sequence[Any]) -> list[str]:
+        """Which rows on the playback surface this client says back "yes, that
+        is what I said" (design 6.2 step 8).
+
+        The test is the client's own turns and nothing else: a row whose
+        wording is a verbatim span of something this client actually said is
+        theirs to settle. Everything else is left PROPOSED, because silence is
+        not confirmation - a client who was played back a reading of a
+        document has agreed to nothing. `_client_may_confirm` has already
+        narrowed the surface by authority; this narrows it by whether the
+        words are the client's.
+        """
+        spoken = "\n".join(self.said)
+        return [item.entity_id for item in shown if item.text and item.text in spoken]
 
     def revealed_changers(self) -> int:
         """How many of the items that CHANGE the recommendation were surfaced.
@@ -532,6 +567,24 @@ def outstanding(registry: EngagementRegistry, client: "SimulatedClient") -> list
             and q.payload.unknown is not True and q.id not in already]
 
 
+def _confirm_understanding(partner: Partner, state: EngagementState, client: SimulatedClient,
+                           reply) -> None:
+    """The client settles what they were played back.
+
+    Every turn shows the client `understanding`: their own statements, with
+    the locator each came from. A run in which nobody ever answers that
+    playback leaves every client-stated FACT at PROPOSED forever, and
+    `_is_support` admits no PROPOSED row - so the recommendation half of the
+    engine would be starved by the simulation rather than by the engine. The
+    client confirms only its own words (`SimulatedClient.confirms`).
+    """
+    if reply is None:
+        return
+    ids = client.confirms(reply.understanding)
+    if ids:
+        partner.confirm_understanding(state, ids, turn_id=reply.turn_id or None)
+
+
 def _confirm_charter(partner: Partner, state: EngagementState, proposal, turn_id: str) -> bool:
     """The client signs what they were shown. Every listed item is confirmed by
     default (charter.confirm's own rule), which is the honest reading of a
@@ -558,6 +611,41 @@ def _counts(view) -> dict[str, int]:
         if n:
             out[kind.value] = n
     return out
+
+
+def synthesise(registry: EngagementRegistry, provider: ModelProvider) -> list[str]:
+    """The synthesis pass over a finished analysis, in the one order every
+    bundle runs it: the detection queries, then resolution, the decisions the
+    client owes, the conditions every recommendation carries, the screen over
+    every live piece of advice, and finally the withdrawal of the advice the
+    screen said a licence is needed for.
+
+    It is a named step rather than a run of statements inside `run_case` so the
+    wiring is testable on its own. The last line especially: no fake case
+    happens to produce a recommendation the screen flags, so a `run_case` that
+    silently stopped withdrawing licensed advice would pass every benchmark
+    assertion. A probe registry that DOES hold one is the only thing that can
+    tell the difference, and it can only reach this order of operations if the
+    order is something a test can call.
+
+    Returns the refusal lines the screen produced; the registry is changed in
+    place, which is what every step here is for.
+    """
+    refusals: list[str] = []
+    detect_conflicts(registry)
+    reevaluate_materiality(registry)
+    auto_resolve(registry)
+    emit_decisions_required(registry)
+    refresh_conditional_on(registry)
+    try:
+        screen = screen_synthesis(registry, provider)
+        refusals.extend(f"regulated: {cid} cleared for {domain}" for cid, domain in screen.cleared)
+    except Exception as exc:                                  # pragma: no cover - defensive
+        refusals.append(f"regulated: {exc}")
+    # Advice a licence is needed for stops being advice: the screen routed the
+    # matter, and this is where the engagement stops saying the thing (L4).
+    withdraw_licensed_advice(registry)
+    return refusals
 
 
 def run_case(loaded: LoadedCase, provider: ModelProvider, *,
@@ -590,6 +678,7 @@ def run_case(loaded: LoadedCase, provider: ModelProvider, *,
     while state.turn_n < max_turns and not approved:
         reply = partner.turn(state, message, attachments)
         refusals.extend(reply.refusals)
+        _confirm_understanding(partner, state, client, reply)
         if reply.charter is not None:
             approved = _confirm_charter(partner, state, reply.charter, reply.turn_id)
             if approved:
@@ -616,6 +705,7 @@ def run_case(loaded: LoadedCase, provider: ModelProvider, *,
             message, attachments = client.reply(pending)
             reply = partner.turn(state, message, attachments)
             refusals.extend(reply.refusals)
+            _confirm_understanding(partner, state, client, reply)
             pending = outstanding(registry, client)
             try:
                 run = partner.run_analysis(state)
@@ -636,21 +726,65 @@ def run_case(loaded: LoadedCase, provider: ModelProvider, *,
             message, attachments = client.reply(pending)
             reply = partner.turn(state, message, attachments)
             refusals.extend(reply.refusals)
+            _confirm_understanding(partner, state, client, reply)
             pending = outstanding(registry, client)
 
-    # Synthesis: the four detection queries, then resolution, the decisions the
-    # client owes, the conditions every recommendation carries, and the screen
-    # over every live piece of advice.
-    detect_conflicts(registry)
-    reevaluate_materiality(registry)
-    auto_resolve(registry)
-    emit_decisions_required(registry)
-    refresh_conditional_on(registry)
-    try:
-        screen = screen_synthesis(registry, counted)
-        refusals.extend(f"regulated: {cid} cleared for {domain}" for cid, domain in screen.cleared)
-    except Exception as exc:                                  # pragma: no cover - defensive
-        refusals.append(f"regulated: {exc}")
+        # ... and the analysis takes those answers. An answer that arrives
+        # after a run is not an answer to nothing: a method whose inputs the
+        # client has just supplied is work the engagement can still do, and
+        # PHASE_TRANSITIONS offers no way back once SYNTHESIS is entered - so
+        # an engagement that stopped here would carry that work, unrunnable,
+        # into its own conclusion. Measured before this loop: three
+        # engagements reached synthesis with fully-fed selections still
+        # waiting, every one of them made runnable by a client answer that
+        # arrived after the interleave above had spent its last iteration.
+        #
+        # The alternation continues until the analysis has nothing left to run,
+        # which is the stopping condition, and the ceiling above it is the same
+        # one the interleave uses. Each pass is a real run: `run_analysis`
+        # records every method it attempts, so a pass that changes nothing ends
+        # the loop rather than repeating.
+        for _ in range(_bound(state, "MAX_ANALYSIS_ROUNDS")):
+            if not runnable_selections(registry, bounds=state.bounds, methods=methods):
+                break
+            if state.phase is Phase.SYNTHESIS:
+                # The engagement concluded its analysis and the client then
+                # answered, and the answers made work runnable. Going back is a
+                # declared move and not a new edge: SYNTHESIS ->
+                # PAUSED_FOR_DISCOVERY -> ANALYSIS is already in
+                # PHASE_TRANSITIONS, and it is what the pause MEANS - the
+                # engagement returned to the client, and what came back changed
+                # what there is to do.
+                advance(state, Phase.PAUSED_FOR_DISCOVERY, rounds_used=rounds, methods=methods)
+            if state.phase is Phase.PAUSED_FOR_DISCOVERY:
+                advance(state, Phase.ANALYSIS, rounds_used=rounds, methods=methods)
+            if state.phase is not Phase.ANALYSIS:
+                break
+            try:
+                run = partner.run_analysis(state)
+            except PhaseError as exc:                     # pragma: no cover - defensive
+                refusals.append(f"analysis: {exc}")
+                break
+            rounds += run.rounds
+            refusals.extend(run.refusals)
+            pending = outstanding(registry, client)
+            while pending and state.turn_n < max_turns:
+                message, attachments = client.reply(pending)
+                reply = partner.turn(state, message, attachments)
+                refusals.extend(reply.refusals)
+                _confirm_understanding(partner, state, client, reply)
+                pending = outstanding(registry, client)
+
+    refusals.extend(synthesise(registry, counted))
+    if state.phase is Phase.PAUSED_FOR_DISCOVERY:
+        # The pause is a return to the client, not an end. The client has now
+        # answered everything they were asked (the loop above), and the round
+        # ceiling has been reached, so the engagement comes back from the pause
+        # and delivers what it has. PHASE_TRANSITIONS admits only
+        # PAUSED_FOR_DISCOVERY -> ANALYSIS, which is why this is two moves and
+        # not one: a bundle left sitting in the pause would be graded on a
+        # synthesis that never ran.
+        advance(state, Phase.ANALYSIS, rounds_used=rounds, methods=methods)
     if state.phase is Phase.ANALYSIS:
         left = synthesis_blockers(registry, rounds_used=rounds, bounds=state.bounds, methods=methods)
         if not left:

@@ -47,7 +47,7 @@ Four consequences the rest of this document keeps returning to:
 | `app/engine/specialists/` | `assignment.py` (`Assignment`, grants, budget, `ADMISSION_RULES`), `runner.py` (scoped execution and admission) |
 | `app/engine/synthesis/` | `conflicts.py`, `resolve.py`, `recommend.py`, `regulated.py` |
 | `app/engine/work_products/` | `decl.py` (declarations), `plan.py`, `statements.py`, `corrections.py`, `canon_bridge.py`, `render_md/pdf/deck/csv.py`, `integrity_record.py` |
-| `app/engine/gates/` | `laws.py` (L1-L14), `presentation.py`, `release.py` |
+| `app/engine/gates/` | `laws.py` (L1-L16), `presentation.py`, `release.py` |
 | `app/engine/legacy/` | the typed r30 adapter and its entity mapping |
 | `app/engine/persistence/` | seven tables on `app.database.Base`, append-only store |
 | `app/engine/api/` | the `/api/engagements` router, schemas, startup sweep |
@@ -108,6 +108,7 @@ the top two rank equal both run, so their disagreement surfaces as a CONFLICT in
 | `change_impact` | model_assisted | 1 | what | RISK, ACTION |
 | `cost_benefit` | calculation | 0 | how_much | COST, BENEFIT, calculated FACT, QUESTION |
 | `current_state` | deterministic | 0 | what | inferred FACT summaries, CAPABILITY |
+| `decision_criteria` | deterministic | 0 | which | EVALUATION_CRITERION restating a declared OBJECTIVE, CONSTRAINT or SUCCESS_CRITERION, unweighted |
 | `financial_model` | calculation | 0 | how_much, whether | calculated FACT, OBJECTIVE feasibility, CONFLICT, DECISION_REQUIRED, QUESTION |
 | `issue_tree` | model_assisted | 2 | what, why, how, how_much, which, whether | ISSUE |
 | `journey` | model_assisted | 2 | how | customer PROCESS_STEP, QUESTION |
@@ -116,15 +117,18 @@ the top two rank equal both run, so their disagreement surfaces as a CONFLICT in
 | `make_buy_partner` | deterministic | 0 | which | OPTION, TRADE_OFF |
 | `market_competitor` | research | 3 | what | externally sourced FACT with a locator, QUESTION |
 | `market_sizing` | research | 3 | how_much | externally sourced and calculated FACT, QUESTION |
+| `objective_stake` | calculation | 0 | how_much | BENEFIT carrying an aim's own registered target, calculated FACT for the distance to it, QUESTION |
 | `operating_model` | model_assisted | 2 | how | WORKSTREAM, GOVERNANCE, ACTION |
 | `option_evaluation` | deterministic | 0 | which | TRADE_OFF, CONFLICT, DECISION_REQUIRED, QUESTION |
 | `org_design` | model_assisted | 2 | how | OWNER with a reporting line, ACTION, GOVERNANCE |
 | `prioritization` | deterministic | 0 | which | ACTION sequence, TRADE_OFF |
 | `process_map` | model_assisted | 2 | how | internal PROCESS_STEP, CAPABILITY, QUESTION |
 | `raci_governance` | deterministic | 0 | who | GOVERNANCE with a RACI |
+| `recommendation` | deterministic | 0 | which, how | RECOMMENDATION selecting a registered OPTION, citing the EVALUATION_CRITERIA it is judged against and the confirmed evidence it rests on, QUESTION |
 | `risk_control` | model_assisted | 1 | what | RISK, CONTROL |
 | `roadmap` | deterministic | 0 | how, when | MILESTONE, DEPENDENCY, INITIATIVE ordering |
 | `root_cause` | model_assisted | 2 | why | HYPOTHESIS, QUESTION |
+| `route_dependency` | deterministic | 0 | which | COST and BENEFIT bearing on one route, read from the capability class that route runs through, QUESTION |
 | `scenario` | calculation | 0 | how_much, whether | calculated FACT, EXPECTED_OUTCOME, QUESTION |
 | `stakeholder` | model_assisted | 1 | who | STAKEHOLDER, OWNER, QUESTION |
 | `systems_data_map` | model_assisted | 1 | what, how | CAPABILITY, DEPENDENCY |
@@ -256,6 +260,8 @@ comparison rather than a guess.
 | `L12` | L12.infeasible_objective_without_decision | an objective infeasible on the facts with no decision required from the client |
 | `L13` | L13.legacy_r30_not_final | a legacy package that is not itself final |
 | `L14` | L14.client_fact_not_verbatim | a rendered client fact whose words were changed |
+| `L15` | L15.contradictory_recommendations | two live recommendations on one decision that exclude each other |
+| `L16` | L16.unsupported_specificity | a recommendation asserting a figure or a scope its own support closure does not carry |
 
 <!-- /registry:laws -->
 
@@ -307,6 +313,15 @@ No count is fixed per engagement. Every bound is a `Settings` field read from an
 the frozen defaults below are the fallback. The table is pinned name-for-name and default-for-default
 against `app.engine.types.BOUNDS`.
 
+`MAX_ENTITIES_PER_ANALYSIS_KIND` is the only bound that is derived rather than typed: it is
+`MAX_ANALYSIS_ROUNDS x MAX_SPECIALISTS_PER_ROUND x MAX_FANOUT`, which is every round running flat out and
+opening every branch it is allowed. Every other bound caps how much WORK may run and none of them capped
+what the work leaves behind, so an engagement could hold six hundred routes to one decision and still
+satisfy every published bound. It rations only what an ANALYSIS concludes (`ANALYSIS_KINDS`): the evidence
+a client handed over is not the engine's to ration, and the records it is audited by are not conclusions.
+The registry refuses the row (I9) rather than dropping it, so a batch rolls back whole and the producer is
+recorded as blocked.
+
 <!-- registry:bounds -->
 
 | bound | default | setting |
@@ -324,10 +339,12 @@ against `app.engine.types.BOUNDS`.
 | `MIN_WORK_PRODUCTS` | 2 | `ENGINE_MIN_WORK_PRODUCTS` |
 | `MAX_WORK_PRODUCTS` | 16 | `ENGINE_MAX_WORK_PRODUCTS` |
 | `MAX_SPECIALISTS_PER_ROUND` | 4 | `ENGINE_MAX_SPECIALISTS_PER_ROUND` |
+| `MAX_METHODS_PER_ISSUE` | 2 | `ENGINE_MAX_METHODS_PER_ISSUE` |
 | `MIN_REVEALED_CHANGERS` | 3 | `ENGINE_MIN_REVEALED_CHANGERS` |
 | `MIN_DISTINCT_DELIVERABLE_SETS` | 4 | `ENGINE_MIN_DISTINCT_DELIVERABLE_SETS` |
 | `MIN_DISTINCT_SECTION_SIGNATURES` | 8 | `ENGINE_MIN_DISTINCT_SECTION_SIGNATURES` |
 | `RENDERED_RESTATEMENT_TOLERANCE` | 0.005 | `ENGINE_RENDERED_RESTATEMENT_TOLERANCE` |
 | `MAX_NARRATIVE_REGENERATIONS` | 1 | `ENGINE_MAX_NARRATIVE_REGENERATIONS` |
+| `MAX_ENTITIES_PER_ANALYSIS_KIND` | 144 | `ENGINE_MAX_ENTITIES_PER_ANALYSIS_KIND` |
 
 <!-- /registry:bounds -->

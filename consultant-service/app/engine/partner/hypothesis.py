@@ -324,10 +324,24 @@ def revise_hypothesis(registry, provider: ModelProvider, *, model: str | None = 
             confidence=Confidence(None, "model_estimate"),
             relevance=Relevance(None), relation=RelationToCentralDecision.UNKNOWN,
             status=Status.PROPOSED)))
+    # The causal links this engagement already holds, as (issue, cause) pairs.
+    # A hypothesis is a claim that one thing causes another, so the SAME claim
+    # arriving on a later turn is the same hypothesis, not a second one: the
+    # model is shown the whole live registry every pass and re-proposes what it
+    # proposed before. Without this the row count grows with the number of
+    # turns rather than with what was found, and an engagement ends up holding
+    # hundreds of copies of a handful of claims - which is production standing
+    # in for analysis, and it makes every count over hypotheses meaningless.
+    registered = {(h.payload.issue_id, cause)
+                  for h in registry.live(Kind.HYPOTHESIS)
+                  for cause in (h.payload.causes or ())}
     for link in parsed.causal_links:
         cited = (link.issue_id, link.cause_id, *link.support_ids)
         if not link.support_ids or not link.text.strip() or any(i not in known for i in cited):
             continue
+        if (link.issue_id, link.cause_id) in registered:
+            continue
+        registered.add((link.issue_id, link.cause_id))
         deltas.append(Add(make_entity(
             kind=Kind.HYPOTHESIS, engagement_id=registry.engagement_id,
             payload=HypothesisPayload(text=link.text, issue_id=link.issue_id, causes=(link.cause_id,)),

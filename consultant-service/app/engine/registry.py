@@ -67,7 +67,8 @@ from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence, runtime
 
 from app.engine.authority import may_advance, owner_of
 from app.engine.types import (
-    FILTERABLE_FIELDS, ID_PREFIX, TERMINAL_STATUSES, Actor, Add, ConflictKind, DecisionRole, Entity,
+    ANALYSIS_KINDS, BOUNDS, FILTERABLE_FIELDS, ID_PREFIX, TERMINAL_STATUSES, Actor, Add, ConflictKind,
+    DecisionRole, Entity,
     EntityDelta, FactBasis, Feasibility, InfoType, Kind, Quantity, RegistryError, RelationToCentralDecision,
     SetStatus, SourceKind, Status, Supersede, UnitFamily, _norm, info_type_of,
 )
@@ -157,6 +158,7 @@ class RegistryView(Protocol):
     def central_decision(self) -> Entity | None: ...
     def supports_of(self, entity_id: str) -> list[Entity]: ...
     def source_text(self, source_id: str) -> str | None: ...
+    def reserve_ids(self, kind: Kind, count: int) -> list[str]: ...
 
 
 # -- the calculator boundary (contracts.py section 8) --------------------------
@@ -307,6 +309,25 @@ class EngagementRegistry:
             raise RegistryError("I6", f"{entity_id!r} is not a {ID_PREFIX[kind]}-<n> id, which is what a {kind.value} is called")
         self._counters[kind] = max(self._counters.get(kind, 0), int(num))
 
+    def reserve_ids(self, kind: Kind, count: int) -> list[str]:
+        """Ids a producer may put on rows it has not written yet, taken from
+        the registry's own counter rather than counted off the rows a producer
+        can see.
+
+        A specialist writes under a ScopedView, and a window narrower than the
+        engagement cannot see the highest id already assigned; ids counted off
+        it collide with rows the specialist was never shown, and I6 refuses
+        the whole batch for a reason that is about the window and not about
+        the analysis. Reservation moves the counter, so the same id is never
+        offered twice however narrow the window was - and the ids are the
+        registry's to give, which is why asking for one is not reading
+        somebody else's record.
+        """
+        out: list[str] = []
+        for _ in range(max(0, int(count))):
+            out.append(self._next_id(kind))
+        return out
+
     def _next_id(self, kind: Kind) -> str:
         n = self._counters.get(kind, 0)
         while True:
@@ -395,9 +416,53 @@ class EngagementRegistry:
         by = e.provenance.actor_ref if e.status in _AUTHORITY_GATED else None
         return replace(e, confirmed_by=by, provenance=replace(e.provenance, recorded_at=self._clock()), **changes)
 
+    def _capacity(self) -> int:
+        """MAX_ENTITIES_PER_ANALYSIS_KIND, live. The operator's value when
+        there is one, the frozen default otherwise - never a literal here."""
+        try:
+            from app.config import settings
+            value = getattr(settings, "ENGINE_MAX_ENTITIES_PER_ANALYSIS_KIND", None)
+            if value is not None:
+                return int(value)
+        except Exception:                     # pragma: no cover - settings optional
+            pass
+        return int(BOUNDS["MAX_ENTITIES_PER_ANALYSIS_KIND"])
+
+    def _check_capacity(self, e: Entity) -> None:
+        """I9: an engagement holds at most MAX_ENTITIES_PER_ANALYSIS_KIND live
+        rows of any one analysis kind.
+
+        Every other bound caps how much WORK may run - rounds, specialists per
+        round, methods per node, branches per expansion - and none of them
+        capped what the work leaves behind. So an engagement could hold six
+        hundred routes to a single decision and still satisfy every bound the
+        engine published, and every distinctness count over those rows was
+        cheap: divergence is easy when production is unbounded. The ceiling is
+        derived from the bounds that were already there (every round, running
+        flat out, opening every branch), so it is not a new opinion about how
+        much analysis is enough - it is the existing opinion, added up.
+
+        Only conclusions are rationed. Evidence the client handed over is not
+        the engine's to ration, and the records it keeps to be audited by -
+        questions, analysis rows - are not conclusions.
+
+        Refusing here rather than dropping the row is what keeps a result
+        whole: `apply_all` rolls the batch back, and the producer is recorded
+        as blocked with the reason. A silently dropped row would leave the
+        conclusions that cited it pointing at nothing.
+        """
+        if e.kind not in ANALYSIS_KINDS:
+            return
+        ceiling = self._capacity()
+        if len(self.live(e.kind)) >= ceiling:
+            raise RegistryError(
+                "I9", f"the engagement already holds {ceiling} live {e.kind.value} rows, which is "
+                      f"MAX_ENTITIES_PER_ANALYSIS_KIND; a further one is production, not analysis")
+
     def _add(self, e: Entity) -> Entity:
         if e.id and e.id in self._latest:
             raise RegistryError("I6", f"{e.id} already exists; supersede it")
+        self._check_capacity(e)
         self._check_row(e)
         if e.id:
             self._note_id(e.kind, e.id)
@@ -678,6 +743,12 @@ class ScopedView:
 
     def source_text(self, source_id: str) -> str | None:
         return self._r.source_text(source_id) if source_id in self.permitted else None
+
+    def reserve_ids(self, kind: Kind, count: int) -> list[str]:
+        """Forwarded whole. An id is not evidence: withholding the counter
+        would not narrow what a specialist may read, it would only make it
+        collide with rows outside its window (I6)."""
+        return self._r.reserve_ids(kind, count)
 
 
 __all__ = [

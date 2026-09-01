@@ -206,17 +206,15 @@ def coined_figures(texts: Iterable[str], cited_texts: Iterable[str]) -> tuple[st
 def fresh_ids(view, kind: T.Kind, count: int) -> list[str]:
     """Explicit ids assigned ahead of the registry, so outputs created in one
     batch can reference each other (a control cites the risk it mitigates, a
-    reporting line names its manager). Computed past every id visible in the
-    view; under a scoped view a hidden higher id can collide, in which case
-    the registry refuses the whole batch (I6) and the run is redone - an
-    admission failure, never a silent overwrite."""
-    prefix = T.ID_PREFIX[kind]
-    top = 0
-    for e in view.query(kind):
-        _, _, num = e.id.rpartition("-")
-        if num.isdigit():
-            top = max(top, int(num))
-    return [f"{prefix}-{top + 1 + i}" for i in range(count)]
+    reporting line names its manager).
+
+    Reserved from the registry's own counter rather than counted off the rows
+    this view shows: a specialist window is narrower than the engagement, and
+    an id counted off it collides with a row the specialist was never shown -
+    I6 then refuses the whole batch for a reason that is about the window, not
+    about the analysis.
+    """
+    return view.reserve_ids(kind, count)
 
 
 def with_id(entity: T.Entity, entity_id: str) -> T.Entity:

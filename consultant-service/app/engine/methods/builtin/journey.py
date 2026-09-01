@@ -23,6 +23,7 @@ The laws:
 """
 from __future__ import annotations
 
+import dataclasses
 from app.engine import types as T
 from app.engine.methods.builtin.capability_gap import (
     ProposalSheet,
@@ -31,6 +32,7 @@ from app.engine.methods.builtin.capability_gap import (
     cites_validator,
     copied_quantity_validator,
     model_proposals,
+    new_evidence_remains,
     perspective_validator,
     question_payloads,
     sequential_steps_validator,
@@ -45,6 +47,7 @@ from app.engine.methods.contract import (
     QuestionShape,
     register,
 )
+from typing import Any
 
 PERSPECTIVE = T.StepPerspective.CUSTOMER
 
@@ -105,6 +108,23 @@ _INSTRUCTIONS = (
     "through) and 'pain_point' (true only where a cited input shows the pain). A step whose "
     "place the inputs do not settle is a question, not a guessed position."
 )
+
+
+def pending(view: Any) -> bool:
+    """Whether this method still has anything to conclude here.
+
+    a stage and its pain points are read from the facts and steps this method has
+    not already turned into a journey.
+
+    `new_evidence_remains` asks that in one place for every method that words
+    a conclusion through the shared admission law, because it is that law -
+    the door that refuses a restatement and an output citing rows it was not
+    shown - that decides what a further call could keep.
+    """
+    return new_evidence_remains(SPEC, view)
+
+
+SPEC = dataclasses.replace(SPEC, pending=pending)
 
 
 @register

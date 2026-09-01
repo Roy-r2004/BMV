@@ -26,7 +26,8 @@ Laws this module enforces:
 """
 from __future__ import annotations
 
-from typing import Sequence
+import dataclasses
+from typing import Any, Sequence
 
 from app.engine import types as T
 from app.engine.calc import IncomparableInputs
@@ -36,6 +37,7 @@ from app.engine.methods.builtin.capability_gap import (
     cites_validator,
     dropped,
     model_proposals,
+    new_evidence_remains,
     question_payloads,
 )
 from app.engine.methods.builtin.cost_benefit import (
@@ -123,6 +125,23 @@ _INSTRUCTIONS = (
     "quantities multiply to the size, in order. You do not compute the product and you do not state "
     "a number; the calculator multiplies the ids you name and records the formula."
 )
+
+
+def pending(view: Any) -> bool:
+    """Whether this method still has anything to conclude here.
+
+    a size is a product of REGISTERED figures, and a figure already multiplied
+    into a live sizing fact sizes nothing twice.
+
+    `new_evidence_remains` asks that in one place for every method that words
+    a conclusion through the shared admission law, because it is that law -
+    the door that refuses a restatement and an output citing rows it was not
+    shown - that decides what a further call could keep.
+    """
+    return new_evidence_remains(SPEC, view)
+
+
+SPEC = dataclasses.replace(SPEC, pending=pending)
 
 
 @register

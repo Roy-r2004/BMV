@@ -33,9 +33,10 @@ method's tests at once:
 """
 from __future__ import annotations
 
+import dataclasses
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any, Callable, Iterable, Iterator, Sequence
 
 from pydantic import Field
 
@@ -51,8 +52,11 @@ from app.engine.methods.contract import (
     MethodSpec,
     QuestionShape,
     Validator,
+    concluded_about,
+    gather_inputs,
     new_entity,
     register,
+    unmet_over,
 )
 from app.engine.templating import render
 from app.ui_spec import _Tolerant
@@ -98,17 +102,92 @@ def wording(e: T.Entity) -> str:
     return e.kind.value
 
 
-def gather_inputs(spec: MethodSpec, view: Any) -> list[T.Entity]:
-    """Every live entity a declared InputSpec (required or optional) matches,
-    first-seen order, deduplicated by id. InputSpec.matches already excludes
-    terminal rows and enforces min_status and dimension pins, so the inputs a
-    method sees are exactly what its declaration asked for - no more."""
-    out: dict[str, T.Entity] = {}
-    for inp in spec.required_inputs + spec.optional_inputs:
-        for e in view.query(inp.kind):
-            if inp.matches(e):
-                out.setdefault(e.id, e)
-    return list(out.values())
+
+
+def unconcluded_first(spec: MethodSpec, view: Any, inputs: Sequence[T.Entity]) -> list[T.Entity]:
+    """The window, led by the rows this analysis has not concluded about yet.
+
+    A call's answer is bounded by its token budget, so a window wider than the
+    budget is answered from the FRONT of it. The window was the registry's own
+    order, which is the order rows were written - so a second run of a method
+    was handed the same first rows it had already concluded about, spent a
+    model call restating them, and had every restatement refused. The rows that
+    arrived since, which are the only ones that could have yielded anything
+    new, were past the end of what the budget reached.
+
+    "Concluded about" is `concluded_about`, the same reading the selector uses
+    when it decides whether to offer the method at all, so the window and the
+    decision to open it cannot disagree. Order only - nothing is dropped,
+    because a row already concluded about is still context for the ones that
+    are not, and a method that could no longer see its own earlier evidence
+    would start contradicting itself.
+    """
+    spent = spent_reading(spec, view)
+    fresh = [e for e in inputs if not spent(e)]
+    return fresh + [e for e in inputs if spent(e)]
+
+
+def spent_reading(spec: MethodSpec, view: Any) -> Callable[[T.Entity], bool]:
+    """Whether a further conclusion drawn from a row would land where one
+    already is. Two readings, and the second is the one the ADMISSION law
+    itself uses: the row is already cited by a conclusion of this method's
+    kind, or its own wording is already the wording of one. The second matters
+    because two rows can carry one sentence, and a conclusion drawn from the
+    second is refused as a restatement of the conclusion drawn from the first -
+    so the window and the door have to read the same thing or the window keeps
+    offering what the door refuses.
+
+    Built once per run and returned as a predicate, because all three callers -
+    the window that orders the prompt (`unconcluded_first`), the selector that
+    decides whether to open the call at all (`new_evidence_remains`) and the
+    door that refuses the restatement (`admitted`) - must be reading one rule.
+    """
+    concluded = concluded_about(spec, view)
+    held = registered_wordings(view, spec.output_kinds)
+    kinds = tuple(k for k in spec.output_kinds if k is not T.Kind.QUESTION)
+
+    def spent(e: T.Entity) -> bool:
+        if e.id in concluded:
+            return True
+        said = _norm_wording(wording(e))
+        return bool(said) and any((kind, said) in held for kind in kinds)
+
+    return spent
+
+
+def unconcluded(spec: MethodSpec, view: Any) -> list[T.Entity]:
+    """This method's window, less every row it has already concluded from."""
+    spent = spent_reading(spec, view)
+    return [e for e in gather_inputs(spec, view) if not spent(e)]
+
+
+def new_evidence_remains(spec: MethodSpec, view: Any) -> bool:
+    """`MethodSpec.pending` for every method that asks a model to word a
+    conclusion over the shared admission law: whether the register still holds
+    evidence this method has not already concluded from.
+
+    `input_state` asks whether the register holds what the method declared it
+    needs. That question is answered the same way on round one and on round
+    nine, because the rows it counts do not leave. The question the SPEND turns
+    on is the narrower one - whether what it needs is there in rows this
+    analysis has not already drawn its kind of conclusion from - and it is
+    asked with the same `min_count` rule, over the unconcluded subset.
+
+    Why a required slot and not simply "any unconcluded row": every row the
+    window shows is context, but only a row that fills a DECLARED requirement
+    is one the method can conclude FROM. Measured over fifteen engagements,
+    every model call that generated candidates and kept every one of them
+    refused was made over a window in this state: `capability_gap` was shown
+    forty-eight rows and not one of them unconcluded; `root_cause` was shown a
+    fresh remainder that was OBJECTIVE rows only, and a cause is a FACT;
+    `market_sizing`, whose chain is registered figures, was shown thirty-eight
+    unconcluded rows carrying no quantity between them. In each the register
+    could have said so before the call, and this is it saying so.
+
+    A method that has never run is unaffected: nothing has been concluded, so
+    every row is unconcluded and the reading is `input_state`'s.
+    """
+    return not unmet_over(spec, unconcluded(spec, view))
 
 
 def dropped(spec_id: str, index: int, why: str, *, law: str = "dropped_output") -> T.Finding:
@@ -128,6 +207,10 @@ class Proposal:
     inputs: tuple[T.Entity, ...]
     issue: T.Entity | None
     failure: MethodResult | None
+    # The registry this round was proposed against, so admission can ask what
+    # the engagement already holds. None only on the failure paths, which
+    # admit nothing anyway.
+    view: Any = None
 
     @property
     def inputs_by_id(self) -> dict[str, T.Entity]:
@@ -147,8 +230,8 @@ def model_proposals(ctx: MethodContext, spec: MethodSpec, purpose: str, instruct
                       issue="run invoked without a registered issue node",
                       fix="select the method through select_methods, which binds an issue id",
                       severity=T.Severity.LOW, blocks_final=False)
-        return Proposal(None, None, (), None, MethodResult(findings=(f,)))
-    inputs = tuple(gather_inputs(spec, ctx.registry))
+        return Proposal(None, None, (), None, MethodResult(findings=(f,)), ctx.registry)
+    inputs = tuple(unconcluded_first(spec, ctx.registry, gather_inputs(spec, ctx.registry)))
     prompt = render(
         "method_generic.j2",
         method_id=spec.id,
@@ -171,8 +254,32 @@ def model_proposals(ctx: MethodContext, spec: MethodSpec, purpose: str, instruct
         f = T.Finding(law=f"M.{spec.id}.model_failure", where=spec.id, issue=str(exc)[:300],
                       fix="the analysis is blocked, not defaulted; the partner retries or records the gap",
                       severity=T.Severity.LOW, blocks_final=False)
-        return Proposal(None, None, inputs, issue, MethodResult(findings=(f,)))
-    return Proposal(sheet, response, inputs, issue, None)
+        return Proposal(None, None, inputs, issue, MethodResult(findings=(f,)), ctx.registry)
+    return Proposal(sheet, response, inputs, issue, None, ctx.registry)
+
+
+def _norm_wording(text: Any) -> str:
+    """A conclusion's wording, compared exactly once whitespace and case are
+    normalised. Not a similarity measure: two conclusions are the same here
+    only when they are the same words."""
+    return " ".join(str(text or "").split()).casefold()
+
+
+def registered_wordings(view: Any, kinds: Sequence[T.Kind]) -> set[tuple[T.Kind, str]]:
+    """What the engagement already concluded, as (kind, wording) pairs.
+
+    Read through `query()` and filtered here: RegistryView promises only
+    `query`, so a narrower view (a specialist's window, a probe) answers this
+    the same way the registry does.
+    """
+    out: set[tuple[T.Kind, str]] = set()
+    if view is None:
+        return out
+    for kind in kinds:
+        for row in view.query(kind):
+            if row.status not in T.TERMINAL_STATUSES:
+                out.add((kind, _norm_wording(wording(row))))
+    return out
 
 
 def admitted(spec: MethodSpec, proposal: Proposal,
@@ -181,6 +288,7 @@ def admitted(spec: MethodSpec, proposal: Proposal,
     citations and (when quantity_from resolves) the copied registered
     quantity. Everything refused lands in `findings` with the reason."""
     by_id = proposal.inputs_by_id
+    held = registered_wordings(proposal.view, spec.output_kinds)
     for i, o in enumerate(proposal.sheet.outputs if proposal.sheet else []):
         try:
             kind = T.Kind(o.kind)
@@ -189,6 +297,19 @@ def admitted(spec: MethodSpec, proposal: Proposal,
         if kind is None or kind not in spec.output_kinds:
             findings.append(dropped(spec.id, i, f"kind {o.kind!r} is outside the declared output kinds"))
             continue
+        said = (kind, _norm_wording(o.text))
+        if said in held:
+            # The engagement already holds this conclusion. A method that runs
+            # on twenty issue nodes proposes the same capability from twenty
+            # angles, and registering each one makes the row count a measure of
+            # how many nodes ran rather than of what the analysis found: the
+            # counts every plan predicate reads stop meaning anything, and two
+            # engagements that found different things come out looking alike
+            # because both simply filled up. Restating is not finding.
+            findings.append(dropped(spec.id, i, "restates a conclusion the engagement already holds",
+                                    law="restatement"))
+            continue
+        held.add(said)
         cited = tuple(dict.fromkeys(x for x in o.derived_from if isinstance(x, str) and x))
         if not cited or any(c not in by_id for c in cited):
             # An output citing nothing, or citing an id it was never shown,
@@ -493,8 +614,23 @@ SPEC = MethodSpec(
     id="capability_gap",
     version=1,
     applicability=(QuestionShape(T.Interrogative.WHAT, T.Kind.CAPABILITY),
-                   QuestionShape(T.Interrogative.HOW, T.Kind.CAPABILITY)),
-    answers=(T.Interrogative.WHAT, T.Interrogative.HOW),
+                   QuestionShape(T.Interrogative.HOW, T.Kind.CAPABILITY),
+                   # "Which way do we go?" asked of the decision is answered
+                   # first by what the organisation can and cannot do: a
+                   # capability gap is the distance between an objective and
+                   # the evidenced current state, and this method reads both
+                   # off the register rather than off the node. Carried only by
+                   # a CAPABILITY-shaped node before, this was the first link
+                   # of the CAPABILITY -> OPTION -> RECOMMENDATION chain, and a
+                   # tree that happened not to propose one left the engagement
+                   # with nothing to source, nothing to compare and nothing to
+                   # advise - measured on five of fifteen engagements, decided
+                   # by which shapes one expansion of the tree happened to
+                   # draw. The decision node is the one node every engagement
+                   # has, and asking what it turns on there is the same
+                   # question, not a wider one.
+                   QuestionShape(T.Interrogative.WHICH, T.Kind.DECISION, comparative=True)),
+    answers=(T.Interrogative.WHAT, T.Interrogative.HOW, T.Interrogative.WHICH),
     required_inputs=(
         InputSpec("objectives", T.Kind.OBJECTIVE, min_count=1, effort=T.EffortClass.OFFHAND,
                   why_needed="a gap is the distance between an objective and the evidenced current state"),
@@ -522,6 +658,24 @@ _INSTRUCTIONS = (
     "State a gap only where cited inputs show it; where the inputs cannot settle a gap, "
     "return a question instead of a guess."
 )
+
+
+def pending(view: Any) -> bool:
+    """Whether this method still has anything to conclude here.
+
+    a capability is named from the objectives it serves and the facts that show its
+    state; where every such row is already cited by a live capability, the next
+    run can only re-word the register.
+
+    `new_evidence_remains` asks that in one place for every method that words
+    a conclusion through the shared admission law, because it is that law -
+    the door that refuses a restatement and an output citing rows it was not
+    shown - that decides what a further call could keep.
+    """
+    return new_evidence_remains(SPEC, view)
+
+
+SPEC = dataclasses.replace(SPEC, pending=pending)
 
 
 @register

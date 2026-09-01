@@ -181,9 +181,9 @@ def fired(law: LawId, view, artifacts=()) -> list:
 # ===========================================================================
 
 def test_every_law_is_registered():
-    """The list IS the gate: fourteen ids, fourteen entries, in order."""
+    """The list IS the gate: sixteen ids, sixteen entries, in order."""
     assert [law.id for law in LAWS.all()] == list(LawId)
-    assert len(list(LawId)) == 14
+    assert len(list(LawId)) == 16
     assert all(law.blocks_final for law in LAWS.all())
 
 

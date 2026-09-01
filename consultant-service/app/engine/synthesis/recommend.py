@@ -32,7 +32,8 @@ from typing import Iterable
 
 from app.engine.registry import EngagementRegistry
 from app.engine.types import (
-    TERMINAL_STATUSES, Actor, Entity, Finding, Kind, Provenance, Severity, SetStatus, Status, Supersede,
+    TERMINAL_STATUSES, Actor, Add, Authority, Confidence, DecisionRequiredPayload, Entity, Finding,
+    Kind, Provenance, Severity, SetStatus, Status, Supersede, make_entity,
 )
 
 # gates/laws.py owns the LawId enum (contracts section 14); the id is spelled
@@ -41,6 +42,7 @@ from app.engine.types import (
 UNSUPPORTED_RECOMMENDATION_LAW = "L2.unsupported_recommendation"
 
 _CONDITIONAL_REF = "synthesis:conditional_on"
+_LICENSED_REF = "synthesis:licensed_advice"
 
 
 class UnsupportedRecommendation(Exception):
@@ -110,6 +112,52 @@ def refresh_conditional_on(registry: EngagementRegistry) -> list[Entity]:
     return out
 
 
+def withdraw_licensed_advice(registry: EngagementRegistry) -> list[Entity]:
+    """Retire every recommendation the regulated screen flagged, and put the
+    matter to the adviser it was routed to instead (L4's own fix).
+
+    The screen identifies and routes; it does not decide what the engagement
+    then says, which is why this act is here and not there. A recommendation
+    carrying `licensed_interpretation` is advice a licensed professional must
+    give, so leaving it LIVE means the engine is still giving it - the
+    condition L4 reports as blocking and the failure design 9.6 calls the
+    dangerous direction. The row is WITHDRAWN by the SYSTEM that wrote the
+    flagged row (I1 admits a withdrawal by the row's own actor), and what it
+    asked becomes a DECISION_REQUIRED from the QUALIFIED_PROFESSIONAL, citing
+    the matters. Nothing is deleted and nothing is paraphrased: the withheld
+    wording is on the REGULATED_MATTER, and the lineage says who withheld it.
+    """
+    out: list[Entity] = []
+    for rec in registry.licensed_recommendations():
+        matters = [m for m in registry.query(Kind.REGULATED_MATTER)
+                   if rec.id in m.payload.touches and m.status not in TERMINAL_STATUSES]
+        if not matters:
+            # The flag is on the row but no matter names it: the record does
+            # not say what licence is needed, so the engine has nothing to put
+            # to an adviser. Left for L4 to report rather than guessed at.
+            continue
+        advisers = ", ".join(dict.fromkeys(m.payload.adviser_class for m in matters))
+        matter_ids = tuple(m.id for m in matters)
+        payload = DecisionRequiredPayload(
+            text=(f"{rec.payload.statement} - this is advice a {advisers} must give; the "
+                  f"engagement recorded the matter and did not state it"),
+            from_authority=Authority.QUALIFIED_PROFESSIONAL,
+            decision_id=rec.payload.decision_id,
+            options=matter_ids)
+        asked = registry.apply(Add(make_entity(
+            kind=Kind.DECISION_REQUIRED, engagement_id=registry.engagement_id, payload=payload,
+            provenance=Provenance(actor=Actor.SYSTEM, actor_ref=_LICENSED_REF,
+                                  derived_from=(rec.id,) + matter_ids),
+            confidence=Confidence(None), relevance=rec.relevance, relation=rec.relation,
+            status=Status.OPEN)))
+        registry.apply(SetStatus(rec.id, Status.WITHDRAWN,
+                                 by=Provenance(actor=rec.provenance.actor,
+                                               actor_ref=_LICENSED_REF,
+                                               derived_from=(asked.id,))))
+        out.append(asked)
+    return out
+
+
 def approve_recommendation(registry: EngagementRegistry, recommendation_id: str, *,
                            actor: Actor, actor_ref: str) -> Entity:
     """Approve a recommendation. Refuses an unsupported one here, and the
@@ -128,5 +176,5 @@ def approve_recommendation(registry: EngagementRegistry, recommendation_id: str,
 
 __all__ = [
     "UNSUPPORTED_RECOMMENDATION_LAW", "UnsupportedRecommendation", "approve_recommendation",
-    "conditional_on", "refresh_conditional_on", "support_findings",
+    "conditional_on", "refresh_conditional_on", "support_findings", "withdraw_licensed_advice",
 ]

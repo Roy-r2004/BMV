@@ -30,6 +30,8 @@ product plan is built from.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from app.engine import types as T
 from app.engine.authority import owner_of
 from app.engine.calc.units import format_quantity
@@ -114,6 +116,35 @@ def _v_summary_basis_is_inferred(view, result: MethodResult) -> list[T.Finding]:
             for f in added_of(result, T.Kind.FACT) if f.payload.basis not in _SUMMARY_ONLY_BASES]
 
 
+def pending(view: Any) -> bool:
+    """CS4: whether there is a group to summarise or a capability to mark in
+    use.
+
+    Two things this method writes and nothing else: one INFERRED summary per
+    measure whose group of primary figures it has not already summarised, and a
+    supersession marking a CAPABILITY PRESENT where a live PROCESS_STEP uses
+    it. Where the register holds neither, the run adds nothing, supersedes
+    nothing and asks nothing - a selection slot spent to leave the registry
+    exactly as it was.
+
+    The same three reads `run` makes, in the same order: which facts group by
+    measure, which groups are already summarised (by measure and by the exact
+    set of ids the summary cites), and which capabilities a step names.
+    """
+    groups: dict[str, frozenset] = {}
+    for f in _live(view, T.Kind.FACT):
+        if f.payload.measure_id is not None and f.payload.basis is not T.FactBasis.INFERRED:
+            groups.setdefault(f.payload.measure_id, set()).add(f.id)
+    already = {(f.payload.measure_id, frozenset(f.provenance.derived_from))
+               for f in _live(view, T.Kind.FACT) if f.payload.basis is T.FactBasis.INFERRED}
+    if any((measure_id, frozenset(ids)) not in already for measure_id, ids in groups.items()):
+        return True
+    capabilities = {c.id: c for c in _live(view, T.Kind.CAPABILITY)
+                    if c.payload.gap is not T.GapState.PRESENT}
+    return any(cid in capabilities for s in _live(view, T.Kind.PROCESS_STEP)
+               for cid in s.payload.system_ids)
+
+
 SPEC = MethodSpec(
     id="current_state",
     version=1,
@@ -137,6 +168,7 @@ SPEC = MethodSpec(
     validators=(_v_no_blended_summary, _v_summary_basis_is_inferred),
     cost_class=1,
     max_model_calls=0,
+    pending=pending,
 )
 
 

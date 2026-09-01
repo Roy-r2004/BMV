@@ -53,20 +53,25 @@ from typing import Any, Mapping, Sequence
 
 from app.engine.calc.arith import DecimalCalculator
 from app.engine.llm import ModelProvider, StructuredFailure
-from app.engine.methods.contract import METHODS, MethodContext, MethodRegistry, Selection, select_methods
+from app.engine.methods.contract import (
+    METHODS, MethodContext, MethodRegistry, Selection, input_fingerprint, question_lineage,
+    question_relevance, run_record,
+)
 from app.engine.partner import charter as charter_mod
-from app.engine.partner.charter import CharterItem, CharterOutcome, CharterProposal
+from app.engine.partner.charter import (
+    CharterItem, CharterOutcome, CharterProposal, ConfirmationOutcome,
+)
 from app.engine.partner.hypothesis import (
     Reframe, charter_ready, hypothesis_weights, maybe_reframe, revise_hypothesis,
 )
 from app.engine.partner.ingest import IngestOutcome, ingest_document, ingest_turn
-from app.engine.partner.questions import ASKABLE_STRATEGIES, ask, open_issues, top_gap_value
+from app.engine.partner.questions import ASKABLE_STRATEGIES, ask, top_gap_value
 from app.engine.partner.state import (
-    EngagementState, PhaseError, advance, analysis_blockers, approved_charter, attempted,
-    synthesis_blockers,
+    EngagementState, PhaseError, advance, analysis_blockers, approved_charter, granted_slots,
+    open_selections, spent_or_repeated, synthesis_blockers,
 )
 from app.engine.registry import Calculator, EngagementRegistry
-from app.engine.specialists.assignment import Assignment
+from app.engine.specialists.assignment import Assignment, DECISION_OWNED_KINDS
 from app.engine.specialists.runner import RunOutcome
 from app.engine.specialists.runner import run as run_assignment
 from app.engine.specialists.runner import run_free
@@ -137,6 +142,43 @@ class AnalysisRun:
     root_issue: str = ""                           # the root node this run had to open itself
     findings: tuple[Finding, ...] = ()
     refusals: tuple[str, ...] = ()
+
+
+def _decision_owned(spec) -> bool:
+    """Whether an assignment could not lawfully carry this method's outputs.
+
+    S4 refuses a specialist a RECOMMENDATION, a TRADE_OFF or an OPTION on a
+    decision its assignment does not target, and every live decision except a
+    SUBORDINATE one the node is decisive for is forbidden - so on a normal
+    engagement the central decision is forbidden on every assignment. A tie at
+    equal rank puts even a free method under an assignment (MF1.2), and a free
+    method that writes one of those kinds then has its WHOLE result rejected
+    on a rule about specialists rather than about the analysis.
+
+    So the tie is broken the other way for such a method: it runs directly, as
+    Actor.METHOD, which is the door its execution type already entitles it to.
+    Nothing about the tie law is given up - both tied methods still run, so
+    neither is silently preferred, and their disagreement still reaches
+    `detect_conflicts` as two rows about one subject. What is given up is only
+    the scoped window, which a DETERMINISTIC method reading the registry
+    directly was never narrowed by.
+    """
+    return any(k in DECISION_OWNED_KINDS for k in spec.output_kinds)
+
+
+def _runs_directly(spec, selection: Selection) -> bool:
+    """Whether this selection goes through the loop's direct door rather than
+    becoming an assignment. The routing rule, written ONCE.
+
+    Both the round's budget and the round's loop need the answer - the budget
+    to know which selections are competing for a specialist slot at all, the
+    loop to know which door to send each one through - and the two must give
+    the same answer or a selection is either budgeted for a door it never uses
+    or sent to a door nothing budgeted for. Written twice it was also
+    untestable: each copy made the other redundant, so removing either one
+    alone changed no outcome and no mutation could reach the law.
+    """
+    return spec.execution in FREE_EXECUTION and (not selection.tied or _decision_owned(spec))
 
 
 def _material_ask_ids(view) -> set[str]:
@@ -315,6 +357,22 @@ class Partner:
             advance(state, Phase.CHARTER_CONFIRMED, methods=self._methods)
         return result
 
+    def confirm_understanding(self, state: EngagementState, entity_ids: Sequence[str], *,
+                              turn_id: str | None = None) -> ConfirmationOutcome:
+        """The client settles rows on the playback surface: "yes, that is what
+        I said" (design 6.2 step 8).
+
+        The reply already shows `understanding` - every live PROPOSED row the
+        client is the authority for, with the locator it came from. This is
+        the act on it. It changes no phase: settling a fact is not a mandate,
+        and the charter remains the only thing an engagement runs on. What it
+        does change is what the analysis may rest on: `_is_support` admits a
+        CONFIRMED FACT, so this is the only door through which the words a
+        client actually said can end up under a recommendation (MF2.1).
+        """
+        return charter_mod.confirm_understanding(state.registry, entity_ids,
+                                                 turn_number=state.turn_n, turn_id=turn_id)
+
     # -----------------------------------------------------------------------
     # 3. Analysis
     # -----------------------------------------------------------------------
@@ -362,30 +420,54 @@ class Partner:
 
         while rounds < max_rounds:
             rounds += 1
-            spawned = 0
             worked = False
-            for selection in select_methods(open_issues(registry), registry, self._methods):
-                if attempted(registry, selection.method_id, selection.issue_id):
-                    continue
+            selections = open_selections(registry, bounds=state.bounds, methods=self._methods)
+            # Which fully-fed, assignment-bound selections this round's
+            # specialist budget goes to. Decided before any of them runs, so
+            # the budget is spent on a stated rule (breadth before depth)
+            # rather than on whichever nodes the tree listed first.
+            slots = granted_slots(
+                registry,
+                [s for s in selections if not s.inputs.missing
+                 and not _runs_directly(self._methods.get(s.method_id).spec, s)],
+                ceiling=max_specialists)
+            for selection in selections:
                 spec = self._methods.get(selection.method_id).spec
+                if spent_or_repeated(registry, spec):
+                    # Re-read here and not only where the list was built: the
+                    # runs earlier in THIS round are new information, and a
+                    # list built once and trusted all round is how one method
+                    # came to run five times in a single pass with four of
+                    # those runs refusing everything they generated.
+                    continue
                 if selection.inputs.missing:
                     # The hole is the question pass's business: it is already a
-                    # typed Gap with a fill strategy, and a specialist gap
-                    # becomes an assignment when its producer is selectable.
+                    # typed Gap with a fill strategy. The producer that would
+                    # fill it is another selection in this same list, and the
+                    # rounds are what let it run first: `synthesis_blockers`
+                    # keeps analysis open while any unmet input names a kind a
+                    # still-unattempted selection writes, so the consumer is
+                    # reached on a later round instead of never.
                     continue
-                if spec.execution in FREE_EXECUTION and not selection.tied:
+                if _runs_directly(spec, selection):
                     if self._run_free(state, selection, spec, refusals, settings=settings):
                         ran.append((selection.method_id, selection.issue_id))
                         worked = True
                 else:
-                    if spawned >= max_specialists:
-                        continue                          # the round's ceiling, not a refusal
+                    if (selection.issue_id, selection.method_id) not in slots:
+                        # The round's budget went elsewhere. Recorded, not
+                        # silent: work that was ready and did not run is a fact
+                        # about the engagement, and a ceiling that declines
+                        # without saying so is a ceiling nothing can see.
+                        refusals.append(
+                            f"{selection.method_id} on {selection.issue_id} was ready and did not run: "
+                            f"the round's {max_specialists} specialist slots went to other work")
+                        continue
                     outcome = self._assign(state, selection, refusals, settings=settings)
                     if outcome is None:
                         continue
                     assignments.append(outcome.assignment_id)
                     findings.extend(outcome.findings)
-                    spawned += 1
                     worked = True
 
             conflicts.extend(c.id for c in detect_conflicts(registry, calc=calc))
@@ -434,11 +516,11 @@ class Partner:
         yet agreed to."""
         registry = state.registry
         ran: list[tuple[str, str]] = []
-        for selection in select_methods(open_issues(registry), registry, self._methods):
+        for selection in open_selections(registry, bounds=state.bounds, methods=self._methods):
             spec = self._methods.get(selection.method_id).spec
             if spec.execution not in FREE_EXECUTION or selection.tied:
                 continue
-            if selection.inputs.missing or attempted(registry, selection.method_id, selection.issue_id):
+            if selection.inputs.missing:
                 continue
             before = len(registry.rows())
             if self._run_free(state, selection, spec, refusals, settings=settings):
@@ -453,6 +535,10 @@ class Partner:
         batch: a half-written analysis would leave conclusions with no inputs."""
         registry = state.registry
         actor_ref = f"method:{spec.id}@{spec.version}"
+        # Taken BEFORE the run: what the method was shown is what a later
+        # selection has to compare against, and after the run the registry
+        # already holds what this run wrote.
+        fingerprint = input_fingerprint(spec, registry)
         ctx = MethodContext(registry=registry, provider=self._provider,
                             calc=self._calculator(state), actor=Actor.METHOD, actor_ref=actor_ref,
                             issue_ids=(selection.issue_id,), settings=settings)
@@ -460,7 +546,8 @@ class Partner:
             result = run_free(selection, ctx, methods=self._methods)
         except Exception as exc:
             self._record_analysis(state, spec, selection.issue_id, actor_ref=actor_ref,
-                                  state_value=AnalysisState.BLOCKED, blocked_on=(type(exc).__name__,))
+                                  state_value=AnalysisState.BLOCKED, blocked_on=(type(exc).__name__,),
+                                  fingerprint=fingerprint)
             refusals.append(f"{TurnStep.FREE_METHODS}: {spec.id}: {exc}")
             return False
         deltas: list[EntityDelta] = list(result.deltas)
@@ -468,8 +555,8 @@ class Partner:
             deltas.append(Add(make_entity(
                 kind=Kind.QUESTION, engagement_id=registry.engagement_id, payload=q,
                 provenance=Provenance(actor=Actor.METHOD, actor_ref=actor_ref,
-                                      derived_from=(selection.issue_id,)),
-                confidence=Confidence(None), relevance=Relevance(None, 0.0),
+                                      derived_from=question_lineage(registry, selection.issue_id, q)),
+                confidence=Confidence(None), relevance=question_relevance(registry, q),
                 relation=RelationToCentralDecision.INFORMS, status=Status.OPEN)))
         try:
             written = registry.apply_all(deltas)
@@ -477,11 +564,13 @@ class Partner:
             # The batch rolled back whole. The attempt is recorded as blocked
             # so the round loop does not offer the same refusal again.
             self._record_analysis(state, spec, selection.issue_id, actor_ref=actor_ref,
-                                  state_value=AnalysisState.BLOCKED, blocked_on=(exc.invariant,))
+                                  state_value=AnalysisState.BLOCKED, blocked_on=(exc.invariant,),
+                                  fingerprint=fingerprint, record=run_record(result))
             refusals.append(f"{TurnStep.FREE_METHODS}: {spec.id}: {exc}")
             return False
         self._record_analysis(state, spec, selection.issue_id, actor_ref=actor_ref,
-                              state_value=AnalysisState.DONE, outputs=tuple(e.id for e in written))
+                              state_value=AnalysisState.DONE, outputs=tuple(e.id for e in written),
+                              fingerprint=fingerprint, record=run_record(result))
         return True
 
     def _assign(self, state: EngagementState, selection: Selection,
@@ -508,16 +597,24 @@ class Partner:
 
     def _record_analysis(self, state: EngagementState, spec, issue_id: str, *, actor_ref: str,
                          state_value: AnalysisState, outputs: tuple[str, ...] = (),
-                         blocked_on: tuple[str, ...] = ()) -> Entity:
+                         blocked_on: tuple[str, ...] = (), fingerprint: str = "",
+                         record: Mapping[str, int] | None = None) -> Entity:
         """One ANALYSIS row per direct run. The specialist runner writes its
         own; both are read by `attempted()`, which is what stops a method being
-        offered the same node twice."""
+        offered the same node twice, and by `exhausted_methods()`, which is
+        what stops it being offered a second node once a run of it kept
+        nothing."""
         registry = state.registry
+        counted = dict(record or {})
         return registry.apply(Add(make_entity(
             kind=Kind.ANALYSIS, engagement_id=registry.engagement_id,
             payload=AnalysisPayload(method_id=spec.id, method_version=spec.version,
                                     issue_ids=(issue_id,), state=state_value, outputs=outputs,
-                                    blocked_on=blocked_on),
+                                    blocked_on=blocked_on, input_fingerprint=fingerprint,
+                                    kept=int(counted.get("kept", 0)),
+                                    discarded=int(counted.get("discarded", 0)),
+                                    asked=int(counted.get("asked", 0)),
+                                    model_calls=int(counted.get("model_calls", 0))),
             provenance=Provenance(actor=Actor.METHOD, actor_ref=actor_ref, derived_from=(issue_id,)),
             confidence=Confidence(None), relevance=Relevance(None, 0.0),
             relation=RelationToCentralDecision.INFORMS, status=Status.PROPOSED)))

@@ -38,9 +38,14 @@ from __future__ import annotations
 from dataclasses import dataclass, fields, is_dataclass, replace
 from typing import Any, Iterable, Mapping, Sequence
 
-from app.engine.methods.contract import METHODS, MethodContext, MethodRegistry, MethodResult, Selection
+from app.engine.methods.contract import (
+    METHODS, MethodContext, MethodRegistry, MethodResult, Selection, input_fingerprint,
+    question_lineage, question_relevance, run_record,
+)
 from app.engine.registry import Calculator, EngagementRegistry, ScopedView
-from app.engine.specialists.assignment import ADMISSION_RULES, Assignment, resolve_bounds
+from app.engine.specialists.assignment import (
+    ADMISSION_RULES, Assignment, DECISION_OWNED_KINDS, default_budget, resolve_bounds,
+)
 from app.engine.types import (
     ASSIGNMENT_EXECUTION,
     Actor,
@@ -301,9 +306,8 @@ def admission_violations(assignment: Assignment, result: MethodResult, registry:
         # S4 -- the specialist answers its node; it does not settle decisions
         # it was not given. Options for a forbidden decision are refused too
         # unless this node was built to be decisive for it.
-        if e.kind in (Kind.RECOMMENDATION, Kind.TRADE_OFF) and e.payload.decision_id in forbidden:
-            out.append(("S4", where, ADMISSION_RULES["S4"]))
-        if e.kind == Kind.OPTION and e.payload.decision_id in forbidden and e.payload.decision_id not in targeted:
+        if (e.kind in DECISION_OWNED_KINDS and e.payload.decision_id in forbidden
+                and not (e.kind == Kind.OPTION and e.payload.decision_id in targeted)):
             out.append(("S4", where, ADMISSION_RULES["S4"]))
 
         # S5 -- cite only what you could read. The window is the scope: a
@@ -413,11 +417,20 @@ def _record_outcome(registry: EngagementRegistry, assignment_id: str, outcome: s
 
 def _analysis(registry: EngagementRegistry, assignment: Assignment, assignment_id: str, spec, *,
               actor_ref: str, state: AnalysisState, outputs: Sequence[str] = (),
-              blocked_on: Sequence[str] = ()) -> Entity:
+              blocked_on: Sequence[str] = (), fingerprint: str = "",
+              record: Mapping[str, int] | None = None) -> Entity:
+    """The specialist's own ANALYSIS row, carrying the same account of the run
+    the free path records: what it kept, what it generated and refused, what it
+    asked, what it spent, and the digest of what it was shown. The selector
+    reads both kinds of row through one predicate, so a method cannot be
+    rationed on the free path and unrationed under an assignment."""
+    counted = dict(record or {})
     payload = AnalysisPayload(
         method_id=spec.id, method_version=spec.version, issue_ids=tuple(i for i in (assignment.issue_id,) if i),
         state=state, inputs=assignment.permitted_evidence, outputs=tuple(outputs),
-        assignment_id=assignment_id, blocked_on=tuple(blocked_on))
+        assignment_id=assignment_id, blocked_on=tuple(blocked_on), input_fingerprint=fingerprint,
+        kept=int(counted.get("kept", 0)), discarded=int(counted.get("discarded", 0)),
+        asked=int(counted.get("asked", 0)), model_calls=int(counted.get("model_calls", 0)))
     entity = make_entity(
         kind=Kind.ANALYSIS, engagement_id=registry.engagement_id, payload=payload,
         provenance=Provenance(actor=Actor.SPECIALIST, actor_ref=actor_ref, derived_from=(assignment_id,)),
@@ -435,8 +448,9 @@ def _question_entities(registry: EngagementRegistry, result: MethodResult, *, ac
     for q in result.questions:
         out.append(Add(make_entity(
             kind=Kind.QUESTION, engagement_id=registry.engagement_id, payload=q,
-            provenance=Provenance(actor=Actor.SPECIALIST, actor_ref=actor_ref, derived_from=(assignment_id,)),
-            confidence=Confidence(None), relevance=Relevance(None, 0.0),
+            provenance=Provenance(actor=Actor.SPECIALIST, actor_ref=actor_ref,
+                                  derived_from=question_lineage(registry, assignment_id, q)),
+            confidence=Confidence(None), relevance=question_relevance(registry, q),
             relation=RelationToCentralDecision.INFORMS, status=Status.OPEN)))
     return out
 
@@ -453,6 +467,11 @@ def run(assignment: Assignment, registry: EngagementRegistry, provider, calc: Ca
     actor_ref = f"specialist:{assignment_id}"
 
     view = ScopedView(registry, assignment.permitted_evidence)
+    # Taken before the run and against the REGISTRY rather than the scoped
+    # view: the selector that reads it back sees the whole register, and a
+    # digest taken through one assignment's window could not be compared with
+    # one taken through another's.
+    fingerprint = input_fingerprint(spec, registry)
     budgeted = BudgetedProvider(provider, assignment.budget, method_id=spec.id)
     ctx = MethodContext(registry=view, provider=budgeted, calc=calc, actor=Actor.SPECIALIST,
                         actor_ref=actor_ref, issue_ids=tuple(i for i in (assignment.issue_id,) if i),
@@ -461,7 +480,8 @@ def run(assignment: Assignment, registry: EngagementRegistry, provider, calc: Ca
     def blocked(reason: str, detail: str) -> RunOutcome:
         _record_outcome(registry, assignment_id, "blocked", None)
         analysis = _analysis(registry, assignment, assignment_id, spec, actor_ref=actor_ref,
-                             state=AnalysisState.BLOCKED, blocked_on=(reason,))
+                             state=AnalysisState.BLOCKED, blocked_on=(reason,),
+                             fingerprint=fingerprint)
         finding = Finding(law=f"SPE.budget.{reason}", where=assignment_id, issue=detail,
                           fix="re-issue the assignment with a larger budget, or narrow the question",
                           severity=Severity.HIGH, entity_ids=(assignment_id,), blocks_final=False)
@@ -486,7 +506,8 @@ def run(assignment: Assignment, registry: EngagementRegistry, provider, calc: Ca
         findings = tuple(_finding(r, w, why, assignment_id=assignment_id) for r, w, why in violations)
         _record_outcome(registry, assignment_id, "rejected", rule)
         analysis = _analysis(registry, assignment, assignment_id, spec, actor_ref=actor_ref,
-                             state=AnalysisState.BLOCKED, blocked_on=(rule,))
+                             state=AnalysisState.BLOCKED, blocked_on=(rule,),
+                             fingerprint=fingerprint, record=run_record(result))
         return RunOutcome(assignment_id, "rejected", (), findings, rule, analysis.id, budgeted.calls)
 
     deltas = list(result.deltas) + _question_entities(registry, result, actor_ref=actor_ref,
@@ -499,7 +520,8 @@ def run(assignment: Assignment, registry: EngagementRegistry, provider, calc: Ca
         # refusal, recorded under the invariant that caught it.
         _record_outcome(registry, assignment_id, "rejected", exc.invariant)
         analysis = _analysis(registry, assignment, assignment_id, spec, actor_ref=actor_ref,
-                             state=AnalysisState.BLOCKED, blocked_on=(exc.invariant,))
+                             state=AnalysisState.BLOCKED, blocked_on=(exc.invariant,),
+                             fingerprint=fingerprint, record=run_record(result))
         finding = Finding(law=f"SPE.admission.{exc.invariant}", where=assignment_id, issue=str(exc),
                           fix="the whole result is refused; nothing of it is written",
                           severity=Severity.HIGH, entity_ids=(assignment_id,), blocks_final=False)
@@ -523,7 +545,8 @@ def run(assignment: Assignment, registry: EngagementRegistry, provider, calc: Ca
                 fix="fix the validator; until it runs, this method's declared law is unchecked",
                 severity=Severity.HIGH, entity_ids=(assignment_id,), blocks_final=False))
     analysis = _analysis(registry, assignment, assignment_id, spec, actor_ref=actor_ref,
-                         state=AnalysisState.DONE, outputs=[e.id for e in written])
+                         state=AnalysisState.DONE, outputs=[e.id for e in written],
+                         fingerprint=fingerprint, record=run_record(result))
     findings = [replace(f, entity_ids=tuple(dict.fromkeys(f.entity_ids + (analysis.id,)))) for f in findings]
     _record_outcome(registry, assignment_id, "done", None)
     return RunOutcome(assignment_id, "done", tuple(written), tuple(findings), None, analysis.id, budgeted.calls)
@@ -537,23 +560,50 @@ def run_free(selection: Selection, ctx: MethodContext, *, methods: MethodRegistr
         or ask a model to word a conclusion, and both need a frozen scope;
       - a tied selection, however cheap, because two methods that ranked equal
         must both run as assignments so their disagreement surfaces as a
-        CONFLICT instead of one being silently preferred;
+        CONFLICT instead of one being silently preferred - unless the method
+        writes a kind S4 refuses a specialist on a decision the assignment
+        does not target (DECISION_OWNED_KINDS), in which case an assignment
+        would reject its whole result on a rule about specialists and the tie
+        is broken by running it here instead. Both tied methods still run, so
+        neither is silently preferred, and their disagreement still reaches
+        `detect_conflicts` as two rows about one subject;
       - a context claiming to be a specialist, which would run scoped work
         without a scope.
 
     Removing any one of these is the mutation that lets a research method run
     unscoped, and no benchmark case would show an Assignment at all.
+
+    And it METERS the result. `default_budget` is the same production budget an
+    Assignment is funded with, applied to the same rule an assignment applies:
+    a result larger than the run was funded for is blocked WHOLE, never trimmed
+    to fit, because a truncated analysis reads as a complete one. The free path
+    was the hole in that law - it is where DETERMINISTIC and CALCULATION
+    methods run, which is most of the library's writers, and nothing counted
+    what they wrote. A method whose output grew with the size of the register
+    rather than with the question it was asked could therefore offer the
+    registry hundreds of rows in one batch and be stopped only by the ceiling
+    at the door, which rolls the batch back and hides the whole event in a live
+    count that lands BELOW the ceiling that refused it.
     """
     spec = methods.get(selection.method_id).spec
     if spec.execution in ASSIGNMENT_EXECUTION:
         raise AssignmentRequired(
             f"{spec.id} is {spec.execution.value}: it runs only under an Assignment (ASSIGNMENT_EXECUTION)")
-    if selection.tied:
+    if selection.tied and not any(k in DECISION_OWNED_KINDS for k in spec.output_kinds):
         raise AssignmentRequired(
             f"{spec.id} tied with another method: tied selections both run as assignments so the disagreement is visible")
     if ctx.actor != Actor.METHOD:
         raise AssignmentRequired(f"a direct run is the METHOD's own; {ctx.actor.value} runs under an Assignment")
-    return methods.get(selection.method_id).run(ctx)
+    result = methods.get(selection.method_id).run(ctx)
+    # `ctx.settings` carries every BOUNDS name when the loop built it, and a
+    # caller may hand a method a narrower mapping; a bounds lookup must never
+    # be the reason a run is refused, so a mapping that does not carry the
+    # ceilings falls back to the operator's live ones (`resolve_bounds(None)`).
+    bounds = ctx.settings if all(n in ctx.settings for n in ("MAX_FANOUT", "MAX_ANALYSIS_ROUNDS")) else None
+    funded = default_budget(spec, bounds).max_deltas
+    if len(result.deltas) > funded:
+        raise BudgetExceeded("deltas", len(result.deltas), funded)
+    return result
 
 
 __all__ = [

@@ -7,6 +7,7 @@ Pinned mutations (work breakdown C17):
 - remove the pause                   -> test_a_material_question_from_a_method_pauses_analysis
 - run RESEARCH methods directly      -> test_research_waits_for_the_charter_while_deterministic_runs
 - remove the SPAWN branch            -> test_paid_and_tied_selections_become_assignments
+- let a tie assign decision-owned work -> test_a_tie_does_not_push_decision_owned_work_under_an_assignment
 - cache the live summary             -> test_live_summary_is_recomputed_not_stored
 - drop the merge of the caller's bindings -> test_a_binding_reaches_a_free_method
 - let a binding shadow a bound       -> test_a_binding_cannot_move_an_operators_ceiling
@@ -537,6 +538,64 @@ def test_paid_and_tied_selections_become_assignments(registry, fake_provider):
     assert len(run.assignments) == len(rows) == 3
     assert run.ran == (), "nothing paid or tied ran directly"
     assert len(rows) <= state.bound("MAX_SPECIALISTS_PER_ROUND") * run.rounds
+
+
+class _DecisionOwnedWriter(_Writer):
+    """Writes a TRADE_OFF on the engagement's own decision - a kind S4 refuses
+    a specialist unless the assignment targets that decision, which on a normal
+    engagement no assignment does."""
+
+    def run(self, ctx):
+        facts = [f for f in ctx.registry.query(K.FACT) if f.status not in T.TERMINAL_STATUSES]
+        central = ctx.registry.central_decision()
+        if not facts or central is None:
+            return MethodResult()
+        return MethodResult(deltas=(Add(new_entity(
+            ctx, K.TRADE_OFF,
+            T.TradeOffPayload(decision_id=central.id, option_ids=(),
+                              gives_up="speed", gains="cost"),
+            derived_from=(facts[0].id, central.id), relation=INFORMS,
+            confidence=T.Confidence(None), decision_id=central.id, weight=0.0)),))
+
+
+def test_a_tie_does_not_push_decision_owned_work_under_an_assignment(registry, fake_provider):
+    """A tie makes both methods run as assignments so neither is silently
+    preferred - but S4 refuses a specialist a RECOMMENDATION, a TRADE_OFF or an
+    OPTION on a decision its assignment does not target, and the central
+    decision is forbidden on every assignment. So for a method that writes one
+    of those kinds the tie rule and the admission rule point opposite ways, and
+    obeying the tie rule would throw the whole result away for a reason about
+    specialists rather than about the analysis.
+
+    The loop breaks the tie the other way for exactly those methods. Both still
+    run, so nothing is silently preferred; what changes is only which door.
+
+    Mutation: drop `_decision_owned(spec)` from the loop's free-run condition.
+    The unit test on `run_free` cannot see this one - the door stays open, the
+    loop just stops walking through it - so this drives the real loop.
+    """
+    reg = registry(EID)
+    a = _Writer(spec("tie_a", T.ExecutionType.DETERMINISTIC, SHAPE_TIE))
+    b = _DecisionOwnedWriter(spec("tie_b", T.ExecutionType.DETERMINISTIC, SHAPE_TIE,
+                                  writes=(K.TRADE_OFF,)))
+    methods = registry_of(a, b)
+    dec = decision(reg)
+    owner(reg)
+    objective(reg)
+    fact(reg, decision_id=dec.id)
+    issue(reg, dec.id, SHAPE_TIE, text="which option to take")
+    partner, state, _, _ = approved_engagement(reg, methods, fake_provider(oracle=oracle()))
+
+    run = partner.run_analysis(state)
+
+    assert ("tie_b", ) in {(m, ) for m, _ in run.ran},         "the decision-owned method was not run directly; a tie pushed it under an assignment"
+    assert reg.live(K.TRADE_OFF),         "no TRADE_OFF survived: S4 rejected the result of a method that should not have been assigned"
+    assert reg.live(K.TRADE_OFF)[0].provenance.actor is Actor.METHOD
+
+    # The tie rule itself is untouched: the other half of the tie still runs,
+    # and it runs where a tie says it should.
+    assert [r.payload.method_id for r in reg.live(K.SPECIALIST_ASSIGNMENT)] == ["tie_a"]
+    assert reg.live(K.CAPABILITY), "the tied peer did not run at all"
 
 
 # ===========================================================================

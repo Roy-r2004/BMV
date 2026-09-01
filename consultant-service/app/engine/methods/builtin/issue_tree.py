@@ -49,7 +49,6 @@ from app.engine.methods.contract import (
 from app.engine.types import (
     BOUNDS,
     FILTERABLE_FIELDS,
-    ID_PREFIX,
     TERMINAL_STATUSES,
     Add,
     AsksFor,
@@ -173,6 +172,33 @@ def _node_key(shape: QuestionShape, parent_id: str | None) -> tuple:
             shape.causal, shape.temporal, shape.capability_class, parent_id)
 
 
+def decomposed(existing: Iterable[Entity]) -> bool:
+    """Whether this decision already carries a decomposition.
+
+    A decision is decomposed ONCE. This method is the only writer of an ISSUE
+    and `select_methods` reads its domain from open ISSUE rows, so every node
+    it places that a declared shape takes on becomes another selection of this
+    same method, which places another subtree, and so on: the producer feeds
+    its own selection domain. Measured before this law: three hundred and
+    seventy eight nodes on one engagement, four levels deep, from sixteen
+    expansions of one decision, and the capability register and the option set
+    are both linear in that number - so it was the tree that ran the engine
+    past every ceiling it publishes, until the registry door refused a row.
+
+    The stopping condition is the question's own, not a ceiling: "how does this
+    decision break down" has been answered, and the answer is the tree. Read
+    from the tree's own shape - a live node with a parent, the root being the
+    decision restated rather than part of its own decomposition - and never
+    from a count, a round number or a method name.
+
+    What it changes is only what a later run may ADD: restatement still lands
+    (Supersede, which is how the tree converges and how a re-run keeps its
+    lineage), so nothing is truncated and a run that restates the tree exactly
+    writes exactly what it wrote before.
+    """
+    return any(n.payload.parent_id for n in existing)
+
+
 def _issues_in(result: MethodResult) -> list[Entity]:
     out: list[Entity] = []
     for d in result.deltas:
@@ -263,18 +289,17 @@ def _wording(e: Entity) -> str:
     return ""
 
 
-def _next_issue_number(view) -> int:
+def _issue_ids(view, count: int) -> list[str]:
     """Ids are pre-assigned so a child payload can carry its parent's real id
-    before the batch lands. The counter continues from every ISSUE id the
-    registry has ever assigned (superseded rows keep their id), and the
-    registry re-checks the format and collision on apply (I6)."""
-    prefix = ID_PREFIX[Kind.ISSUE] + "-"
-    n = 0
-    for e in view.query(Kind.ISSUE):
-        _, _, num = e.id.rpartition("-")
-        if e.id.startswith(prefix) and num.isdigit():
-            n = max(n, int(num))
-    return n
+    before the batch lands.
+
+    They come from the registry's own counter (`reserve_ids`), not from the
+    highest id this view happens to show: a specialist's window holds only its
+    declared inputs, so an id counted off it collides with an ISSUE the
+    assignment was never shown and I6 refuses the whole tree - which is what
+    retired the second and every later expansion of the tree.
+    """
+    return view.reserve_ids(Kind.ISSUE, count)
 
 
 @register
@@ -286,6 +311,9 @@ class IssueTreeMethod:
         decisions = _live(view, Kind.DECISION)
         objectives = _live(view, Kind.OBJECTIVE)
         existing = _live(view, Kind.ISSUE)
+        # A decision is decomposed ONCE, and after that a run of this method
+        # RESTATES the tree rather than growing it (`decomposed`).
+        already_decomposed = decomposed(existing)
         # Everything live except the tree itself is citable context; the
         # prompt tells the model these ids are the only ones it may cite.
         citable = [e for e in _live(view) if e.kind != Kind.ISSUE]
@@ -342,7 +370,7 @@ class IssueTreeMethod:
         existing_by_key = {_node_key(QuestionShape.of(n), n.payload.parent_id): n for n in existing}
         central = view.central_decision()
         live_decisions = {d.id for d in decisions}
-        next_num = _next_issue_number(view)
+        fresh = iter(_issue_ids(view, len(candidates)))
 
         deltas: list[EntityDelta] = []
         real_of_temp: dict[str, str] = {}
@@ -386,11 +414,57 @@ class IssueTreeMethod:
                     findings.append(_finding("duplicate", f"{node.text[:80]!r}: restates a node from this batch"))
                     continue
                 old = existing_by_key.get(key)
+                if old is not None and old.provenance.actor_ref != ctx.actor_ref:
+                    # The node is already on the tree, placed by another run.
+                    # Restating it would be a Supersede against a row this
+                    # assignment does not own, which S1 refuses - and S1 is
+                    # right: one role does not edit another's record. The node
+                    # already says what this batch wanted to say, so the
+                    # children attach to it and the restatement is recorded.
+                    if node.temp_id:
+                        real_of_temp[node.temp_id] = old.id
+                    emitted_keys[key] = old.id
+                    findings.append(_finding("duplicate",
+                                             f"{node.text[:80]!r}: restates a node another run placed"))
+                    continue
                 if old is not None:
                     real_id = old.id
+                elif already_decomposed:
+                    # The decision is decomposed and this node is not on the
+                    # tree: it is a NEW question, and a new question at this
+                    # point grows the tree instead of restating it.
+                    #
+                    # This method is the only writer of an ISSUE, and
+                    # `select_methods` reads its domain from open ISSUE rows -
+                    # so every node it places that a declared shape takes on
+                    # becomes another selection of this same method, which
+                    # places another subtree, and so on. Measured before this
+                    # law: three hundred and seventy eight nodes on one
+                    # engagement, four levels deep, from sixteen expansions of
+                    # one decision, and the capability register and the option
+                    # set are both linear in that number - so it was the tree
+                    # that ran the engine past every ceiling it publishes,
+                    # until the registry door refused a row.
+                    #
+                    # The stopping condition is the question's own: "how does
+                    # this decision break down" has been answered, and the
+                    # answer is the tree. Restatement still lands (the branch
+                    # above), so a second run converges rather than being
+                    # refused; only growth stops. The drop is recorded and the
+                    # subtree beneath it goes with it, because a node whose
+                    # place in the tree is not admitted has no place for its
+                    # children either.
+                    findings.append(_finding(
+                        "already_decomposed",
+                        f"{node.text[:80]!r}: the decision is already decomposed; "
+                        "a node the tree does not carry is not added"))
+                    batch_temps.discard(node.temp_id)
+                    continue
                 else:
-                    next_num += 1
-                    real_id = f"{ID_PREFIX[Kind.ISSUE]}-{next_num}"
+                    reserved = next(fresh, None)
+                    if reserved is None:               # pragma: no cover - one id per candidate
+                        reserved = _issue_ids(view, 1)[0]
+                    real_id = reserved
 
                 decisive = tuple(i for i in node.decisive_for if i in live_decisions)
                 payload = IssuePayload(

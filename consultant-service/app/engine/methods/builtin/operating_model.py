@@ -82,10 +82,15 @@ class OperatingModel:
     spec = MethodSpec(
         id="operating_model", version=1,
         applicability=(
-            QuestionShape(T.Interrogative.HOW, T.Kind.CAPABILITY,
-                          capability_class=T.CapabilityClass.PROCESS),
-            QuestionShape(T.Interrogative.HOW, T.Kind.CAPABILITY,
-                          capability_class=T.CapabilityClass.GOVERNANCE_AND_CONTROL),
+            # HOW on a capability, whatever class the node happens to carry.
+            # An operating model arranges the capabilities the REGISTER holds -
+            # OM2 takes each output's class from the rows it cites, never from
+            # the node - so a shape qualified by a class made the library's only
+            # WORKSTREAM producer reachable or unreachable by which two of the
+            # nine classes an issue tree happened to name. That is not a
+            # narrowing of what the method answers; it is a lottery over
+            # whether the delivery half of the library runs at all.
+            QuestionShape(T.Interrogative.HOW, T.Kind.CAPABILITY),
         ),
         answers=(T.Interrogative.HOW,),
         required_inputs=(

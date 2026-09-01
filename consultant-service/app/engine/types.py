@@ -626,6 +626,15 @@ class QuestionPayload:
     value: float | None = None
     answer_entity_ids: tuple[str, ...] = ()
     unknown: bool = False                  # the client said they do not know: never re-asked
+    # What the question is ABOUT, typed, so the ask survives the trip from a
+    # method's result to a registered row. A producer knows which rows its hole
+    # is in and which decision the hole blocks; before these two fields the
+    # writer (partner/loop, specialists/runner) threw both away and every
+    # question in every engagement was born citing only its issue node and
+    # attached to no decision at all. A blocker that cannot say WHICH decision
+    # it blocks is a blocker nothing can act on.
+    about_ids: tuple[str, ...] = ()        # the registered rows this hole is in
+    decision_id: str | None = None         # the DECISION this question blocks
 
 
 @dataclass(frozen=True)
@@ -664,6 +673,25 @@ class AnalysisPayload:
     outputs: tuple[str, ...] = ()
     assignment_id: str | None = None
     blocked_on: tuple[str, ...] = ()
+    # What the run COST and what it left behind, recorded as the method itself
+    # finished it - before the admission rules, the registry or a rollback have
+    # had a word. An ANALYSIS row that says only DONE cannot tell a run that
+    # concluded something from a run that generated twenty candidates, refused
+    # all twenty and spent a model call doing it, so the selector could not
+    # tell either and offered the same method again.
+    # -1 on every one of them means NOT ACCOUNTED FOR - a row written by a
+    # path that does not measure, or by a build older than these fields.
+    # Absence of a record is not a record of failure, and the selector reads it
+    # as a run that produced something rather than as one that produced
+    # nothing.
+    kept: int = -1                         # rows the run added or superseded
+    discarded: int = -1                    # candidates it generated and refused
+    asked: int = -1                        # questions it wrote
+    model_calls: int = -1
+    # A digest of the rows the method was SHOWN. A method offered the same
+    # inputs a second time concludes the same thing a second time; the digest
+    # is what lets the selector know that before spending the call.
+    input_fingerprint: str = ""
 
 
 @dataclass(frozen=True)
@@ -1274,9 +1302,32 @@ BOUNDS: Mapping[str, Any] = {
     "ASK_FLOOR": 0.10, "MAX_FANOUT": 6, "SYMPTOM_MARGIN": 0.25, "CHARTER_MIN_WEIGHT": 0.45,
     "CHARTER_MIN_MARGIN": 0.15, "MAX_DISCOVERY_TURNS": 12, "MAX_ANALYSIS_ROUNDS": 6,
     "MIN_WORK_PRODUCTS": 2, "MAX_WORK_PRODUCTS": 16, "MAX_SPECIALISTS_PER_ROUND": 4,
+    "MAX_METHODS_PER_ISSUE": 2,
     "MIN_REVEALED_CHANGERS": 3, "MIN_DISTINCT_DELIVERABLE_SETS": 4, "MIN_DISTINCT_SECTION_SIGNATURES": 8,
     "RENDERED_RESTATEMENT_TOLERANCE": 0.005, "MAX_NARRATIVE_REGENERATIONS": 1,
 }
+
+# How many live rows of ONE analysis kind an engagement may hold. Derived from
+# the bounds above rather than written as a number: every round of the analysis
+# (MAX_ANALYSIS_ROUNDS), running flat out (MAX_SPECIALISTS_PER_ROUND), opening
+# every branch it is allowed (MAX_FANOUT). That is already a generous reading
+# of "nothing was ever reconciled" - it is not a target but the point past
+# which an engagement has stopped analysing a decision and started enumerating
+# the registry. The other bounds cap how much WORK may run and none of them
+# capped what the work may leave behind, which is how an engagement came to
+# hold six hundred routes to one decision.
+BOUNDS["MAX_ENTITIES_PER_ANALYSIS_KIND"] = (
+    BOUNDS["MAX_ANALYSIS_ROUNDS"] * BOUNDS["MAX_SPECIALISTS_PER_ROUND"] * BOUNDS["MAX_FANOUT"])
+
+# The kinds that ceiling applies to: what an ANALYSIS concludes, as opposed to
+# the evidence it was given and the process records it keeps. A conclusion is
+# the engine's own output and is what runs away; a FACT it was handed is not
+# the engine's to ration.
+ANALYSIS_KINDS: tuple[Kind, ...] = (
+    Kind.CAPABILITY, Kind.OPTION, Kind.EVALUATION_CRITERION, Kind.TRADE_OFF, Kind.RECOMMENDATION,
+    Kind.PROCESS_STEP, Kind.WORKSTREAM, Kind.INITIATIVE, Kind.ACTION, Kind.HYPOTHESIS,
+    Kind.RISK, Kind.CONTROL,
+)
 
 
 

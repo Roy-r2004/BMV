@@ -124,6 +124,34 @@ _ISSUE_ROW = re.compile(r"^- (?P<id>[A-Z]{3}-\d+): (?P<text>.*)$", re.M)
 # The sentence a narrative prompt requires when it offers no claims.
 _EMPTY_NARRATIVE = re.compile(r'return the single sentence: "(?P<text>[^"]+)"')
 _TOKEN_ROW = re.compile(r"^- (?P<id>[A-Z]{3}-\d+) -> (?P<token>\S+) : ", re.M)
+# The METHOD-SPECIFIC INSTRUCTIONS block of method_generic.j2, and the field
+# descriptions inside it. The template renders the block from the method's own
+# `_INSTRUCTIONS` string, which spells out each payload field it gates on and
+# the closed vocabulary (rendered from the enum) or the shape of value it
+# expects. Reading it is the field-level analogue of `_kind_cues` reading the
+# Kind catalogue: prompt data, not case data.
+_INSTRUCTION_BLOCK = re.compile(r"^METHOD-SPECIFIC INSTRUCTIONS\n(?P<body>.*?)\n\s*RULES$", re.S | re.M)
+# `'gap' (one of: missing | partial)`, `"likelihood" and "impact" (high | low)`,
+# and `'gap' field (one of: ...)` - a vocabulary belongs to the quoted field
+# name NEAREST BEFORE it, and a method is entitled to put a word like "field"
+# between the two without the fake losing the ability to answer it. The run
+# between them is bounded and may hold only lowercase letters and spaces, so it
+# cannot cross a quote, a bracket or a sentence; nothing here compares against a
+# word, so the S5 no-prose-branch law is untouched.
+_FIELD_PAREN = re.compile(r"(?P<names>['\"][a-z_]+['\"](?:\s+and\s+['\"][a-z_]+['\"])*)"
+                          r"[a-z ]{0,12}?\s*\((?P<desc>[^()]*)\)")
+# `'causes': the list of FACT ids ...` - a field introduced by a colon instead
+_FIELD_COLON = re.compile(r"(?P<names>['\"][a-z_]+['\"]):\s*(?P<desc>[^.]*)")
+_QUOTED_NAME = re.compile(r"['\"](?P<name>[a-z_]+)['\"]")
+# What a description may say about the value, each read off the description
+# itself. Nothing here names a method, a field or a member.
+_ALTERNATIVES = re.compile(r"(?<![\w|])(?P<members>[a-z_]+(?:\s*\|\s*[a-z_]+)+)(?![\w|])")
+_QUOTED_ALTERNATIVES = re.compile(r"['\"](?P<one>[a-z_]+)['\"]\s+or\s+['\"](?P<two>[a-z_]+)['\"]")
+_POSITIVE_INTEGER = re.compile(r"\ba positive integer\b")
+_AN_ID = re.compile(r"\bthe id of\b")
+_ID_LIST = re.compile(r"\bids\b")
+_A_LABEL = re.compile(r"\ba short label like (?P<example>[A-Za-z]+)")
+_A_REF = re.compile(r"\brefs? of\b|\brefs above\b")
 
 
 # =============================================================================
@@ -390,11 +418,21 @@ def _shapes_by_interrogative() -> Mapping[Interrogative, tuple[QuestionShape, ..
     out: dict[Interrogative, list[QuestionShape]] = {}
     for method in METHODS.all():
         for shape in method.spec.applicability:
-            if shape.capability_class is not None:
-                continue
             out.setdefault(shape.interrogative, []).append(shape)
-    return {k: tuple(sorted(set(v), key=lambda s: (s.target_kind.value, s.interrogative.value)))
+    return {k: tuple(sorted(set(v), key=lambda s: (s.target_kind.value, s.interrogative.value,
+                                                   s.capability_class.value if s.capability_class else "",
+                                                   s.quantified, s.comparative, s.causal, s.temporal)))
             for k, v in out.items()}
+
+
+def _rotated(rows: Sequence[Any], start: int) -> list[Any]:
+    """`rows` beginning at `start`, wrapping. Which rows a bounded
+    decomposition reaches, decided the way every other choice here is: by a
+    number derived from what the prompt showed."""
+    if not rows:
+        return []
+    offset = start % len(rows)
+    return list(rows[offset:]) + list(rows[:offset])
 
 
 def _node(shape: QuestionShape, *, text: str, parent_id: str | None, temp_id: str,
@@ -405,7 +443,7 @@ def _node(shape: QuestionShape, *, text: str, parent_id: str | None, temp_id: st
         "temp_id": temp_id,
         "interrogative": shape.interrogative.value,
         "target_kind": shape.target_kind.value,
-        "capability_class": None,
+        "capability_class": shape.capability_class.value if shape.capability_class else None,
         "quantified": bool(shape.quantified),
         "comparative": bool(shape.comparative),
         "causal": bool(shape.causal),
@@ -462,15 +500,35 @@ def _issue_tree(call: ModelCall) -> str:
               (others or everything, every, "e"))
     nodes: list[dict[str, Any]] = []
     level: list[str | None] = [parent]
+    # Where in the window this decomposition starts. The fanout the prompt
+    # states is smaller than a mature window, and always taking the window's
+    # first `limit` rows would decompose the same handful forever: the tree
+    # would deepen and never widen, and the shapes it can carry would be
+    # whichever ones those few rows happened to hash to. The offset is the
+    # nodes the prompt printed as already placed, so it moves as the tree
+    # grows, differs between two registries, and repeats exactly on a re-run.
+    start = _offset("|".join(existing)) if existing else 0
     for rows, shapes, tag in groups:
         below: list[str | None] = []
-        for i, (entity_id, wording) in enumerate(rows[:limit]):
+        window = _rotated(rows, start)[:limit]
+        for i, (entity_id, wording) in enumerate(window):
             # The wording decides where in the catalogue this node starts, the
-            # position decides how far along it steps. One decomposition
-            # therefore spreads across the shapes rather than landing them all
-            # on the same one, and two registries still diverge because the
-            # wording that seeded them differs.
-            shape = shapes[(_offset(wording or entity_id) + i) % len(shapes)]
+            # position decides how far along it steps, and `start` moves the
+            # whole band as the tree grows. One decomposition therefore spreads
+            # across the shapes rather than landing them all on the same one,
+            # and two registries still diverge because the wording that seeded
+            # them differs.
+            #
+            # `start` is on this axis for the same reason it is on the rows.
+            # Without it a row's wording pins that row to ONE run of `limit`
+            # consecutive shapes for the life of the engagement, so a registry
+            # holding few distinct wordings can only ever reach a handful of
+            # the catalogue however long its tree grows - measured: an
+            # engagement whose ninety third-level nodes covered sixteen
+            # adjacent shapes out of forty, and never one of the nineteen the
+            # capability producers answer. That is the tree deepening and never
+            # widening, one axis over from where `_rotated` fixed it.
+            shape = shapes[(_offset(wording or entity_id) + start + i) % len(shapes)]
             temp_id = f"{tag}{len(nodes)}"
             nodes.append(_node(shape, text=f"{_ASK_PREFIX[tag]} {wording}?",
                                parent_id=level[i % len(level)], temp_id=temp_id,
@@ -574,18 +632,101 @@ def _narrative(call: ModelCall) -> str:
     return empty.group("text") if empty else ""
 
 
+def _field_rules(prompt: str) -> tuple[tuple[str, str], ...]:
+    """(field name, what the instructions say its value is), for every payload
+    field the METHOD-SPECIFIC INSTRUCTIONS block names.
+
+    The block is text `method_generic.j2` rendered from the method's own
+    instructions, and every closed vocabulary in it was rendered from an enum
+    in types.py. Reading it is the field-level analogue of `_kind_cues`
+    reading the Kind catalogue: the answer still comes from the call and from
+    nothing else. A field the instructions do not describe is left unset -
+    which is what the payload builders refuse, and refusing is the law
+    working.
+    """
+    block = _INSTRUCTION_BLOCK.search(prompt)
+    if block is None:
+        return ()
+    body = block.group("body")
+    rules: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for pattern in (_FIELD_PAREN, _FIELD_COLON):
+        for match in pattern.finditer(body):
+            desc = match.group("desc")
+            for name_match in _QUOTED_NAME.finditer(match.group("names")):
+                name = name_match.group("name")
+                if name in seen:
+                    continue
+                seen.add(name)
+                rules.append((name, desc))
+    return tuple(rules)
+
+
+def _named_kinds(desc: str) -> frozenset[str]:
+    """The kinds a field description names, read off the Kind catalogue the
+    same way `_kind_cues` reads it out of a prompt. "the id of a stakeholder
+    or owner" says which rows may answer; a description that names no kind
+    leaves the choice open."""
+    return frozenset(kind.value for _phrase, kind in _kind_cues(desc.lower()))
+
+
+def _field_value(desc: str, *, seed: str, position: int, cited: Sequence[str],
+                 labels: Sequence[str], rows: Sequence[tuple[str, str, str, Any]]) -> Any:
+    """One field's value, from what the description says the value is.
+
+    Six shapes, each named by the description itself: a closed list of members
+    (`a | b | c`, or two quoted alternatives), a positive integer, one id of a
+    named kind, a list of ids of a named kind, a short label, and a reference
+    to a label already given out. `_pick` chooses over the wording, so two
+    engagements whose rows read differently get different members - and
+    nothing here is chosen from a per-method table. A description that says
+    none of these leaves the field unset, which is what the payload builders
+    refuse; refusing is the law working, not a hole to be filled.
+    """
+    alternatives = _ALTERNATIVES.search(desc)
+    if alternatives is not None:
+        return _pick([m.strip() for m in alternatives.group("members").split("|")], seed)
+    quoted = _QUOTED_ALTERNATIVES.search(desc)
+    if quoted is not None:
+        return _pick([quoted.group("one"), quoted.group("two")], seed)
+    if _POSITIVE_INTEGER.search(desc) is not None:
+        return position
+    label = _A_LABEL.search(desc)
+    if label is not None:
+        return f"{label.group('example')}{position}"
+    if _A_REF.search(desc) is not None:
+        return _pick(list(labels), seed) if labels else None
+    wanted = _named_kinds(desc)
+    if _ID_LIST.search(desc) is not None and _AN_ID.search(desc) is None:
+        # A list of ids the output itself rests on: the law these fields carry
+        # is that the named rows are also cited, so the citations are where
+        # the list comes from.
+        by_id = {rid: tag for rid, tag, _text, _qty in rows}
+        return [i for i in cited if not wanted or by_id.get(i) in wanted]
+    if _AN_ID.search(desc) is not None:
+        named = [rid for rid, tag, _text, _qty in rows if not wanted or tag in wanted]
+        return _pick(named, seed) if named else None
+    return None
+
+
 def _generic_method(call: ModelCall) -> str:
     """Model-assisted methods other than the issue tree.
 
     One output per declared output kind per input the window showed, each
-    citing that input by id and restating its wording. Nothing is concluded and
-    no number is coined: a figure travels only by `quantity_from`, copied from
-    the input the prompt printed it on, which is the one channel the admission
-    law allows. What this exercises is the machinery around the model - the
-    admission rules, the payload builders, the validators, the plan predicates
-    that count what analysis produced - and that machinery is what a benchmark
-    can test. Whether a real model's conclusions are any good is a question
-    only a real run answers.
+    citing that input by id and restating its wording, with the payload fields
+    the method's own instructions describe (`_field_rules`). Nothing is
+    concluded and no number is coined: a figure travels only by
+    `quantity_from`, copied from the input the prompt printed it on, which is
+    the one channel the admission law allows. What this exercises is the
+    machinery around the model - the admission rules, the payload builders,
+    the validators, the plan predicates that count what analysis produced -
+    and that machinery is what a benchmark can test. Whether a real model's
+    conclusions are any good is a question only a real run answers.
+
+    The kinds are cycled rather than exhausted one at a time, so a window too
+    wide for the call's budget truncates every kind evenly instead of leaving
+    the last declared kind with nothing - which would read as a method defect
+    and is only a budget.
     """
     prompt = _prompt(call)
     kinds_match = _OUTPUT_KINDS.search(prompt)
@@ -597,17 +738,33 @@ def _generic_method(call: ModelCall) -> str:
             kinds.append(Kind(token.strip()))
         except ValueError:
             continue
-    inputs = [(m.group("id"), m.group("text").strip(), m.group("qty"))
+    inputs = [(m.group("id"), m.group("kind"), m.group("text").strip(), m.group("qty"))
               for m in _INPUT_ROW.finditer(prompt)]
     budget = _budget(call)
+    rules = _field_rules(prompt)
     outputs: list[dict[str, Any]] = []
-    for kind in kinds:
-        for entity_id, text, quantity in inputs:
+    labels: list[str] = []
+    per_kind: dict[str, int] = {}
+    for entity_id, _tag, text, quantity in inputs:
+        if len(outputs) >= budget:
+            break
+        for kind in kinds:
             if len(outputs) >= budget:
                 break
+            position = per_kind[kind.value] = per_kind.get(kind.value, 0) + 1
+            cited = [entity_id]
+            fields: dict[str, Any] = {}
+            for name, desc in rules:
+                value = _field_value(desc, seed=f"{text}|{name}", position=position,
+                                     cited=cited, labels=labels, rows=inputs)
+                if value is None:
+                    continue
+                fields[name] = value
+                if _A_LABEL.search(desc) is not None and str(value) not in labels:
+                    labels.append(str(value))
             outputs.append({"kind": kind.value, "text": text,
-                            "fields": {}, "quantity_from": entity_id if quantity else None,
-                            "derived_from": [entity_id]})
+                            "fields": fields, "quantity_from": entity_id if quantity else None,
+                            "derived_from": cited})
     # What the window did not hold is a question, never an assumption. The
     # specialist asks for the kind it was told to produce and hands the issue
     # back; that question is what pauses analysis and returns to the client,
@@ -628,7 +785,7 @@ def _generic_method(call: ModelCall) -> str:
         # The window's first input is the fallback subject: a method the tree
         # assigned without printing the node still asked about something
         # particular, and "this" would name nothing.
-        subject = (issue.group("text").strip() if issue else "") or (inputs[0][1] if inputs else "")
+        subject = (issue.group("text").strip() if issue else "") or (inputs[0][2] if inputs else "")
         wording = wanted.value.replace("_", " ")
         questions.append({"text": (f"What {wording} would settle {subject}?" if subject
                                    else f"What {wording} would settle this?"),

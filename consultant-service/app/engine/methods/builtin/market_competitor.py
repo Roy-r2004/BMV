@@ -29,6 +29,7 @@ is a typed hole, never a defect and never a default.
 """
 from __future__ import annotations
 
+import dataclasses
 from typing import Any, Mapping
 
 from app.engine import types as T
@@ -38,6 +39,7 @@ from app.engine.methods.builtin.capability_gap import (
     cites_validator,
     dropped,
     model_proposals,
+    new_evidence_remains,
     question_payloads,
 )
 from app.engine.methods.contract import (
@@ -120,6 +122,24 @@ SPEC = MethodSpec(
     required_inputs=(
         InputSpec("context", T.Kind.BUSINESS_CONTEXT, min_count=1, effort=T.EffortClass.OFFHAND,
                   why_needed="external facts are only relevant against a stated business context"),
+        # The records a citation can point INTO. R1 says an external fact is
+        # owned by the source that states it, and `model_proposals` renders the
+        # prompt from registered inputs and the issue node only - so a research
+        # method in this engine cannot reach a source the engagement does not
+        # hold. Declaring the record it must cite is the method saying what its
+        # own law already requires; leaving it undeclared let the method be
+        # offered a window with no citable record in it, propose claims it
+        # could only have recalled, and refuse every one of them.
+        #
+        # A conversation turn is excluded by the same law the refusal states: a
+        # citation is a record, not a recollection. Where the engagement holds
+        # no record, this input is unmet and the question pass raises the typed
+        # document request - the same ask `source_question` makes, for no call.
+        InputSpec("records", T.Kind.EVIDENCE_SOURCE,
+                  filter={"source_kind": (T.SourceKind.DOCUMENT.value, T.SourceKind.DATASET.value,
+                                          T.SourceKind.LINK.value)},
+                  min_count=1, effort=T.EffortClass.THIRD_PARTY,
+                  why_needed="an external claim is owned by the record that states it, and a citation is a record"),
     ),
     optional_inputs=(
         InputSpec("objectives", T.Kind.OBJECTIVE, min_count=1),
@@ -145,6 +165,24 @@ _INSTRUCTIONS = (
     "Do not state a figure of your own; a number enters only through 'quantity_from' naming a "
     "registered input id."
 )
+
+
+def pending(view: Any) -> bool:
+    """Whether this method still has anything to conclude here.
+
+    an external claim is proposed about a context and objectives the research has
+    not already answered; once every one of them carries a live fact, there is
+    nothing further to look up here.
+
+    `new_evidence_remains` asks that in one place for every method that words
+    a conclusion through the shared admission law, because it is that law -
+    the door that refuses a restatement and an output citing rows it was not
+    shown - that decides what a further call could keep.
+    """
+    return new_evidence_remains(SPEC, view)
+
+
+SPEC = dataclasses.replace(SPEC, pending=pending)
 
 
 @register

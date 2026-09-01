@@ -1,4 +1,4 @@
-"""L1-L14: the gate, as fourteen registry and artifact queries (design 12.1).
+"""L1-L16: the gate, as sixteen registry and artifact queries (design 12.1).
 
 The gate is the law list. `LAWS` holds one `Law` per `LawId`, each a pure
 query over the registry and the rendered artifacts; an entry IS the law, so
@@ -27,6 +27,9 @@ What each law refuses to let out of the door:
   L12 an objective the arithmetic refutes that was never put to the client
   L13 a delivered r30 package that is not itself FINAL
   L14 a client's own quoted words rewritten on the page (MF2.6)
+  L15 two recommendations on one decision that exclude each other
+  L16 a recommendation asserting a figure or a scope its support closure
+      does not carry
 
 Four of them - L3, L6, L11, L14 - read the EXTRACTED text of the frozen file
 rather than the markdown (design 12.3), because the page is what the client
@@ -77,6 +80,8 @@ class LawId(str, Enum):
     L12 = "L12.infeasible_objective_without_decision"
     L13 = "L13.legacy_r30_not_final"
     L14 = "L14.client_fact_not_verbatim"
+    L15 = "L15.contradictory_recommendations"
+    L16 = "L16.unsupported_specificity"
 
 
 @dataclass(frozen=True)
@@ -764,6 +769,205 @@ def law_client_fact_not_verbatim(view: "RegistryView", artifacts: Sequence[Artif
 # Registration: the list IS the gate
 # =============================================================================
 
+# =============================================================================
+# L15 - two recommendations on one decision that exclude each other
+# =============================================================================
+
+def _live(view: "RegistryView", kind: Kind) -> list[Entity]:
+    return [e for e in view.query(kind) if e.status not in TERMINAL_STATUSES]
+
+
+def _option_subjects(option: Entity) -> frozenset[str]:
+    """What a route is a route TO: the ids it was written for. Two routes to
+    one subject are two answers to one question."""
+    return frozenset(option.payload.evidence) | frozenset(option.provenance.derived_from)
+
+
+def exclusive_pair(view: "RegistryView", first: Entity, second: Entity) -> str:
+    """Why two recommendations cannot both be taken, or "" when they can.
+
+    Read structurally and never from wording, in the two ways a registry says
+    it: the routes they select answer the same subject by different
+    `mechanism` values - choosing make over buy on one capability gap IS
+    declining buy - or a live TRADE_OFF names both routes, which is the
+    engagement's own record that they are alternatives.
+    """
+    a_id, b_id = first.payload.option_id, second.payload.option_id
+    if not a_id or not b_id or a_id == b_id:
+        return ""
+    options = {o.id: o for o in _live(view, Kind.OPTION)}
+    a, b = options.get(a_id), options.get(b_id)
+    if a is None or b is None:
+        return ""
+    if (a.payload.mechanism and b.payload.mechanism
+            and a.payload.mechanism != b.payload.mechanism
+            and _option_subjects(a) & _option_subjects(b)):
+        return (f"{first.id} takes {a_id} ({a.payload.mechanism}) and {second.id} takes "
+                f"{b_id} ({b.payload.mechanism}) for the same subject")
+    for t in _live(view, Kind.TRADE_OFF):
+        ids = set(t.payload.option_ids)
+        if a_id in ids and b_id in ids:
+            return f"{first.id} and {second.id} take two routes {t.id} weighs against each other"
+    return ""
+
+
+def law_contradictory_recommendations(view: "RegistryView",
+                                      artifacts: Sequence[ArtifactRef]) -> list[Finding]:
+    """L15. For each live DECISION, the live recommendations on it may not
+    exclude one another.
+
+    A contradiction is the one defect a reader is guaranteed to find, because
+    both halves are printed on the same page - and it is also the defect a
+    registry can prove without reading a word, because the trade-off names both
+    routes. Three routes to one capability gap set beside each other as advice
+    are not advice at all: the reader is handed the decision back, dressed as a
+    conclusion.
+
+    Read at the registry and with no artifact, because a recommendation is a
+    claim whether or not anything has been printed yet.
+    """
+    out: list[Finding] = []
+    recommendations = _live(view, Kind.RECOMMENDATION)
+    for decision in _live(view, Kind.DECISION):
+        on_it = [r for r in recommendations if r.payload.decision_id == decision.id]
+        for i in range(len(on_it)):
+            for j in range(i + 1, len(on_it)):
+                why = exclusive_pair(view, on_it[i], on_it[j])
+                if why:
+                    out.append(Finding(
+                        law=LawId.L15.value, where=f"{on_it[i].id}/{on_it[j].id}",
+                        issue=f"{decision.id} carries advice that excludes itself: {why}",
+                        fix="advise one route and record the others as the options it was chosen over",
+                        severity=Severity.HIGH,
+                        entity_ids=(on_it[i].id, on_it[j].id, decision.id), blocks_final=True))
+    return out
+
+
+# =============================================================================
+# L16 - specificity the support closure does not carry
+# =============================================================================
+
+def _closure_of(view: "RegistryView", recommendation: Entity) -> list[Entity]:
+    """Every row this one recommendation rests on, transitively.
+
+    `EngagementRegistry.support_closure` answers for every recommendation at
+    once, which is the right question for L2 and the wrong one here: a claim is
+    over-specific relative to ITS OWN evidence, and pooling the closures would
+    let one recommendation borrow another's support.
+    """
+    seen: set[str] = set()
+    out: list[Entity] = []
+    frontier = list(recommendation.payload.supports) + list(recommendation.provenance.derived_from)
+    while frontier:
+        entity_id = frontier.pop(0)
+        if entity_id in seen:
+            continue
+        seen.add(entity_id)
+        row = view.get(entity_id)
+        if row is None:
+            continue
+        out.append(row)
+        frontier.extend(row.provenance.derived_from)
+        frontier.extend(getattr(row.payload, "inputs", ()) or ())
+    return out
+
+
+def _dimension_scopes(rows: Sequence[Entity]) -> list[str]:
+    """Every `scope` a quantity in the closure declares. The scope is the
+    dimension that says WHAT a figure is about, and it is the one a claim
+    narrows when it says more than its evidence."""
+    out: list[str] = []
+    for row in rows:
+        quantity = getattr(row.payload, "quantity", None)
+        dimensions = getattr(quantity, "dimensions", None) if quantity is not None else None
+        scope = getattr(dimensions, "scope", None) if dimensions is not None else None
+        if scope:
+            out.append(str(scope))
+    return out
+
+
+def _head_word(scope: str) -> str:
+    """The thing a scope is a scope OF: the last word of the phrase.
+
+    "the northern depots" is a scope on `depots`; "the southern depots" is a
+    different scope on the SAME thing, and that is what makes one a
+    contradiction of the other rather than a change of subject. Anything under
+    four characters is a preposition or an article, not the thing.
+    """
+    words = [w for w in presentation.normalise(scope).replace(",", " ").split() if len(w) > 3]
+    return words[-1] if words else ""
+
+
+def overspecific(view: "RegistryView", recommendation: Entity) -> list[str]:
+    """L16: what a recommendation asserts that its own support closure does not
+    carry, as a list of reasons.
+
+    Two kinds of specificity, both read exactly and neither by any measure of
+    similarity:
+
+      * a FIGURE the closure does not hold. `coined_figures` is the same scan
+        the producing methods use on their own outputs, id tokens skipped, so
+        "cuts handling cost by 15 per cent" fails against a closure whose only
+        number is 4200.
+      * a SCOPE the closure does not hold. Where the closure declares what its
+        figures are about ("the northern depots") and the advice speaks of the
+        same THING ("depots") without stating that scope, it has narrowed a
+        claim to somewhere its evidence never went - "across the southern
+        depots" being the case this law was written for. Advice about a
+        different thing entirely ("the northern site") shares no head word and
+        is not caught, and advice that says nothing about scope asserts no
+        scope: the law is about claiming more, never about saying less.
+    """
+    from app.engine.methods.builtin.org_design import coined_figures
+
+    statement = str(getattr(recommendation.payload, "statement", "") or "")
+    if not statement.strip():
+        return []
+    rows = _closure_of(view, recommendation)
+    cited = [str(getattr(r.payload, attr, "") or "")
+             for r in rows for attr in ("statement", "text", "name", "definition")]
+    cited.extend(_dimension_scopes(rows))
+    out: list[str] = []
+    coined = coined_figures([statement], cited)
+    if coined:
+        out.append("asserts the figure(s) " + ", ".join(coined)
+                   + " which no row in its support closure carries")
+    said = set(presentation.normalise(statement).replace(",", " ").split())
+    normalised_statement = presentation.normalise(statement)
+    for scope in _dimension_scopes(rows):
+        if presentation.normalise(scope) in normalised_statement:
+            continue                       # the advice states the scope it has
+        head = _head_word(scope)
+        if head and head in said:
+            out.append(f"speaks of {head} while the only scope its support carries is "
+                       f"{scope!r}, which it does not state")
+    return out
+
+
+def law_unsupported_specificity(view: "RegistryView",
+                                artifacts: Sequence[ArtifactRef]) -> list[Finding]:
+    """L16. A recommendation may assert no figure and no scope that its own
+    support closure does not carry.
+
+    L2 asks whether the advice rests on anything; L11 asks whether a figure ON
+    THE PAGE matches a registered quantity. Neither asks the question a client
+    discovers after acting: does the advice say MORE than its evidence
+    establishes? Nothing was misquoted and no number miscopied - the claim
+    simply reaches further than what stands behind it, and a claim is a claim
+    whether or not it has been printed, which is why this reads the registry
+    and takes no artifact.
+    """
+    out: list[Finding] = []
+    for r in _live(view, Kind.RECOMMENDATION):
+        for why in overspecific(view, r):
+            out.append(Finding(
+                law=LawId.L16.value, where=r.id,
+                issue=f"{r.id} {why}",
+                fix="say only what the support closure carries, or cite evidence that carries it",
+                severity=Severity.HIGH, entity_ids=(r.id,), blocks_final=True))
+    return out
+
+
 LAWS.register(Law(LawId.L1, law_material_open_conflict))
 LAWS.register(Law(LawId.L2, law_unsupported_recommendation))
 LAWS.register(Law(LawId.L3, law_unlabelled_assumption))
@@ -778,6 +982,8 @@ LAWS.register(Law(LawId.L11, law_untraceable_number))
 LAWS.register(Law(LawId.L12, law_infeasible_objective_without_decision))
 LAWS.register(Law(LawId.L13, law_legacy_r30_not_final))
 LAWS.register(Law(LawId.L14, law_client_fact_not_verbatim))
+LAWS.register(Law(LawId.L15, law_contradictory_recommendations))
+LAWS.register(Law(LawId.L16, law_unsupported_specificity))
 
 
 def run_laws(view: "RegistryView", artifacts: Sequence[ArtifactRef] = ()) -> list[Finding]:

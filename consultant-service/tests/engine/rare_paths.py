@@ -34,19 +34,33 @@ TRACE_SCOPE_FILES: tuple[str, ...] = (
 
 # "<path>:<qualname>" -> the name of the unit test that walks it on purpose.
 #
-# Both entries are the same rare situation: a fifteen-engagement fake run is
-# mostly CLEAN, so the two functions that only exist to describe a FAILURE are
-# reached by whichever engagements happen to hold a finding. That is rareness
-# of the situation, not of a client: the gates run in full on every case, and
-# the tests named here construct the failing registry directly, which is a
-# stronger walk of the path than any benchmark case gives.
-RARE_PATHS: dict[str, str] = {
-    # Every Finding the law list emits is built here; fifteen fake runs produce
-    # findings in only two of them.
-    "app/engine/gates/laws.py:_finding":
-        "test_l1_blocks_an_open_conflict_a_recommendation_rests_on",
-    # The release record's reason line, written only when a blocking finding is
-    # open and the door is therefore shut.
-    "app/engine/gates/release.py:_reason":
-        "test_a_blocking_finding_reaches_the_record_as_a_reason",
-}
+# EMPTY, and that is a measurement rather than an omission. The trace of all
+# fifteen engagements walks 282 scoped functions and every one of them is walked
+# by at least two core cases, so the single-path law currently needs no
+# exception at all.
+#
+# Four claims stood here and have been withdrawn, each because the run stopped
+# reaching the function it named - never because the law was relaxed:
+#
+#   app/engine/gates/laws.py:_finding        and
+#   app/engine/gates/release.py:_reason
+#     Both exist only to describe a FAILURE, and the fifteen fake engagements no
+#     longer have one: every material question the engine raises is answered or
+#     recorded unknown before the gate, so `run_laws` returns no finding in any
+#     case and neither function is entered. The unit tests named by the two
+#     withdrawn entries still walk them deliberately, which is now their only
+#     cover; a benchmark case that walks them again would have to be an
+#     engagement that really does reach the gate dirty, not one arranged to.
+#
+#   app/engine/synthesis/regulated.py:_flag_recommendation      and
+#   app/engine/synthesis/recommend.py:withdraw_licensed_advice.<locals>.<genexpr>
+#     The licensed-advice path. Under the fake the screen claims no regulated
+#     domain at all (oracle.py says so in its own docstring), so no live
+#     RECOMMENDATION is ever flagged and neither half is reached. Both were
+#     entered here on the expectation that a RECOMMENDATION producer would make
+#     them reachable; it made the ROWS exist, not the classification.
+#
+# A path walked by NO case is not what this law is about: `single_path_findings`
+# iterates the trace, so a function nothing reaches is never judged by it. The
+# entry would have to be re-added, with evidence, the day a case walks it once.
+RARE_PATHS: dict[str, str] = {}

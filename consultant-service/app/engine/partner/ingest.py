@@ -42,6 +42,8 @@ registry decides them. The laws this module lives by:
 """
 from __future__ import annotations
 
+import re
+
 import csv
 import hashlib
 import io
@@ -464,6 +466,27 @@ def _provenance_questions(registry: EngagementRegistry, *, actor_ref: str) -> li
 # 7. Turn ingestion
 # =============================================================================
 
+_HAS_A_WORD = re.compile(r"[^\W\d_]", flags=re.UNICODE)
+
+
+def asserts_something(statement: str | None) -> bool:
+    """Whether a fact's statement is a CLAIM, or only a figure.
+
+    A statement with no letter anywhere in it - "1", "2026", "-" - names no
+    subject and says nothing about one: it is a cell lifted out of a table with
+    its heading left behind, and there is no reading of it under which somebody
+    could be right or wrong.
+
+    Registering one is worse than useless. A one-character claim is a substring
+    of almost every sentence anyone will ever write, so every later conclusion
+    in the engagement contains it, and any law that asks whether an output
+    repeats its evidence - the reason advice may not be the fact it rests on -
+    answers yes for the rest of the run. Two engagements were failing exactly
+    that way on a single fact whose whole statement was "1".
+    """
+    return bool(_HAS_A_WORD.search(statement or ""))
+
+
 def _measures_context(registry: EngagementRegistry) -> list[dict[str, str]]:
     return [{"id": m.id, "name": m.payload.name, "unit_family": m.payload.unit_family.value}
             for m in registry.live(Kind.MEASURE)]
@@ -625,6 +648,14 @@ def ingest_document(registry: EngagementRegistry, provider: ModelProvider, *, na
     for f in extraction.facts:
         if not (f.quote or f.statement):
             continue  # no quote, no fact
+        if not asserts_something(f.statement or f.quote):
+            # Refused with a reason rather than dropped in silence: the
+            # extraction proposed something the register will not carry, and
+            # that is a fact about the run.
+            refused.append(
+                f"a fact whose statement carries no words was not registered: "
+                f"{(f.statement or f.quote)[:40]!r}")
+            continue
         verified = verify_quote(f.quote, text)
         basis = FactBasis.DOCUMENT_VERIFIED if verified else FactBasis.DOCUMENT_EXTRACTED
         quantity = _quantity_of(f.quote, f.statement, f.quantity, as_of=f.as_of,

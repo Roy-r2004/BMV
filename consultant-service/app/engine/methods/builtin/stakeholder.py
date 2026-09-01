@@ -25,6 +25,7 @@ client is the authority on it (AUTHORITY_OF: CLIENT_PREFERENCE).
 """
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 from app.engine import types as T
@@ -37,6 +38,7 @@ from app.engine.methods.builtin.capability_gap import (
     copied_quantity_validator,
     dropped,
     model_proposals,
+    new_evidence_remains,
     proposed_entity,
     question_payloads,
     wording,
@@ -154,6 +156,23 @@ _INSTRUCTIONS = (
     "role clearly matters but the inputs name nobody in it, return a question asking who holds "
     "it rather than an output naming a person."
 )
+
+
+def pending(view: Any) -> bool:
+    """Whether this method still has anything to conclude here.
+
+    a stakeholder is read off the rows that name one; where each is already
+    behind a live stakeholder row, another pass names the same people.
+
+    `new_evidence_remains` asks that in one place for every method that words
+    a conclusion through the shared admission law, because it is that law -
+    the door that refuses a restatement and an output citing rows it was not
+    shown - that decides what a further call could keep.
+    """
+    return new_evidence_remains(SPEC, view)
+
+
+SPEC = dataclasses.replace(SPEC, pending=pending)
 
 
 @register

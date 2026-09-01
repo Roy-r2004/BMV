@@ -1,9 +1,9 @@
 """cost_benefit - CALCULATION: totals of the registered cost and benefit entities.
 
-Also the home of the calculation helpers every quantified builtin shares
-(calculated_fact, pin_question, known_formulas, live, decision_id): they live
-with the first method that needs them so the package stays one file per
-method with no extra module to own.
+Also the home of the readings every quantified builtin shares
+(calculated_fact, pin_question, known_formulas, live, decision_id,
+measures_behind, measure_names): they live with the first method that needed
+them so the package stays one file per method with no extra module to own.
 
 Laws this module enforces, and why:
 
@@ -28,6 +28,8 @@ computed here: the two totals stand side by side and the reader subtracts,
 rather than the engine growing arithmetic outside the audited boundary.
 """
 from __future__ import annotations
+
+from typing import Sequence
 
 from app.engine.calc import IncomparableInputs
 from app.engine.calc.arith import quantity_of
@@ -92,6 +94,53 @@ def known_formulas(view: RegistryView) -> set[str]:
     ids is the same fact, not a growing pile of duplicates."""
     return {f.payload.formula for f in live(view, Kind.FACT)
             if f.payload.basis is FactBasis.CALCULATED and f.payload.formula}
+
+
+def measures_behind(view: RegistryView, entity_ids: Sequence[str]) -> tuple[str, ...]:
+    """The MEASUREs the given rows reach through their citations: every live
+    row they cite that names one, and every MEASURE they cite directly, in id
+    order.
+
+    It lives here with the other shared readings because two different callers
+    need the same answer for the same reason. A method that cannot state a
+    magnitude has to say what the magnitude would be counted ON, or its ask is
+    unanswerable; and a method that declines to advise has to say what would
+    settle THIS choice, which is the same question asked of the routes. Both
+    read the engagement's own measures and neither invents one.
+    """
+    found: set[str] = set()
+    frontier = list(entity_ids)
+    seen: set[str] = set()
+    while frontier:
+        entity_id = frontier.pop(0)
+        if entity_id in seen:
+            continue
+        seen.add(entity_id)
+        row = view.get(entity_id)
+        if row is None or row.status in TERMINAL_STATUSES:
+            continue
+        if row.kind is Kind.MEASURE:
+            found.add(row.id)
+            continue
+        measure_id = getattr(row.payload, "measure_id", None)
+        if measure_id:
+            measure = view.get(measure_id)
+            if measure is not None and measure.status not in TERMINAL_STATUSES:
+                found.add(measure.id)
+        frontier.extend(getattr(row.payload, "evidence", ()) or ())
+        frontier.extend(row.provenance.derived_from)
+    return tuple(sorted(found))
+
+
+def measure_names(view: RegistryView, measure_ids: Sequence[str]) -> str:
+    """The measures named as a reader would look them up: the engagement's own
+    name for each, and the id that name came from."""
+    parts: list[str] = []
+    for measure_id in measure_ids:
+        row = view.get(measure_id)
+        name = str(getattr(row.payload, "name", "") if row is not None else "").strip()
+        parts.append(f"{measure_id} {name}".strip() if name else measure_id)
+    return "; ".join(parts)
 
 
 def calculated_fact(ctx: MethodContext, method_id: str, cr: CalcResult, *,

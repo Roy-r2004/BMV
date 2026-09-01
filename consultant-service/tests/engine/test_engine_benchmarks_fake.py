@@ -27,6 +27,7 @@ from app.engine.benchmark import cases as C
 from app.engine.benchmark import harness as H
 from app.engine.benchmark.oracle import structural_oracle
 from app.engine.partner import charter as CH
+from app.engine.partner.hypothesis import PARTNER_INFERRED
 from app.engine.llm import FakeProvider
 from app.engine.methods.contract import METHODS, QuestionShape, shape_matches
 from app.engine import types as T
@@ -319,39 +320,110 @@ def test_every_annotated_candidate_shape_is_one_some_method_answers(loaded):
 # 6. What this build cannot yet claim
 # ===========================================================================
 
+def test_the_deliverables_differ_and_the_engine_advises(loaded, bundles):
+    """The owner's acceptance criterion, measured on the ten core bundles:
+    different needs get different deliverables, and the engine says something.
+
+    This was `BLOCKED_CLAIMS` until the analysis loop ran past its first tier.
+    It is live because the four claims it makes are now facts about the runs:
+    the product sets differ MIN_DISTINCT_DELIVERABLE_SETS ways, the sections
+    inside them differ MIN_DISTINCT_SECTION_SIGNATURES ways, and the bundles
+    that hold recommendations (and workstreams) hold different ones. If a
+    change starves the delivery half of the library again, this fails rather
+    than a paragraph going quietly stale.
+    """
+    failures = A.delivery_tier_failures(_core(loaded, bundles))
+    assert failures == [], "\n".join(failures)
+
+
+def test_the_delivery_tier_check_fires_on_bundles_that_did_not_deliver(loaded, bundles):
+    """The negative control: the same function on a bundle and its twin
+    reports every one of the four claims, so a version that always returned []
+    could not pass the test above."""
+    from dataclasses import replace
+
+    one = _core(loaded, bundles)[0]
+    twin = replace(one, case_id=one.case_id + "-twin")
+    failures = A.delivery_tier_failures([one, twin])
+    assert any(f.startswith("P1") for f in failures)
+    assert any(f.startswith("P2") for f in failures)
+    assert any(f.startswith("P3") for f in failures)
+    assert any(f.startswith("P4") for f in failures)
+
+
 def test_the_claims_this_build_cannot_make_are_named_and_explained():
     """A gap that is written down is a gap somebody can close; a gap that is
     silently skipped is a law nothing tests. When the engine gains what these
-    need, this test fails and the claim moves into `divergence_failures`.
+    need, this test fails and the claim moves into the live checks.
 
     A stale explanation is the same defect as a missing one, so the reasons are
-    checked for the causes this build actually has. Two of them were rewritten
-    when the relevance link landed: the old text blamed an empty specialist
-    evidence window (`Assignment.from_selection` now supplies the node) and
-    said hypothesis weights come only from methods (ingestion writes them at
-    birth, and `test_every_core_case_reaches_its_charter_by_the_ranking`
-    asserts the ranking live). Neither is the reason any more, so neither may
-    still be given as one.
+    checked for the causes this build actually has. Four claims left this table
+    when the analysis loop stopped ending after one tier - the deliverable
+    sets, the section signatures, the recommendations and the workstreams - and
+    `test_the_deliverables_differ_and_the_engine_advises` asserts all four
+    live. The causes they used to give may not come back as explanations.
     """
     expected = {
-        "deliverable_sets_reach_the_bound",
-        "section_signatures_reach_the_bound",
-        "recommendations_are_distinct",
-        "workstreams_are_distinct",
+        "advice_on_every_core_case",
         "central_decision_is_not_the_opening_statement",
     }
     assert set(A.BLOCKED_CLAIMS) == expected
     for name, reason in A.BLOCKED_CLAIMS.items():
         assert len(reason) > 80, f"{name} does not say what is missing"
 
-    # The two retired causes, named so a copy-paste cannot bring them back as
-    # live explanations. Each may only appear as the correction it now is.
+    # Retired causes, named so a copy-paste cannot bring them back as live
+    # explanations. Each may only appear as the correction it now is.
     for stale in ("does not put the assigned ISSUE in the specialist's permitted set",
-                  "only methods write those"):
+                  "only methods write those",
+                  "matches no open node's shape",
+                  "selected and then blocked"):
         for name, reason in A.BLOCKED_CLAIMS.items():
             assert stale not in reason, f"{name} still gives a cause this build has fixed"
-    for name in ("deliverable_sets_reach_the_bound", "central_decision_is_not_the_opening_statement"):
+    for name in expected:
         assert "retired" in A.BLOCKED_CLAIMS[name], f"{name} does not say what stopped being the cause"
+
+
+def test_every_blocked_claim_states_a_cause_that_is_still_true(loaded, bundles):
+    """The other half of the pin, and the one a stale paragraph survives
+    without: each remaining reason is MEASURED against the runs, not read.
+
+    `advice_on_every_core_case` says some core bundle registers routes and the
+    comparison between them and still advises nothing, because no route's
+    lineage reaches evidence a support law admits - and that those bundles say
+    so, in a typed DECISION_REQUIRED against the central decision, rather than
+    going silent. `central_decision_is_not_the_opening_statement` says there is
+    only ever one candidate decision to rank, because the oracle proposes none
+    of its own.
+    """
+    core = _core(loaded, bundles)
+    unadvised = [b for b in core if not b.registry.live(T.Kind.RECOMMENDATION)]
+    assert unadvised, ("every core bundle now advises; "
+                       "advice_on_every_core_case is no longer blocked")
+    for b in unadvised:
+        registry = b.registry
+        central = [d for d in registry.live(T.Kind.DECISION)
+                   if d.payload.role is T.DecisionRole.CENTRAL]
+        assert central, f"{b.case_id} has no central decision to be unsettled about"
+        assert any(r.payload.decision_id == central[0].id
+                   for r in registry.live(T.Kind.DECISION_REQUIRED)), (
+            f"{b.case_id} advises nothing and records no reason; the stated chain is wrong")
+        assert registry.live(T.Kind.OPTION), (
+            f"{b.case_id} advises nothing because it has no route, not because "
+            "no route is evidenced; the stated cause is wrong")
+    written = {kind: sum(len(b.registry.live(kind)) for b in bundles.values())
+               for kind in (T.Kind.OPTION, T.Kind.EVALUATION_CRITERION, T.Kind.TRADE_OFF,
+                            T.Kind.CAPABILITY, T.Kind.WORKSTREAM, T.Kind.ACTION,
+                            T.Kind.RECOMMENDATION)}
+    empty = sorted(k.value for k, n in written.items() if n == 0)
+    assert empty == [], f"the reason claims these kinds are written and they are not: {empty}"
+
+    for b in core:
+        candidates = [d for d in b.registry.query(T.Kind.DECISION)]
+        assert len(candidates) == 1, (
+            f"{b.case_id} ranks {len(candidates)} candidate decisions; "
+            "central_decision_is_not_the_opening_statement is no longer blocked")
+        assert not [d for d in candidates if PARTNER_INFERRED in d.provenance.actor_ref], (
+            f"{b.case_id} holds a partner-inferred candidate; the stated cause is wrong")
 
 
 def test_the_engine_never_reads_a_case_file():

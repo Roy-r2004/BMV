@@ -68,6 +68,7 @@ __all__ = [
     "adversarial_failures",
     "bound",
     "charter_failures",
+    "delivery_tier_failures",
     "divergence_failures",
     "revealed_failures",
 ]
@@ -92,50 +93,36 @@ def bound(name: str, overrides: Mapping[str, Any] | None = None) -> Any:
 # is missing, so the gap is a recorded fact rather than a quiet omission, and
 # `test_engine_benchmarks_fake.py` pins the list.
 BLOCKED_CLAIMS: Mapping[str, str] = {
-    "deliverable_sets_reach_the_bound": (
-        "MIN_DISTINCT_DELIVERABLE_SETS distinct product-id sets across the core cases; the ten core "
-        "bundles produce two. The old reason - an empty specialist evidence window - is retired: "
-        "Assignment.from_selection now puts the assigned node and its ancestors in the permitted set, "
-        "and the model-assisted methods run - issue_tree grafts 6-12 nodes, capability_gap and root_cause "
-        "reach ANALYSIS state done, as do the deterministic current_state, kpi_design and financial_model. "
-        "What is left is a method library whose option-and-delivery half is starved at its root: no run "
-        "writes a CAPABILITY, OPTION, EVALUATION_CRITERION or ACTION row, so make_buy_partner (the only "
-        "OPTION writer) sits at options 0/2 and capabilities 0/1, option_evaluation and prioritization are "
-        "selected and then blocked on those same empty kinds, and operating_model and roadmap match no "
-        "open node's shape at all. The product predicates that would vary the set therefore never hold. "
-        "The live check below still requires the sets not to be all identical."),
-    "section_signatures_reach_the_bound": (
-        "MIN_DISTINCT_SECTION_SIGNATURES distinct section signatures; the ten core bundles produce two. "
-        "Same cause: sections are planned per product from the same counts, and the product set cannot "
-        "vary until something writes the option-and-delivery kinds above."),
-    "recommendations_are_distinct": (
-        "recommendation statements pairwise distinct. No RECOMMENDATION is written in a fake run, and "
-        "the cause is not a blocked method: NOTHING in this build creates one. No MethodSpec names "
-        "Kind.RECOMMENDATION in its output_kinds, and synthesis only ever SUPERSEDES a recommendation "
-        "that already exists (synthesis/regulated.py routes a licensed one; recommend.py checks and "
-        "approves one). The registry, the gate (L2/L3) and the products all read RECOMMENDATION rows, "
-        "so the reading half of the law is exercised on probe registries; the writing half has no "
-        "producer to exercise."),
-    "workstreams_are_distinct": (
-        "workstream name sets pairwise distinct; every core bundle carries an empty set. A WORKSTREAM "
-        "is written by operating_model, roadmap and the r30 adapter. None is reachable here: "
-        "operating_model requires capabilities 2 and matches no open node's shape, roadmap requires "
-        "workstreams 1 and actions 1 - inputs of the same starved chain - and the r30 adapter is not "
-        "selected by shape in any core case. Same root cause as the deliverable sets."),
+    "advice_on_every_core_case": (
+        "every core engagement ends in advice. Some core bundles register the capability gaps, "
+        "the sourcing routes and the comparison that weighs those routes against one another, "
+        "and still advise nothing: no route's own lineage reaches evidence a support law admits "
+        "(a CONFIRMED FACT or an APPROVED ASSUMPTION), and a recommendation resting on nothing "
+        "is what L2 exists to refuse - so the engagement records a typed DECISION_REQUIRED "
+        "against the central decision instead, saying the decision is unsettled and whose it is "
+        "to settle. That is a conclusion about the engagement and it is not advice. How many "
+        "bundles that is stays unwritten here and is measured instead: a count per engagement is "
+        "the one thing BOUNDS exists to forbid, and a number in a paragraph goes stale without "
+        "failing anything. The old reason - that some core bundle holds no CAPABILITY at all, "
+        "because its issue tree never carried a node capability_gap takes on - is retired: "
+        "capability_gap now answers the capability question on the decision node every "
+        "engagement has, and every core bundle holds CAPABILITY, OPTION and TRADE_OFF rows. "
+        "`delivery_tier_failures` is the live half."),
     "central_decision_is_not_the_opening_statement": (
-        "the central decision differs from the client's opening words. The old reason - that hypothesis "
-        "weights come only from methods, none of which runs before the charter - is retired: ingestion "
-        "now writes the relevance link at birth and every core engagement is ranked (weight 1.0, over "
-        "CHARTER_MIN_WEIGHT and CHARTER_MIN_MARGIN), which is what `charter_failures` asserts live. What "
-        "blocks the claim is that there is only ever ONE candidate to rank. The structural oracle "
-        "returns no new_candidates by design - a case-blind rule cannot word a rival decision without "
-        "reading the case - so no PARTNER_INFERRED row exists, and maybe_reframe returns None at its "
-        "first gate. Two further gates stand behind that one: an inferred candidate accrues no weight, "
-        "because a statement bears on the decision it was STATED under and no client statement is made "
+        "the central decision differs from the client's opening words. The old reason - that "
+        "hypothesis weights come only from methods, none of which runs before the charter - is "
+        "retired: ingestion now writes the relevance link at birth and every core engagement is "
+        "ranked (weight 1.0, over CHARTER_MIN_WEIGHT and CHARTER_MIN_MARGIN), which is what "
+        "`charter_failures` asserts live. What blocks the claim is that there is only ever ONE "
+        "candidate to rank. The structural oracle returns no new_candidates by design - a "
+        "case-blind rule cannot word a rival decision without reading the case - so no "
+        "PARTNER_INFERRED row exists, and maybe_reframe returns None at its first gate. Two "
+        "further gates stand behind that one: an inferred candidate accrues no weight, because a "
+        "statement bears on the decision it was STATED under and no client statement is made "
         "under a candidate the partner invented afterwards; and the reframe additionally needs a "
-        "HYPOTHESIS from an ISSUE under the stated request to a cause under the inferred one, while the "
-        "first ISSUE is the root the charter itself opens - after discovery has ended. The "
-        "symptom-vs-problem law is exercised on a probe by `adv_symptom_not_problem` instead."),
+        "HYPOTHESIS from an ISSUE under the stated request to a cause under the inferred one, "
+        "while the first ISSUE is the root the charter itself opens - after discovery has ended. "
+        "The symptom-vs-problem law is exercised on a probe by `adv_symptom_not_problem` instead."),
 }
 
 
@@ -196,6 +183,63 @@ def divergence_failures(bundles: Sequence[Bundle],
         distinct = {key(b) for b in bundles}
         if len(distinct) < 2:
             out.append(f"{code} {label}: all {len(bundles)} cases produced the same one")
+    return out
+
+
+def delivery_tier_failures(bundles: Sequence[Bundle],
+                           bounds: Mapping[str, Any] | None = None) -> list[str]:
+    """The claims that were blocked while the analysis loop ran one tier and
+    stopped, now asserted live (design 17.4, the deliverable half).
+
+    Four claims, in the order the owner's acceptance criterion reads them:
+
+      P1  the set of PRODUCTS the engine plans differs across the bundles at
+          least MIN_DISTINCT_DELIVERABLE_SETS ways. This is "it produces
+          different deliverables for different needs", counted rather than
+          asserted: two bundles that differ in questions and issue trees but
+          get the same folder of documents have not.
+      P2  the SECTIONS inside those products differ at least
+          MIN_DISTINCT_SECTION_SIGNATURES ways. A product set can repeat while
+          the sections inside it do not, because a section is planned from the
+          rows the engagement actually holds.
+      P3  the engine advises, and its advice is not one wording repeated: the
+          bundles that hold recommendations hold pairwise different ones, and
+          more than one bundle holds any. The second half is what stops the
+          first from passing on a single case.
+      P4  the same for workstreams, which are the delivery half's other
+          visible output.
+
+    P3 and P4 compare the bundles that PRODUCED the rows rather than demanding
+    that every bundle did. Which engagements reach the delivery tier is a
+    property of what their evidence supported, not something to be asserted
+    into existence - and `BLOCKED_CLAIMS["advice_on_every_core_case"]`
+    is where the part that is not yet true is written down.
+    """
+    out: list[str] = []
+    if len(bundles) < 2:
+        return [f"the deliverable claims need at least two bundles, got {len(bundles)}"]
+
+    sets = {tuple(sorted(b.deliverable_set())) for b in bundles}
+    floor = int(bound("MIN_DISTINCT_DELIVERABLE_SETS", bounds))
+    if len(sets) < floor:
+        out.append(f"P1 deliverable sets: {len(sets)} distinct across {len(bundles)} bundles, floor {floor}")
+
+    signatures = {b.section_signature() for b in bundles}
+    sig_floor = int(bound("MIN_DISTINCT_SECTION_SIGNATURES", bounds))
+    if len(signatures) < sig_floor:
+        out.append(f"P2 section signatures: {len(signatures)} distinct across {len(bundles)} bundles, "
+                   f"floor {sig_floor}")
+
+    for code, label, key in (("P3", "recommendation statements", lambda x: frozenset(x.recommendations)),
+                             ("P4", "workstream names", lambda x: frozenset(x.workstreams))):
+        holders = [b for b in bundles if key(b)]
+        if len(holders) < 2:
+            out.append(f"{code} {label}: {len(holders)} of {len(bundles)} bundles hold any; "
+                       f"a distinctness claim needs two")
+            continue
+        for a, b in combinations(sorted(holders, key=lambda x: x.case_id), 2):
+            if key(a) == key(b):
+                out.append(f"{code} {label}: {a.case_id} and {b.case_id} hold the same set")
     return out
 
 

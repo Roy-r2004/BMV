@@ -72,6 +72,7 @@ __all__ = [
     "CharterItem",
     "CharterOutcome",
     "CharterProposal",
+    "ConfirmationOutcome",
     "OUT_OF_SCOPE_LABEL",
     "REJECT",
     "ROOT_ISSUE_ACTOR_REF",
@@ -80,6 +81,7 @@ __all__ = [
     "amend",
     "assemble",
     "confirm",
+    "confirm_understanding",
     "items",
     "listed_ids",
     "live_proposal",
@@ -277,6 +279,52 @@ def understanding(view) -> tuple[CharterItem, ...]:
     reply's correction surface (design 6.2 step 8). Nothing is inferred from
     silence - an item stays PROPOSED until the client says otherwise."""
     return playback(view, [e for e in _live(view) if _client_may_confirm(e)])
+
+
+@dataclass(frozen=True)
+class ConfirmationOutcome:
+    """What one act of the client on the playback surface did, and what it
+    could not do. Both are returned: a confirmation that silently skipped an
+    item would leave the client believing they had settled something."""
+    confirmed: tuple[str, ...] = ()
+    refused: tuple[str, ...] = ()
+
+
+def confirm_understanding(registry, entity_ids: Iterable[str], *, turn_number: int = 0,
+                          turn_id: str | None = None) -> ConfirmationOutcome:
+    """The client's recorded act on the playback surface: "yes, that is what I
+    said" (design 6.2 step 8, MF2.1).
+
+    `understanding()` has always shown the client every row that is theirs to
+    settle; nothing in the engine let them settle one. Without this act a
+    client-stated FACT can never leave PROPOSED, and `_is_support` admits only
+    a CONFIRMED FACT or an APPROVED ASSUMPTION - so every recommendation the
+    engine could ever write would be unsupported, and L2 would open on all of
+    them. This is the document-less path the design names: the client's own
+    words, played back with their locator, confirmed by the client.
+
+    The law is the authority table's, not this function's: an id the client
+    may not confirm (a consultant judgement, a document's reading, a row
+    already settled) is refused by name rather than promoted quietly, and the
+    registry re-checks I1 on every SetStatus.
+    """
+    surface = {i.entity_id for i in understanding(registry)}
+    actor_ref = f"client:turn:{turn_number}" if turn_number else "client:understanding"
+    by_client = Provenance(actor=Actor.CLIENT, actor_ref=actor_ref,
+                           derived_from=(turn_id,) if turn_id else ())
+    deltas: list[EntityDelta] = []
+    confirmed: list[str] = []
+    refused: list[str] = []
+    for eid in dict.fromkeys(entity_ids):
+        if eid not in surface:
+            refused.append(f"{eid} is not on the playback the client was shown")
+            continue
+        deltas.append(SetStatus(eid, Status.CONFIRMED, by_client))
+        confirmed.append(eid)
+    if not deltas:
+        return ConfirmationOutcome(refused=tuple(refused))
+    registry.apply_all(deltas)
+    return ConfirmationOutcome(confirmed=tuple(confirmed), refused=tuple(refused))
 
 
 # ---------------------------------------------------------------------------

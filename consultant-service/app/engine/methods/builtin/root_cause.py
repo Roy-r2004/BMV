@@ -27,10 +27,11 @@ evidence would settle it (design 7.3, "untested -> question").
 """
 from __future__ import annotations
 
+import dataclasses
 from app.engine import types as T
 from app.engine.methods.builtin.capability_gap import (
-    ProposedOutput,
     ProposalSheet,
+    ProposedOutput,
     added_of,
     admitted,
     cites_validator,
@@ -38,6 +39,7 @@ from app.engine.methods.builtin.capability_gap import (
     copied_quantity_validator,
     dropped,
     model_proposals,
+    new_evidence_remains,
     proposed_entity,
     question_payloads,
     wording,
@@ -51,6 +53,7 @@ from app.engine.methods.contract import (
     QuestionShape,
     register,
 )
+from typing import Any
 
 
 def _cause_ids(o: ProposedOutput, cited: tuple[str, ...], inputs: dict[str, T.Entity]) -> tuple[str, ...]:
@@ -174,6 +177,23 @@ def _test_question(issue: T.Entity, hypothesis_text: str, causes: tuple[str, ...
         why=f"the hypothesis is untested; it rests on {named}",
         effort=T.EffortClass.LOOKUP,
         strategy=T.FillStrategy.ASK_CLIENT)
+
+
+def pending(view: Any) -> bool:
+    """Whether this method still has anything to conclude here.
+
+    a cause is a registered FACT, so an unconcluded window that holds no fact
+    holds no explanation this run could offer.
+
+    `new_evidence_remains` asks that in one place for every method that words
+    a conclusion through the shared admission law, because it is that law -
+    the door that refuses a restatement and an output citing rows it was not
+    shown - that decides what a further call could keep.
+    """
+    return new_evidence_remains(SPEC, view)
+
+
+SPEC = dataclasses.replace(SPEC, pending=pending)
 
 
 @register

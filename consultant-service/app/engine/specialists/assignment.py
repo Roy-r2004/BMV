@@ -60,6 +60,19 @@ if TYPE_CHECKING:  # the read side is a protocol; importing it at runtime would
 # The six admission rules, as the runner states them in the Finding it raises.
 # The table IS the law list: a rule the runner no longer checks is a key here
 # with no enforcement, which is what the mutation tests hunt for.
+# The kinds S4 refuses a specialist on a decision its assignment does not
+# target. They are the rows that SETTLE a decision rather than inform it, and
+# settling the engagement's own decision is never a specialist's to do
+# (`Assignment.forbidden_decisions` holds every live decision except a
+# SUBORDINATE one this node is decisive for, so on a normal engagement the
+# central decision is forbidden on every assignment).
+#
+# Named here rather than spelled at the check, because the loop needs the same
+# answer: a FREE_EXECUTION method that writes one of these cannot be put under
+# an assignment by a rank tie, or its whole result is refused for a reason that
+# is about specialists and not about the method.
+DECISION_OWNED_KINDS: tuple[Kind, ...] = (Kind.RECOMMENDATION, Kind.TRADE_OFF, Kind.OPTION)
+
 ADMISSION_RULES: Mapping[str, str] = {
     "S1": "no Supersede or SetStatus on an entity this assignment did not create",
     "S2": "every Add has status PROPOSED",
@@ -217,4 +230,5 @@ class Assignment:
         return None
 
 
-__all__ = ["ADMISSION_RULES", "Assignment", "TOKENS_PER_MODEL_CALL", "default_budget", "resolve_bounds"]
+__all__ = ["ADMISSION_RULES", "Assignment", "DECISION_OWNED_KINDS", "TOKENS_PER_MODEL_CALL",
+           "default_budget", "resolve_bounds"]

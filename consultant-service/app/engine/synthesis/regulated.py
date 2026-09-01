@@ -291,6 +291,11 @@ def _screen(registry: EngagementRegistry, provider: ModelProvider,
         if rec is not None and rec.payload.licensed_interpretation is False:
             _flag_recommendation(registry, rec_id, tuple(matter_ids))
             flagged.append(rec_id)
+    # The flag records that the advice needs a licence; it does not retire the
+    # advice. Retiring it is a synthesis act, not a screening one, and it is
+    # `recommend.withdraw_licensed_advice` - so the screen stays the thing that
+    # only identifies and routes, and a caller that screens without synthesising
+    # still sees exactly what was flagged.
     return ScreenResult(tuple(matters), tuple(flagged), tuple(cleared))
 
 

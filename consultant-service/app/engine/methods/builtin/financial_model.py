@@ -136,6 +136,32 @@ def amended_objective(objective: T.Entity, feasibility: T.Feasibility, inputs: t
     return T.Supersede(objective.id, amended)
 
 
+def pending(view: Any) -> bool:
+    """FM5: whether there is anything here to model.
+
+    Two things this method can do and nothing else: total the registered
+    figures on a measure that carries at least MIN_TOTAL_LEGS of them, and test
+    a quantified objective against the total on its own measure. Where the
+    register holds neither, the run adds nothing, supersedes nothing and asks
+    nothing - a selection slot spent to leave the registry as it was.
+
+    Read from counts and typed fields only: which measures carry primary
+    figures, how many, and which objectives name one of those measures. It does
+    not try to predict what the calculator will say, because a refusal by the
+    calculator is a real outcome the run should record.
+    """
+    groups = primary_facts_by_measure(view)
+    if not groups:
+        # Nothing measured yet. The method is WAITING, not finished, and the
+        # difference matters: a method excluded here is one `outstanding_inputs`
+        # stops listing, and an engagement that stopped listing what it is
+        # waiting for would reach SYNTHESIS owing the work.
+        return True
+    if any(len(facts) >= MIN_TOTAL_LEGS for facts in groups.values()):
+        return True
+    return any(o.payload.measure_id in groups for o in quantified_objectives(view))
+
+
 SPEC = MethodSpec(
     id="financial_model",
     version=1,
@@ -169,6 +195,7 @@ SPEC = MethodSpec(
     # (design 7.2: a tie is a real disagreement to surface, not a default).
     cost_class=2,
     max_model_calls=0,
+    pending=pending,
 )
 
 
