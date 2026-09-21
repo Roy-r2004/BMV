@@ -423,6 +423,36 @@ registry also de-duplicates its free texts, because the opening paragraph can
 now be the description AND the problem, which registered every figure in it
 twice.
 
+**Measured, on the real Halo engagement** (diagnosis: pricing; the client builds
+anyway), build half only, real models, same inputs each time:
+
+| | first sentence of "The decision" | integrity findings | quality findings (high) |
+|---|---|---|---|
+| no handoff (control) | "We recommend you implement HaloFlow, starting with a pilot of the Waitlist Management module." — the diagnosis is ignored | 31 | 36 (29) |
+| handoff v1 | "You need to implement a booking application that supports tiered pricing…" — right cause, wrong framing | 27 | 26 (23) |
+| handoff v2 | "The constraint is the studio's flat-rate pricing model; what fixes it is a change to what they charge, and that does not need software to begin." | 12 | 33 (27) |
+| real build, v2, with images | same shape as v2 | 15 | 25 (12) |
+
+What the handoff does: the decision states the diagnosed cause and fix before it
+mentions software, the software is described as carrying the fix out, and none
+of the justifications the diagnosis rules out ("more customers", "more demand",
+…) appear in any document.
+
+What it does NOT do, and should not be claimed to: these are single runs on real
+models, so the quality counts move a few either way and are directional. The v2
+"not yet calculable" rule never took effect (zero occurrences; the control
+produced four by r30's own mechanism), because the dollar scenarios come from
+`decompose`'s financial-model prompt, whose own rules outrank a paragraph in the
+register. The findings that remain are r30's generic structural and
+financial-model checks — schedule horizons stated as fact, KPI statements that
+repeat their metric name, module-phase ordering, scenario assumptions such as a
+50% no-show reduction that carry no client input, and current prices typed as
+"proposed" where a pricing pilot exists. The control shows the same classes of
+finding at a higher count, so they are pre-existing r30 behaviour, not something
+the handoff introduced. Clearing them is a separate piece of r30 work, and every
+build that still has them ships as a DRAFT that names its own defects, which is
+what the release gate is for.
+
 ## 8. What does not change
 
 - **Stages 7–19** — `plan`, `decompose`, `extras`, `blueprint`, `technical`,
