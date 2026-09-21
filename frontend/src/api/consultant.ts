@@ -76,6 +76,10 @@ export interface DiscoveryQuestion {
   label: string;
   placeholder: string;
   why: string;
+  /** The intake field this answer fills, when it fills one — the conversation
+   *  collects what the form used to ask for. Empty for a number question.
+   *  Only names the server recognises ever arrive here. */
+  field?: string;
 }
 
 /** The questions a consultant would open with, tailored to this brief.
@@ -96,6 +100,74 @@ export async function fetchDiscoveryQuestions(input: {
   if (input.engagement_type) form.set('engagement_type', input.engagement_type);
   const { data } = await consultantClient.post('/api/discovery/questions', form, { timeout: 15000 });
   return Array.isArray(data?.questions) ? data.questions : [];
+}
+
+/** One round of the adaptive interview. `done` is authoritative — it goes
+ *  true when the consultant has enough, when the round cap is hit, and when a
+ *  round fails, so the client never waits on a step that will not advance. */
+export interface InterviewRound {
+  questions: DiscoveryQuestion[];
+  done: boolean;
+  /** What they still need, or why they have enough. Shown to the client. */
+  because: string;
+  source: 'ai' | 'fallback';
+  /** Read off what they wrote rather than asked as pills: whether this is one
+   *  problem or the whole operation, and whether the business is trading yet.
+   *  Either may be null when their words do not say. */
+  inferred: { engagement_type: string | null; operating_stage: string | null };
+  /** Fields without which the engagement cannot be launched at all. The
+   *  interview will not call itself done while this is non-empty. */
+  still_needed: string[];
+}
+
+export async function fetchInterviewRound(input: {
+  business_name: string;
+  business_description: string;
+  industry?: string;
+  operating_stage: OperatingStage;
+  engagement_type?: EngagementType;
+  needs_ai?: string;
+  main_problem?: string;
+  desired_outcome?: string;
+  /** Everything answered so far, as the same {question, answer} pairs the
+   *  run is launched with — so the interviewer sees exactly what the pipeline
+   *  will see, and cannot ask for something it already has. */
+  ops_numbers?: string;
+  /** Every question label put to them so far, answered or not. Without the
+   *  unanswered ones the interviewer cannot see what it already asked, and
+   *  re-asks them each round in fresh wording. */
+  asked?: string;
+  /** The intake fields the conversation has filled so far, as JSON. One
+   *  builder decides what is still missing, rather than the prompt guessing
+   *  from whichever arguments happened to be passed. */
+  known?: string;
+  round: number;
+}): Promise<InterviewRound> {
+  const form = new FormData();
+  form.set('business_name', input.business_name);
+  form.set('business_description', input.business_description);
+  if (input.industry) form.set('industry', input.industry);
+  form.set('operating_stage', input.operating_stage);
+  if (input.engagement_type) form.set('engagement_type', input.engagement_type);
+  if (input.needs_ai) form.set('needs_ai', input.needs_ai);
+  if (input.main_problem) form.set('main_problem', input.main_problem);
+  if (input.desired_outcome) form.set('desired_outcome', input.desired_outcome);
+  if (input.ops_numbers) form.set('ops_numbers', input.ops_numbers);
+  if (input.asked) form.set('asked', input.asked);
+  if (input.known) form.set('known', input.known);
+  form.set('round', String(input.round));
+  const { data } = await consultantClient.post('/api/discovery/interview', form, { timeout: 30000 });
+  return {
+    questions: Array.isArray(data?.questions) ? data.questions : [],
+    done: Boolean(data?.done),
+    because: typeof data?.because === 'string' ? data.because : '',
+    source: data?.source === 'ai' ? 'ai' : 'fallback',
+    inferred: {
+      engagement_type: data?.inferred?.engagement_type ?? null,
+      operating_stage: data?.inferred?.operating_stage ?? null,
+    },
+    still_needed: Array.isArray(data?.still_needed) ? data.still_needed : [],
+  };
 }
 
 export interface BriefMessage {
@@ -137,9 +209,44 @@ export async function fetchBriefTurn(input: {
   }
 }
 
+/** One line of the consultant thinking out loud. `kind` drives how it reads;
+ *  the extra keys are present only on the kinds that carry them. */
+export interface ThinkingStep {
+  kind: 'considering' | 'testing' | 'verdict' | 'challenge' | 'settled';
+  text: string;
+  /** considering */
+  count?: number;
+  /** On the header of a pass that follows one whose lead was refuted. */
+  retry?: boolean;
+  area?: string;
+  software?: boolean;
+  /** true when this explanation is the client's own — shown, so they can see
+   *  when we agreed with them and when we did not. */
+  theirs?: boolean;
+  /** verdict */
+  verdict?: 'supported' | 'refuted' | 'untestable';
+  because?: string;
+  cites?: string[];
+  /** testing — marks the one that leads */
+  leading?: boolean;
+  /** challenge */
+  angle?: 'alternative' | 'confirmation';
+  kills?: boolean;
+  /** settled */
+  status?: 'survived' | 'killed' | 'unchallenged';
+}
+
 export interface StudioProgress {
   /** "pending" while the human review gate holds a finished run. */
   review_status?: string | null;
+  /** The run's own state. `awaiting_approval` is neither generating nor
+   *  finished — a poller reading only `is_generating` shows a completed run
+   *  with nothing behind it. */
+  status?: string | null;
+  /** The consultant's reasoning as it happens — explanations formed, tested
+   *  against the client's own figures, and attacked. Append-only and
+   *  purely presentational; nothing in the pipeline reads it back. */
+  thinking?: ThinkingStep[];
   business_name: string | null;
   stage: string | null;
   label: string | null;
@@ -505,6 +612,146 @@ export async function getStudioProgress(ref: StudioRef): Promise<StudioProgress>
 export async function getStudioPreview(ref: StudioRef, reviewToken?: string | null): Promise<StudioPreviewResult> {
   const suffix = reviewToken ? `?review_token=${encodeURIComponent(reviewToken)}` : '';
   const { data } = await consultantClient.get(`/api/requests/${ref}/preview${suffix}`);
+  return data;
+}
+
+/** One of the client's own figures, as cited by a diagnosis. */
+export interface StudioCitedClaim {
+  id: string;
+  text: string | null;
+  source: string | null;
+}
+
+/** The reasoning behind the decision. Null when no diagnosis could be made —
+ *  the client then sees the decision alone, as they did before this stage. */
+export interface StudioDiagnosis {
+  leading: {
+    statement: string;
+    area: string | null;
+    software_can_fix: boolean | null;
+    verdict: string | null;
+    because: string | null;
+    cites: StudioCitedClaim[];
+    would_need: string | null;
+    from_owner: boolean | null;
+  };
+  considered: { statement: string; area: string | null; verdict: string | null; because: string | null }[];
+  /** 'survived' | 'killed' | 'unchallenged'. The third is not the first: a
+   *  review that could not run has approved nothing. */
+  status: string | null;
+  weaknesses: string[];
+  challenges: { angle: string; kills: boolean; because: string }[];
+}
+
+/** What we concluded, read before anything is built on it. */
+export interface StudioDecision {
+  diagnosis: StudioDiagnosis | null;
+  id: number;
+  public_id: string | null;
+  status: string | null;
+  business_name: string | null;
+  understanding: {
+    business_model: string | null;
+    target_customer_profile: string | null;
+    pain_points: string[];
+    growth_opportunity: string | null;
+  };
+  decision: {
+    summary: string | null;
+    recommended_ai_employees: { title: string; why: string }[];
+    recommended_features: string[];
+    /** 'software' | 'process' | 'pricing' | 'staffing' | 'none'. Null on an
+     *  engagement decided before this existed — read `builds`, not this. */
+    intervention_kind: string | null;
+    central_problem: string | null;
+    why_not_the_others: string | null;
+    confidence: string | null;
+    unverified: string[];
+  };
+  /** Whether a build would actually move the diagnosed cause. False means we
+   *  are telling them not to spend. They can still overrule it. */
+  builds: boolean;
+  /** Everything the client has already sent back, as one line. Empty on a
+   *  first pass — shown so a second brief proves the objection was read. */
+  revisions: string;
+}
+
+export async function getStudioDecision(ref: StudioRef): Promise<StudioDecision> {
+  const { data } = await consultantClient.get(`/api/requests/${ref}/decision`);
+  return data;
+}
+
+/** Press Build. `started` is false when someone already pressed it — the
+ *  server claims the run with a conditional update, so a double press is
+ *  answered honestly rather than starting a second build over the first. */
+export async function approveStudioDecision(
+  ref: StudioRef,
+  scope?: { budget_range?: string; timeline?: string },
+): Promise<{ status: string; started: boolean }> {
+  // Budget and timeline ride along with the approval rather than the intake:
+  // they reach one prompt, `playbook.j2` at stage ten, so asking on the way
+  // in bought nothing and cost a screen of commercial questions.
+  const form = new FormData();
+  if (scope?.budget_range) form.append('budget_range', scope.budget_range);
+  if (scope?.timeline) form.append('timeline', scope.timeline);
+  const { data } = await consultantClient.post(`/api/requests/${ref}/decision/approve`, form);
+  return data;
+}
+
+/** A figure read out of a file the client sent, verified against its cell. */
+export interface StudioFigure {
+  id: string;
+  value: number;
+  unit: string;
+  time_basis: string;
+  /** What it means in the business's own terms. */
+  text: string;
+  /** "march.xlsx · March · B5" — the file, the sheet, the cell. */
+  source: string;
+  cell: string;
+  file: string;
+}
+
+export async function getStudioEvidence(ref: StudioRef): Promise<{ figures: StudioFigure[] }> {
+  const { data } = await consultantClient.get(`/api/requests/${ref}/evidence`);
+  return data;
+}
+
+/** `rejected` counts figures whose cited cell did not hold them. They are
+ *  dropped, not kept with a caveat — a figure a hypothesis may rest on
+ *  cannot be "probably in the file somewhere". */
+export async function uploadStudioEvidence(
+  ref: StudioRef,
+  file: File,
+): Promise<{ added: number; rejected: number; figures: StudioFigure[]; rediagnosing: boolean }> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await consultantClient.post(`/api/requests/${ref}/evidence`, form, {
+    timeout: 120000,
+  });
+  return data;
+}
+
+export async function deleteStudioEvidence(
+  ref: StudioRef,
+  claimId: string,
+): Promise<{ figures: StudioFigure[] }> {
+  const { data } = await consultantClient.delete(`/api/requests/${ref}/evidence/${claimId}`);
+  return data;
+}
+
+/** Take the answer and stop. Only offered when we said a build won't help;
+ *  the brief is then the deliverable, and this is not a failed engagement. */
+export async function acceptStudioAdvice(ref: StudioRef): Promise<{ status: string }> {
+  const { data } = await consultantClient.post(`/api/requests/${ref}/decision/accept`);
+  return data;
+}
+
+/** Send it back. The note reaches the next diagnosis as a correction. */
+export async function reviseStudioDecision(ref: StudioRef, note: string): Promise<{ status: string; started: boolean }> {
+  const form = new FormData();
+  form.append('note', note);
+  const { data } = await consultantClient.post(`/api/requests/${ref}/decision/revise`, form);
   return data;
 }
 

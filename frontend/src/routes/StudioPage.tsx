@@ -7,13 +7,20 @@ import {
   approveReview,
   createStudioRequest,
   fetchBriefTurn,
-  fetchDiscoveryQuestions,
+  fetchInterviewRound,
   isForbidden,
   isPendingTeaser,
   isUnauthorized,
   saveReviewDocs,
   getStudioPreview,
   getStudioProgress,
+  getStudioDecision,
+  approveStudioDecision,
+  acceptStudioAdvice,
+  reviseStudioDecision,
+  getStudioEvidence,
+  uploadStudioEvidence,
+  deleteStudioEvidence,
   consultantAssetUrl,
   isAtCapacity,
   isNotFound,
@@ -28,8 +35,14 @@ import {
   type OperatingStage,
   type StudioPreview,
   type StudioProgress,
+  type ThinkingStep,
+  type StudioDecision,
+  type StudioFigure,
   type StudioScreen,
 } from '../api/consultant';
+import ApprovalGate from '../components/studio/ApprovalGate';
+import Conversation, { type Round } from '../components/studio/Conversation';
+import RunStage, { type RunPhase } from '../components/studio/RunStage';
 import {
   splitH2Sections,
   findSection,
@@ -51,26 +64,11 @@ import {
 } from '../data/buildPlans';
 import '../styles/studio.css';
 
-// The orchestrator's real stages, told as studio work. `at` mirrors the
-// progress_pct each stage emits so the timeline advances from the poll's
-// pct even if a stage name ever changes server-side.
-const STAGES = [
-  { at: 10, name: 'Reading your business', sub: 'What you do, who you serve, where it hurts' },
-  { at: 25, name: 'Consulting', sub: 'Deciding what your AI employees should take over' },
-  { at: 35, name: 'Planning the product', sub: 'Which screens your software actually needs' },
-  { at: 42, name: 'Decomposing the business', sub: 'Module by module, each with its own spec' },
-  { at: 50, name: 'Writing the blueprint', sub: 'The modules, the money, the build order' },
-  { at: 60, name: 'Writing your playbook', sub: 'Every step you take, who does it, and when' },
-  { at: 62, name: 'Art direction', sub: 'Layout, palette and hierarchy — set per screen' },
-  { at: 70, name: 'Rendering your screens', sub: 'Drawn in parallel, inspected, re-rolled if flawed' },
-] as const;
-
-const RENDER_WHISPERS = [
-  'Every screen is inspected by two independent checks before it ships…',
-  'A screen that fails inspection gets one re-roll — quality over speed…',
-  'Typesetting your real numbers, not placeholders…',
-  'Your navigation, your services, your customers — nothing generic…',
-];
+// The stage lists and rotating captions for the running step live in
+// components/studio/RunStage.tsx now. They used to be one list of the BUILD
+// stages, shown for the whole run — so a client who was only being diagnosed
+// watched "Planning the product" and "Rendering your screens" scroll past for
+// work that would not happen unless they pressed Build.
 
 // 'loading' is the beat between opening a result URL and knowing what is at
 // the other end; 'missing' is an id that was never issued.
@@ -83,7 +81,11 @@ const RENDER_WHISPERS = [
 // real facts and flips to the reveal the moment it is approved.
 // 'private' is the ownership wall: the run exists but belongs to a
 // different account (or the caller isn't signed in).
-type Act = 'intake' | 'loading' | 'briefing' | 'pending' | 'building' | 'reveal' | 'failed' | 'missing' | 'private';
+// 'decision' is the approval gate: the diagnosis half has finished and is
+// waiting on the client. Nothing is running and nothing is built — the two
+// states 'building' and 'reveal' used to cover between them, which is why
+// the run needs its own act rather than a flag on one of theirs.
+type Act = 'intake' | 'loading' | 'briefing' | 'pending' | 'decision' | 'building' | 'reveal' | 'failed' | 'missing' | 'private';
 
 type ResultTab = 'screens' | 'blueprint' | 'technical' | 'playbook' | 'team' | 'plans';
 
@@ -104,6 +106,7 @@ const RESULT_TABS: { id: ResultTab; label: string; available: (p: StudioPreview)
 interface FieldErrors {
   business_name?: string;
   business_description?: string;
+  main_problem?: string;
   email?: string;
   what_you_like?: string;
 }
@@ -194,13 +197,18 @@ function GetSketch({ kind }: { kind: 'flow' | 'system' | 'chart' }) {
 // that data meaningfully shapes the analysis (see analyze.j2), so trimming
 // it down to "just enough for a demo" was throwing away signal the pipeline
 // already knows how to use.
+// Two screens, because a consultation should not open with paperwork.
+//
+// It was six, then four: name, industry, sector, customers, the tool you
+// admire, your AI appetite, your budget — every one of them asked before we
+// had shown the visitor a single thing worth their trust. Now they say what
+// is wrong, and the consultant asks for the rest the way a person would.
+// Budget and timeline moved to the approval gate, where they are a question
+// someone who wants the build is happy to answer; nothing before `plan`
+// reads them anyway.
 const INTAKE_STEPS = [
-  { id: 'business', label: 'Business', subtitle: 'Tell us who you are' },
-  { id: 'challenge', label: 'Challenge', subtitle: 'What you need solved' },
-  { id: 'inspiration', label: 'Inspiration', subtitle: 'A tool you admire' },
-  { id: 'project', label: 'Project', subtitle: 'Scope & AI appetite' },
-  { id: 'contact', label: 'Contact', subtitle: 'Where to send it' },
-  { id: 'discovery', label: 'Numbers', subtitle: 'The questions a consultant asks first' },
+  { id: 'problem', label: 'Your situation', subtitle: 'Tell us in your own words' },
+  { id: 'conversation', label: 'The conversation', subtitle: 'A few questions before we answer' },
 ] as const;
 
 const ENGAGEMENT_OPTIONS = ['My whole business', 'One specific problem'];
@@ -1534,7 +1542,19 @@ export default function StudioPage() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
-  const [whisper, setWhisper] = useState(0);
+  const [decision, setDecision] = useState<StudioDecision | null>(null);
+  const [gateBusy, setGateBusy] = useState(false);
+  const [gateError, setGateError] = useState<string | null>(null);
+  const [figures, setFigures] = useState<StudioFigure[]>([]);
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [evidenceNote, setEvidenceNote] = useState<string | null>(null);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  // Which half of the run this is. The diagnosis stops at the gate and the
+  // build only starts when the client presses it, so the running screen has
+  // to say which one it is showing — the server's `status` says so too, but
+  // it lags a poll behind the click, and a stale value flashed the wrong
+  // half's stages for a couple of seconds after every button.
+  const [phase, setPhase] = useState<RunPhase>('diagnosing');
   const [activeTab, setActiveTab] = useState<ResultTab>('screens');
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -1552,7 +1572,13 @@ export default function StudioPage() {
     desired_outcome: '',
     reference_url: '',
     what_you_like: '',
-    needs_ai: 'yes',
+    // 'maybe', not 'yes'. The question this used to answer is gone, so this is
+    // no longer something the client chose — it is what we tell every stage
+    // about them. 'yes' says "the client wants AI", a preference nobody
+    // expressed, sent to `decide` in the very engagement that exists to find
+    // out whether software is the answer. 'maybe' is the honest default:
+    // recommend it only where it clearly earns its place.
+    needs_ai: 'maybe',
     budget_range: BUDGET_OPTIONS[0],
     timeline: 'Flexible',
     whatsapp: '',
@@ -1568,7 +1594,11 @@ export default function StudioPage() {
   // moment the brief is complete enough (leaving the Challenge step), so
   // by the time the visitor reaches the Numbers step they are waiting -
   // the step feels like the consultant already read the brief.
-  const [discoveryQs, setDiscoveryQs] = useState<DiscoveryQuestion[] | null>(null);
+  // The interview accumulates: each round is kept on screen so the client can
+  // see and change what they already told us.
+  const [rounds, setRounds] = useState<Round[]>([]);
+  const [interviewDone, setInterviewDone] = useState(false);
+  const [interviewClosing, setInterviewClosing] = useState('');
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [numbersAnswers, setNumbersAnswers] = useState<Record<string, string>>({});
   const discoveryKey = useRef<string | null>(null);
@@ -1590,11 +1620,14 @@ export default function StudioPage() {
   const [editBp, setEditBp] = useState('');
   const [editTech, setEditTech] = useState('');
   const [qaOpen, setQaOpen] = useState(false);
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [privateReason, setPrivateReason] = useState<'signin' | 'foreign'>('signin');
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const elapsed = useElapsed(act === 'building', startedAt);
+  // The server starts a fresh trail for every diagnosis, so whatever the poll
+  // returns IS the current run's reasoning — no client-side merging needed.
+  const thinking = progress?.thinking ?? [];
 
   const resultUrl = routeId != null ? `${window.location.origin}${studioResultPath(routeId)}` : null;
 
@@ -1625,6 +1658,127 @@ export default function StudioPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewToken]);
 
+  // The brief behind the gate. Loaded rather than derived from the poll,
+  // because the poll carries a stage label and a percentage — not the
+  // reasoning the client is being asked to approve.
+  const loadDecision = useCallback(async (id: StudioRef) => {
+    try {
+      setDecision(await getStudioDecision(id));
+      setGateError(null);
+      setAct('decision');
+      // Figures are a separate read and a failure to load them must not cost
+      // the client their brief — the panel simply starts empty.
+      getStudioEvidence(id)
+        .then((e) => setFigures(e.figures ?? []))
+        .catch(() => undefined);
+    } catch (err) {
+      if (isUnauthorized(err)) {
+        setPrivateReason('signin');
+        setAct('private');
+      } else if (isForbidden(err)) {
+        setPrivateReason('foreign');
+        setAct('private');
+      } else {
+        // The run is intact and still waiting — only the read failed. Say so
+        // rather than reporting a failure that did not happen.
+        setFailureDetail('Your diagnosis is ready, but the studio could not load it just now. Refreshing this page usually brings it back.');
+        setAct('failed');
+      }
+    }
+  }, []);
+
+  const approveDecision = useCallback(async (scope?: { budget_range: string; timeline: string }) => {
+    if (routeId == null) return;
+    setGateBusy(true);
+    setGateError(null);
+    try {
+      await approveStudioDecision(routeId, scope);
+      // Whether this caller or an earlier double-press claimed the run, the
+      // build is now going — either way the honest next screen is the same.
+      setPhase('building');
+      setAct('building');
+    } catch {
+      setGateError('We could not start the build just now. Try again in a moment.');
+    } finally {
+      setGateBusy(false);
+    }
+  }, [routeId]);
+
+  const uploadEvidence = useCallback(async (file: File) => {
+    if (routeId == null) return;
+    setEvidenceBusy(true);
+    setEvidenceError(null);
+    setEvidenceNote(null);
+    try {
+      const r = await uploadStudioEvidence(routeId, file);
+      setFigures((prev) => [...prev, ...r.figures]);
+      // The dropped count is stated, never hidden. A client who sent a file
+      // is owed the news that we threw part of it away, and why.
+      setEvidenceNote(
+        `Read ${r.added} figure${r.added === 1 ? '' : 's'} from ${file.name}.` +
+          (r.rejected > 0
+            ? ` ${r.rejected} more we could not match to a cell, so we left them out.`
+            : '') +
+          (r.rediagnosing ? ' Diagnosing again with them now…' : ''),
+      );
+      if (r.rediagnosing) {
+        setPhase('diagnosing');
+        setAct('building');
+      }
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setEvidenceError(detail || 'We could not read that file just now. Try again in a moment.');
+    } finally {
+      setEvidenceBusy(false);
+    }
+  }, [routeId]);
+
+  const deleteFigure = useCallback(async (id: string) => {
+    if (routeId == null) return;
+    setEvidenceBusy(true);
+    try {
+      const r = await deleteStudioEvidence(routeId, id);
+      setFigures(r.figures);
+      setEvidenceNote(null);
+    } catch {
+      setEvidenceError('We could not remove that just now.');
+    } finally {
+      setEvidenceBusy(false);
+    }
+  }, [routeId]);
+
+  const acceptAdvice = useCallback(async () => {
+    if (routeId == null) return;
+    setGateBusy(true);
+    setGateError(null);
+    try {
+      await acceptStudioAdvice(routeId);
+      // Re-read rather than patching the local copy: the server owns whether
+      // this engagement is now terminal, and a refresh must show the same.
+      await loadDecision(routeId);
+    } catch {
+      setGateError('We could not save that just now. Try again in a moment.');
+    } finally {
+      setGateBusy(false);
+    }
+  }, [routeId, loadDecision]);
+
+  const reviseDecision = useCallback(async (note: string) => {
+    if (routeId == null) return;
+    setGateBusy(true);
+    setGateError(null);
+    try {
+      await reviseStudioDecision(routeId, note);
+      setDecision(null);
+      setPhase('diagnosing');
+      setAct('building');
+    } catch {
+      setGateError('We could not send that back just now. Try again in a moment.');
+    } finally {
+      setGateBusy(false);
+    }
+  }, [routeId]);
+
   // Decide what a run's state means — used both on first load of a result URL
   // and on every poll, so there is exactly one set of rules.
   const applyProgress = useCallback(
@@ -1653,8 +1807,22 @@ export default function StudioPage() {
         setAct('failed');
         return;
       }
+      // The gate is checked BEFORE is_generating, because at the gate nothing
+      // is generating: read in the other order this falls through to
+      // showResult and offers them an engagement with no deliverables in it.
+      // 'advised' is terminal and is NOT a finished build: we told them a
+      // build would not fix the cause and they took the answer. It shares
+      // this branch because the brief is what they come back to read.
+      if (p.status === 'awaiting_approval' || p.status === 'advised') {
+        sessionStorage.setItem(RESUME_KEY, String(id));
+        void loadDecision(id);
+        return;
+      }
       if (p.is_generating) {
         sessionStorage.setItem(RESUME_KEY, String(id));
+        // The server says which half is running. Read here rather than only
+        // set by clicks, so a page reloaded mid-run shows the right one.
+        setPhase(p.status === 'building' ? 'building' : 'diagnosing');
         setAct('building');
         return;
       }
@@ -1664,7 +1832,7 @@ export default function StudioPage() {
       sessionStorage.removeItem(RESUME_KEY);
       void showResult(id);
     },
-    [showResult],
+    [showResult, loadDecision],
   );
 
   // A result URL is self-sufficient: it loads its own run, whatever state it
@@ -1682,6 +1850,7 @@ export default function StudioPage() {
           detail: 'screen 2 of 3', is_generating: true, is_failed: false,
           updated_at: null, elapsed_s: 74,
         });
+        setPhase('building');
         setAct('building');
         return;
       }
@@ -1728,13 +1897,6 @@ export default function StudioPage() {
     return () => clearInterval(t);
   }, [act, routeId, showResult]);
 
-  // Rotate the rendering-stage whispers.
-  useEffect(() => {
-    if (act !== 'building') return;
-    const t = setInterval(() => setWhisper((w) => (w + 1) % RENDER_WHISPERS.length), 5200);
-    return () => clearInterval(t);
-  }, [act]);
-
   // Poll progress while building.
   useEffect(() => {
     if (act !== 'building' || routeId == null) return;
@@ -1757,61 +1919,200 @@ export default function StudioPage() {
   // Each step validates and returns on only its own field(s) — a stale
   // error left on a step the visitor has already backed away from must
   // never block Continue on the step they're actually standing on.
+  /** Which fields each step owns, and what makes each one valid.
+   *
+   *  A step validates and reports on ONLY its own fields — a stale error left
+   *  on a step the visitor has backed away from must never block Continue on
+   *  the step they are actually standing on. Each step can now fail on more
+   *  than one field at once, which the old one-error-at-a-time version could
+   *  not do: the first screen carries both the name and the description, and
+   *  surfacing one error, then the next on the following click, is a worse
+   *  experience than showing both.
+   */
+  /** What we treat as the description of the business: what the conversation
+   *  collected, or failing that what they wrote on the first screen. Used by
+   *  both the validation and the launch, so the two cannot disagree about
+   *  whether an engagement has one. */
+  const effectiveDescription = () =>
+    form.business_description.trim() || form.main_problem.trim();
+
+  const STEP_RULES: { field: keyof FieldErrors; invalid: () => boolean; message: string }[][] = [
+    [
+      {
+        field: 'main_problem',
+        // The only thing we require before the conversation starts. It used
+        // to be optional, buried on step two of six; it is now the entire
+        // front door, because the pipeline treats it as the owner's own
+        // hypothesis and tests it against the others. Blank, there is
+        // nothing to test and nothing to disagree with — and disagreeing is
+        // the product.
+        invalid: () => form.main_problem.trim().length < 15,
+        message: "Tell us what you're trying to work out — it's the thing we'll test.",
+      },
+    ],
+    [
+      // The conversation fills these, so they are checked when it ends rather
+      // than typed on a form. `POST /api/requests` refuses the engagement
+      // without them, and the interview will not call itself finished while
+      // either is blank — this is the last line of that defence.
+      {
+        field: 'business_name',
+        invalid: () => form.business_name.trim().length < 2,
+        message: "We still don't have the business's name — the question above asks for it.",
+      },
+      {
+        field: 'business_description',
+        // The complaint stands in when the conversation never asked for a
+        // description. Someone who wrote a paragraph about their studio on
+        // screen one has already described it — making them type it again,
+        // or blocking them because a model skipped the question, is worse
+        // than using what they wrote.
+        invalid: () => effectiveDescription().length < 30,
+        message: 'We still need a couple of sentences on what you do and how big you are.',
+      },
+    ],
+  ];
+
   const validateStep = (i: number): boolean => {
-    let key: keyof FieldErrors | null = null;
-    let message: string | null = null;
-    if (i === 0 && form.business_name.trim().length < 2) {
-      key = 'business_name';
-      message = 'Give your business its real name.';
-    }
-    if (i === 1 && form.business_description.trim().length < 30) {
-      key = 'business_description';
-      message = 'A couple of sentences — what you do, for whom, and what eats your day.';
-    }
-    if (i === 2 && form.reference_url.trim() && !form.what_you_like.trim()) {
-      key = 'what_you_like';
-      message = "Tell us what to borrow from it — otherwise we won't know what you liked.";
-    }
-    if (i === 4 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      key = 'email';
-      message = 'A real address, so we can reach you about it.';
-    }
+    const rules = STEP_RULES[i] ?? [];
+    const failed = rules.filter((r) => r.invalid());
     setErrors((prev) => {
       const next = { ...prev };
-      const clears: (keyof FieldErrors)[] =
-        i === 0 ? ['business_name'] : i === 1 ? ['business_description'] : i === 2 ? ['what_you_like'] : i === 4 ? ['email'] : [];
-      clears.forEach((k) => delete next[k]);
-      if (key) next[key] = message ?? undefined;
+      rules.forEach((r) => delete next[r.field]);
+      failed.forEach((r) => {
+        next[r.field] = r.message;
+      });
       return next;
     });
-    return key === null;
+    return failed.length === 0;
   };
 
-  const prefetchDiscovery = useCallback(() => {
-    const name = form.business_name.trim();
-    const desc = form.business_description.trim();
-    if (name.length < 2 || desc.length < 30) return;
-    const key = form.operating_stage + '|' + form.engagement_type + '|' + name + '|' + desc;
-    if (discoveryKey.current === key) return;
-    discoveryKey.current = key;
+  /** Intake fields the conversation is allowed to fill, mirroring the
+   *  server's FILLABLE. A `field` the server does not recognise never
+   *  arrives, and one this list does not recognise is ignored — nothing the
+   *  model returns may write an arbitrary key into the form. */
+  const CONVERSATION_FIELDS = [
+    'business_name', 'business_description', 'target_customers',
+    'industry', 'desired_outcome', 'revenue_today',
+  ] as const;
+
+  /** An answer goes to the form when the question said which field it fills,
+   *  and to the numbers otherwise. Both, when it fills a field: the interview
+   *  reads back what it already asked from the same list, so an answer that
+   *  vanished from it would be asked for again. */
+  const answerQuestion = useCallback((id: string, value: string) => {
+    setNumbersAnswers((prev) => ({ ...prev, [id]: value }));
+    const question = rounds.flatMap((r) => r.questions).find((q) => q.id === id);
+    const field = question?.field;
+    if (field && (CONVERSATION_FIELDS as readonly string[]).includes(field)) {
+      setForm((prev) => ({ ...prev, [field]: value }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rounds]);
+
+  /** Everything answered across every round, in the shape the run is
+   *  launched with. One builder, so the interviewer is shown exactly what the
+   *  pipeline will be given — an interviewer reading a different set from the
+   *  diagnosis would ask for figures the diagnosis already has. */
+  const opsNumbersPairs = useCallback(
+    () =>
+      rounds
+        .flatMap((r) => r.questions)
+        // Answers that fill an intake field live in that field, not here. A
+        // paragraph describing the business sitting in the numbers would be
+        // mined for figures by `client_fact_claims` and cited as one.
+        .filter((q) => !q.field && (numbersAnswers[q.id] ?? '').trim())
+        .map((q) => ({ id: q.id, question: q.label, answer: numbersAnswers[q.id].trim() })),
+    [rounds, numbersAnswers],
+  );
+
+  /** What the conversation knows about them so far. The server decides what
+   *  is still missing from this, so there is one answer to that question
+   *  rather than one per caller. */
+  const knownFields = useCallback(
+    () =>
+      Object.fromEntries(
+        CONVERSATION_FIELDS.map((f) => [f, String(form[f] ?? '').trim()]).filter(([, v]) => v),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form],
+  );
+
+  /** One round of the interview. Round 1 fires the moment they have said what
+   *  is wrong; later rounds once they have answered something, so a follow-up
+   *  always follows an actual answer. */
+  const askRound = useCallback(async (n: number) => {
+    // The only precondition now. The business has no name yet on round 1 —
+    // asking for it is the conversation's job, not the form's.
+    if (form.main_problem.trim().length < 15) return;
     setDiscoveryLoading(true);
-    fetchDiscoveryQuestions({
-      business_name: name,
-      business_description: desc,
-      industry: form.industry.trim() || undefined,
-      operating_stage: form.operating_stage,
-      engagement_type: form.engagement_type,
-    })
-      .then((qs) => setDiscoveryQs(qs.length ? qs : LOCAL_DISCOVERY_FALLBACK[form.operating_stage]))
-      .catch(() => setDiscoveryQs(LOCAL_DISCOVERY_FALLBACK[form.operating_stage]))
-      .finally(() => setDiscoveryLoading(false));
-  }, [form.business_name, form.business_description, form.industry, form.operating_stage]);
+    try {
+      const r = await fetchInterviewRound({
+        business_name: form.business_name.trim() || undefined,
+        business_description: form.business_description.trim() || undefined,
+        industry: form.industry.trim() || undefined,
+        operating_stage: form.operating_stage,
+        engagement_type: form.engagement_type,
+        main_problem: form.main_problem.trim(),
+        desired_outcome: form.desired_outcome.trim() || undefined,
+        // Exactly what the pipeline will see, so it cannot re-ask for
+        // something it already has.
+        ops_numbers: JSON.stringify(opsNumbersPairs()),
+        asked: JSON.stringify(rounds.flatMap((r) => r.questions.map((q) => q.label))),
+        known: JSON.stringify(knownFields()),
+        round: n,
+      });
+      if (r.questions.length > 0) {
+        setRounds((prev) => [...prev, { questions: r.questions, because: r.because }]);
+      }
+      // Read off their own words instead of asked as pills. Only ever fills a
+      // gap: a value the client has already changed is theirs, not ours.
+      setForm((prev) => ({
+        ...prev,
+        engagement_type: (r.inferred.engagement_type as EngagementType) ?? prev.engagement_type,
+        operating_stage: (r.inferred.operating_stage as OperatingStage) ?? prev.operating_stage,
+      }));
+      setInterviewDone(r.done);
+      setInterviewClosing(r.because);
+    } catch {
+      // The interview must never trap the client on a step. A failed first
+      // round serves the static set; a failed later round simply ends it.
+      setRounds((prev) =>
+        prev.length
+          ? prev
+          : [{ questions: LOCAL_DISCOVERY_FALLBACK[form.operating_stage], because: '' }],
+      );
+      setInterviewDone(true);
+    } finally {
+      setDiscoveryLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, opsNumbersPairs, knownFields, rounds]);
+
+  const prefetchDiscovery = useCallback(() => {
+    const problem = form.main_problem.trim();
+    if (problem.length < 15) return;
+    // Keyed on the complaint alone now. It is the only thing they have told
+    // us when the first round fires, and everything else is downstream of it:
+    // a different complaint is a different conversation, and following up on
+    // answers to questions nobody would have asked about it is worse than
+    // starting again.
+    if (discoveryKey.current === problem) return;
+    discoveryKey.current = problem;
+    setRounds([]);
+    setInterviewDone(false);
+    void askRound(1);
+  }, [form.main_problem, askRound]);
 
   const goNext = () => {
     if (!validateStep(step)) return;
-    // Idempotent (keyed on the brief) - re-fires only when name,
-    // description or stage actually changed since the last fetch.
-    if (step >= 1) prefetchDiscovery();
+    // Idempotent (keyed on the brief) — re-fires only when the name,
+    // description or stage actually changed since the last fetch. Fired from
+    // step 0 now rather than step 1, because the description moved onto the
+    // first screen: by the time they reach the conversation the questions are
+    // already written, and the step reads as a consultant who had read the
+    // brief before walking in.
+    prefetchDiscovery();
     setStep((s) => Math.min(s + 1, INTAKE_STEPS.length - 1));
   };
 
@@ -1819,8 +2120,11 @@ export default function StudioPage() {
 
   const buildIntake = () => ({
     business_name: form.business_name.trim(),
-    business_description: form.business_description.trim(),
-    email: form.email.trim(),
+    business_description: effectiveDescription(),
+    // No longer asked on a form. They signed in to get here, so we already
+    // know where to reach them — asking again on screen one was a tax paid
+    // before we had shown them anything worth paying it for.
+    email: form.email.trim() || user?.email || '',
     industry: form.industry.trim() || undefined,
     main_problem: form.main_problem.trim() || undefined,
     target_customers: form.target_customers.trim() || undefined,
@@ -1835,9 +2139,7 @@ export default function StudioPage() {
     revenue_today: form.revenue_today.trim() || undefined,
     operating_stage: form.operating_stage,
     engagement_type: form.engagement_type,
-    ops_numbers: (discoveryQs ?? [])
-      .filter((q) => (numbersAnswers[q.id] ?? '').trim())
-      .map((q) => ({ question: q.label, answer: numbersAnswers[q.id].trim() })),
+    ops_numbers: opsNumbersPairs(),
   });
 
   const launchEngagement = async (addendum: string | null) => {
@@ -1913,8 +2215,10 @@ export default function StudioPage() {
     setSubmitError(null);
     // The last step is the only one whose Continue button submits — walk
     // every step's rule once more so a stale error from an earlier step
-    // (edited, then navigated away from) can't slip through.
-    const allValid = [0, 1, 2, 4].every((i) => validateStep(i));
+    // (edited, then navigated away from) can't slip through. Derived from
+    // STEP_RULES rather than listed, so adding or moving a step cannot leave
+    // its rules unchecked at the one moment they matter most.
+    const allValid = STEP_RULES.map((_, i) => validateStep(i)).every(Boolean);
     if (!allValid || submitting) return;
     // Before anything runs: the consultant plays back the brief in a short
     // chat so wrong inputs get corrected while correcting is still free.
@@ -2007,16 +2311,6 @@ export default function StudioPage() {
   }, [activeTab]);
 
   const pct = progress?.pct ?? 4;
-  const stageStates = useMemo(
-    () =>
-      STAGES.map((s, i) => {
-        const nextAt = STAGES[i + 1]?.at ?? 100;
-        if (pct >= nextAt) return 'done';
-        if (pct >= s.at) return 'active';
-        return 'pending';
-      }),
-    [pct],
-  );
 
   const allScreens: StudioScreen[] = preview?.generated_pages.attraction_images ?? [];
   const screens = allScreens.filter((s) => !brokenSrc[s.image_url]);
@@ -2032,7 +2326,9 @@ export default function StudioPage() {
       <div className="studio-grid-field" aria-hidden="true" />
 
       <main className="relative z-10 section-padding pt-28 pb-20">
-        <div className="container-max max-w-6xl">
+        {/* The running step takes the whole screen; every other act stays in
+            the reading-width column it was designed for. */}
+        <div className={act === 'building' ? 'mx-auto w-full max-w-[1680px]' : 'container-max max-w-6xl'}>
           <AnimatePresence mode="wait">
             {act === 'loading' && (
               <motion.section key="loading" {...fade} transition={{ duration: 0.3 }}>
@@ -2160,60 +2456,44 @@ export default function StudioPage() {
                       >
                         {step === 0 && (
                           <>
-                            <div className="studio-field" data-invalid={!!errors.business_name}>
-                              <label htmlFor="st-name">Business name</label>
-                              <div className="studio-inputwrap">
-                                <Icon path={INTAKE_ICONS.building} />
-                                <input
-                                  id="st-name"
-                                  value={form.business_name}
-                                  onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-                                  placeholder="e.g. Beacon Physiotherapy"
-                                  autoComplete="organization"
-                                />
-                              </div>
-                              {errors.business_name && <p className="studio-error-text">{errors.business_name}</p>}
-                            </div>
-                            <div className="studio-field">
-                              <label htmlFor="st-industry">
-                                Industry <span className="text-slate-500 font-normal">(optional)</span>
+                            {/* The whole front door. Everything the four-step
+                                form used to ask is now asked in the
+                                conversation, by a consultant who has already
+                                read this. */}
+                            {/* Deliberately not "what's going wrong". That
+                                shuts out everyone who has not started yet, and
+                                a business being planned is a case the pipeline
+                                already handles — `operating_stage: 'opening'`
+                                changes which questions get asked and which
+                                numbers exist to reason about. */}
+                            <div className="studio-field" data-invalid={!!errors.main_problem}>
+                              <label htmlFor="st-problem" className="!text-lg">
+                                What are you trying to work out?
                               </label>
-                              <div className="studio-inputwrap">
-                                <Icon path={INTAKE_ICONS.briefcase} />
-                                <input
-                                  id="st-industry"
-                                  value={form.industry}
-                                  onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                                  placeholder="e.g. Physiotherapy clinic"
-                                />
-                              </div>
-                            </div>
-                            <div className="studio-field">
-                              <label>Where are you today?</label>
-                              <StudioPills
-                                options={STAGE_OPTIONS}
-                                value={STAGE_REVERSE[form.operating_stage]}
-                                onChange={(v) => setForm({ ...form, operating_stage: STAGE_MAP[v] })}
+                              <textarea
+                                id="st-problem"
+                                rows={5}
+                                value={form.main_problem}
+                                onChange={(e) => setForm({ ...form, main_problem: e.target.value })}
+                                placeholder={'e.g. "We keep missing calls in the evening and I think we\'re losing bookings."\n\nor "I want to open a second clinic but I can\'t tell if the numbers work."'}
+                                autoFocus
                               />
-                              <p className="studio-hint">
-                                Changes which numbers we ask for - your current reality, or your plan.
-                              </p>
+                              {errors.main_problem ? (
+                                <p className="studio-error-text">{errors.main_problem}</p>
+                              ) : (
+                                <p className="studio-hint">
+                                  A problem that's costing you, a decision you're stuck on, or
+                                  something you want to start. A sentence or two is plenty — we'll
+                                  ask you the rest. And we'll treat whatever you write as one
+                                  explanation to test, not as settled: people are usually right
+                                  about the symptom and often wrong about the cause.
+                                </p>
+                              )}
                             </div>
-                            <div className="studio-field">
-                              <label>What should we blueprint?</label>
-                              <StudioPills
-                                options={ENGAGEMENT_OPTIONS}
-                                value={ENGAGEMENT_REVERSE[form.engagement_type]}
-                                onChange={(v) => setForm({ ...form, engagement_type: ENGAGEMENT_MAP[v] })}
-                              />
-                              <p className="studio-hint">
-                                Your entire operation end to end - or one capability, scoped into what
-                                you already run.
-                              </p>
-                            </div>
+
                             <div className="studio-field">
                               <label htmlFor="st-siteurl">
-                                Website or Google/Instagram page{' '}
+                                Your website or Google page{' '}
                                 <span className="text-slate-500 font-normal">(optional)</span>
                               </label>
                               <div className="studio-inputwrap">
@@ -2227,210 +2507,36 @@ export default function StudioPage() {
                                 />
                               </div>
                               <p className="studio-hint">
-                                We'll read it before analyzing — real services, hours and tone make
-                                everything sharper.
+                                We'll read it before we ask you anything — real services, hours and
+                                tone are facts we can use instead of assumptions.
                               </p>
                             </div>
                           </>
                         )}
 
                         {step === 1 && (
-                          <>
-                            <div className="studio-field" data-invalid={!!errors.business_description}>
-                              <label htmlFor="st-desc">What does it do?</label>
-                              <textarea
-                                id="st-desc"
-                                rows={4}
-                                value={form.business_description}
-                                onChange={(e) => setForm({ ...form, business_description: e.target.value })}
-                                placeholder="Physiotherapy clinic with six therapists. Patients book assessments and follow-ups; we juggle availability, insurance pre-approvals and no-shows…"
-                              />
-                              {errors.business_description ? (
-                                <p className="studio-error-text">{errors.business_description}</p>
-                              ) : (
-                                <SpecificityMeter value={form.business_description} />
-                              )}
-                            </div>
-                            <div className="studio-field">
-                              <label htmlFor="st-customers">
-                                Who are your customers? <span className="text-slate-500 font-normal">(optional)</span>
-                              </label>
-                              <input
-                                id="st-customers"
-                                value={form.target_customers}
-                                onChange={(e) => setForm({ ...form, target_customers: e.target.value })}
-                                placeholder="Busy professionals, 30-55, referred by their doctor"
-                              />
-                            </div>
-                            <div className="studio-field">
-                              <label htmlFor="st-problem">
-                                Biggest headache <span className="text-slate-500 font-normal">(optional)</span>
-                              </label>
-                              <input
-                                id="st-problem"
-                                value={form.main_problem}
-                                onChange={(e) => setForm({ ...form, main_problem: e.target.value })}
-                                placeholder="Scheduling eats our evenings"
-                              />
-                            </div>
-                            <div className="studio-field">
-                              <label htmlFor="st-outcome">
-                                What would fixing it get you? <span className="text-slate-500 font-normal">(optional)</span>
-                              </label>
-                              <input
-                                id="st-outcome"
-                                value={form.desired_outcome}
-                                onChange={(e) => setForm({ ...form, desired_outcome: e.target.value })}
-                                placeholder="Evenings back, zero double-bookings"
-                              />
-                            </div>
-                            <div className="studio-field">
-                              <label htmlFor="st-revenue">
-                                How do you make money today? <span className="text-slate-500 font-normal">(optional)</span>
-                              </label>
-                              <input
-                                id="st-revenue"
-                                value={form.revenue_today}
-                                onChange={(e) => setForm({ ...form, revenue_today: e.target.value })}
-                                placeholder="Per-session fees, packages, a monthly membership…"
-                              />
-                              <p className="studio-hint">
-                                This is what lets the blueprint talk about your revenue, not revenue in general.
-                              </p>
-                            </div>
-                          </>
+                          <Conversation
+                            rounds={rounds}
+                            answers={numbersAnswers}
+                            onAnswer={answerQuestion}
+                            onMore={() => void askRound(rounds.length + 1)}
+                            loading={discoveryLoading}
+                            done={interviewDone}
+                            closing={interviewClosing}
+                            required={['business_name']}
+                          />
                         )}
 
-                        {step === 2 && (
-                          <>
-                            <div className="studio-field">
-                              {/* "not your own website" is load-bearing: a real
-                                  production lead put their own company site here
-                                  because it was the only URL field they noticed. */}
-                              <label htmlFor="st-refurl">
-                                A tool you admire — not your own website{' '}
-                                <span className="text-slate-500 font-normal">(optional)</span>
-                              </label>
-                              <input
-                                id="st-refurl"
-                                value={form.reference_url}
-                                onChange={(e) => setForm({ ...form, reference_url: e.target.value })}
-                                placeholder="https://example.com"
-                                autoComplete="url"
-                              />
-                            </div>
-                            <div className="studio-field" data-invalid={!!errors.what_you_like}>
-                              <label htmlFor="st-refwhy">
-                                What do you like about it?
-                                {!form.reference_url.trim() && (
-                                  <span className="text-slate-500 font-normal"> (optional)</span>
-                                )}
-                              </label>
-                              <textarea
-                                id="st-refwhy"
-                                rows={3}
-                                value={form.what_you_like}
-                                onChange={(e) => setForm({ ...form, what_you_like: e.target.value })}
-                                placeholder="The clean booking calendar and how simple it is to reschedule"
-                              />
-                              {errors.what_you_like && <p className="studio-error-text">{errors.what_you_like}</p>}
-                            </div>
-                          </>
-                        )}
-
-                        {step === 3 && (
-                          <>
-                            <div className="studio-field">
-                              <label>Want AI running any of this?</label>
-                              <StudioPills
-                                options={NEEDS_AI_OPTIONS}
-                                value={NEEDS_AI_REVERSE[form.needs_ai] ?? NEEDS_AI_OPTIONS[0]}
-                                onChange={(v) => setForm({ ...form, needs_ai: NEEDS_AI_MAP[v] })}
-                              />
-                            </div>
-                            <div className="studio-field">
-                              <label>Rough scope</label>
-                              <StudioPills
-                                options={BUDGET_OPTIONS}
-                                value={form.budget_range}
-                                onChange={(v) => setForm({ ...form, budget_range: v })}
-                              />
-                            </div>
-                            <div className="studio-field">
-                              <label>Timeline</label>
-                              <StudioPills
-                                options={TIMELINE_OPTIONS}
-                                value={form.timeline}
-                                onChange={(v) => setForm({ ...form, timeline: v })}
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {step === 5 && (
-                          <div className="studio-discovery">
-                            <div className="studio-disc-intro">
-                              <Icon path={INTAKE_ICONS.shield} className="w-4 h-4" />
-                              <p>
-                                Tailored to your brief. Answer what you know, skip the rest - every
-                                figure in your plan is calculated <strong>only</strong> from numbers
-                                you give us. We never invent one.
-                              </p>
-                            </div>
-                            {discoveryLoading || discoveryQs == null ? (
-                              <div className="studio-disc-loading" aria-live="polite">
-                                <span className="studio-disc-spinner" aria-hidden="true" />
-                                Reading your brief and writing your questions&hellip;
-                              </div>
-                            ) : (
-                              discoveryQs.map((q, i) => (
-                                <div className="studio-field studio-disc-q" key={q.id}>
-                                  <label htmlFor={'st-dq-' + q.id}>
-                                    <span className="studio-disc-no">{String(i + 1).padStart(2, '0')}</span>
-                                    {q.label} <span className="text-slate-500 font-normal">(optional)</span>
-                                  </label>
-                                  <input
-                                    id={'st-dq-' + q.id}
-                                    value={numbersAnswers[q.id] ?? ''}
-                                    onChange={(e) =>
-                                      setNumbersAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                                    }
-                                    placeholder={q.placeholder}
-                                  />
-                                  {q.why && <p className="studio-hint studio-disc-why">{q.why}</p>}
-                                </div>
-                              ))
-                            )}
+                        {/* These used to sit under their own fields on the old
+                            form. The conversation fills them now, and with no
+                            place to show the error, pressing the button when
+                            one was blank did nothing at all — no message, no
+                            movement, and nothing to tell the client why. */}
+                        {step === 1 && (errors.business_name || errors.business_description) && (
+                          <div className="studio-error-text mt-2" role="alert">
+                            {errors.business_name && <p>{errors.business_name}</p>}
+                            {errors.business_description && <p>{errors.business_description}</p>}
                           </div>
-                        )}
-
-                        {step === 4 && (
-                          <>
-                            <div className="studio-field" data-invalid={!!errors.email}>
-                              <label htmlFor="st-email">Email</label>
-                              <input
-                                id="st-email"
-                                type="email"
-                                value={form.email}
-                                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                placeholder="you@yourbusiness.com"
-                                autoComplete="email"
-                              />
-                              {errors.email && <p className="studio-error-text">{errors.email}</p>}
-                            </div>
-                            <div className="studio-field">
-                              <label htmlFor="st-whatsapp">
-                                WhatsApp <span className="text-slate-500 font-normal">(optional)</span>
-                              </label>
-                              <input
-                                id="st-whatsapp"
-                                value={form.whatsapp}
-                                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                                placeholder="+1 555 010 1234"
-                                autoComplete="tel"
-                              />
-                            </div>
-                          </>
                         )}
                       </motion.div>
                     </AnimatePresence>
@@ -2459,7 +2565,11 @@ export default function StudioPage() {
                         </button>
                       ) : (
                         <button key="go" className="studio-cta studio-stepnav-cta" type="submit" disabled={submitting}>
-                          {submitting ? 'Opening the studio…' : 'Design my software'}
+                          {/* Not "Design my software" any more: the pipeline
+                              is now allowed to conclude that software is the
+                              wrong answer, and a button that promises one
+                              commits us before the diagnosis has run. */}
+                          {submitting ? 'Opening the studio…' : 'Diagnose my business'}
                           {!submitting && <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />}
                         </button>
                       )}
@@ -2786,76 +2896,38 @@ export default function StudioPage() {
               </motion.section>
             )}
 
+            {act === 'decision' && decision && (
+              <ApprovalGate
+                decision={decision}
+                onApprove={approveDecision}
+                onAccept={acceptAdvice}
+                onRevise={reviseDecision}
+                busy={gateBusy}
+                error={gateError}
+                accepted={decision.status === 'advised'}
+                figures={figures}
+                onUpload={uploadEvidence}
+                onDeleteFigure={deleteFigure}
+                evidenceBusy={evidenceBusy}
+                evidenceNote={evidenceNote}
+                evidenceError={evidenceError}
+              />
+            )}
+
             {act === 'building' && (
               <motion.section key="building" {...fade} transition={{ duration: 0.45 }}>
-                <div className="max-w-3xl mx-auto text-center mb-10">
-                  <p className="studio-kicker mb-4">Now designing</p>
-                  <h1 className="studio-display text-3xl sm:text-4xl font-bold text-navy">
-                    {buildingName} is in the studio
-                  </h1>
-                  <p className="mt-3 text-slate-600">
-                    {progress?.label ?? 'Warming up…'}
-                    {progress?.detail ? <span className="text-slate-500"> — {progress.detail}</span> : null}
-                  </p>
-                </div>
-
-                <div className="grid lg:grid-cols-[320px_1fr] gap-8 items-start">
-                  <div className="studio-panel p-6">
-                    {STAGES.map((s, i) => (
-                      <div className="studio-stage-row" data-state={stageStates[i]} key={s.name}>
-                        <span className="studio-stage-dot" aria-hidden="true" />
-                        <div>
-                          <p className="studio-stage-name">{s.name}</p>
-                          <p className="studio-stage-sub">{s.sub}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="studio-panel p-6 sm:p-8">
-                    <div className="studio-easel" role="img" aria-label="Your screens being drafted">
-                      <span className="studio-easel-wire" style={{ left: '6%', top: '9%', width: '26%', height: '82%' }} />
-                      <span className="studio-easel-wire" style={{ left: '36%', top: '9%', width: '58%', height: '30%' }} />
-                      <span className="studio-easel-wire" style={{ left: '36%', top: '45%', width: '28%', height: '46%' }} />
-                      <span className="studio-easel-wire" style={{ left: '68%', top: '45%', width: '26%', height: '46%' }} />
-                    </div>
-
-                    <div className="mt-6 flex items-center gap-4">
-                      <div className="studio-meter flex-1">
-                        <div className="studio-meter-fill" style={{ width: `${Math.max(4, pct)}%` }} />
-                      </div>
-                      <span className="studio-elapsed">{elapsed}</span>
-                    </div>
-
-                    <AnimatePresence mode="wait">
-                      <motion.p
-                        key={whisper}
-                        className="mt-4 text-sm text-slate-600"
-                        initial={reduceMotion ? undefined : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={reduceMotion ? undefined : { opacity: 0 }}
-                        transition={{ duration: 0.5 }}
-                      >
-                        {RENDER_WHISPERS[whisper]}
-                      </motion.p>
-                    </AnimatePresence>
-
-                    {resultUrl && (
-                      <div className="studio-keepsafe mt-6">
-                        <p className="studio-keepsafe-label">
-                          This page is your run. Close it, come back, open it on your phone — the
-                          address doesn't change.
-                        </p>
-                        <div className="studio-linkrow">
-                          <code className="studio-link">{resultUrl}</code>
-                          <button type="button" className="studio-ghost-btn" onClick={copyLink}>
-                            {copied ? 'Copied' : 'Copy link'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <RunStage
+                  phase={phase}
+                  businessName={buildingName}
+                  label={progress?.label ?? null}
+                  detail={progress?.detail ?? null}
+                  pct={pct}
+                  elapsed={elapsed}
+                  steps={thinking}
+                  resultUrl={resultUrl}
+                  copied={copied}
+                  onCopy={copyLink}
+                />
               </motion.section>
             )}
 

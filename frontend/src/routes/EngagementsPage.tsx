@@ -19,6 +19,13 @@ function statusOf(m: StudioMineEntry): { label: string; tone: string } {
     return { label: 'Generating…', tone: 'text-blue-700 bg-blue-50 border-blue-200' };
   if (m.status === 'failed')
     return { label: 'Needs attention', tone: 'text-amber-700 bg-amber-50 border-amber-200' };
+  // Neither of these is "Ready": one is waiting on the CLIENT, and the other
+  // deliberately has no deliverables behind it. Both used to fall through to
+  // the same green badge, so a decision nobody had answered looked finished.
+  if (m.status === 'awaiting_approval')
+    return { label: 'Waiting on you', tone: 'text-blue-700 bg-blue-50 border-blue-200' };
+  if (m.status === 'advised')
+    return { label: 'Advice given', tone: 'text-slate-700 bg-slate-100 border-slate-300' };
   if (m.review_status === 'pending')
     return { label: 'In review', tone: 'text-violet-700 bg-violet-50 border-violet-200' };
   return { label: 'Ready', tone: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
