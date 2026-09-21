@@ -25,6 +25,7 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline import handoff
 from app.pipeline.analyze import _format_site_research
 from app.templating import render
 
@@ -399,17 +400,29 @@ def _format_owner_numbers(req: Request) -> str:
     """The discovery Q&A as prompt lines. 'none provided' rather than an
     empty block — the prompt's number rules key off whether real numbers
     exist, and the model must be able to tell."""
-    if not req.ops_numbers_json:
-        return "none provided"
-    try:
-        pairs = json.loads(req.ops_numbers_json)
-    except ValueError:
-        return "none provided"
-    lines = [
-        f"- {p.get('question')}: {p.get('answer')}"
-        for p in pairs
-        if isinstance(p, dict) and p.get("question") and p.get("answer")
-    ]
+    lines = []
+    if req.ops_numbers_json:
+        try:
+            pairs = json.loads(req.ops_numbers_json)
+        except ValueError:
+            pairs = []
+        lines = [
+            f"- {p.get('question')}: {p.get('answer')}"
+            for p in pairs
+            if isinstance(p, dict) and p.get("question") and p.get("answer")
+        ]
+    # Figures read out of files they uploaded are the owner's numbers too, and
+    # the strongest ones — nobody rounds a spreadsheet cell from memory. They
+    # have to be listed HERE, because this is the list the decomposition
+    # computes from and the number auditor checks against: a figure the
+    # diagnosis cited but this list omits would reach the documents as a
+    # number the client "never gave".
+    from app.pipeline import evidence
+
+    for c in evidence.load(req):
+        basis = f" per {c['time_basis']}" if c.get("time_basis") not in (None, "", "n/a") else ""
+        lines.append(f"- {c.get('text') or 'Figure from their file'} "
+                     f"(their file, {c.get('source')}): {c.get('value')} {c.get('unit') or ''}{basis}".rstrip())
     return "\n".join(lines) or "none provided"
 
 
@@ -450,6 +463,7 @@ def decompose_business(
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
             req.business_description,
+            diagnosis=handoff.for_build(req),
             ),
             business_model=analysis.get("business_model", "Unknown"),
             target_customer_profile=analysis.get("target_customer_profile", ""),
@@ -590,10 +604,13 @@ def decompose_business(
     # to the structures BEFORE any prose is written from them.
     from app.pipeline import registry as _registry
 
+    from app.pipeline import evidence as _evidence
+
     reg = _registry.build_registry(
         req.ops_numbers_json, business_case, modules,
         free_texts=[req.business_description or "", req.main_problem or "",
                     req.desired_outcome or "", req.revenue_today or ""],
+        extra_claims=_evidence.load(req),
     )
     req.registry_json = json.dumps(reg)
     req.modules_json = json.dumps(modules)

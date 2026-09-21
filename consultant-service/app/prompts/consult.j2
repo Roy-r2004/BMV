@@ -13,8 +13,17 @@ Target customer profile: {{ target_customer_profile }}
 Pain points: {{ pain_points }}
 Growth opportunity: {{ growth_opportunity }}
 
+{% if diagnosis %}
+THE DIAGNOSIS — this is what your recommendation must answer
+{{ diagnosis }}
+
+This was arrived at by testing several competing explanations against the client's own figures, and then by two reviewers trying to kill it. Your recommendation addresses THIS cause. If you find yourself recommending something that would not move this cause, you are recommending the wrong thing.
+
+Where the diagnosis is marked as resting on thin evidence, or where a reviewer left a weakness standing, do not write around it — a recommendation that quietly assumes more certainty than the diagnosis had is the failure this whole stage exists to prevent.
+{% endif %}
+
 TASK
-1. Write a short (2-4 sentence) consulting recommendation to the business owner: what the system this engagement covers should include and why, grounded in the analysis above and scoped by the engagement register.
+1. Write a short (2-4 sentence) consulting recommendation to the business owner: what the system this engagement covers should include and why, grounded in the analysis above{% if diagnosis %} and answering the diagnosis{% endif %}, scoped by the engagement register.
 2. Recommend the "AI employees" this business genuinely benefits from WITHIN the register — matched to its archetype and pain points, not a fixed count. AI must earn each placement: where a human procedure or a simple tool honestly suffices, say so instead. When the register says no AI, an empty list is the correct answer. For each recommended one, give a job title and why it matters here.
 3. Recommend 3-5 concrete features the product should include (booking, inbox, catalog, activity dashboard, etc).
 

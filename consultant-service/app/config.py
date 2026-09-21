@@ -21,6 +21,15 @@ class Settings:
     # Everything routes through OpenRouter — one key, one place cost is tracked.
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "").strip()
     ANALYSIS_MODEL: str = _env_or("ANALYSIS_MODEL", "google/gemini-2.5-flash")
+    # The diagnosis stage only. Holding five competing explanations against a
+    # claim set and refusing the one the owner already believed is a different
+    # job from extracting fields and formatting prose, and ANALYSIS_MODEL is
+    # sized for the second. Two calls per engagement carry this; everything
+    # else stays on the cheaper model.
+    # Deliberately NOT chained to ANALYSIS_MODEL: an env that sets the cheap
+    # model everywhere would silently take the diagnosis down with it, and the
+    # stage would go on reporting tested conclusions.
+    REASONING_MODEL: str = _env_or("REASONING_MODEL", "google/gemini-2.5-pro")
     # The Phase-1 pilot's lightweight tooling and the human role that runs it —
     # generic names applied to every engagement (a pilot module is never a
     # person and never depends on a later-phase module).
@@ -182,6 +191,13 @@ class Settings:
     REVIEW_TOKEN: str = _env_or("REVIEW_TOKEN", "")
     MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))
     MAX_DISCOVERY_QUESTIONS: int = int(_env_or("MAX_DISCOVERY_QUESTIONS", "6"))
+    # The adaptive interview. A consultation that will not converge in twelve
+    # questions has a different problem, and an owner who has answered twelve
+    # is being processed rather than consulted — the cap is a product
+    # decision, not a cost one, and it is enforced server-side because the
+    # model is the thing being capped.
+    INTERVIEW_MAX_ROUNDS: int = int(_env_or("INTERVIEW_MAX_ROUNDS", "3"))
+    INTERVIEW_MAX_PER_ROUND: int = int(_env_or("INTERVIEW_MAX_PER_ROUND", "4"))
     MIN_MODULES_PER_REQUEST: int = int(_env_or("MIN_MODULES_PER_REQUEST", "3"))
     MAX_MODULES_PER_REQUEST: int = int(_env_or("MAX_MODULES_PER_REQUEST", "7"))
     VARIANTS_PER_ROLE: int = int(_env_or("VARIANTS_PER_ROLE", "2"))

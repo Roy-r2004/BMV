@@ -2526,17 +2526,29 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
 
 
 def build_registry(ops_numbers_json: str | None, business_case: dict, modules: list,
-                   free_texts: list[str] | None = None, procedures: list | None = None) -> dict:
+                   free_texts: list[str] | None = None, procedures: list | None = None,
+                   extra_claims: list[dict] | None = None) -> dict:
     """Build (and apply) the registry for one engagement. MUTATES modules and
     business_case: pilot-module renames, typed/labeled technical fields,
-    registry-rendered KPI statements, the normalized pilot gate."""
+    registry-rendered KPI statements, the normalized pilot gate.
+
+    `extra_claims` are client figures that did not arrive as typed answers —
+    the ones read out of files they uploaded. Without them a document that
+    quotes "$108,630 revenue" from their own spreadsheet is a number the
+    integrity layer cannot trace to anything the client said, and flags."""
     try:
         ops = json.loads(ops_numbers_json) if ops_numbers_json else []
     except ValueError:
         ops = []
     bc = business_case if isinstance(business_case, dict) else {}
     fm = bc.get("financial_model") if isinstance(bc.get("financial_model"), dict) else {}
-    claims = client_fact_claims(ops, free_texts or [])
+    # De-duplicated: the launch uses the client's opening paragraph as the
+    # description when the conversation never asked for one, so the same text
+    # can arrive as both description and problem — and every number in it
+    # would otherwise be registered twice under two ids.
+    texts = list(dict.fromkeys(t.strip() for t in (free_texts or []) if t and t.strip()))
+    claims = client_fact_claims(ops, texts)
+    claims += [dict(c) for c in (extra_claims or []) if isinstance(c, dict)]
     claims += derived_claims(fm)
     reg_modules, renames = module_registry(modules, bc)
     forward_removed = [{"module": r["module"], **e} for r in renames

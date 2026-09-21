@@ -72,6 +72,21 @@ class Request(Base):
     progress_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     business_analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Figures read out of files the client uploaded, each verified against the
+    # cell it was cited from (app/pipeline/evidence.py). Same claim shape as
+    # the discovery answers, so a hypothesis cites both the same way.
+    evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The diagnosis narrated as it happens, append-only, purely for the client
+    # to watch. `emit` carries one row of CURRENT state and overwrites itself,
+    # so a poller only ever sees the latest line; this keeps the whole trail.
+    # Nothing in the pipeline reads it — it is presentation, and a bad line
+    # here must never be able to change a conclusion.
+    thinking_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The diagnosis stage: competing hypotheses, each with the verdict its
+    # test returned, which one leads, and what the two skeptics did to it.
+    # Null when no diagnosis could be made — the run then falls back to
+    # `business_analysis_json`, which is what the pipeline had before.
+    diagnosis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # {"source_url", "services", "hours", "tone", "highlights"} extracted
     # from site_url — null when no URL was given, the fetch failed, or the
     # page had too little real content to extract anything from.

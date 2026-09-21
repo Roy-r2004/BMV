@@ -11,6 +11,7 @@ stage, marked source="fallback" — the intake never blocks on this call.
 
 import json
 import logging
+import re
 
 from fastapi import APIRouter, Depends, Form, Header, HTTPException
 from sqlalchemy.orm import Session
@@ -182,6 +183,237 @@ def discovery_questions(
         )
         logger.warning("discovery tailoring failed, serving fallback: %s", exc)
         return {"questions": fallback, "source": "fallback"}
+
+
+#: Intake fields the conversation can fill, and how to ask for each. The
+#: front door now asks one question — what is going wrong — so everything
+#: else that used to be a form field is collected here, as dialogue.
+FILLABLE = {
+    "business_name": "the business's name",
+    "business_description": "what the business does or will do, how big it is or will be (staff, rooms, vans, seats), and its hours",
+    "target_customers": "who their customers are",
+    "industry": "what trade or sector they are in",
+    "desired_outcome": "what fixing this would get them",
+    "revenue_today": "how they make money — fees, packages, subscriptions, retainers",
+}
+# `needs_ai` is deliberately NOT here. It is an enum the engagement register
+# compares against exactly ("no" suppresses every AI recommendation), and a
+# conversational answer — "open to anything that works" — stored into it
+# matches nothing and silently reads as the default. It is also no longer
+# worth asking: `decide` reaches "your problem is not software" from the
+# evidence now, which is a better answer than one the client pre-declared
+# before anybody had looked at their business.
+#: Without these two, `POST /api/requests` refuses the engagement — so the
+#: interview is not allowed to decide it has enough while they are blank.
+REQUIRED_FIELDS = ("business_name", "business_description")
+
+
+def _key(label: str) -> str:
+    """A question's wording, reduced to what it is actually asking."""
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", (label or "").casefold())).strip()
+
+
+#: Words that carry no subject matter. Removed before comparing questions, so
+#: "What is the typical length" and "what's the typical length" reduce to the
+#: same thing — the contraction alone defeated plain substring matching.
+_FILLER = frozenset(
+    "a an and are as at be by can could do does for from give got had has have how "
+    "i in is it its many me much of on or our roughly s so such that the their them "
+    "then there these they this to typically us was we what when where which who why "
+    "will with would you your about average".split())
+
+
+def _content(key: str) -> frozenset[str]:
+    return frozenset(w for w in key.split() if w not in _FILLER and len(w) > 2)
+
+
+def _repeats(key: str, seen: set[str]) -> bool:
+    """Is this the same question again, dressed differently?
+
+    Exact matching is not enough. A round-2 question that went unanswered came
+    back in round 3 with a clause bolted on the front — "You mentioned turning
+    away work and a waitlist. To understand capacity, what's the typical
+    length of an appointment?" — word-for-word the earlier question apart from
+    a contraction, and it sailed straight past an equality check.
+
+    So a question whose subject matter is wholly contained in one already
+    asked is a repeat. The four-word floor stops a genuinely short question
+    ("How many rooms?") from being swallowed by any long one that happens to
+    mention rooms.
+    """
+    if not key:
+        return True
+    tokens = _content(key)
+    for prior in seen:
+        if key == prior:
+            return True
+        prior_tokens = _content(prior)
+        if not tokens or not prior_tokens:
+            continue
+        smaller, larger = sorted((tokens, prior_tokens), key=len)
+        if len(smaller) >= 4 and smaller <= larger:
+            return True
+    return False
+
+
+@router.post("/interview")
+def interview(
+    # Optional, unlike `/questions`: the front door asks what is going wrong
+    # and nothing else, so on the first round the business does not have a
+    # name yet. Finding that out is this endpoint's job.
+    business_name: str | None = Form(None),
+    business_description: str | None = Form(None),
+    industry: str | None = Form(None),
+    operating_stage: str | None = Form(None),
+    engagement_type: str | None = Form(None),
+    needs_ai: str | None = Form(None),
+    main_problem: str | None = Form(None),
+    desired_outcome: str | None = Form(None),
+    ops_numbers: str | None = Form(None),
+    asked: str | None = Form(None),
+    known: str | None = Form(None),
+    round: int = Form(1),
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+):
+    """The next questions worth asking — or none, which ends the interview.
+
+    Replaces the one-shot tailored set with a loop that reads what they have
+    already answered. The static set asked four questions whatever you said;
+    this one can follow "340 visits a month at $85" with "what caps that
+    number", which is the question that decides whether their problem is
+    demand or capacity.
+
+    `done` is authoritative and the client stops on it. It goes true when the
+    model says it has enough, when the round cap is reached, or when a round
+    produced nothing usable — a failed call must END the interview rather
+    than leave the client stuck on a step that will not advance. Round 1
+    falls back to the static set, so the worst case is the behaviour that
+    existed before this endpoint.
+    """
+    if auth_client.resolve_user(authorization) is None:
+        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
+
+    operating = operating_stage != "opening"
+    if engagement_type == "capability":
+        fallback = _FALLBACK_CAPABILITY
+    else:
+        fallback = _FALLBACK_OPERATING if operating else _FALLBACK_OPENING
+
+    round = max(1, min(int(round or 1), settings.INTERVIEW_MAX_ROUNDS))
+    answered = _format_numbers(ops_numbers)
+
+    answered_ids, answered_labels = set(), set()
+    try:
+        for p in json.loads(ops_numbers or "[]"):
+            if isinstance(p, dict):
+                answered_ids.add(str(p.get("id") or ""))
+                answered_labels.add(str(p.get("question") or "").strip().casefold())
+    except (TypeError, ValueError):
+        pass
+
+    # Questions they SKIPPED are the ones that get re-asked: the model sees
+    # only the answers, so an unanswered question is invisible to it and comes
+    # back every round under a fresh id. Filtering by id alone never caught it
+    # — one run asked for the receptionist's hours three times in three
+    # different wordings. The model is told what it already asked instead.
+    skipped = []
+    try:
+        for label in json.loads(asked or "[]"):
+            text = str(label).strip()
+            if text and text.casefold() not in answered_labels:
+                skipped.append(text)
+    except (TypeError, ValueError):
+        pass
+
+    # What the conversation has not learned about them yet. Sent by the
+    # client so one builder decides it, rather than the prompt guessing from
+    # whichever fields happened to be passed as arguments.
+    filled = {}
+    try:
+        raw_known = json.loads(known or "{}")
+        if isinstance(raw_known, dict):
+            filled = {k: str(v or "").strip() for k, v in raw_known.items()}
+    except (TypeError, ValueError):
+        pass
+    missing = {k: v for k, v in FILLABLE.items() if not filled.get(k)}
+
+    try:
+        prompt = render(
+            "interview.j2",
+            business_name=filled.get("business_name") or business_name or "",
+            business_description=filled.get("business_description") or business_description or "",
+            industry=filled.get("industry") or industry or "unspecified",
+            stage="not launched yet — this is a plan" if not operating else "already operating",
+            main_problem=main_problem,
+            desired_outcome=desired_outcome,
+            engagement_register=build_engagement_register(
+                engagement_type if engagement_type in _ALLOWED_ENGAGEMENT_TYPES else None,
+                needs_ai, main_problem, desired_outcome,
+            ),
+            answered=answered,
+            skipped="\n".join(f"- {s}" for s in skipped[:12]),
+            missing="\n".join(f"- {k}: {v}" for k, v in missing.items()),
+            round=round,
+            max_rounds=settings.INTERVIEW_MAX_ROUNDS,
+            max_questions=settings.INTERVIEW_MAX_PER_ROUND,
+        )
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
+                             max_tokens=1400)
+        result = extract_json_from_text(body["choices"][0]["message"]["content"])
+        log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose=f"interview:{round}", usage=body.get("usage"), success=True)
+    except Exception as exc:
+        log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose=f"interview:{round}", success=False, error=str(exc)[:500])
+        logger.warning("interview round %s failed: %s", round, exc)
+        if round == 1:
+            return {"questions": fallback, "done": True, "source": "fallback", "because": ""}
+        return {"questions": [], "done": True, "source": "fallback", "because": ""}
+
+    # Belt and braces behind the prompt: an id or a wording already put to
+    # them cannot come back, whatever the model returns.
+    seen = {_key(s) for s in skipped} | {_key(s) for s in answered_labels}
+    questions = []
+    for q in _sanitize(result.get("questions") or []):
+        if q["id"] in answered_ids or _repeats(_key(q["label"]), seen):
+            continue
+        questions.append(q)
+        seen.add(_key(q["label"]))
+        if len(questions) >= settings.INTERVIEW_MAX_PER_ROUND:
+            break
+
+    if round == 1 and not questions:
+        # Nothing to ask before anything has been asked is not a consultant
+        # who has enough — it is a call that produced nothing.
+        return {"questions": fallback, "done": True, "source": "fallback", "because": ""}
+
+    # Which intake field each question fills, where it fills one. Anything
+    # not in FILLABLE is dropped rather than trusted — a `field` we do not
+    # recognise would write an arbitrary key into the client's form.
+    by_id = {q.get("id"): q for q in (result.get("questions") or []) if isinstance(q, dict)}
+    for q in questions:
+        field = str((by_id.get(q["id"]) or {}).get("field") or "").strip()
+        q["field"] = field if field in FILLABLE else ""
+
+    def choice(key: str, allowed: tuple[str, ...]) -> str | None:
+        value = str(result.get(key) or "").strip().lower()
+        return value if value in allowed else None
+
+    # An engagement still missing a name or a description cannot be launched
+    # at all, so the interview does not get to call itself finished while one
+    # is blank — whatever it thinks about having enough numbers.
+    blocked = [f for f in REQUIRED_FIELDS if not filled.get(f)]
+    done = (bool(result.get("enough")) or not questions
+            or round >= settings.INTERVIEW_MAX_ROUNDS)
+    if blocked and round < settings.INTERVIEW_MAX_ROUNDS:
+        done = False
+
+    return {"questions": questions, "done": done, "source": "ai",
+            "because": str(result.get("because") or "")[:200],
+            "inferred": {"engagement_type": choice("engagement_type", ("capability", "full")),
+                         "operating_stage": choice("operating_stage", ("operating", "opening"))},
+            "still_needed": blocked}
 
 
 def _format_numbers(raw: str | None) -> str:

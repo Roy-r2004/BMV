@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import Request
 from app.templating import render
@@ -149,11 +150,33 @@ def test_intake_ignores_malformed_ops_numbers(client, bad):
 
 
 def test_intake_bounds_pair_count_and_length(client):
-    pairs = [{"question": f"Q{i}" * 200, "answer": "5"} for i in range(20)]
+    """The intake is bounded — and the bound is whatever the interview can
+    actually collect, not a number of its own.
+
+    It was a flat 8, from when one fixed round asked at most 6. The adaptive
+    interview runs up to INTERVIEW_MAX_ROUNDS rounds of
+    INTERVIEW_MAX_PER_ROUND questions, so a hardcoded 8 would silently throw
+    away the last answers a client typed — after asking them for those
+    answers. Asserted against the setting so the two cannot drift apart."""
+    limit = max(8, settings.INTERVIEW_MAX_ROUNDS * settings.INTERVIEW_MAX_PER_ROUND)
+    pairs = [{"question": f"Q{i}" * 200, "answer": "5"} for i in range(limit + 12)]
     r = client.post("/api/requests", data=_intake_form(ops_numbers=json.dumps(pairs)))
     stored = json.loads(SessionLocal().get(Request, r.json()["id"]).ops_numbers_json)
-    assert len(stored) == 8
+    assert len(stored) == limit, "the intake must bound how many pairs a client can post"
     assert all(len(p["question"]) <= 300 for p in stored)
+
+
+def test_intake_keeps_every_answer_a_full_interview_can_collect(client):
+    """The complementary half: the bound must never cut into real answers.
+
+    A client who sits through every round and answers every question has
+    given us the most the product can ask for. Losing any of it is worse
+    than never having asked."""
+    most = settings.INTERVIEW_MAX_ROUNDS * settings.INTERVIEW_MAX_PER_ROUND
+    pairs = [{"question": f"Question {i}?", "answer": str(i)} for i in range(most)]
+    r = client.post("/api/requests", data=_intake_form(ops_numbers=json.dumps(pairs)))
+    stored = json.loads(SessionLocal().get(Request, r.json()["id"]).ops_numbers_json)
+    assert len(stored) == most, f"{most - len(stored)} answers the client typed were dropped"
 
 
 # ── the prompt contract ──────────────────────────────────────────────────
@@ -212,10 +235,17 @@ def test_brief_opening_turn(client, monkeypatch):
     assert body["ok"] is True
     assert body["reply"].startswith("You run")
     assert body["brief_addendum"] is None
-    # the register and the numbers reached the consultant
-    assert "ONE CAPABILITY" in captured["prompt"]
+    # the numbers reached the consultant
     assert "Missed calls/week?: 25" in captured["prompt"]
     assert "(empty)" in captured["prompt"]
+    # The engagement register's scope claim must NOT. This used to assert
+    # "ONE CAPABILITY" was in the prompt, and that is the sentence that made
+    # the playback tell a pilates-studio owner "this engagement will blueprint
+    # a new booking app capability" — announcing a build one screen before the
+    # diagnosis that exists to find out whether one is warranted. The consultant
+    # is told instead that nothing has been decided.
+    assert "ONE CAPABILITY" not in captured["prompt"]
+    assert "NOTHING HAS BEEN DECIDED" in captured["prompt"]
 
 
 def test_brief_correction_turn_carries_conversation_and_addendum(client, monkeypatch):

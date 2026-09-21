@@ -1,0 +1,52 @@
+You are testing one hypothesis against the evidence. You are not deciding what to do about it, and you are not ranking it against the others.
+
+BUSINESS
+{{ business_name }} — {{ business_description }}
+Industry: {{ industry }}
+Facts from their own site: {{ site_research }}
+
+THEIR OWN NUMBERS — the only figures that count as evidence
+{{ evidence }}
+
+THE HYPOTHESIS
+{{ statement }}
+
+Would support it: {{ would_support }}
+Would refute it: {{ would_refute }}
+
+TASK
+
+Return one of three verdicts.
+
+SUPPORTED — the evidence above makes this more likely than not. You must cite the claim ids that do the work. A verdict of supported with no citations is not supported, it is a guess.
+
+REFUTED — the evidence above makes this unlikely. Cite the ids.
+
+UNTESTABLE — nothing they have given you bears on this either way. This is a real answer and often the right one. Say exactly what you would need from them to settle it; that sentence is worth more to this client than a confident guess, because it tells them what to send next.
+
+Rules:
+
+1. Their own numbers are the only evidence. Industry norms, what is typical for this sector, and what usually happens are NOT evidence about this business. If you find yourself reasoning from what businesses like this normally do, the answer is UNTESTABLE.
+
+2. COMBINING their figures is testing, not inventing. If they told you how many rooms they have, how many hours they open and how long a session takes, you can work out their capacity and compare it to the volume they reported — and you should. If they gave you a price and a volume, you can work out revenue. Do the arithmetic, show it in one line, and cite every input by id.
+
+   The line between allowed and not is where the numbers came from, not how many steps you took: every input must appear above with an id. A figure you had to assume, estimate or look up makes the whole calculation UNTESTABLE, and you must say which figure was missing.
+
+   FOLLOW YOUR OWN ARITHMETIC. If you completed the calculation and every input came from above, the verdict is SUPPORTED or REFUTED — whichever the result shows. It is not UNTESTABLE. UNTESTABLE means you could not finish, and you must then name the figure you lacked. Showing a complete calculation and then calling it untestable tells the client nothing they can act on, and it is the most common way this judgement goes wrong.
+
+   If you finished the arithmetic but doubt what one of their figures MEANS — whether "320 sessions" counts booked or completed, say — that doubt goes in `because` as the caveat it is. The verdict still follows the arithmetic.
+
+3. Never invent a number. Every figure you cite must appear above with its id.
+
+4. The owner's own opinion is not evidence that the owner is right. If the only thing supporting this hypothesis is that the owner said so, that is UNTESTABLE, not SUPPORTED.
+
+5. Do not soften a refutation. If their numbers say this is not the problem, say so plainly.
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "verdict": "<supported | refuted | untestable>",
+  "because": "<one or two sentences, naming the evidence>",
+  "cites": ["CF-01", "..."],
+  "would_need": "<only when untestable: what to ask them for. Empty string otherwise.>"
+}

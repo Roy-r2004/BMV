@@ -27,6 +27,7 @@ def build_engagement_register(
     main_problem: str | None,
     desired_outcome: str | None,
     business_description: str | None = None,
+    diagnosis: str = "",
 ) -> str:
     """The scope-and-AI-appetite paragraph injected into every content
     prompt. Two independent axes: whole-business vs one-capability, and
@@ -67,6 +68,13 @@ def build_engagement_register(
         )
     else:
         base += " The client wants AI where it genuinely helps — it still must earn each placement."
+    # The diagnosis, for the stages that build on it. It comes LAST so the
+    # scope above is read first and the finding is the last thing the model
+    # holds before it writes. Empty for the stages that run before or while
+    # the diagnosis is made — they must not be handed a conclusion that does
+    # not exist yet.
+    if diagnosis:
+        base += "\n\n" + diagnosis
     return base
 
 

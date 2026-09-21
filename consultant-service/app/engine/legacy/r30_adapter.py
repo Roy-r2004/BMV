@@ -503,11 +503,16 @@ def build_request(db, inputs: R30Inputs):
 def run_technology_blueprint(db, inputs: R30Inputs) -> R30Outputs:
     """Commission one r30 run and read the result back.
 
-    The call is `orchestrator.run(request_id)` (`app/pipeline/orchestrator.py:83`)
-    on this thread, not a new one: the engine's analysis round already runs in
-    a background thread and owns this session, and a second daemon thread
-    would outlive it. Tests monkeypatch `orchestrator.run` exactly as
+    The calls are `orchestrator.run` then `orchestrator.run_build` on THIS
+    thread, not a new one: the engine's analysis round already runs in a
+    background thread and owns this session, and a second daemon thread would
+    outlive it. Tests monkeypatch `orchestrator.run` exactly as
     `tests/test_discovery.py:34` does.
+
+    Two calls because r30 now halts at a client approval gate. The engine has
+    already made and recorded that decision before it commissions a build —
+    this call IS the approval — so it presses through rather than exposing a
+    second gate the engine's own client would answer twice.
 
     A4 is the caller's: this function spends money and assumes the
     DECISION_REQUIRED behind it was resolved."""
@@ -516,6 +521,9 @@ def run_technology_blueprint(db, inputs: R30Inputs) -> R30Outputs:
     row = build_request(db, inputs)
     orchestrator.run(row.id)
     db.refresh(row)
+    if row.status == orchestrator.AWAITING_APPROVAL:
+        orchestrator.run_build(row.id)
+        db.refresh(row)
     return load_outputs(row)
 
 

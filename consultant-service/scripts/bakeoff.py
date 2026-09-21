@@ -255,10 +255,21 @@ def main() -> None:
         )
     else:
         print(f"      screens=decided by the plan stage (max {settings.DEMO_SCREEN_COUNT})")
-        # The same call the public route hands to its background thread.
-        # It owns its own session and never raises: a failure lands on the
+        # The same calls the public route hands to its background threads.
+        # Each owns its own session and never raises: a failure lands on the
         # request row, which is read back below.
+        #
+        # Two calls, because the customer path now stops at the approval gate
+        # and the client's Build press starts the second half. The bench
+        # stands in for that press — it measures the pipeline, not the
+        # client's reading speed — but it must not assume the press
+        # succeeded: if the diagnosis half failed, `run_build` would rebuild
+        # from an empty diagnosis and the bench would score a run no customer
+        # could ever have.
         orchestrator.run(req.id)
+        db.expire_all()
+        if db.get(Request, req.id).status == orchestrator.AWAITING_APPROVAL:
+            orchestrator.run_build(req.id)
         db.expire_all()
         saved = (
             db.query(GeneratedImage)

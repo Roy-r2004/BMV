@@ -7,6 +7,7 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline import handoff
 from app.templating import render
 
 _DEFAULT_ROLES = [
@@ -81,6 +82,7 @@ def plan_integration(db: Session, request_id: int, consult_result: dict) -> dict
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
             req.business_description,
+            diagnosis=handoff.for_build(req),
             ),
             min_roles=settings.MIN_ROLES_PER_REQUEST,
             max_roles=settings.MAX_ROLES_PER_REQUEST,

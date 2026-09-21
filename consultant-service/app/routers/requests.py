@@ -6,7 +6,7 @@ import os
 import threading
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Form, Header, HTTPException
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,8 @@ from app import auth_client
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
-from app.pipeline import compositing, export_pdf, export_pptx, orchestrator, screen_story, what_this_is
+from app.pipeline import compositing, decide, evidence, export_pdf, export_pptx, orchestrator, screen_story, what_this_is
+from app.pipeline._shared import CORRECTIONS_MARKER, briefing_corrections
 
 logger = logging.getLogger("consultant.requests")
 
@@ -135,7 +136,14 @@ def _sanitize_ops_numbers(raw: str | None) -> str | None:
     """The discovery answers arrive as client-built JSON — keep only
     well-formed {question, answer} pairs with real content, bounded in
     count and length. Malformed input stores None, never a 500: the
-    numbers are optional garnish on the request, not a precondition."""
+    numbers are optional garnish on the request, not a precondition.
+
+    The count bound tracks what the interview can actually collect. It was a
+    flat 8, from when one fixed round asked at most 6; an adaptive interview
+    running its full three rounds gathers twelve, and the old cap would have
+    thrown away the last four answers the client typed — silently, and after
+    asking for them.
+    """
     if not raw:
         return None
     try:
@@ -144,8 +152,9 @@ def _sanitize_ops_numbers(raw: str | None) -> str | None:
         return None
     if not isinstance(pairs, list):
         return None
+    limit = max(8, settings.INTERVIEW_MAX_ROUNDS * settings.INTERVIEW_MAX_PER_ROUND)
     cleaned = []
-    for p in pairs[:8]:
+    for p in pairs[:limit]:
         if not isinstance(p, dict):
             continue
         question = str(p.get("question") or "").strip()[:300]
@@ -305,6 +314,16 @@ def get_progress(request_ref: str, review_token: str | None = None,
     _require_view(req, review_token, authorization)
     return {
         "review_status": req.review_status,
+        # The gate is not visible in `is_generating` alone: an engagement
+        # waiting on the client's decision is not generating and not finished,
+        # and a poller that reads only the boolean shows them a finished run
+        # with no deliverables behind it.
+        "status": req.status,
+        # The consultant's reasoning as it happens. The wait used to be an
+        # animation and a rotating caption; this is the real thing, and it is
+        # the most persuasive thing we have — explanations forming, being
+        # tested against their own numbers, and being killed.
+        "thinking": _thinking(req),
         # Carried so a run resumed from its own URL — a refresh, a bookmark,
         # a link opened on a phone — can name the business it is designing
         # for instead of falling back to "your business".
@@ -323,6 +342,323 @@ def get_progress(request_ref: str, review_token: str | None = None,
         # a customer watching a three-minute wait counts every second of it.
         "elapsed_s": max(0, int((datetime.utcnow() - req.created_at).total_seconds())) if req.created_at else 0,
     }
+
+
+def _require_owner(req: Request, authorization: str | None) -> None:
+    """The decision is the client's alone to make.
+
+    Deliberately stricter than `_require_view`: a reviewer token and the
+    showcase allowance both open a run for READING, and neither is a mandate
+    to spend the owner's remaining pipeline on their behalf.
+    """
+    user = auth_client.resolve_user(authorization)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Sign in to answer your engagement")
+    if not req.owner_email or user["email"].lower() != req.owner_email.lower():
+        raise HTTPException(status_code=403, detail="This engagement belongs to another account")
+
+
+def _thinking(req: Request) -> list[dict]:
+    """The narrated trail, or nothing. Never raises: a decoration that can
+    break the poller would take the progress bar down with it."""
+    try:
+        trail = json.loads(req.thinking_json) if req.thinking_json else []
+        return [t for t in trail if isinstance(t, dict) and t.get("text")][:40]
+    except (TypeError, ValueError):
+        return []
+
+
+def _diagnosis_payload(req: Request) -> dict | None:
+    """The reasoning, shaped for reading rather than for the next prompt.
+
+    Returns None when no diagnosis was made. The client is then shown the
+    decision alone — which is what they used to get — rather than an empty
+    reasoning panel implying the thinking happened and found nothing.
+    """
+    if not req.diagnosis_json:
+        return None
+    try:
+        d = json.loads(req.diagnosis_json)
+    except (TypeError, ValueError):
+        return None
+    hypotheses = d.get("hypotheses") or []
+    leading = next((h for h in hypotheses if h.get("id") == d.get("leading")), None)
+    if not leading:
+        return None
+    by_id = {c.get("id"): c for c in d.get("evidence") or []}
+
+    def cited(ids):
+        out = []
+        for cid in ids or []:
+            claim = by_id.get(cid)
+            if claim:
+                out.append({"id": cid, "text": claim.get("text"), "source": claim.get("source")})
+        return out
+
+    return {
+        "leading": {
+            "statement": leading.get("statement"),
+            "area": leading.get("area"),
+            "software_can_fix": leading.get("software_can_fix"),
+            "verdict": (leading.get("test") or {}).get("verdict"),
+            "because": (leading.get("test") or {}).get("because"),
+            "cites": cited((leading.get("test") or {}).get("cites")),
+            "would_need": (leading.get("test") or {}).get("would_need"),
+            # The owner's own stated problem, handed back. Shown so they can
+            # see when we agreed with them and when we did not.
+            "from_owner": leading.get("from_owner"),
+        },
+        "considered": [
+            {"statement": h.get("statement"), "area": h.get("area"),
+             "verdict": (h.get("test") or {}).get("verdict"),
+             "because": (h.get("test") or {}).get("because")}
+            for h in hypotheses if h.get("id") != d.get("leading")
+        ],
+        "status": d.get("status"),
+        "weaknesses": d.get("weaknesses") or [],
+        "challenges": [
+            {"angle": c.get("angle"), "kills": c.get("kills"), "because": c.get("because")}
+            for c in d.get("challenges") or [] if c.get("ran", True)
+        ],
+    }
+
+
+def _decision_payload(req: Request) -> dict:
+    analysis = json.loads(req.business_analysis_json) if req.business_analysis_json else {}
+    decision = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
+    return {
+        "diagnosis": _diagnosis_payload(req),
+        "id": req.id,
+        "public_id": req.public_id,
+        "status": req.status,
+        "business_name": req.business_name,
+        "understanding": {
+            "business_model": analysis.get("business_model"),
+            "target_customer_profile": analysis.get("target_customer_profile"),
+            "pain_points": analysis.get("pain_points") or [],
+            "growth_opportunity": analysis.get("growth_opportunity"),
+        },
+        "decision": {
+            "summary": decision.get("consulting_summary") or req.consulting_analysis,
+            "recommended_ai_employees": decision.get("recommended_ai_employees") or [],
+            "recommended_features": decision.get("recommended_features") or [],
+            # What actually fixes the diagnosed cause. Absent on an engagement
+            # decided before this field existed, and on a decision the model
+            # returned unreadably — `builds` is the one the UI acts on.
+            "intervention_kind": decision.get("intervention_kind"),
+            "central_problem": decision.get("central_problem"),
+            "why_not_the_others": decision.get("why_not_the_others"),
+            "confidence": decision.get("confidence"),
+            "unverified": decision.get("unverified") or [],
+        },
+        # Whether a build would move the cause. False means we are telling
+        # them not to spend — they can still overrule it.
+        "builds": decide.builds(decision),
+        # What the client has already sent back, so the gate can show that
+        # their last objection was actually read rather than silently dropped.
+        "revisions": briefing_corrections(req.business_description),
+    }
+
+
+@router.get("/{request_ref}/decision")
+def get_decision(request_ref: str, review_token: str | None = None,
+                 authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """What we concluded, before anything is built on it."""
+    req = _load_request(request_ref, db)
+    _require_view(req, review_token, authorization)
+    return _decision_payload(req)
+
+
+@router.post("/{request_ref}/decision/approve")
+def approve_decision(request_ref: str,
+                     budget_range: str | None = Form(None),
+                     timeline: str | None = Form(None),
+                     authorization: str | None = Header(None),
+                     db: Session = Depends(get_db)):
+    """Start the build half.
+
+    Budget and timeline arrive HERE rather than in the intake. They reach
+    exactly one prompt — `playbook.j2`, at stage ten — so asking for them on
+    the way in bought nothing and cost a screen of commercial questions
+    before we had shown the visitor anything. Asked at the moment someone
+    wants a build, they are a question worth answering.
+
+    The status flip is a CONDITIONAL update, and only the caller whose update
+    matched a row starts a thread. A double-click otherwise races two builds
+    over one engagement — the same shape as the charter-confirm bug, where
+    checking then writing in two steps let both callers pass the check.
+    """
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+
+    # ADVISED is a state the client can leave. It records "we told you a build
+    # would not fix this and you read it", nothing more — and the page told
+    # them to "come back and press Build whenever the picture changes" while
+    # this refused every press with a 409 and the page had no button to press.
+    # Someone who wants the package must be able to have it, before or after
+    # they have read our advice.
+    startable = (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED)
+    if req.status not in (*startable, orchestrator.BUILDING):
+        raise HTTPException(status_code=409, detail="This engagement has no decision waiting")
+
+    fields = {"status": orchestrator.BUILDING, "is_generating": True}
+    if (budget_range or "").strip():
+        fields["budget_range"] = budget_range.strip()[:100]
+    if (timeline or "").strip():
+        fields["timeline"] = timeline.strip()[:100]
+
+    claimed = db.query(Request).filter(
+        Request.id == req.id,
+        Request.status.in_(startable),
+    ).update(fields, synchronize_session=False)
+    db.commit()
+
+    if claimed:
+        threading.Thread(target=orchestrator.run_build, args=(req.id,), daemon=True).start()
+
+    db.refresh(req)
+    return {"id": req.id, "status": req.status, "started": bool(claimed)}
+
+
+@router.get("/{request_ref}/evidence")
+def list_evidence(request_ref: str, review_token: str | None = None,
+                  authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    req = _load_request(request_ref, db)
+    _require_view(req, review_token, authorization)
+    return {"figures": evidence.load(req)}
+
+
+@router.post("/{request_ref}/evidence")
+async def add_evidence(request_ref: str, file: UploadFile = File(...),
+                       authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """Read figures out of a file they sent, then diagnose again with them.
+
+    The upload is not a passive attachment. The diagnosis it replaces said
+    exactly what it could not verify; adding the file that settles it and NOT
+    re-running would leave that sentence standing over evidence that answers
+    it. So this re-opens the engagement the same way `revise` does.
+    """
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+    if req.is_generating:
+        raise HTTPException(status_code=409, detail="This engagement is still running")
+
+    data = await file.read()
+    name = os.path.basename(file.filename or "upload")[:120]
+    try:
+        tables = evidence.read_tables(data, name)
+    except evidence.UnreadableFile as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    if not tables:
+        raise HTTPException(status_code=422,
+                            detail="We could not find any rows of data in that file.")
+
+    existing = evidence.load(req)
+    found, rejected = evidence.extract(db, req.id, tables, name, start_index=len(existing))
+    if not found:
+        raise HTTPException(
+            status_code=422,
+            detail=("We read that file but could not find figures worth citing in it."
+                    if not rejected else
+                    "We could not verify any of the figures we found against their cells."))
+
+    evidence.save(db, req, existing + found)
+
+    # Diagnose again on the wider evidence, through the same door the client's
+    # own pushback uses — one path that re-opens an engagement, not two.
+    started = False
+    if req.status in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED, "failed"):
+        claimed = db.query(Request).filter(
+            Request.id == req.id, Request.status == req.status,
+        ).update({"status": "new", "is_generating": True, "is_failed": False},
+                 synchronize_session=False)
+        db.commit()
+        if claimed:
+            threading.Thread(target=orchestrator.run, args=(req.id,), daemon=True).start()
+            started = True
+
+    return {"added": len(found), "rejected": rejected,
+            "figures": found, "rediagnosing": started}
+
+
+@router.delete("/{request_ref}/evidence/{claim_id}")
+def remove_evidence(request_ref: str, claim_id: str,
+                    authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """Drop a figure we read wrong.
+
+    Their file, their call. The ids of the remaining figures are NOT
+    renumbered: a diagnosis already written cites them, and shifting CE-03 to
+    mean something new would silently re-point every citation that survives.
+    """
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+    remaining = [c for c in evidence.load(req) if c.get("id") != claim_id]
+    evidence.save(db, req, remaining)
+    return {"figures": remaining}
+
+
+@router.post("/{request_ref}/decision/accept")
+def accept_advice(request_ref: str, authorization: str | None = Header(None),
+                  db: Session = Depends(get_db)):
+    """Take the answer and stop. The brief is the deliverable.
+
+    Reached when we told them a build will not fix the diagnosed cause and
+    they agreed. Terminal, and NOT a failure — `is_failed` stays false, so
+    nothing in the client's listing reads this as an engagement that broke.
+    """
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+
+    if req.status not in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED):
+        raise HTTPException(status_code=409, detail="This engagement has no decision waiting")
+
+    db.query(Request).filter(
+        Request.id == req.id,
+        Request.status == orchestrator.AWAITING_APPROVAL,
+    ).update({"status": orchestrator.ADVISED, "is_generating": False, "is_failed": False},
+             synchronize_session=False)
+    db.commit()
+    db.refresh(req)
+    return {"id": req.id, "status": req.status}
+
+
+@router.post("/{request_ref}/decision/revise")
+def revise_decision(request_ref: str, note: str = Form(...),
+                    authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """The client disagrees. Diagnose again, carrying what they said.
+
+    Their objection is appended under CORRECTIONS_MARKER, which
+    `build_engagement_register` already injects into every content prompt —
+    so the second diagnosis reads the correction the same way it reads the
+    briefing chat's, and no new plumbing carries it.
+    """
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+
+    text = (note or "").strip()
+    if len(text) < 10:
+        raise HTTPException(status_code=422, detail="Tell us what we got wrong, in a sentence or two")
+
+    if req.status not in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED, "failed"):
+        raise HTTPException(status_code=409, detail="This engagement has no decision waiting")
+
+    claimed = db.query(Request).filter(
+        Request.id == req.id,
+        Request.status == req.status,
+    ).update({"status": "new", "is_generating": True, "is_failed": False},
+             synchronize_session=False)
+    if not claimed:
+        db.commit()
+        db.refresh(req)
+        return {"id": req.id, "status": req.status, "started": False}
+
+    existing = req.business_description or ""
+    marker = "" if CORRECTIONS_MARKER in existing else f"\n\n{CORRECTIONS_MARKER}"
+    req.business_description = f"{existing}{marker}\n- {text[:1000]}"
+    db.commit()
+
+    threading.Thread(target=orchestrator.run, args=(req.id,), daemon=True).start()
+    return {"id": req.id, "status": "new", "started": True}
 
 
 @router.get("/{request_ref}/preview")

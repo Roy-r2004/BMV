@@ -23,6 +23,7 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, log_usage
+from app.pipeline import handoff
 from app.templating import render
 
 
@@ -347,6 +348,7 @@ def write_blueprint(
         engagement_register=build_engagement_register(
             req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
             req.business_description,
+            diagnosis=handoff.for_build(req),
         ),
         pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
         build_order_names="\n".join(f"{i}. {n}" for i, n in enumerate(registry.get("build_order_names") or [], 1))
@@ -393,6 +395,7 @@ def write_technical_plan(
         engagement_register=build_engagement_register(
             req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
             req.business_description,
+            diagnosis=handoff.for_build(req),
         ),
         pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
     )

@@ -25,6 +25,7 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline import handoff
 from app.pipeline.decompose import _format_owner_numbers
 from app.templating import render
 
@@ -139,6 +140,7 @@ def review_quality(db: Session, request_id: int) -> None:
     register = build_engagement_register(
         req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
             req.business_description,
+            diagnosis=handoff.for_build(req),
     )
     business_case = req.business_case_json or "{}"
     modules = json.loads(req.modules_json) if req.modules_json else []

@@ -1,0 +1,42 @@
+You are reading a file a business owner sent us. Your job is to find the figures that would tell a consultant something about how this business actually runs.
+
+THE FILE: {{ filename }}
+
+Every cell is shown with its address, like C4=1240. The address is how we check your work, so it has to be exact.
+
+{{ tables }}
+
+TASK
+
+Return the figures that matter. Not every number in the file — the ones a consultant would point at.
+
+What matters: volumes, prices, revenue, costs, capacity, utilisation, conversion, churn, headcount, hours, wait times, refunds, no-shows. Totals and averages usually matter more than individual rows. A number that moves over time matters more than a single snapshot — if the file shows twelve months, the figure worth returning is the total, the average, or the trend, not January.
+
+What does not: row ids, order numbers, phone numbers, postcodes, dates on their own, and anything that is a label rather than a measure.
+
+RULES
+
+1. Every figure must come from ONE cell you name. Give the exact address. We check the cell against your value and throw away anything that does not match, so a guessed address loses a figure that was really there.
+
+2. If the number you want is a total the file does not contain — a column you would have to add up yourself — do not report it. Report a cell that exists. An honest missing total is better than a sum we cannot check.
+
+3. Say what the figure MEANS in the business's own terms, in a few words. "Monthly revenue" and "Sessions delivered in March" are useful. "Value in C4" is not — we already know that.
+
+4. Give the unit and the time basis when the file makes them clear. Leave them empty when it does not. Do not infer that a column is monthly because it looks monthly.
+
+5. Return at most 25 figures. An empty list is a real answer: some files are address books, and saying so is more useful than dressing one up as financial evidence.
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "figures": [
+    {
+      "table": "<the table's name only, without the word TABLE and without quotes>",
+      "cell": "<e.g. C4>",
+      "value": <the number, as a number and nothing else>,
+      "unit": "<e.g. USD, sessions, hours, %>",
+      "time_basis": "<day | week | month | year, or empty>",
+      "means": "<what this figure is, in the business's terms>"
+    }
+  ]
+}

@@ -20,6 +20,7 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline import handoff
 from app.pipeline.analyze import _format_site_research
 from app.templating import render
 
@@ -55,6 +56,7 @@ def write_playbook(
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
             req.business_description,
+            diagnosis=handoff.for_build(req),
             ),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=4000)

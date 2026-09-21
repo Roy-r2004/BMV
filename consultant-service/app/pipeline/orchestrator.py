@@ -1,10 +1,11 @@
+import json
 import logging
 
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, decompose, extras, images, plan, playbook, qa_experts, research, ui_spec
+from app.pipeline import analyze, blueprint, consult, decide, decompose, diagnose, extras, images, plan, playbook, qa_experts, research, ui_spec
 from app.pipeline.structural import engagement_subjects as _subjects_of
 from app.pipeline.structural import preflight as _structural_preflight
 
@@ -80,38 +81,91 @@ def _engagement_subjects(db, request_id: int) -> set:
 from app.pipeline._shared import emit
 
 
+#: the client has a decision to read and has not answered it yet
+AWAITING_APPROVAL = "awaiting_approval"
+#: they approved it, and the build half is running
+BUILDING = "building"
+#: the answer was that a build will not fix the cause, and the client took it.
+#: Terminal, and not a failure: the brief IS the deliverable for this one.
+ADVISED = "advised"
+
+#: where the diagnosis half ends and the client's decision begins
+GATE_PCT = 30
+
+
+def _leading_statement(diagnosis: dict) -> str | None:
+    return next((h["statement"] for h in diagnosis.get("hypotheses") or []
+                 if h.get("id") == diagnosis.get("leading")), None)
+
+
+def _fail(db: Session, request_id: int, exc: Exception) -> None:
+    # The exception may have come from a commit — the session is then in
+    # a failed state and every statement below would re-raise, leaving
+    # the request stuck at is_generating=true forever (found in review).
+    db.rollback()
+    req = db.get(Request, request_id)
+    if req is not None:
+        req.status = "failed"
+        req.is_failed = True
+        req.is_generating = False
+        db.commit()
+    emit(
+        db,
+        request_id,
+        "failed",
+        f"Generation failed: {exc}",
+        req.progress_pct if req else 0,
+        detail=str(exc)[:300],
+    )
+
+
 def run(request_id: int) -> None:
-    """Entry point for the background thread — opens its own DB session,
-    mirroring the pattern the existing pipeline uses for the same reason:
-    never run this on the request-handling thread/session.
+    """The diagnosis half — entry point for the background thread.
+
+    Opens its own DB session, mirroring the pattern the existing pipeline
+    uses for the same reason: never run this on the request-handling
+    thread/session.
+
+    It stops at the approval gate. Nothing downstream of `plan` runs until
+    the client has read what we concluded and pressed Build — a wrong
+    diagnosis used to cost them a full thirteen-stage generation and cost
+    us the credits to produce it.
     """
     db: Session = SessionLocal()
     try:
-        _run_inner(db, request_id)
+        _run_diagnosis(db, request_id)
     except Exception as exc:
-        # The exception may have come from a commit — the session is then in
-        # a failed state and every statement below would re-raise, leaving
-        # the request stuck at is_generating=true forever (found in review).
-        db.rollback()
-        req = db.get(Request, request_id)
-        if req is not None:
-            req.status = "failed"
-            req.is_failed = True
-            req.is_generating = False
-            db.commit()
-        emit(
-            db,
-            request_id,
-            "failed",
-            f"Generation failed: {exc}",
-            req.progress_pct if req else 0,
-            detail=str(exc)[:300],
-        )
+        _fail(db, request_id, exc)
     finally:
         db.close()
 
 
-def _run_inner(db: Session, request_id: int) -> None:
+def run_build(request_id: int) -> None:
+    """The build half. Reached only through the client's approval.
+
+    The diagnosis is re-read from the row rather than carried in memory:
+    this runs in a new thread, minutes or days after the half that produced
+    it, and the row is the only thing that survives that gap.
+    """
+    db: Session = SessionLocal()
+    try:
+        _run_build(db, request_id)
+    except Exception as exc:
+        _fail(db, request_id, exc)
+    finally:
+        db.close()
+
+
+def _run_diagnosis(db: Session, request_id: int) -> None:
+    # A fresh trail for every diagnosis. "Not quite" and a file upload both
+    # run this again on the same row, and without this the client watched the
+    # new reasoning appended under the old — passes from a run they had
+    # already read, presented as if they were part of this one.
+    row = db.get(Request, request_id)
+    if row is not None:
+        row.thinking_json = None
+        db.commit()
+
     # A no-op in well under a second when no site_url was given — the guard
     # lives inside research_business so this stays unconditional, like every
     # other stage here.
@@ -121,11 +175,54 @@ def _run_inner(db: Session, request_id: int) -> None:
     emit(db, request_id, "analyzing", "Analyzing your business...", 10)
     analysis_result = analyze.analyze_business(db, request_id)
 
+    # Several explanations, tested against their own figures, then attacked.
+    # Fails open to `analysis_result` alone: a diagnosis that could not be
+    # made must not stop the engagement, and the brief says which it got.
+    emit(db, request_id, "diagnosing", "Working out what's actually wrong...", 16)
+    diagnosis_result = diagnose.diagnose(db, request_id, analysis_result)
+    diagnose.persist(db, request_id, diagnosis_result)
+    if diagnosis_result:
+        emit(db, request_id, "challenging", "Testing that conclusion against the alternatives...", 22,
+             detail=_leading_statement(diagnosis_result))
+
     emit(
-        db, request_id, "consulting", "Consulting on what your AI employees should do...", 25,
+        db, request_id, "consulting", "Working out what would actually help...", 25,
         detail=analysis_result.get("growth_opportunity"),
     )
-    consult_result = consult.consult(db, request_id, analysis_result)
+    consult_result = decide.decide(db, request_id, analysis_result)
+
+    # The gate. `is_generating` goes false because nothing is running: the
+    # in-flight cap must not count an engagement that is waiting on a human,
+    # or one client reading their brief would block another's run.
+    req = db.get(Request, request_id)
+    req.status = AWAITING_APPROVAL
+    req.is_generating = False
+    req.is_failed = False
+    db.commit()
+    # A non-software answer still stops HERE rather than ending the run: the
+    # client is told plainly that a build will not fix the cause, and then
+    # decides. Ending it for them would be the same paternalism as building
+    # without asking, pointed the other way — and they paid for a build.
+    label = ("Your decision is ready to read" if decide.builds(consult_result)
+             else "We don't think you should build this — here's why")
+    emit(db, request_id, AWAITING_APPROVAL, label, GATE_PCT,
+         detail=consult_result.get("consulting_summary"))
+
+
+def _run_build(db: Session, request_id: int) -> None:
+    req = db.get(Request, request_id)
+    if req is None:
+        raise ValueError(f"Request {request_id} not found")
+    analysis_result = json.loads(req.business_analysis_json) if req.business_analysis_json else {}
+    consult_result = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
+    _build_from(db, request_id, analysis_result, consult_result)
+
+
+def _build_from(db: Session, request_id: int, analysis_result: dict, consult_result: dict) -> None:
+    req = db.get(Request, request_id)
+    req.status = BUILDING
+    req.is_generating = True
+    db.commit()
 
     emit(
         db, request_id, "planning", "Planning your roles and features...", 35,
