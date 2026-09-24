@@ -1,11 +1,13 @@
 import json
 import logging
+import os
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, decide, decompose, diagnose, extras, images, plan, playbook, qa_experts, research, ui_spec
+from app.pipeline import action_plan, analyze, answer, blueprint, capacity, consult, decide, decompose, diagnose, extras, images, plan, playbook, qa_experts, research, ui_spec
 from app.pipeline.structural import engagement_subjects as _subjects_of
 from app.pipeline.structural import preflight as _structural_preflight
 
@@ -164,7 +166,20 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
     row = db.get(Request, request_id)
     if row is not None:
         row.thinking_json = None
+        # The plan written for the last answer does not survive a new one: it
+        # would tell them to act on a diagnosis they have just sent back.
+        row.action_plan_json = None
         db.commit()
+
+    # Files sent with the engagement are read FIRST, so the explanations are
+    # formed with their booking export in hand rather than tested against it
+    # afterwards. A no-op when nothing was sent.
+    from app.pipeline import evidence as _evidence
+
+    if os.path.isdir(_evidence.pending_dir(request_id)):
+        emit(db, request_id, "reading", "Reading your file...", 3)
+        for name, count in _evidence.ingest_pending(db, request_id):
+            diagnose.narrate(db, request_id, "reading", name, count=count)
 
     # A no-op in well under a second when no site_url was given — the guard
     # lives inside research_business so this stays unconditional, like every
@@ -174,6 +189,10 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
 
     emit(db, request_id, "analyzing", "Analyzing your business...", 10)
     analysis_result = analyze.analyze_business(db, request_id)
+
+    # Their week, drawn from their answers. Before the diagnosis on purpose:
+    # its totals become figures a hypothesis can cite. Fails open to nothing.
+    _read_capacity(db, request_id)
 
     # Several explanations, tested against their own figures, then attacked.
     # Fails open to `analysis_result` alone: a diagnosis that could not be
@@ -190,6 +209,11 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
         detail=analysis_result.get("growth_opportunity"),
     )
     consult_result = decide.decide(db, request_id, analysis_result)
+
+    # The answer screen's parts: the finding in two lines, the evidence in
+    # their figures, and what the move is worth — each number checked.
+    emit(db, request_id, "answering", "Writing your answer...", 28)
+    answer.write(db, request_id, consult_result)
 
     # The gate. `is_generating` goes false because nothing is running: the
     # in-flight cap must not count an engagement that is waiting on a human,
@@ -209,6 +233,23 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
          detail=consult_result.get("consulting_summary"))
 
 
+def _read_capacity(db: Session, request_id: int) -> None:
+    req = db.get(Request, request_id)
+    if req is None:
+        return
+    picture, usage, error = capacity.read(
+        capacity.owner_texts(req), "not launched yet — this is a plan"
+        if req.operating_stage == "opening" else "already operating")
+    from app.pipeline._shared import log_usage
+
+    if usage is not None or error is not None:
+        log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose="capacity", usage=usage, success=error is None, error=error)
+    req = db.get(Request, request_id)
+    req.capacity_json = json.dumps(picture) if picture else None
+    db.commit()
+
+
 def _run_build(db: Session, request_id: int) -> None:
     req = db.get(Request, request_id)
     if req is None:
@@ -223,6 +264,12 @@ def _build_from(db: Session, request_id: int, analysis_result: dict, consult_res
     req.status = BUILDING
     req.is_generating = True
     db.commit()
+
+    # The package opens with what they can do on Monday, before any of the
+    # software exists — so that is written first, and told the build is coming
+    # so none of its steps waits on it.
+    emit(db, request_id, "first_steps", "Writing what you can start on Monday...", 32)
+    action_plan.ensure(db, request_id, building=True)
 
     emit(
         db, request_id, "planning", "Planning your roles and features...", 35,
@@ -300,10 +347,16 @@ def _build_from(db: Session, request_id: int, analysis_result: dict, consult_res
     # the reviewer's approval before the client sees it.
     from app.config import settings as _settings
 
+    from app import mailer
+
     if _settings.REVIEW_MODE in ("on", "gate") and _settings.REVIEW_TOKEN:
         req.review_status = "pending"
-        from app import mailer
-
         mailer.notify_reviewer_pending(req.public_id or request_id, req.business_name or "")
     db.commit()
+    # The building screen tells them they can close the page and we will
+    # write when it is ready. A gated run is released later, and THAT sends
+    # the mail — telling them now would send them to a page that holds it.
+    if not (_settings.REVIEW_MODE == "gate" and req.review_status == "pending"):
+        mailer.notify_owner_ready(req.public_id or request_id, req.owner_email or req.email,
+                                  req.business_name or "")
     emit(db, request_id, "done", "Done", 100, detail=f"{len(saved_images)} images ready")

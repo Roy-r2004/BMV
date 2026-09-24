@@ -10,11 +10,14 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Uploa
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app import auth_client
+from app import auth_client, mailer
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
-from app.pipeline import compositing, decide, evidence, export_pdf, export_pptx, orchestrator, screen_story, what_this_is
+from app.pipeline import compositing, decide, evidence, export_pdf, export_pilot, export_pptx, orchestrator, screen_story, what_this_is
+from app.pipeline import action_plan as plan_stage
+from app.pipeline import answer as answer_stage
+from app.pipeline import capacity as capacity_stage
 from app.pipeline._shared import CORRECTIONS_MARKER, briefing_corrections
 
 logger = logging.getLogger("consultant.requests")
@@ -24,6 +27,7 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 _ALLOWED_STAGES = {"operating", "opening"}
 _ALLOWED_ENGAGEMENTS = {"full", "capability"}
+MAX_LAUNCH_FILES = 3
 
 
 def _showcase_ids() -> set[int]:
@@ -186,6 +190,9 @@ def create_request(
     ops_numbers: str | None = Form(None),
     document_owner: str | None = Form(None),
     document_approver: str | None = Form(None),
+    # Their own files, sent from the conversation ("drop your booking export
+    # in"). Read by the diagnosis half before it forms an explanation.
+    files: list[UploadFile] | None = File(None),
     authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
@@ -228,12 +235,30 @@ def create_request(
         document_approver=(document_approver or "").strip()[:200] or None,
         owner_email=user["email"],
         public_id=secrets.token_urlsafe(9),
+        phase_started_at=datetime.utcnow(),
         status="new",
         is_generating=True,
     )
+    # Checked before the row exists, so a file we refuse costs them nothing
+    # and leaves no half-made engagement behind.
+    uploads = []
+    for f in (files or [])[:MAX_LAUNCH_FILES]:
+        if not f or not f.filename:
+            continue
+        name = os.path.basename(f.filename)[:120]
+        if not name.lower().endswith(evidence.SUPPORTED):
+            raise HTTPException(status_code=422, detail=f"We can't read {name} — send a spreadsheet, CSV or PDF.")
+        data = f.file.read(evidence.MAX_FILE_BYTES + 1)
+        if len(data) > evidence.MAX_FILE_BYTES:
+            raise HTTPException(status_code=422, detail=f"{name} is larger than 8 MB.")
+        uploads.append((name, data))
+
     db.add(req)
     db.commit()
     db.refresh(req)
+
+    for name, data in uploads:
+        evidence.stash(req.id, name, data)
 
     threading.Thread(target=orchestrator.run, args=(req.id,), daemon=True).start()
 
@@ -340,7 +365,11 @@ def get_progress(request_ref: str, review_token: str | None = None,
         # utcnow(), which a browser parses as local time — a client-side
         # subtraction would show a clock off by the viewer's UTC offset, and
         # a customer watching a three-minute wait counts every second of it.
-        "elapsed_s": max(0, int((datetime.utcnow() - req.created_at).total_seconds())) if req.created_at else 0,
+        "elapsed_s": max(0, int((datetime.utcnow() - (req.phase_started_at or req.created_at)).total_seconds()))
+        if (req.phase_started_at or req.created_at) else 0,
+        # The building screen says "you can close this page, we'll email you".
+        # It may only say so when a mail can actually be sent.
+        "notify": {"email": req.owner_email or req.email, "enabled": mailer.enabled()},
     }
 
 
@@ -457,6 +486,13 @@ def _decision_payload(req: Request) -> dict:
         # What the client has already sent back, so the gate can show that
         # their last objection was actually read rather than silently dropped.
         "revisions": briefing_corrections(req.business_description),
+        # The answer screen: their week drawn from their own answers, the
+        # finding in two lines, and the value of the move with its working.
+        # Each is null when it could not be made — never a placeholder.
+        "capacity": capacity_stage.load(req),
+        "answer": answer_stage.load(req),
+        "action_plan": plan_stage.load(req),
+        "operating_stage": req.operating_stage,
     }
 
 
@@ -501,7 +537,7 @@ def approve_decision(request_ref: str,
     if req.status not in (*startable, orchestrator.BUILDING):
         raise HTTPException(status_code=409, detail="This engagement has no decision waiting")
 
-    fields = {"status": orchestrator.BUILDING, "is_generating": True}
+    fields = {"status": orchestrator.BUILDING, "is_generating": True, "phase_started_at": datetime.utcnow()}
     if (budget_range or "").strip():
         fields["budget_range"] = budget_range.strip()[:100]
     if (timeline or "").strip():
@@ -570,7 +606,8 @@ async def add_evidence(request_ref: str, file: UploadFile = File(...),
     if req.status in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED, "failed"):
         claimed = db.query(Request).filter(
             Request.id == req.id, Request.status == req.status,
-        ).update({"status": "new", "is_generating": True, "is_failed": False},
+        ).update({"status": "new", "is_generating": True, "is_failed": False,
+                  "phase_started_at": datetime.utcnow()},
                  synchronize_session=False)
         db.commit()
         if claimed:
@@ -619,7 +656,101 @@ def accept_advice(request_ref: str, authorization: str | None = Header(None),
              synchronize_session=False)
     db.commit()
     db.refresh(req)
-    return {"id": req.id, "status": req.status}
+
+    # Taking the answer used to end the engagement with a paragraph. It now
+    # starts what they do about it: the plan is written in the background and
+    # the page polls for it. Started once — a second press while it is being
+    # written, or after it is written, starts nothing.
+    started = _start_plan(db, req)
+    return {"id": req.id, "status": req.status, "plan_started": started}
+
+
+def _start_plan(db: Session, req: Request) -> bool:
+    current = plan_stage.load(req) or {}
+    if current.get("status") in (plan_stage.WRITING, plan_stage.READY):
+        return False
+    marker = json.dumps({"status": plan_stage.WRITING})
+    claimed = db.query(Request).filter(
+        Request.id == req.id,
+        (Request.action_plan_json.is_(None)) | (Request.action_plan_json == req.action_plan_json),
+    ).update({"action_plan_json": marker}, synchronize_session=False)
+    db.commit()
+    if not claimed:
+        return False
+    threading.Thread(target=plan_stage.write_in_background, args=(req.id,), daemon=True).start()
+    return True
+
+
+@router.post("/{request_ref}/plan/retry")
+def retry_plan(request_ref: str, authorization: str | None = Header(None),
+               db: Session = Depends(get_db)):
+    """Write the plan after it failed — or for the first time, on a package
+    built before plans existed. Not a way to reroll a good one."""
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+    if (plan_stage.load(req) or {}).get("status") not in (None, plan_stage.FAILED):
+        raise HTTPException(status_code=409, detail="This plan is already written or being written")
+    if not req.consulting_recommendations_json:
+        raise HTTPException(status_code=409, detail="There is no answer to write a plan from yet")
+    return {"plan_started": _start_plan(db, req)}
+
+
+@router.get("/{request_ref}/plan")
+def get_plan(request_ref: str, review_token: str | None = None,
+             authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    req = _load_request(request_ref, db)
+    _require_view(req, review_token, authorization)
+    return {"plan": plan_stage.load(req), "log": plan_stage.load_log(req),
+            "capacity": capacity_stage.load(req)}
+
+
+@router.post("/{request_ref}/plan/log")
+def log_pilot_week(request_ref: str, week: int = Form(...), values: str = Form("{}"),
+                   note: str | None = Form(None), authorization: str | None = Header(None),
+                   db: Session = Depends(get_db)):
+    """One week of the pilot, entered by the owner against the plan's own
+    measures. Upserts: correcting last week's number is the same call."""
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+    plan = plan_stage.load(req) or {}
+    if plan.get("status") != plan_stage.READY:
+        raise HTTPException(status_code=409, detail="There is no plan to track yet")
+    weeks = int(plan.get("weeks") or 6)
+    if not 1 <= week <= max(weeks, 12):
+        raise HTTPException(status_code=422, detail=f"Week must be between 1 and {max(weeks, 12)}")
+    try:
+        parsed = json.loads(values or "{}")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Values must be a JSON object")
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=422, detail="Values must be a JSON object")
+    log = plan_stage.record(plan, plan_stage.load_log(req), week, parsed, note or "")
+    req.pilot_log_json = json.dumps(log)
+    db.commit()
+    return {"log": log}
+
+
+@router.post("/{request_ref}/share")
+def share_engagement(request_ref: str, authorization: str | None = Header(None),
+                     db: Session = Depends(get_db)):
+    """A read-only link for a partner, accountant or co-founder. The same link
+    every time until it is revoked, so sending it twice sends one address."""
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+    if not req.share_token:
+        req.share_token = secrets.token_urlsafe(18)
+        db.commit()
+    return {"token": req.share_token, "path": f"/shared/{req.share_token}"}
+
+
+@router.delete("/{request_ref}/share")
+def unshare_engagement(request_ref: str, authorization: str | None = Header(None),
+                       db: Session = Depends(get_db)):
+    req = _load_request(request_ref, db)
+    _require_owner(req, authorization)
+    req.share_token = None
+    db.commit()
+    return {"token": None}
 
 
 @router.post("/{request_ref}/decision/revise")
@@ -645,7 +776,8 @@ def revise_decision(request_ref: str, note: str = Form(...),
     claimed = db.query(Request).filter(
         Request.id == req.id,
         Request.status == req.status,
-    ).update({"status": "new", "is_generating": True, "is_failed": False},
+    ).update({"status": "new", "is_generating": True, "is_failed": False,
+              "phase_started_at": datetime.utcnow()},
              synchronize_session=False)
     if not claimed:
         db.commit()
@@ -795,6 +927,17 @@ def get_preview(request_ref: str, review_token: str | None = None,
         "procedures": json.loads(req.procedures_json)["procedures"] if req.procedures_json else [],
         # The operations-manual appendix: {"checklists": [...], "forms": [...]}
         "checklists": json.loads(req.checklists_json) if req.checklists_json else None,
+        # The package page opens with these: the answer it was built around,
+        # their week, what to do on Monday, and the tracker's entries so far.
+        "answer": answer_stage.load(req),
+        "capacity": capacity_stage.load(req),
+        "action_plan": plan_stage.load(req),
+        "pilot_log": plan_stage.load_log(req),
+        "intervention_kind": recommendations.get("intervention_kind"),
+        # What the documents still assume. Shown as its own box on the
+        # package page, not left for them to find in the fine print.
+        "unverified": recommendations.get("unverified") or [],
+        "shared": bool(req.share_token),
     }
 
 
@@ -992,16 +1135,32 @@ def export_zip_route(request_ref: str, review_token: str | None = None,
     """The whole engagement as one download: all three PDF volumes zipped.
     Volumes that aren't ready are skipped rather than failing the bundle;
     an empty bundle 400s like every other not-ready export."""
-    import zipfile
-
     req = _load_request(request_ref, db)
-    request_id = req.id
     _require_view(req, review_token, authorization)
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
 
+    out_path, file_stub = build_zip(req)
+    return FileResponse(
+        out_path,
+        media_type="application/zip",
+        filename=f"{file_stub}-engagement.zip",
+    )
+
+
+def build_zip(req: Request) -> tuple[str, str]:
+    """Every document this engagement has, zipped. The plan leads, because it
+    is the one they use first; volumes that aren't ready are skipped."""
+    import zipfile
+
     file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "engagement"))
     built = []
+    plan = plan_stage.load(req) or {}
+    if plan.get("status") == plan_stage.READY:
+        try:
+            built.append((export_pilot.build_pilot_pdf(req), f"00 - {plan.get('title') or 'Your plan'}.pdf"))
+        except ValueError:
+            pass
     for kind, name in (
         ("blueprint", "Volume I - The Blueprint.pdf"),
         ("technical", "Volume II - The Technical Plan.pdf"),
@@ -1016,16 +1175,11 @@ def export_zip_route(request_ref: str, review_token: str | None = None,
 
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, f"{request_id}-engagement.zip")
+    out_path = os.path.join(out_dir, f"{req.id}-engagement.zip")
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as bundle:
         for path, name in built:
             bundle.write(path, arcname=f"{file_stub}/{name}")
-
-    return FileResponse(
-        out_path,
-        media_type="application/zip",
-        filename=f"{file_stub}-engagement.zip",
-    )
+    return out_path, file_stub
 
 
 @router.get("/{request_ref}/export/pdf/{kind}")
@@ -1034,24 +1188,30 @@ def export_pdf_route(request_ref: str, kind: str, review_token: str | None = Non
     """The blueprint or technical plan as a branded PDF — the deliverable a
     client prints, forwards, and files. 400 before the document exists,
     same contract as the deck route."""
-    if kind not in ("blueprint", "technical", "operations"):
+    if kind not in PDF_KINDS:
         raise HTTPException(status_code=404, detail="Unknown document")
     req = _load_request(request_ref, db)
-    request_id = req.id
     _require_view(req, review_token, authorization)
-    if _pending_for(req, review_token):
+    # The plan is theirs the moment it is written — it is not part of the
+    # reviewed package, and holding their Monday steps behind a review queue
+    # would hold back the one document with nothing to review but their own
+    # figures.
+    if kind != "pilot" and _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
+    out_path, filename = pdf_file(req, kind)
+    return FileResponse(out_path, media_type="application/pdf", filename=filename)
+
+
+PDF_KINDS = ("blueprint", "technical", "operations", "pilot")
+
+
+def pdf_file(req: Request, kind: str) -> tuple[str, str]:
     try:
-        out_path = export_pdf.build_pdf(req, kind)
+        out_path = export_pilot.build_pilot_pdf(req) if kind == "pilot" else export_pdf.build_pdf(req, kind)
     except ValueError:
         raise HTTPException(status_code=400, detail="Document not ready yet")
-
     file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "document"))
-    return FileResponse(
-        out_path,
-        media_type="application/pdf",
-        filename=f"{file_stub}-{kind}.pdf",
-    )
+    return out_path, f"{file_stub}-{kind}.pdf"
 
 
 @router.get("/{request_ref}/export/pptx")

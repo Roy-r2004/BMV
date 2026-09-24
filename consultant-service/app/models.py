@@ -87,6 +87,25 @@ class Request(Base):
     # Null when no diagnosis could be made — the run then falls back to
     # `business_analysis_json`, which is what the pipeline had before.
     diagnosis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Their capacity, drawn from their own answers (app/pipeline/capacity.py):
+    # a weekly grid of slots or one pool, with the arithmetic done in code and
+    # its working kept. Null when they gave nothing capacity-shaped.
+    capacity_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The answer screen's parts (app/pipeline/answer.py): the two-line
+    # finding, the evidence in their figures, and the value of the move as a
+    # verified product of terms. Null when it could not be written — the
+    # screen then shows the decision's own summary.
+    answer_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What they do next Monday (app/pipeline/action_plan.py): first steps,
+    # schedule, the message to send, the measures and the decision rule.
+    # {"status": "writing"} while it is being written.
+    action_plan_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The pilot tracker: [{"week", "values": {measure_id: number}, "note"}],
+    # entered by the owner against the plan's measures.
+    pilot_log_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A read-only link the owner can hand to a partner. Null until they make
+    # one; cleared when they revoke it.
+    share_token: Mapped[str | None] = mapped_column(String(40), unique=True, index=True, nullable=True)
     # {"source_url", "services", "hours", "tone", "highlights"} extracted
     # from site_url — null when no URL was given, the fetch failed, or the
     # page had too little real content to extract anything from.
@@ -144,6 +163,11 @@ class Request(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # When the half now running started: the diagnosis at creation (and again
+    # on every re-diagnosis), the build when they press Build. The clock on
+    # screen counts from here — from created_at, a build started the next
+    # morning showed "14:02:11 of about 10 minutes".
+    phase_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     images: Mapped[list["GeneratedImage"]] = relationship(back_populates="request", cascade="all, delete-orphan")
 

@@ -55,6 +55,9 @@ export interface StudioIntake {
   /** The discovery Q&A — the ONLY numbers the business case is allowed to
    *  compute with. Only answered questions are sent. */
   ops_numbers?: OpsNumber[];
+  /** Their own files — a booking export, a sales sheet — sent with the
+   *  engagement and read before the diagnosis forms a single explanation. */
+  files?: File[];
 }
 
 export type OperatingStage = 'operating' | 'opening';
@@ -121,8 +124,9 @@ export interface InterviewRound {
 }
 
 export async function fetchInterviewRound(input: {
-  business_name: string;
-  business_description: string;
+  /** Unknown on the first round: finding it out is the interview's job. */
+  business_name?: string;
+  business_description?: string;
   industry?: string;
   operating_stage: OperatingStage;
   engagement_type?: EngagementType;
@@ -144,8 +148,8 @@ export async function fetchInterviewRound(input: {
   round: number;
 }): Promise<InterviewRound> {
   const form = new FormData();
-  form.set('business_name', input.business_name);
-  form.set('business_description', input.business_description);
+  if (input.business_name) form.set('business_name', input.business_name);
+  if (input.business_description) form.set('business_description', input.business_description);
   if (input.industry) form.set('industry', input.industry);
   form.set('operating_stage', input.operating_stage);
   if (input.engagement_type) form.set('engagement_type', input.engagement_type);
@@ -212,7 +216,9 @@ export async function fetchBriefTurn(input: {
 /** One line of the consultant thinking out loud. `kind` drives how it reads;
  *  the extra keys are present only on the kinds that carry them. */
 export interface ThinkingStep {
-  kind: 'considering' | 'testing' | 'verdict' | 'challenge' | 'settled';
+  /** 'reading' is one file sent with the engagement, read before anything
+   *  else: `text` is its name and `count` the figures verified out of it. */
+  kind: 'reading' | 'considering' | 'testing' | 'verdict' | 'challenge' | 'settled';
   text: string;
   /** considering */
   count?: number;
@@ -258,6 +264,236 @@ export interface StudioProgress {
   /** Seconds since the run started, measured server-side — see the route's
    *  comment. Never derive this from a timestamp in the browser. */
   elapsed_s: number;
+  /** Where the "it's ready" mail goes, and whether mail can be sent at all.
+   *  The building screen only promises an email when `enabled`. */
+  notify?: { email: string | null; enabled: boolean };
+}
+
+/** One slot on the week: a class, a sitting, a shift. */
+export interface CapacitySlot {
+  /** "18:00" when the owner named this slot's time; null when they did not. */
+  time: string | null;
+  capacity: number;
+  /** How many of it are sold, as they said it. Null when they did not say. */
+  taken: number | null;
+  full: boolean;
+  /** Rings to draw: a count they gave, 'unknown' for a waiting list with no
+   *  size, null for none. */
+  waitlist: number | 'unknown' | null;
+}
+
+export interface CapacityDerived {
+  key: string;
+  value: number;
+  label: string;
+  /** The arithmetic, on their own figures: "12 × 6 a day × 6 days". */
+  working: string;
+}
+
+/** Their capacity, drawn only from what they told us. */
+export interface CapacityPicture {
+  shape: 'weekly_grid' | 'total';
+  unit: string;
+  unit_plural: string;
+  slot_noun?: string;
+  per_slot?: number;
+  slots_per_day?: number;
+  days_per_week?: number;
+  days_named?: boolean;
+  times?: (string | null)[];
+  typical_taken?: number | null;
+  full?: string[];
+  waitlist?: boolean;
+  waitlist_size?: number | null;
+  grid?: { day: string; slots: CapacitySlot[] }[];
+  period?: string;
+  dot_scale?: number;
+  capacity: number;
+  taken: number | null;
+  pct: number | null;
+  derived: CapacityDerived[];
+  quote: string;
+  basis: string[];
+}
+
+/** The value of the move, multiplied out in code from verified terms. */
+export interface AnswerMove {
+  label: string;
+  value: number;
+  rounded: number;
+  money: boolean;
+  unit: string;
+  period: string;
+  display: string;
+  working: string;
+  /** Numbers that are OUR proposal, not their figures. */
+  proposed: { value: number; label: string }[];
+  cites: string[];
+}
+
+/** The answer screen's parts. Every number in them was checked against the
+ *  owner's own figures before it was stored. */
+export interface StudioAnswer {
+  headline: string;
+  turn: string;
+  sub: string;
+  emphasis: string;
+  figures: { value: string; label: string; cites: string[] }[];
+  move: AnswerMove | null;
+  action: { weeks: number; name: string };
+}
+
+export interface PlanMeasure {
+  id: string;
+  name: string;
+  unit: string;
+  watch: 'up' | 'down' | 'hold';
+  /** Today's value, only ever one of their own figures. */
+  baseline: number | null;
+  baseline_from: string | null;
+}
+
+/** What they do next Monday. `status: 'writing'` while it is being written. */
+export interface ActionPlan {
+  status: 'writing' | 'ready' | 'failed';
+  title?: string;
+  summary?: string;
+  weeks?: number;
+  monday?: { do: string; why: string }[];
+  schedule?: { when: string; do: string }[];
+  message?: { to: string; text: string } | null;
+  measures?: PlanMeasure[];
+  decision_rule?: string;
+  assumptions?: string[];
+  if_it_fails?: string;
+}
+
+export interface PilotEntry {
+  week: number;
+  values: Record<string, number>;
+  note: string;
+}
+
+/** A figure from their own answers, with the exact words it was read from. */
+export interface CaseFigure {
+  source: string;
+  token: string;
+  value: string;
+  label: string;
+}
+
+export interface CaseFile {
+  figures: CaseFigure[];
+  capacity: CapacityPicture | null;
+  summary?: string;
+  their_words?: string;
+  their_fix?: string | null;
+}
+
+/** What they have said so far, as figures — and their week, once it can be
+ *  drawn. Fails open to an empty file; this is a courtesy on screen. */
+export async function fetchCaseFile(input: {
+  main_problem: string;
+  ops_numbers: { id: string; question: string; answer: string }[];
+  known: Record<string, string>;
+  operating_stage: OperatingStage;
+  playback?: boolean;
+}): Promise<CaseFile> {
+  try {
+    const form = new FormData();
+    form.set('main_problem', input.main_problem);
+    form.set('ops_numbers', JSON.stringify(input.ops_numbers));
+    form.set('known', JSON.stringify(input.known));
+    form.set('operating_stage', input.operating_stage);
+    if (input.playback) form.set('playback', 'true');
+    const { data } = await consultantClient.post('/api/discovery/casefile', form, { timeout: 45000 });
+    return {
+      figures: Array.isArray(data?.figures) ? data.figures : [],
+      capacity: data?.capacity ?? null,
+      summary: data?.summary ?? '',
+      their_words: data?.their_words ?? '',
+      their_fix: data?.their_fix ?? null,
+    };
+  } catch {
+    return { figures: [], capacity: null };
+  }
+}
+
+export async function getStudioPlan(ref: StudioRef): Promise<{
+  plan: ActionPlan | null;
+  log: PilotEntry[];
+  capacity: CapacityPicture | null;
+}> {
+  const { data } = await consultantClient.get(`/api/requests/${ref}/plan`);
+  return data;
+}
+
+export async function logPilotWeek(
+  ref: StudioRef,
+  week: number,
+  values: Record<string, number>,
+  note: string,
+): Promise<{ log: PilotEntry[] }> {
+  const form = new FormData();
+  form.set('week', String(week));
+  form.set('values', JSON.stringify(values));
+  if (note) form.set('note', note);
+  const { data } = await consultantClient.post(`/api/requests/${ref}/plan/log`, form);
+  return data;
+}
+
+export async function retryStudioPlan(ref: StudioRef): Promise<{ plan_started: boolean }> {
+  const { data } = await consultantClient.post(`/api/requests/${ref}/plan/retry`);
+  return data;
+}
+
+export async function shareStudio(ref: StudioRef): Promise<{ token: string; path: string }> {
+  const { data } = await consultantClient.post(`/api/requests/${ref}/share`);
+  return data;
+}
+
+export async function unshareStudio(ref: StudioRef): Promise<void> {
+  await consultantClient.delete(`/api/requests/${ref}/share`);
+}
+
+/** The package as a partner sees it, through a link the owner made. */
+export interface SharedPackage {
+  business_name: string;
+  concept_name: string | null;
+  status: string;
+  answer: StudioAnswer | null;
+  capacity: CapacityPicture | null;
+  action_plan: ActionPlan | null;
+  pilot_log: PilotEntry[];
+  summary: string | null;
+  unverified: string[];
+  documents: { pilot: boolean; blueprint: boolean; technical: boolean; operations: boolean };
+  screens: { role_label: string; image_url: string; hero_url: string | null; story: StudioStory | null }[];
+}
+
+export async function getSharedPackage(token: string): Promise<SharedPackage> {
+  const { data } = await consultantClient.get(`/api/shared/${encodeURIComponent(token)}`);
+  return data;
+}
+
+async function saveBlob(path: string, fallback: string): Promise<void> {
+  const { data, headers } = await consultantClient.get<Blob>(path, { responseType: 'blob', timeout: 180000 });
+  const match = /filename="?([^";]+)"?/.exec(String(headers['content-disposition'] ?? ''));
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = match?.[1] ?? fallback;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export async function downloadSharedExport(token: string, kind: StudioExportKind): Promise<void> {
+  await saveBlob(
+    `/api/shared/${encodeURIComponent(token)}/export/${kind}`,
+    kind === 'zip' ? 'engagement.zip' : `${kind}.pdf`,
+  );
 }
 
 /** The AI module actually drawn on a screen. Null on the screen's story when
@@ -362,6 +598,17 @@ export interface StudioPreview {
     findings: { severity: string; where?: string; issue: string; fix?: string }[];
     polish_applied?: boolean;
   } | null;
+  /** What the package was built around, and what the owner does first. Null
+   *  on runs made before these existed. */
+  answer?: StudioAnswer | null;
+  capacity?: CapacityPicture | null;
+  action_plan?: ActionPlan | null;
+  pilot_log?: PilotEntry[];
+  intervention_kind?: string | null;
+  /** What the documents still assume, stated on the package page. */
+  unverified?: string[];
+  /** Whether a partner link exists right now. */
+  shared?: boolean;
 }
 
 /** What a pending run shows the waiting client: real counts and names,
@@ -486,7 +733,7 @@ export function studioZipUrl(ref: StudioRef): string {
   return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/zip`;
 }
 
-export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations';
+export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations' | 'pilot';
 
 /** Fetch an export with the caller's session attached and hand it to the
  *  browser as a saved file. The export routes are auth-gated, and a plain
@@ -600,7 +847,9 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   if (intake.operating_stage) form.set('operating_stage', intake.operating_stage);
   if (intake.engagement_type) form.set('engagement_type', intake.engagement_type);
   if (intake.ops_numbers?.length) form.set('ops_numbers', JSON.stringify(intake.ops_numbers));
-  const { data } = await consultantClient.post('/api/requests', form, { timeout: 30000 });
+  // Files dropped into the conversation. The diagnosis reads them first.
+  for (const f of intake.files ?? []) form.append('files', f);
+  const { data } = await consultantClient.post('/api/requests', form, { timeout: 60000 });
   return data;
 }
 
@@ -674,6 +923,12 @@ export interface StudioDecision {
   /** Everything the client has already sent back, as one line. Empty on a
    *  first pass — shown so a second brief proves the objection was read. */
   revisions: string;
+  /** Their week, drawn from their answers. Null when it could not be drawn. */
+  capacity?: CapacityPicture | null;
+  /** The answer screen's parts. Null → fall back to the decision's summary. */
+  answer?: StudioAnswer | null;
+  action_plan?: ActionPlan | null;
+  operating_stage?: string | null;
 }
 
 export async function getStudioDecision(ref: StudioRef): Promise<StudioDecision> {

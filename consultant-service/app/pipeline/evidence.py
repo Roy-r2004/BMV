@@ -283,6 +283,65 @@ def load(req: Request) -> list[dict]:
         return []
 
 
+def pending_dir(request_id: int) -> str:
+    # NOT under UPLOADS_DIR: that folder is served publicly at /uploads, and a
+    # client's booking export must never be one guessed URL away. The wait is
+    # seconds — the diagnosis reads these first — so a temp folder is enough.
+    import tempfile
+
+    return os.path.join(tempfile.gettempdir(), "bmv_pending_evidence", str(request_id))
+
+
+def stash(request_id: int, name: str, data: bytes) -> None:
+    """Keep a file sent WITH the engagement until the run reads it.
+
+    The conversation offers "drop your booking export in" before any
+    engagement exists, and reading a file is a model call — too slow to make
+    the launch wait on. So the bytes wait on disk and the diagnosis half reads
+    them first, before it forms a single explanation.
+    """
+    folder = pending_dir(request_id)
+    os.makedirs(folder, exist_ok=True)
+    safe = "".join(c if c.isalnum() or c in "._- " else "_" for c in os.path.basename(name))[:120] or "upload"
+    with open(os.path.join(folder, safe), "wb") as fh:
+        fh.write(data)
+
+
+def ingest_pending(db: Session, request_id: int) -> list[tuple[str, int]]:
+    """Read every stashed file into verified figures. Returns (name, figures
+    added) per file. Each file is removed once read — whether or not it held
+    anything — so a re-diagnosis never reads the same file twice."""
+    folder = pending_dir(request_id)
+    if not os.path.isdir(folder):
+        return []
+    done = []
+    for name in sorted(os.listdir(folder)):
+        path = os.path.join(folder, name)
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read()
+            tables = read_tables(data, name)
+            req = db.get(Request, request_id)
+            existing = load(req)
+            found, _ = extract(db, request_id, tables, name, start_index=len(existing))
+            if found:
+                save(db, req, existing + found)
+            done.append((name, len(found)))
+        except Exception as exc:
+            logger.warning("could not read stashed file %s: %s", name, str(exc)[:200])
+            done.append((name, 0))
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+    try:
+        os.rmdir(folder)
+    except OSError:
+        pass
+    return done
+
+
 def save(db: Session, req: Request, claims: list[dict]) -> None:
     req.evidence_json = json.dumps(claims) if claims else None
     db.commit()

@@ -1,0 +1,41 @@
+You are reading a business owner's own words to draw their CAPACITY — what they can sell in a week, and how much of it is sold. You are not analysing, advising or estimating. You are transcribing what they said into a structure.
+
+WHAT THEY SAID ({{ stage }})
+{{ owner_words }}
+
+Pick ONE shape:
+
+  "weekly_grid" — they sell fixed slots on a repeating week: classes, sittings, appointments in chairs, shifts, courses. You need all three of: how many units ONE slot holds (reformers, seats, chairs, places), how many slots a day, how many days a week.
+  "total"       — they gave one pool instead: a number they can handle per period and (ideally) how much of it is used. E.g. "we can do 400 orders a month and do about 340".
+  "none"        — they did not give enough to draw either. This is a normal, honest answer.
+
+THE RULES — breaking any of them makes the picture worthless
+1. Every number you return must be one THEY said, in digits or words ("six" counts as 6). Never multiply, estimate, average or round. The code does the arithmetic.
+2. "slot_times" has exactly slots_per_day entries, earliest first. Put a time ONLY where they named that slot's time ("the 6pm class"); every other entry is null. Never invent a timetable.
+3. "day_names" only if they named the days ("Monday to Saturday"). Otherwise [].
+4. "typical_taken" is how many units a typical slot sells, as they said it ("about 10 of 12" -> 10). null if they did not say.
+5. "full_slots" lists the times of slots they said sell out, are always full, or have a waiting list. Only times that also appear in slot_times.
+6. "waitlist" is true only if they mentioned a waiting list or turning people away. "waitlist_size" only if they gave a number for it.
+7. "unit" is one dot in the drawing, in THEIR words, singular: "reformer spot", "seat", "chair appointment", "van", "order".
+8. "quote" is the sentence of theirs the picture rests on most, copied exactly.
+
+Respond with ONLY this JSON, no fences:
+{
+  "shape": "weekly_grid | total | none",
+  "unit": "",
+  "unit_plural": "",
+  "slot_noun": "class | sitting | appointment | shift | ...",
+  "per_slot": null,
+  "slots_per_day": null,
+  "days_per_week": null,
+  "day_names": [],
+  "slot_times": [],
+  "typical_taken": null,
+  "full_slots": [],
+  "waitlist": false,
+  "waitlist_size": null,
+  "total_capacity": null,
+  "total_taken": null,
+  "period": "day | week | month | year",
+  "quote": ""
+}

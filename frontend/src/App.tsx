@@ -18,6 +18,7 @@ const SubmitPage = lazy(() => import('./routes/SubmitPage'));
 const StudioPage = lazy(() => import('./routes/StudioPage'));
 const EngagementsPage = lazy(() => import('./routes/EngagementsPage'));
 const ResultPreviewPage = lazy(() => import('./routes/ResultPreviewPage'));
+const SharedPage = lazy(() => import('./routes/SharedPage'));
 const LoginPage = lazy(() => import('./routes/LoginPage'));
 const SignupPage = lazy(() => import('./routes/SignupPage'));
 const AdminLoginPage = lazy(() => import('./routes/AdminLoginPage'));
@@ -63,6 +64,10 @@ export default function App() {
           <Route path="/engagements/:id" element={<StudioPage />} />
           <Route path="/result/:id" element={<ResultPreviewPage />} />
           <Route path="/share/:id" element={<ResultPreviewPage />} />
+          {/* A consultation package an owner shared with a partner: read-only,
+              through a revocable token. Not /share, which is the older preview-app
+              page and keeps its own links working. */}
+          <Route path="/shared/:token" element={<SharedPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />

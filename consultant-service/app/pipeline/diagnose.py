@@ -77,13 +77,20 @@ def _evidence_lines(req: Request) -> tuple[str, list[dict]]:
     free = list(dict.fromkeys(
         t.strip() for t in (req.business_description, req.main_problem, req.desired_outcome)
         if t and t.strip()))
-    claims = client_fact_claims(ops, free) + evidence.load(req)
+    # The CAP- figures are their own multiplied out (12 reformers x 6 classes
+    # x 6 days), computed in code with the working attached — so "you are at
+    # your ceiling" can rest on a number instead of on the tester doing the
+    # multiplication in its head, which it often did not.
+    from app.pipeline import capacity as _capacity
+
+    claims = client_fact_claims(ops, free) + evidence.load(req) + _capacity.as_claims(_capacity.load(req))
     if not claims:
         return "none given — they have provided no figures at all", []
     lines = []
     for c in claims:
         basis = f"/{c['time_basis']}" if c.get("time_basis") not in (None, "", "n/a") else ""
-        origin = " [from their own file]" if c.get("origin") == "file" else ""
+        origin = (" [from their own file]" if c.get("origin") == "file"
+                  else " [computed from their figures]" if c.get("provenance") == "machine_computed" else "")
         lines.append(f"[{c['id']}] {c['value']} {c['unit']}{basis} — "
                      f"\"{c['text']}\" ({c['source']}){origin}")
     return "\n".join(lines), claims

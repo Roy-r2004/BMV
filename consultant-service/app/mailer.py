@@ -63,6 +63,28 @@ def notify_reviewer_pending(ref: str | int, business_name: str) -> None:
     )
 
 
+def enabled() -> bool:
+    """Whether a promise to email someone can actually be kept. The building
+    screen only says "we'll email you" when this is true."""
+    return _configured()
+
+
+def notify_owner_ready(ref: str | int, owner_email: str | None, business_name: str) -> None:
+    send_async(
+        owner_email,
+        f"{business_name} — your package is ready",
+        (
+            f"The package we were building for {business_name} is finished.\n\n"
+            f"Open it here (sign in with this address):\n"
+            f"{_run_url(ref)}\n\n"
+            f"It opens with what you can start on Monday, before any of the software exists. "
+            f"The documents, the product screens and your pilot tracker are underneath.\n\n"
+            f"Anything we got wrong, or ready to talk about building it? Just reply to this email.\n\n"
+            f"— Build My Version · buildmyversion.com\n"
+        ),
+    )
+
+
 def notify_owner_released(ref: str | int, owner_email: str | None, business_name: str, concept: str | None) -> None:
     title = concept or business_name
     send_async(

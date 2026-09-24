@@ -104,6 +104,9 @@ export default function SiteChatWidget() {
     pathname.startsWith('/submit') ||
     pathname.startsWith('/demo') ||
     pathname.startsWith('/studio') ||
+    // A consultation in progress, or its package: the bubble sat on top of
+    // the reviewers' notes in the diagnosis margin.
+    pathname.startsWith('/engagements/') ||
     pathname.startsWith('/result') ||
     pathname.startsWith('/share') ||
     pathname.startsWith('/login') ||

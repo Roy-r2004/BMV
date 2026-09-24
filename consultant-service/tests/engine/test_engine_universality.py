@@ -511,12 +511,14 @@ def test_the_whitelist_catches_a_string_match_pattern(tmp_path):
 
 _TOKEN = re.compile(r"[^\W\d_]{5,}", re.UNICODE)
 
-# Three ordinary words that fall inside one case's own title or company name.
-# Each is used in the engine in its ordinary sense - a non-blocking finding,
-# the calculator's cross-currency refusal, the count of benchmark cases - and
+# Ordinary words that fall inside one case's own title or company name. Each
+# is used in the engine in its ordinary sense - a non-blocking finding, the
+# calculator's cross-currency refusal - and
 # `test_an_exempt_word_is_a_word_and_not_a_name` proves the engine holds the
-# word without holding the name it came from.
-NOT_A_NAME: frozenset[str] = frozenset({"advisory", "currencies", "fifteen"})
+# word without holding the name it came from. "fifteen" left the list when the
+# consultation's number reader (app/pipeline/figures.py) made it part of the
+# product's own vocabulary: it is no longer distinctive, so no exemption.
+NOT_A_NAME: frozenset[str] = frozenset({"advisory", "currencies"})
 
 
 @functools.lru_cache(maxsize=1)

@@ -1,12 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import SiteNav from '../components/SiteNav';
+import {
+  fetchCaseFile,
+  getStudioPlan,
+  logPilotWeek,
+  retryStudioPlan,
+  shareStudio,
+  unshareStudio,
+  type CaseFigure,
+  type CaseFile,
+  type ActionPlan,
+  type PilotEntry,
+} from '../api/consultant';
+import Chrome from '../components/consult/Chrome';
+import FrontDoor from '../components/consult/FrontDoor';
+import Interview from '../components/consult/Interview';
+import Playback from '../components/consult/Playback';
+import Thinking from '../components/consult/Thinking';
+import Answer from '../components/consult/Answer';
+import Building from '../components/consult/Building';
+import Package, { type PackageScreen } from '../components/consult/Package';
+import '../styles/consult.css';
 import SiteFooter from '../components/SiteFooter';
 import {
   approveReview,
   createStudioRequest,
-  fetchBriefTurn,
   fetchInterviewRound,
   isForbidden,
   isPendingTeaser,
@@ -26,7 +45,6 @@ import {
   isNotFound,
   downloadStudioExport,
   studioResultPath,
-  type BriefMessage,
   type DiscoveryQuestion,
   type StudioExportKind,
   type StudioRef,
@@ -35,14 +53,19 @@ import {
   type OperatingStage,
   type StudioPreview,
   type StudioProgress,
-  type ThinkingStep,
   type StudioDecision,
   type StudioFigure,
   type StudioScreen,
 } from '../api/consultant';
-import ApprovalGate from '../components/studio/ApprovalGate';
-import Conversation, { type Round } from '../components/studio/Conversation';
-import RunStage, { type RunPhase } from '../components/studio/RunStage';
+/** One round of the interview as the server returned it. */
+interface Round {
+  questions: DiscoveryQuestion[];
+  /** What the consultant said it still needed before asking these. */
+  because: string;
+}
+
+/** Which half of the run is on screen: the diagnosis, or the build. */
+type RunPhase = 'diagnosing' | 'building';
 import {
   splitH2Sections,
   findSection,
@@ -144,55 +167,6 @@ function Icon({ path, className }: { path: string; className?: string }) {
   );
 }
 
-/** The three hand-drawn sketches on the "what you'll get" cards —
- *  a flowchart being redesigned, an AI system wiring diagram, and a
- *  value chart. Pure inline SVG; decorative. */
-function GetSketch({ kind }: { kind: 'flow' | 'system' | 'chart' }) {
-  const stroke = '#94a3b8';
-  const blue = '#2563eb';
-  return (
-    <svg viewBox="0 0 120 90" className="studio-getcard-sketch" aria-hidden="true">
-      {kind === 'flow' && (
-        <g fill="none" strokeWidth="1.6">
-          <rect x="8" y="8" width="30" height="14" rx="3" stroke={stroke} />
-          <rect x="8" y="38" width="30" height="14" rx="3" stroke={stroke} />
-          <rect x="8" y="68" width="30" height="14" rx="3" stroke={stroke} />
-          <path d="M23 22v16M23 52v16" stroke={stroke} strokeDasharray="3 3" />
-          <path d="M44 45h18" stroke={blue} />
-          <path d="M58 40l6 5-6 5" stroke={blue} />
-          <rect x="70" y="30" width="40" height="18" rx="4" stroke={blue} fill="rgba(37,99,235,0.06)" />
-          <rect x="70" y="56" width="40" height="12" rx="3" stroke={stroke} />
-        </g>
-      )}
-      {kind === 'system' && (
-        <g fill="none" strokeWidth="1.6">
-          {[10, 30, 50, 70].map((y) => (
-            <rect key={y} x="8" y={y} width="10" height="10" rx="2" stroke={stroke} />
-          ))}
-          {[16, 40, 64].map((y) => (
-            <rect key={y} x="102" y={y} width="10" height="10" rx="2" stroke={stroke} />
-          ))}
-          <path d="M22 15 48 40M22 35 48 43M22 55 48 46M22 75 48 50M72 45 98 21M72 45 98 45M72 47 98 69" stroke={stroke} strokeDasharray="2 3" />
-          <circle cx="60" cy="45" r="14" stroke={blue} fill="rgba(37,99,235,0.06)" />
-          <path d="M60 38l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill={blue} />
-        </g>
-      )}
-      {kind === 'chart' && (
-        <g fill="none" strokeWidth="1.6">
-          <path d="M10 82h100" stroke={stroke} />
-          {[
-            { x: 16, h: 18 }, { x: 34, h: 26 }, { x: 52, h: 22 }, { x: 70, h: 38 }, { x: 88, h: 50 },
-          ].map((b) => (
-            <rect key={b.x} x={b.x} y={78 - b.h} width="11" height={b.h} rx="2" stroke={stroke} fill="rgba(148,163,184,0.12)" />
-          ))}
-          <path d="M14 62 40 52 60 56 84 32 106 18" stroke={blue} />
-          <circle cx="106" cy="18" r="3" fill={blue} />
-        </g>
-      )}
-    </svg>
-  );
-}
-
 // The intake mirrors the old build-request wizard's five steps and fields —
 // that data meaningfully shapes the analysis (see analyze.j2), so trimming
 // it down to "just enough for a demo" was throwing away signal the pipeline
@@ -211,26 +185,6 @@ const INTAKE_STEPS = [
   { id: 'conversation', label: 'The conversation', subtitle: 'A few questions before we answer' },
 ] as const;
 
-const ENGAGEMENT_OPTIONS = ['My whole business', 'One specific problem'];
-const ENGAGEMENT_MAP: Record<string, EngagementType> = {
-  'My whole business': 'full',
-  'One specific problem': 'capability',
-};
-const ENGAGEMENT_REVERSE: Record<EngagementType, string> = {
-  full: 'My whole business',
-  capability: 'One specific problem',
-};
-
-const STAGE_OPTIONS = ['Already operating', 'Opening soon'];
-const STAGE_MAP: Record<string, OperatingStage> = {
-  'Already operating': 'operating',
-  'Opening soon': 'opening',
-};
-const STAGE_REVERSE: Record<OperatingStage, string> = {
-  operating: 'Already operating',
-  opening: 'Opening soon',
-};
-
 /** Shown only when the tailoring call itself is unreachable — the server
  *  already serves its own fallback on model failure. Mirrors that set. */
 const LOCAL_DISCOVERY_FALLBACK: Record<OperatingStage, DiscoveryQuestion[]> = {
@@ -248,84 +202,31 @@ const LOCAL_DISCOVERY_FALLBACK: Record<OperatingStage, DiscoveryQuestion[]> = {
   ],
 };
 
-const NEEDS_AI_OPTIONS = ['Yes, definitely', 'Maybe, if it adds value', 'No, keep it simple'];
-const NEEDS_AI_MAP: Record<string, string> = {
-  'Yes, definitely': 'yes',
-  'Maybe, if it adds value': 'maybe',
-  'No, keep it simple': 'no',
-};
-const NEEDS_AI_REVERSE: Record<string, string> = {
-  yes: 'Yes, definitely',
-  maybe: 'Maybe, if it adds value',
-  no: 'No, keep it simple',
-};
 const BUDGET_OPTIONS = ['Starter scope', 'Standard scope', 'Full build', 'Not sure yet'];
-const TIMELINE_OPTIONS = ['ASAP (2–4 weeks)', '1–2 months', '2–3 months', 'Flexible'];
-
-/** Tiers built on the real validation rule (30 chars minimum, see
- *  validateStep) rather than an arbitrary "AI is impressed" fiction — this
- *  turns a threshold that already exists into live feedback instead of a
- *  surprise error on blur. */
-function specificityTier(text: string): { pct: number; label: string; tone: 'low' | 'mid' | 'high' } {
-  const len = text.trim().length;
-  if (len === 0) return { pct: 0, label: 'What do you do, and for whom?', tone: 'low' };
-  if (len < 30) {
-    return { pct: Math.round((len / 30) * 40), label: 'A little more — what do you do, and for whom?', tone: 'low' };
-  }
-  if (len < 120) {
-    return {
-      pct: 40 + Math.round(((len - 30) / 90) * 40),
-      label: 'Good — a bit more detail helps the screens feel real',
-      tone: 'mid',
-    };
-  }
-  return {
-    pct: Math.min(100, 80 + Math.round(((len - 120) / 120) * 20)),
-    label: 'Excellent detail — this will feel like yours',
-    tone: 'high',
-  };
-}
-
-function SpecificityMeter({ value }: { value: string }) {
-  const { pct, label, tone } = specificityTier(value);
-  return (
-    <div className="studio-specificity" data-tone={tone}>
-      <div className="studio-specificity-track">
-        <div className="studio-specificity-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <p className="studio-specificity-label">{label}</p>
-    </div>
-  );
-}
-
-function StudioPills({
-  options,
-  value,
-  onChange,
-}: {
-  options: string[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="studio-pills">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          className={`studio-pill${value === opt ? ' studio-pill--active' : ''}`}
-          onClick={() => onChange(opt)}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // Kept only as a bridge for someone who lands on bare /studio with a run
 // still going — the URL is the source of truth, this is the safety net.
 const RESUME_KEY = 'bmv_studio_request_id';
+
+/** Asked only when the interview ended without the business's name. */
+const NAME_QUESTION: DiscoveryQuestion = {
+  id: 'bmv-business-name',
+  label: "Last thing: what's the business called?",
+  placeholder: 'Halo Reformer Studio',
+  why: 'So everything we write is addressed to you, not to "the business". If it has no name yet, a working name is fine.',
+  field: 'business_name',
+};
+
+/** Replace the numbers in `value` with the ones in `next`, when both say the
+ *  same shape of thing ("10 of 12" edited to "about 11 of 12" shows "11 of
+ *  12"); otherwise show what they typed. */
+function reshapeValue(value: string, token: string, next: string): string {
+  const oldN: string[] = token.match(/\d[\d,.]*/g) ?? [];
+  const newN: string[] = next.match(/\d[\d,.]*/g) ?? [];
+  if (!oldN.length || oldN.length !== newN.length) return next;
+  let i = 0;
+  return value.replace(/\d[\d,.]*/g, (m) => (oldN.includes(m) && i < newN.length ? newN[i++] : m));
+}
 
 // Every export download carries the caller's session. The export routes are
 // auth-gated, and a plain <a href> navigation sends no Authorization header —
@@ -1515,19 +1416,6 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
   );
 }
 
-function BriefBot({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
-      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M9 3.5v2M15 3.5v2" />
-      <rect x="4.5" y="5.5" width="15" height="12.5" rx="4" />
-      <path d="M9.5 10.4v1.7M14.5 10.4v1.7" />
-      <path d="M9.6 15q2.4 1.7 4.8 0" />
-      <path d="M8.5 18v3l3-3" />
-    </svg>
-  );
-}
-
 export default function StudioPage() {
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
@@ -1602,12 +1490,24 @@ export default function StudioPage() {
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [numbersAnswers, setNumbersAnswers] = useState<Record<string, string>>({});
   const discoveryKey = useRef<string | null>(null);
-  // The pre-launch briefing chat.
-  const [briefMessages, setBriefMessages] = useState<BriefMessage[]>([]);
-  const [briefAddendum, setBriefAddendum] = useState<string | null>(null);
-  const [briefBusy, setBriefBusy] = useState(false);
-  const [briefInput, setBriefInput] = useState('');
-  const briefEndRef = useRef<HTMLDivElement>(null);
+  // One question at a time: the ids they have answered or said they don't
+  // know. The current question is the first one not in here.
+  const [committed, setCommitted] = useState<string[]>([]);
+  const roundAsked = useRef(0);
+  // The case file beside the conversation, refreshed as they answer, and the
+  // one played back before the diagnosis. Latest call wins.
+  const [caseFile, setCaseFile] = useState<CaseFile | null>(null);
+  const [caseLoading, setCaseLoading] = useState(false);
+  const caseCall = useRef<{ key: string; promise: Promise<CaseFile> } | null>(null);
+  const [playbackFile, setPlaybackFile] = useState<CaseFile | null>(null);
+  const [playbackLoading, setPlaybackLoading] = useState(false);
+  const [correction, setCorrection] = useState('');
+  const [finishError, setFinishError] = useState<string | null>(null);
+  // Files they dropped into the conversation, sent with the engagement.
+  const [files, setFiles] = useState<File[]>([]);
+  const [pilotLog, setPilotLog] = useState<PilotEntry[]>([]);
+  // The plan on a finished package, when it is written after the fact.
+  const [revealPlan, setRevealPlan] = useState<ActionPlan | null>(null);
   // The review gate. The token arrives as ?review=... on the reviewer's
   // link; its presence turns the page into the review view of the run.
   const reviewToken = useMemo(
@@ -1695,6 +1595,8 @@ export default function StudioPage() {
       await approveStudioDecision(routeId, scope);
       // Whether this caller or an earlier double-press claimed the run, the
       // build is now going — either way the honest next screen is the same.
+      // The clock restarts with it: it counts the build, not the consultation.
+      setStartedAt(Date.now());
       setPhase('building');
       setAct('building');
     } catch {
@@ -1770,6 +1672,7 @@ export default function StudioPage() {
     try {
       await reviseStudioDecision(routeId, note);
       setDecision(null);
+      setStartedAt(Date.now());
       setPhase('diagnosing');
       setAct('building');
     } catch {
@@ -1885,9 +1788,6 @@ export default function StudioPage() {
     };
   }, [routeId, navigate, applyProgress]);
 
-  useEffect(() => {
-    if (act === 'briefing') briefEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [act, briefMessages, briefBusy]);
 
   // While the engagement is with the consultant, quietly check for its
   // release — the waiting client's page flips to the reveal on its own.
@@ -1896,6 +1796,53 @@ export default function StudioPage() {
     const t = setInterval(() => void showResult(routeId), 20000);
     return () => clearInterval(t);
   }, [act, routeId, showResult]);
+
+  // The plan is written in the background after they take the answer. Poll
+  // for it until it is written — or until it fails, which the page offers to
+  // retry.
+  const planStatus = decision?.action_plan?.status;
+  useEffect(() => {
+    if (act !== 'decision' || routeId == null || decision?.status !== 'advised') return;
+    if (planStatus && planStatus !== 'writing') return;
+    const t = setInterval(() => {
+      getStudioDecision(routeId)
+        .then(setDecision)
+        .catch(() => undefined);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [act, routeId, decision?.status, planStatus]);
+
+  // A plan asked for on a finished package: poll until it is written.
+  const revealPlanStatus = revealPlan?.status;
+  useEffect(() => {
+    if (act !== 'reveal' || routeId == null || revealPlanStatus !== 'writing') return;
+    const t = setInterval(() => {
+      getStudioPlan(routeId)
+        .then((r) => {
+          if (r.plan && r.plan.status !== 'writing') setRevealPlan(r.plan);
+        })
+        .catch(() => undefined);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [act, routeId, revealPlanStatus]);
+
+  // The tracker's entries, whenever a package is on screen.
+  useEffect(() => {
+    if (routeId == null) return;
+    if (act !== 'reveal' && !(act === 'decision' && decision?.status === 'advised')) return;
+    getStudioPlan(routeId)
+      .then((r) => setPilotLog(r.log ?? []))
+      .catch(() => undefined);
+  }, [act, routeId, decision?.status]);
+
+  // A build resumed from its URL has no decision in memory, and the building
+  // screen pins the answer it is built around. Read it once.
+  useEffect(() => {
+    if (act !== 'building' || phase !== 'building' || decision || routeId == null) return;
+    getStudioDecision(routeId)
+      .then(setDecision)
+      .catch(() => undefined);
+  }, [act, phase, decision, routeId]);
 
   // Poll progress while building.
   useEffect(() => {
@@ -2002,13 +1949,41 @@ export default function StudioPage() {
    *  vanished from it would be asked for again. */
   const answerQuestion = useCallback((id: string, value: string) => {
     setNumbersAnswers((prev) => ({ ...prev, [id]: value }));
-    const question = rounds.flatMap((r) => r.questions).find((q) => q.id === id);
+    const question = [...rounds.flatMap((r) => r.questions), NAME_QUESTION].find((q) => q.id === id);
     const field = question?.field;
-    if (field && (CONVERSATION_FIELDS as readonly string[]).includes(field)) {
+    if (field === 'business_name') {
+      // "What's it called, and how big is it?" is one natural question, and
+      // it gets one sentence back: "Halo Reformer Studio. One room, 12
+      // reformers…". The name is what comes before the first stop; the rest
+      // describes the business, and is kept as that rather than lost.
+      const parts = value.split(/(?<=\S)[.;\n]\s+|\s+[—–-]\s+/);
+      // "Dr. Aoun's Clinic" must not become "Dr": a first piece that short
+      // is an abbreviation, not a name.
+      const split = parts.length > 1 && parts[0].trim().length >= 4;
+      const name = split ? parts[0] : value;
+      const more = split ? parts.slice(1).join('. ').trim() : '';
+      setForm((prev) => ({
+        ...prev,
+        business_name: name.trim().slice(0, 120),
+        business_description: more && !prev.business_description.trim() ? more : prev.business_description,
+      }));
+    } else if (field && (CONVERSATION_FIELDS as readonly string[]).includes(field)) {
       setForm((prev) => ({ ...prev, [field]: value }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rounds]);
+
+  /** Every question put to them, in order — plus the business's name, asked
+   *  last and only if the interview never got it. The engagement cannot
+   *  start without a name, and the interview can end without asking. */
+  const allQuestions = useMemo(() => {
+    const qs = rounds.flatMap((r) => r.questions);
+    const pending = qs.some((q) => !committed.includes(q.id));
+    if (interviewDone && !pending && !discoveryLoading && form.business_name.trim().length < 2) {
+      return [...qs, NAME_QUESTION];
+    }
+    return qs;
+  }, [rounds, committed, interviewDone, discoveryLoading, form.business_name]);
 
   /** Everything answered across every round, in the shape the run is
    *  launched with. One builder, so the interviewer is shown exactly what the
@@ -2100,9 +2075,148 @@ export default function StudioPage() {
     if (discoveryKey.current === problem) return;
     discoveryKey.current = problem;
     setRounds([]);
+    setCommitted([]);
+    setCaseFile(null);
     setInterviewDone(false);
+    roundAsked.current = 1;
     void askRound(1);
   }, [form.main_problem, askRound]);
+
+  /** The inputs the case file is read from: only what they have committed,
+   *  so it refreshes when they answer and not on every keystroke. */
+  const caseInputs = useCallback(() => {
+    const ops = opsNumbersPairs().filter((p) => committed.includes(p.id));
+    return {
+      main_problem: form.main_problem.trim(),
+      ops_numbers: ops,
+      known: knownFields() as Record<string, string>,
+      operating_stage: form.operating_stage,
+      playback: true,
+    };
+  }, [opsNumbersPairs, committed, form.main_problem, form.operating_stage, knownFields]);
+
+  const caseKey = useMemo(
+    () => JSON.stringify({
+      p: form.main_problem.trim(),
+      a: committed.map((id) => [id, (numbersAnswers[id] ?? '').trim()]),
+    }),
+    [form.main_problem, committed, numbersAnswers],
+  );
+
+  // After every answer: re-read the case file. A newer call supersedes an
+  // older one — the panel never shows an answer being taken back.
+  useEffect(() => {
+    if (act !== 'intake' || step !== 1 || committed.length === 0) return;
+    if (caseCall.current?.key === caseKey) return;
+    const promise = fetchCaseFile(caseInputs());
+    caseCall.current = { key: caseKey, promise };
+    setCaseLoading(true);
+    void promise.then((file) => {
+      if (caseCall.current?.key !== caseKey) return;
+      setCaseFile((prev) => (file.figures.length || file.capacity || !prev ? file : prev));
+      setCaseLoading(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act, step, caseKey]);
+
+  // When the round's last question is answered, ask the next round — unless
+  // they skipped every question in it, in which case follow-ups would be
+  // follow-ups to nothing.
+  useEffect(() => {
+    if (act !== 'intake' || step !== 1) return;
+    if (discoveryLoading || interviewDone || rounds.length === 0) return;
+    const qs = rounds.flatMap((r) => r.questions);
+    if (!qs.every((q) => committed.includes(q.id))) return;
+    const next = rounds.length + 1;
+    if (roundAsked.current >= next) return;
+    const last = rounds[rounds.length - 1];
+    if (!last.questions.some((q) => (numbersAnswers[q.id] ?? '').trim())) {
+      setInterviewDone(true);
+      return;
+    }
+    roundAsked.current = next;
+    void askRound(next);
+  }, [act, step, committed, rounds, discoveryLoading, interviewDone, numbersAnswers, askRound]);
+
+  const commitQuestion = (id: string) => {
+    setFinishError(null);
+    setCommitted((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const reopenQuestion = (id: string) => {
+    setCommitted((prev) => prev.filter((x) => x !== id));
+  };
+
+  /** Their files, checked here only for what the server would refuse anyway:
+   *  the type and the size. Three at most. */
+  const addFiles = (incoming: File[]) => {
+    const ok = incoming.filter((f) => /\.(csv|tsv|txt|xlsx|xlsm|pdf)$/i.test(f.name) && f.size <= 8 * 1024 * 1024);
+    if (ok.length < incoming.length) {
+      setFinishError('We can read spreadsheets, CSV files and PDFs up to 8 MB. Anything else was left out.');
+    }
+    setFiles((prev) => [...prev, ...ok].slice(0, 3));
+  };
+
+  /** From the conversation to the playback: every rule once more, then the
+   *  case file played back — reusing the one already read if nothing has
+   *  changed since. */
+  const finishInterview = async () => {
+    const allValid = STEP_RULES.map((_, i) => validateStep(i)).every(Boolean);
+    if (!allValid) {
+      setFinishError(
+        form.business_name.trim().length < 2
+          ? "We still need the business's name. Tap “change” on that question above, or answer the last one."
+          : 'We still need a couple of sentences on what you do.',
+      );
+      return;
+    }
+    setFinishError(null);
+    setSubmitError(null);
+    setCorrection('');
+    setAct('briefing');
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    const pending = caseCall.current;
+    if (pending && pending.key === caseKey) {
+      setPlaybackLoading(true);
+      const file = await pending.promise;
+      setPlaybackFile(file);
+      setPlaybackLoading(false);
+      if (file.summary || file.figures.length) return;
+    }
+    setPlaybackLoading(true);
+    const file = await fetchCaseFile(caseInputs());
+    setPlaybackFile(file);
+    setPlaybackLoading(false);
+  };
+
+  /** A figure corrected on the playback rewrites the sentence it was read
+   *  from, so the diagnosis reads the corrected answer, not the old one with
+   *  a note beside it. */
+  const editFigure = (f: CaseFigure, next: string) => {
+    const swap = (text: string) => {
+      if (text.includes(f.token)) return text.replace(f.token, next);
+      const i = text.toLowerCase().indexOf(f.token.toLowerCase());
+      return i < 0 ? `${text} (correction: ${next})` : text.slice(0, i) + next + text.slice(i + f.token.length);
+    };
+    if (f.source === 'main_problem') {
+      setForm((p) => ({ ...p, main_problem: swap(p.main_problem) }));
+    } else if (f.source.startsWith('field:')) {
+      const key = f.source.slice(6) as keyof typeof form;
+      setForm((p) => ({ ...p, [key]: swap(String(p[key] ?? '')) }));
+      const q = rounds.flatMap((r) => r.questions).find((x) => x.field === key);
+      if (q) setNumbersAnswers((p) => ({ ...p, [q.id]: swap(p[q.id] ?? '') }));
+    } else {
+      setNumbersAnswers((p) => ({ ...p, [f.source]: swap(p[f.source] ?? '') }));
+    }
+    setPlaybackFile((pf) =>
+      pf && {
+        ...pf,
+        figures: pf.figures.map((x) =>
+          x === f ? { ...x, token: next, value: reshapeValue(x.value, x.token, next) } : x,
+        ),
+      },
+    );
+  };
 
   const goNext = () => {
     if (!validateStep(step)) return;
@@ -2140,6 +2254,7 @@ export default function StudioPage() {
     operating_stage: form.operating_stage,
     engagement_type: form.engagement_type,
     ops_numbers: opsNumbersPairs(),
+    files,
   });
 
   const launchEngagement = async (addendum: string | null) => {
@@ -2170,63 +2285,9 @@ export default function StudioPage() {
           ? 'The studio is rendering at full capacity right now — give it a few minutes and try again.'
           : 'Something went wrong reaching the studio. Try again in a moment.',
       );
-      setAct('intake');
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const briefTurn = async (messages: BriefMessage[], opening: boolean) => {
-    setBriefBusy(true);
-    const turn = await fetchBriefTurn({ intake: buildIntake(), messages });
-    setBriefBusy(false);
-    if (!turn.ok || !turn.reply) {
-      // The consultant being unreachable must never block the launch: on
-      // the opening turn start directly; mid-chat, say so honestly.
-      if (opening) void launchEngagement(briefAddendum);
-      else
-        setBriefMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: "I couldn't process that just now — your corrections so far are saved. Press Start whenever you're ready." },
-        ]);
-      return;
-    }
-    setBriefMessages([...messages, { role: 'assistant', content: turn.reply }]);
-    if (turn.brief_addendum !== undefined) setBriefAddendum(turn.brief_addendum ?? null);
-  };
-
-  const sendBriefMessage = () => {
-    const text = briefInput.trim();
-    if (!text || briefBusy) return;
-    const next: BriefMessage[] = [...briefMessages, { role: 'user', content: text }];
-    setBriefMessages(next);
-    setBriefInput('');
-    void briefTurn(next, false);
-  };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Enter in a text field submits the nearest form regardless of which
-    // button is on screen — on an earlier step that means "next", not "go".
-    if (step < INTAKE_STEPS.length - 1) {
-      goNext();
-      return;
-    }
-    setSubmitError(null);
-    // The last step is the only one whose Continue button submits — walk
-    // every step's rule once more so a stale error from an earlier step
-    // (edited, then navigated away from) can't slip through. Derived from
-    // STEP_RULES rather than listed, so adding or moving a step cannot leave
-    // its rules unchecked at the one moment they matter most.
-    const allValid = STEP_RULES.map((_, i) => validateStep(i)).every(Boolean);
-    if (!allValid || submitting) return;
-    // Before anything runs: the consultant plays back the brief in a short
-    // chat so wrong inputs get corrected while correcting is still free.
-    setBriefMessages([]);
-    setBriefAddendum(null);
-    setAct('briefing');
-    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
-    void briefTurn([], true);
   };
 
   const doApprove = async () => {
@@ -2315,447 +2376,145 @@ export default function StudioPage() {
   const allScreens: StudioScreen[] = preview?.generated_pages.attraction_images ?? [];
   const screens = allScreens.filter((s) => !brokenSrc[s.image_url]);
   const visibleTabs = preview ? RESULT_TABS.filter((t) => t.available(preview)) : [];
-  const buildingName = progress?.business_name || form.business_name.trim() || 'Your business';
+  const buildingName =
+    progress?.business_name || decision?.business_name || preview?.business_name || form.business_name.trim() || 'Your business';
+  const firstName = (user?.name ?? '').trim().split(/\s+/)[0] || null;
   const fade = reduceMotion
     ? {}
-    : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -12 } };
+    : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -12 }, transition: { duration: 0.4 } };
+
+  // Where they are in the five steps, and what the top bar calls it.
+  const [chromeStep, chromeWhere] = ((): [number, string] => {
+    switch (act) {
+      case 'intake':
+        return step === 0 ? [0, 'Your situation'] : [1, 'Questions'];
+      case 'briefing':
+        return [1, 'Before we start'];
+      case 'building':
+        return phase === 'building' ? [4, 'Building your package'] : [2, 'Diagnosis'];
+      case 'decision':
+        return decision?.status === 'advised' ? [5, 'Yours to keep'] : [3, 'Your answer'];
+      case 'reveal':
+        return [5, 'Yours to keep'];
+      case 'pending':
+        return [5, 'In final review'];
+      default:
+        return [0, ''];
+    }
+  })();
+
+  const packageScreens: PackageScreen[] = screens
+    .map((sc) => ({
+      label: sc.role_label,
+      src: consultantAssetUrl(sc.hero_url ?? sc.image_url) ?? '',
+      full: consultantAssetUrl(sc.image_url) ?? '',
+    }))
+    .filter((sc) => sc.src && sc.full);
+
+  const download = (kind: StudioExportKind) =>
+    routeId == null ? Promise.resolve() : downloadStudioExport(routeId, kind, reviewToken);
+  const share = async () => {
+    const r = await shareStudio(routeId as StudioRef);
+    return `${window.location.origin}${r.path}`;
+  };
+  const unshare = async () => {
+    await unshareStudio(routeId as StudioRef);
+  };
+  const saveWeek = async (week: number, values: Record<string, number>, note: string) => {
+    const r = await logPilotWeek(routeId as StudioRef, week, values, note);
+    setPilotLog(r.log);
+  };
+  const retryPlan = async () => {
+    if (routeId == null) return;
+    try {
+      await retryStudioPlan(routeId);
+    } finally {
+      if (act === 'decision') await loadDecision(routeId);
+      else setRevealPlan({ status: 'writing' });
+    }
+  };
+  const finding = decision?.answer
+    ? [decision.answer.headline, decision.answer.turn].filter(Boolean).join(' ')
+    : decision?.decision.central_problem ?? null;
 
   return (
-    <div className="studio-page relative">
-      <SiteNav />
-      <div className="studio-grid-field" aria-hidden="true" />
+    <div className="cx">
+      <Chrome
+        step={chromeStep}
+        where={chromeWhere}
+        right={isAuthenticated ? <RouterLink to="/engagements">Your engagements</RouterLink> : null}
+      />
 
-      <main className="relative z-10 section-padding pt-28 pb-20">
-        {/* The running step takes the whole screen; every other act stays in
-            the reading-width column it was designed for. */}
-        <div className={act === 'building' ? 'mx-auto w-full max-w-[1680px]' : 'container-max max-w-6xl'}>
+      <main className="cx-wrap">
           <AnimatePresence mode="wait">
             {act === 'loading' && (
-              <motion.section key="loading" {...fade} transition={{ duration: 0.3 }}>
-                <div className="max-w-xl mx-auto text-center py-24">
-                  <span className="studio-spinner" aria-hidden="true" />
-                  <p className="mt-6 text-slate-600">Opening your studio run…</p>
-                </div>
+              <motion.section key="loading" {...fade}>
+                <p className="cx-lead pt-[12vh]">
+                  Opening your consultation<span className="cx-typing"><i /><i /><i /></span>
+                </p>
               </motion.section>
             )}
 
-            {act === 'intake' && (
-              <motion.section key="intake" {...fade} transition={{ duration: 0.45 }}>
-                {/* Reference layout: copy + flow map left, form right. */}
-                <div className="grid lg:grid-cols-[1.2fr_1fr] gap-10 lg:gap-14 items-start">
-                  <div className="pt-4">
-                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-[3.1rem] font-bold leading-[1.08] text-navy">
-                      Before you invest in AI, see exactly{' '}
-                      <span className="studio-hero-grad">what we'd build.</span>
-                    </h1>
-                    <p className="mt-5 text-slate-600 text-base sm:text-lg max-w-xl leading-relaxed">
-                      Tell us where your business is slow, manual, or expensive. We'll turn it
-                      into a tailored AI system concept — <strong className="text-navy">built
-                      around your workflows, data, tools, and economics.</strong>
-                    </p>
+            {act === 'intake' && step === 0 && (
+              <motion.div key="door" {...fade}>
+                <FrontDoor
+                  firstName={firstName}
+                  value={form.main_problem}
+                  onChange={(v) => setForm((f) => ({ ...f, main_problem: v }))}
+                  siteUrl={form.site_url}
+                  onSiteUrl={(v) => setForm((f) => ({ ...f, site_url: v }))}
+                  error={errors.main_problem}
+                  onStart={goNext}
+                  signedIn={isAuthenticated}
+                  checkingAuth={authLoading}
+                />
+              </motion.div>
+            )}
 
-                    <div className="mt-6 flex items-center gap-4 lg:hidden">
-                      <a href="#studio-form" className="studio-cta studio-jumplink">
-                        Start your demo
-                        <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
-                      </a>
-                      <span className="flex items-center gap-1.5 text-xs text-slate-500 whitespace-nowrap">
-                        <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
-                        No call required
-                      </span>
-                    </div>
-
-                    {/* the flow map: business -> signals -> agents -> workflow,
-                        branching to human review -> outcomes */}
-                    <div className="studio-flowmap mt-9" aria-hidden="true">
-                      <div className="studio-flowmap-row">
-                        {[
-                          { icon: INTAKE_ICONS.building, label: 'Your business', sub: 'Processes, people, and systems' },
-                          { icon: INTAKE_ICONS.database, label: 'Signals & data', sub: 'Structured + unstructured' },
-                          { icon: INTAKE_ICONS.sparkle, label: 'AI agents', sub: 'Reason, decide, and act', hot: true },
-                          { icon: INTAKE_ICONS.workflow, label: 'Workflow', sub: 'Integrated into your operations' },
-                        ].map((n, i) => (
-                          <div className="contents" key={n.label}>
-                            {i > 0 && <span className="studio-flowmap-link" />}
-                            <div className={`studio-flowmap-node${n.hot ? ' studio-flowmap-node--hot' : ''}`}>
-                              <Icon path={n.icon} className="w-4 h-4" />
-                              <p>{n.label}</p>
-                              <span>{n.sub}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="studio-flowmap-row studio-flowmap-row--branch">
-                        <div className="studio-flowmap-node">
-                          <Icon path={INTAKE_ICONS.user} className="w-4 h-4" />
-                          <p>Human review</p>
-                          <span>Validate, refine, and approve</span>
-                        </div>
-                        <span className="studio-flowmap-link" />
-                        <div className="studio-flowmap-node">
-                          <Icon path={INTAKE_ICONS.chart} className="w-4 h-4" />
-                          <p>Outcomes</p>
-                          <span>Better decisions, measurable impact</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {!authLoading && !isAuthenticated && (
-                    <div id="studio-form" className="studio-panel p-6 sm:p-8 studio-authwall">
-                      <p className="studio-kicker mb-3">Private to your account</p>
-                      <h2 className="studio-display text-2xl font-bold text-navy mb-3">
-                        Sign in to start your engagement
-                      </h2>
-                      <p className="studio-plan-rostertext mb-6">
-                        Every engagement is private - only your account can open the documents it
-                        produces. Create an account or sign in, and your work stays yours.
-                      </p>
-                      <div className="flex flex-wrap gap-3">
-                        <RouterLink to="/signup" state={{ from: '/demo' }} className="studio-cta">
-                          Create your account
-                        </RouterLink>
-                        <RouterLink to="/login" state={{ from: '/demo' }} className="studio-ghost-btn">
-                          Sign in
-                        </RouterLink>
-                      </div>
-                      <p className="studio-hint studio-hint--trust mt-5">
-                        <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
-                        Your brief, your numbers, your documents - visible to you alone.
-                      </p>
-                    </div>
-                  )}
-
-                  {(authLoading || isAuthenticated) && <motion.form
-                    id="studio-form"
-                    className="studio-panel p-6 sm:p-8"
-                    onSubmit={submit}
-                    noValidate
-                    initial={reduceMotion ? undefined : { opacity: 0, y: 24 }}
-                    animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.08 }}
-                  >
-                    <div className="studio-steps" aria-hidden="true">
-                      {INTAKE_STEPS.map((s, i) => (
-                        <div className="studio-step" data-state={i < step ? 'done' : i === step ? 'active' : 'pending'} key={s.id}>
-                          <span className="studio-step-no">{i < step ? '✓' : i + 1}</span>
-                          <span className="studio-step-label">{s.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="studio-hint mb-6">{INTAKE_STEPS[step].subtitle}</p>
-
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={step}
-                        initial={reduceMotion ? undefined : { opacity: 0, x: 16 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={reduceMotion ? undefined : { opacity: 0, x: -16 }}
-                        transition={{ duration: 0.3 }}
-                        className="space-y-5"
-                      >
-                        {step === 0 && (
-                          <>
-                            {/* The whole front door. Everything the four-step
-                                form used to ask is now asked in the
-                                conversation, by a consultant who has already
-                                read this. */}
-                            {/* Deliberately not "what's going wrong". That
-                                shuts out everyone who has not started yet, and
-                                a business being planned is a case the pipeline
-                                already handles — `operating_stage: 'opening'`
-                                changes which questions get asked and which
-                                numbers exist to reason about. */}
-                            <div className="studio-field" data-invalid={!!errors.main_problem}>
-                              <label htmlFor="st-problem" className="!text-lg">
-                                What are you trying to work out?
-                              </label>
-                              <textarea
-                                id="st-problem"
-                                rows={5}
-                                value={form.main_problem}
-                                onChange={(e) => setForm({ ...form, main_problem: e.target.value })}
-                                placeholder={'e.g. "We keep missing calls in the evening and I think we\'re losing bookings."\n\nor "I want to open a second clinic but I can\'t tell if the numbers work."'}
-                                autoFocus
-                              />
-                              {errors.main_problem ? (
-                                <p className="studio-error-text">{errors.main_problem}</p>
-                              ) : (
-                                <p className="studio-hint">
-                                  A problem that's costing you, a decision you're stuck on, or
-                                  something you want to start. A sentence or two is plenty — we'll
-                                  ask you the rest. And we'll treat whatever you write as one
-                                  explanation to test, not as settled: people are usually right
-                                  about the symptom and often wrong about the cause.
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="studio-field">
-                              <label htmlFor="st-siteurl">
-                                Your website or Google page{' '}
-                                <span className="text-slate-500 font-normal">(optional)</span>
-                              </label>
-                              <div className="studio-inputwrap">
-                                <Icon path={INTAKE_ICONS.globe} />
-                                <input
-                                  id="st-siteurl"
-                                  value={form.site_url}
-                                  onChange={(e) => setForm({ ...form, site_url: e.target.value })}
-                                  placeholder="e.g. https://yourbusiness.com"
-                                  autoComplete="url"
-                                />
-                              </div>
-                              <p className="studio-hint">
-                                We'll read it before we ask you anything — real services, hours and
-                                tone are facts we can use instead of assumptions.
-                              </p>
-                            </div>
-                          </>
-                        )}
-
-                        {step === 1 && (
-                          <Conversation
-                            rounds={rounds}
-                            answers={numbersAnswers}
-                            onAnswer={answerQuestion}
-                            onMore={() => void askRound(rounds.length + 1)}
-                            loading={discoveryLoading}
-                            done={interviewDone}
-                            closing={interviewClosing}
-                            required={['business_name']}
-                          />
-                        )}
-
-                        {/* These used to sit under their own fields on the old
-                            form. The conversation fills them now, and with no
-                            place to show the error, pressing the button when
-                            one was blank did nothing at all — no message, no
-                            movement, and nothing to tell the client why. */}
-                        {step === 1 && (errors.business_name || errors.business_description) && (
-                          <div className="studio-error-text mt-2" role="alert">
-                            {errors.business_name && <p>{errors.business_name}</p>}
-                            {errors.business_description && <p>{errors.business_description}</p>}
-                          </div>
-                        )}
-                      </motion.div>
-                    </AnimatePresence>
-
-                    {submitError && (
-                      <p className="studio-error-text mt-5" role="alert">
-                        {submitError}
-                      </p>
-                    )}
-
-                    <div className="studio-stepnav">
-                      {step > 0 && (
-                        <button type="button" className="studio-ghost-btn" onClick={goBack} disabled={submitting}>
-                          Back
-                        </button>
-                      )}
-                      {step < INTAKE_STEPS.length - 1 ? (
-                        /* Distinct keys: without them React reuses this DOM
-                           node when the step flips, the browser's default
-                           click action then runs against type="submit", and
-                           Continue on the second-to-last step submits the
-                           whole form — skipping the final step entirely. */
-                        <button key="next" type="button" className="studio-cta studio-stepnav-cta" onClick={goNext}>
-                          Continue
-                          <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
-                        </button>
-                      ) : (
-                        <button key="go" className="studio-cta studio-stepnav-cta" type="submit" disabled={submitting}>
-                          {/* Not "Design my software" any more: the pipeline
-                              is now allowed to conclude that software is the
-                              wrong answer, and a button that promises one
-                              commits us before the diagnosis has run. */}
-                          {submitting ? 'Opening the studio…' : 'Diagnose my business'}
-                          {!submitting && <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />}
-                        </button>
-                      )}
-                    </div>
-                    <p className="studio-hint studio-hint--trust text-center mt-4">
-                      <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
-                      No sales call. No deck. Just a clearer path forward.
-                    </p>
-                  </motion.form>}
-                </div>
-
-                {/* ── what you'll get: three sketch cards ── */}
-                <div className="mt-16">
-                  <h2 className="studio-display text-xl font-bold text-navy mb-5">What you'll get</h2>
-                  <div className="grid lg:grid-cols-3 gap-5">
-                    {[
-                      {
-                        kind: 'flow' as const,
-                        icon: INTAKE_ICONS.workflow,
-                        title: 'Workflow redesigned',
-                        body: 'We map your current process, find the friction, and redesign the workflow for speed and scale.',
-                      },
-                      {
-                        kind: 'system' as const,
-                        icon: INTAKE_ICONS.cpu,
-                        title: 'AI system visualized',
-                        body: 'See how AI agents, data, and tools work together — tailored to your operation.',
-                      },
-                      {
-                        kind: 'chart' as const,
-                        icon: INTAKE_ICONS.chart,
-                        title: 'Business case modeled',
-                        body: 'We show where the value comes from — what can be automated or augmented, and why the system is worth building.',
-                      },
-                    ].map((c) => (
-                      <div className="studio-getcard" key={c.title}>
-                        <GetSketch kind={c.kind} />
-                        <div>
-                          <h3>
-                            <Icon path={c.icon} className="w-4 h-4" />
-                            {c.title}
-                          </h3>
-                          <p>{c.body}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── the pipeline band + benefits ── */}
-                <div className="mt-8 studio-band">
-                  <div className="studio-band-cols">
-                    {[
-                      { icon: INTAKE_ICONS.building, title: 'Business inputs', items: ['Your data', 'Operations', 'Systems & tools', 'Goals'] },
-                      { icon: INTAKE_ICONS.sparkle, title: 'AI system', items: ['AI agents', 'Models', 'Knowledge', 'Automation'] },
-                      { icon: INTAKE_ICONS.user, title: 'Human review', items: ['Check', 'Refine', 'Approve', 'Learn'] },
-                      { icon: INTAKE_ICONS.chart, title: 'Measurable results', items: ['Better decisions', 'More capacity', 'Lower costs', 'Sustainable growth'] },
-                    ].map((col, i) => (
-                      <div className="contents" key={col.title}>
-                        {i > 0 && <span className="studio-band-arrow">→</span>}
-                        <div className="studio-band-col">
-                          <p className="studio-band-col-head">
-                            <Icon path={col.icon} className="w-4 h-4" />
-                            {col.title}
-                          </p>
-                          <ul>
-                            {col.items.map((it) => (
-                              <li key={it}>{it}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="studio-band-benefits">
-                    {[
-                      { title: 'Faster decisions', sub: 'From insight to action in less time.' },
-                      { title: 'Lower costs', sub: 'Eliminate manual work and rework.' },
-                      { title: 'Happier teams', sub: 'Remove friction. Increase focus.' },
-                      { title: 'Measurable ROI', sub: 'Clear impact you can track and prove.' },
-                    ].map((b) => (
-                      <div className="studio-band-benefit" key={b.title}>
-                        <span className="studio-band-check">
-                          <CheckIcon className="w-3 h-3" />
-                        </span>
-                        <p>
-                          <strong>{b.title}</strong> {b.sub}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.section>
+            {act === 'intake' && step === 1 && (
+              <motion.div key="interview" {...fade}>
+                <button type="button" className="cx-link cx-small mt-2" onClick={goBack}>
+                  Back to what you wrote
+                </button>
+                <Interview
+                  questions={allQuestions}
+                  answers={numbersAnswers}
+                  committed={committed}
+                  onAnswer={answerQuestion}
+                  onCommit={commitQuestion}
+                  onReopen={reopenQuestion}
+                  loading={discoveryLoading}
+                  done={interviewDone}
+                  closing={interviewClosing}
+                  estimatedTotal={allQuestions.length + (interviewDone ? 0 : 2)}
+                  caseFile={caseFile}
+                  caseLoading={caseLoading}
+                  files={files}
+                  onAddFiles={addFiles}
+                  onRemoveFile={(i) => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                  onFinish={() => void finishInterview()}
+                  finishError={finishError}
+                />
+              </motion.div>
             )}
 
             {act === 'briefing' && (
-              <motion.section key="briefing" {...fade} transition={{ duration: 0.45 }}>
-                <div className="max-w-2xl mx-auto">
-                  <div className="text-center mb-8">
-                    <p className="studio-kicker mb-3">Before anything runs</p>
-                    <h1 className="studio-display text-3xl sm:text-4xl font-bold text-navy">
-                      Let's make sure I got this right
-                    </h1>
-                    <p className="studio-plan-rostertext mt-3">
-                      Your consultant read the brief. Correct anything in the chat — nothing
-                      launches until you press Start.
-                    </p>
-                  </div>
-
-                  <div className="studio-briefchat">
-                    <div className="studio-briefchat-msgs">
-                      {briefMessages.map((m, i) =>
-                        m.role === 'assistant' ? (
-                          <div className="studio-briefrow" key={`a-${i}`}>
-                            <span className="studio-briefavatar" aria-hidden="true">
-                              <BriefBot className="w-5 h-5" />
-                            </span>
-                            <div className="studio-briefbubble studio-briefbubble--bot">{m.content}</div>
-                          </div>
-                        ) : (
-                          <div className="studio-briefbubble studio-briefbubble--user" key={`u-${i}`}>
-                            {m.content}
-                          </div>
-                        ),
-                      )}
-                      {briefBusy && (
-                        <div className="studio-briefrow">
-                          <span className="studio-briefavatar" aria-hidden="true">
-                            <BriefBot className="w-5 h-5" />
-                          </span>
-                          <div className="studio-briefbubble studio-briefbubble--bot studio-brieftyping">
-                            <span />
-                            <span />
-                            <span />
-                          </div>
-                        </div>
-                      )}
-                      <div ref={briefEndRef} />
-                    </div>
-
-                    <div className="studio-briefchat-input">
-                      <input
-                        value={briefInput}
-                        onChange={(e) => setBriefInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            sendBriefMessage();
-                          }
-                        }}
-                        placeholder="Correct or add anything — e.g. we have 8 therapists, not 6"
-                        maxLength={600}
-                        disabled={briefBusy}
-                        aria-label="Correct your brief"
-                      />
-                      <button type="button" onClick={sendBriefMessage} disabled={briefBusy || !briefInput.trim()}>
-                        Send
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="studio-brief-actions">
-                    <button
-                      type="button"
-                      className="studio-cta studio-stepnav-cta"
-                      onClick={() => void launchEngagement(briefAddendum)}
-                      disabled={submitting}
-                    >
-                      {submitting ? 'Starting your engagement…' : "Everything's right — start"}
-                    </button>
-                    <button
-                      type="button"
-                      className="studio-ghost-btn"
-                      onClick={() => setAct('intake')}
-                      disabled={submitting}
-                    >
-                      Back to the form
-                    </button>
-                  </div>
-                  {submitError && (
-                    <p className="studio-error-text text-center mt-4" role="alert">
-                      {submitError}
-                    </p>
-                  )}
-                </div>
-              </motion.section>
+              <motion.div key="playback" {...fade}>
+                <Playback
+                  file={playbackFile}
+                  loading={playbackLoading}
+                  businessName={form.business_name.trim()}
+                  fallbackAnswers={opsNumbersPairs().map((p) => ({ question: p.question, answer: p.answer }))}
+                  mainProblem={form.main_problem}
+                  onEditFigure={editFigure}
+                  correction={correction}
+                  onCorrection={setCorrection}
+                  onStart={() => void launchEngagement(correction.trim() ? `- ${correction.trim()}` : null)}
+                  onBack={() => setAct('intake')}
+                  submitting={submitting}
+                  error={submitError}
+                />
+              </motion.div>
             )}
 
             {act === 'private' && (
@@ -2897,148 +2656,104 @@ export default function StudioPage() {
             )}
 
             {act === 'decision' && decision && (
-              <ApprovalGate
-                decision={decision}
-                onApprove={approveDecision}
-                onAccept={acceptAdvice}
-                onRevise={reviseDecision}
-                busy={gateBusy}
-                error={gateError}
-                accepted={decision.status === 'advised'}
-                figures={figures}
-                onUpload={uploadEvidence}
-                onDeleteFigure={deleteFigure}
-                evidenceBusy={evidenceBusy}
-                evidenceNote={evidenceNote}
-                evidenceError={evidenceError}
-              />
+              <motion.div key={`decision-${decision.status}`} {...fade}>
+                {decision.status === 'advised' ? (
+                  <>
+                    <Package
+                      mode="plan"
+                      businessName={decision.business_name ?? buildingName}
+                      answer={decision.answer ?? null}
+                      fallbackFinding={decision.decision.central_problem ?? decision.decision.summary}
+                      capacity={decision.capacity ?? null}
+                      plan={decision.action_plan ?? null}
+                      log={pilotLog}
+                      unverified={decision.decision.unverified ?? []}
+                      screens={[]}
+                      docs={{ blueprint: false, technical: false, operations: false }}
+                      onDownload={download}
+                      onShare={share}
+                      onUnshare={unshare}
+                      canEdit
+                      onSaveWeek={saveWeek}
+                      onRetryPlan={() => void retryPlan()}
+                      onBuild={() => void approveDecision()}
+                    />
+                    {gateError ? <p className="cx-error mt-6" role="alert">{gateError}</p> : null}
+                  </>
+                ) : (
+                  <Answer
+                    decision={decision}
+                    firstName={firstName}
+                    onBuild={(scope) => void approveDecision(scope)}
+                    onAccept={() => void acceptAdvice()}
+                    onRevise={(note) => void reviseDecision(note)}
+                    onUpload={(f) => void uploadEvidence(f)}
+                    busy={gateBusy}
+                    error={gateError}
+                    evidenceBusy={evidenceBusy}
+                    evidenceNote={evidenceNote}
+                    evidenceError={evidenceError}
+                    figures={figures}
+                    onDeleteFigure={(id) => void deleteFigure(id)}
+                  />
+                )}
+              </motion.div>
             )}
 
             {act === 'building' && (
-              <motion.section key="building" {...fade} transition={{ duration: 0.45 }}>
-                <RunStage
-                  phase={phase}
-                  businessName={buildingName}
-                  label={progress?.label ?? null}
-                  detail={progress?.detail ?? null}
-                  pct={pct}
-                  elapsed={elapsed}
-                  steps={thinking}
-                  resultUrl={resultUrl}
-                  copied={copied}
-                  onCopy={copyLink}
-                />
-              </motion.section>
+              <motion.div key={`run-${phase}`} {...fade}>
+                {phase === 'diagnosing' ? (
+                  <Thinking steps={thinking} stage={progress?.stage ?? null} elapsed={elapsed} businessName={buildingName} />
+                ) : (
+                  <Building
+                    businessName={buildingName}
+                    finding={finding}
+                    pct={pct}
+                    elapsed={elapsed}
+                    label={progress?.label ?? null}
+                    detail={progress?.detail ?? null}
+                    notifyEmail={progress?.notify?.enabled ? progress.notify.email ?? null : null}
+                    resultUrl={resultUrl}
+                    copied={copied}
+                    onCopy={copyLink}
+                  />
+                )}
+              </motion.div>
             )}
 
             {act === 'reveal' && preview && (
               <motion.section key="reveal" {...fade} transition={{ duration: 0.5 }}>
-                <div className="max-w-3xl mx-auto text-center mb-10">
-                  <p className="studio-kicker mb-4">Fresh from the studio</p>
-                  <h1 className="studio-display text-4xl sm:text-5xl font-bold text-navy">
-                    {preview.concept_name || `${preview.business_name} OS`}
-                  </h1>
-                  <p className="mt-4 text-slate-600 text-lg">
-                    Designed for {preview.business_name}
-                    {preview.industry ? ` · ${preview.industry}` : ''}.
-                    {screens.length > 0 ? ' Click any screen to see it full size.' : ''}
-                  </p>
+                <Package
+                  mode="full"
+                  businessName={preview.business_name}
+                  answer={preview.answer ?? null}
+                  fallbackFinding={preview.preview_summary}
+                  capacity={preview.capacity ?? null}
+                  plan={revealPlan ?? preview.action_plan ?? null}
+                  log={pilotLog}
+                  unverified={preview.unverified ?? []}
+                  screens={packageScreens}
+                  docs={{
+                    blueprint: Boolean(preview.mvp_blueprint),
+                    technical: Boolean(preview.technical_plan),
+                    operations: preview.procedures.length > 0 || Boolean(preview.organization) || Boolean(preview.checklists),
+                  }}
+                  onDownload={download}
+                  onShare={share}
+                  onUnshare={unshare}
+                  canEdit={!reviewToken}
+                  onSaveWeek={saveWeek}
+                  onRetryPlan={() => void retryPlan()}
+                  onOpenScreen={(sc) => openLightbox(sc.full, sc.label)}
+                  readOnly={Boolean(reviewToken)}
+                />
+
+                <div className="mx-auto mt-24 max-w-6xl">
+                <div className="mb-10 border-t border-[var(--cx-line)] pt-12">
+                  <h2 className="cx-h2">Everything, in detail</h2>
+                  <p className="cx-lead mt-3">Read the documents here, or download them above.</p>
+                  {preview.what_this_is ? <p className="cx-muted mt-4 max-w-[70ch]">{preview.what_this_is}</p> : null}
                 </div>
-
-                {/* What class of software this is, before the screens. A
-                    customer who pictured something else needs to read that
-                    here rather than work it out from three screenshots —
-                    and the sentence is composed server-side from strings
-                    already on their request, so it can be checked against
-                    the rest of the page. */}
-                {preview.what_this_is && (
-                  <div className="studio-panel studio-whatthisis max-w-3xl mx-auto mb-10 p-6">
-                    <p className="studio-kicker mb-3">What you're looking at</p>
-                    <p className="text-slate-600 leading-relaxed">{preview.what_this_is}</p>
-                  </div>
-                )}
-
-                {/* The link comes first, before the customer scrolls into the
-                    screens and forgets the page has an address at all. */}
-                {resultUrl && (
-                  <div className="studio-keepsafe studio-keepsafe--wide mb-12">
-                    <div className="studio-linkrow">
-                      <code className="studio-link">{resultUrl}</code>
-                      <button type="button" className="studio-ghost-btn" onClick={copyLink}>
-                        {copied ? 'Copied' : 'Copy link'}
-                      </button>
-                      {preview.deck_available && (
-                        <DownloadButton refId={preview.id} kind="pptx" className="studio-ghost-btn">
-                          Download the deck
-                        </DownloadButton>
-                      )}
-                      {preview.mvp_blueprint && (
-                        <DownloadButton refId={preview.id} kind="zip" className="studio-ghost-btn">
-                          Download the full plan (ZIP)
-                        </DownloadButton>
-                      )}
-                    </div>
-                    <p className="studio-keepsafe-label mt-3">
-                      Bookmark it. Your engagement stays at this address — private to your
-                      account, only you can open it.
-                    </p>
-                  </div>
-                )}
-
-                {/* The diagnosis that produced everything below it — shown as
-                    its own moment, before the tabs, so the reveal reads as
-                    "we found this, so we recommend that" rather than a
-                    dashboard of unrelated outputs. Absent entirely when the
-                    analyze stage's fallback fired instead of a real read. */}
-                {preview.business_model && (
-                  <div className="studio-panel studio-diagnosis max-w-3xl mx-auto mb-10 p-6 sm:p-7">
-                    <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                      <p className="studio-kicker">Our diagnosis</p>
-                      <span className="studio-diagnosis-badge">{preview.business_model}</span>
-                    </div>
-                    {preview.site_research && (
-                      <div className="studio-diagnosis-site">
-                        <p className="studio-diagnosis-label">
-                          Pulled from {preview.site_research.source_url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '')}
-                        </p>
-                        {preview.site_research.services.length > 0 && (
-                          <ul className="studio-diagnosis-pains">
-                            {preview.site_research.services.map((s) => (
-                              <li key={s}>{s}</li>
-                            ))}
-                          </ul>
-                        )}
-                        {(preview.site_research.hours || preview.site_research.tone) && (
-                          <p className="studio-diagnosis-site-meta">
-                            {[preview.site_research.hours, preview.site_research.tone].filter(Boolean).join(' · ')}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {preview.target_customer_profile && (
-                      <p className="text-slate-600 leading-relaxed mb-4">{preview.target_customer_profile}</p>
-                    )}
-                    {preview.pain_points.length > 0 && (
-                      <div className="studio-diagnosis-block">
-                        <p className="studio-diagnosis-label">What we found</p>
-                        <ul className="studio-diagnosis-pains">
-                          {preview.pain_points.map((p) => (
-                            <li key={p}>{p}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {preview.growth_opportunity && (
-                      <div className="studio-diagnosis-block">
-                        <p className="studio-diagnosis-label">The opportunity</p>
-                        <p className="studio-diagnosis-growth">{preview.growth_opportunity}</p>
-                      </div>
-                    )}
-                    <p className="studio-diagnosis-handoff">
-                      Here's what we recommend, because of what we found.
-                    </p>
-                  </div>
-                )}
 
                 {/* One tab per thing this run actually produced — a run that
                     skipped the technical plan or named no AI employees never
@@ -3403,6 +3118,7 @@ export default function StudioPage() {
                     </p>
                   </div>
                 )}
+                </div>
               </motion.section>
             )}
 
@@ -3441,7 +3157,6 @@ export default function StudioPage() {
               </motion.section>
             )}
           </AnimatePresence>
-        </div>
       </main>
 
       {reviewToken && act === 'reveal' && preview?.review_status === 'pending' && (
@@ -3519,7 +3234,7 @@ export default function StudioPage() {
         )}
       </dialog>
 
-      <SiteFooter />
+      {act === 'reveal' ? <SiteFooter /> : null}
     </div>
   );
 }

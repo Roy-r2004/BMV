@@ -416,6 +416,146 @@ def interview(
             "still_needed": blocked}
 
 
+CASEFILE_MAX_FIGURES = 8
+
+
+def casefile_sources(main_problem: str | None, ops_numbers: str | None,
+                     known: str | None) -> dict[str, str]:
+    """Everything they have said, by id — the lines a figure has to be in."""
+    sources: dict[str, str] = {}
+    if (main_problem or "").strip():
+        sources["main_problem"] = main_problem.strip()[:2000]
+    try:
+        for p in json.loads(ops_numbers or "[]"):
+            if isinstance(p, dict) and str(p.get("answer") or "").strip():
+                qid = str(p.get("id") or f"q{len(sources)}")[:40]
+                sources[qid] = f"{str(p.get('question') or '').strip()[:200]} — {str(p['answer']).strip()[:600]}"
+    except (TypeError, ValueError):
+        pass
+    try:
+        raw_known = json.loads(known or "{}")
+        if isinstance(raw_known, dict):
+            for k, v in raw_known.items():
+                if k in FILLABLE and str(v or "").strip():
+                    sources[f"field:{k}"] = str(v).strip()[:1000]
+    except (TypeError, ValueError):
+        pass
+    return sources
+
+
+def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
+                   derived: list[float] | None = None) -> dict:
+    """Keep only what is really in their words. Pure. `derived` are the
+    capacity totals computed from those words, which the summary may use."""
+    from app.pipeline import figures
+
+    out: dict = {"figures": []}
+    seen = set()
+    for f in (raw.get("figures") or []) if isinstance(raw, dict) else []:
+        if not isinstance(f, dict):
+            continue
+        src = str(f.get("source") or "")
+        text = sources.get(src)
+        token = str(f.get("token") or "").strip()
+        value = str(f.get("value") or "").strip()[:24]
+        label = str(f.get("label") or "").strip()[:60]
+        if not text or not token or not value or not figures.quoted(token, [text]):
+            continue
+        in_token = figures.given([token])
+        value_nums = figures.numbers_in(value, words=True)
+        value_hours = figures.times_in(value)
+        # A time on its own ("6pm — classes") is not a figure about the
+        # business; it filled half the case file with clock faces.
+        if not value_nums:
+            continue
+        if not all(figures.holds(v, in_token) for v in value_nums):
+            continue
+        if not set(value_hours) <= figures.given_hours([token]):
+            continue
+        if figures.unsupported(label, figures.given([text]), lenient_below=0,
+                               hours=figures.given_hours([text])):
+            continue
+        key = (src, value.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        out["figures"].append({"source": src, "token": token, "value": value, "label": label})
+        if len(out["figures"]) >= CASEFILE_MAX_FIGURES:
+            break
+    if playback and isinstance(raw, dict):
+        all_text = list(sources.values())
+        summary = str(raw.get("summary") or "").strip()[:600]
+        allowed = figures.given(all_text) | {float(v) for v in derived or []}
+        hours = figures.given_hours(all_text)
+        out["summary"] = summary if summary and not figures.unsupported(summary, allowed, hours=hours) else ""
+        words = str(raw.get("their_words") or "").strip()[:400]
+        out["their_words"] = words if words and figures.quoted(words, all_text) else ""
+        fix = raw.get("their_fix")
+        fix = str(fix).strip().rstrip(".")[:80] if fix else ""
+        out["their_fix"] = fix if fix and not figures.unsupported(fix, figures.given(all_text), hours=hours) else None
+    return out
+
+
+@router.post("/casefile")
+def casefile(
+    main_problem: str | None = Form(None),
+    ops_numbers: str | None = Form(None),
+    known: str | None = Form(None),
+    operating_stage: str | None = Form(None),
+    playback: bool = Form(False),
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+):
+    """What they have told us so far, as figures — and their week, if it can
+    be drawn yet. Called as they answer, so the case file on screen fills in
+    while they talk; and once more before the diagnosis, to play it back.
+
+    Two fast calls, in parallel. Every figure is checked against the line it
+    was quoted from, and the week against their words (`capacity.shape`).
+    Fails open to an empty file: this is a courtesy on screen, and a failure
+    here must never stop the conversation.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.pipeline import capacity
+
+    if auth_client.resolve_user(authorization) is None:
+        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
+    sources = casefile_sources(main_problem, ops_numbers, known)
+    if not sources:
+        return {"figures": [], "capacity": None}
+
+    def read_figures():
+        prompt = render("casefile.j2", sources="\n".join(f"[{k}] {v}" for k, v in sources.items()),
+                        max_figures=CASEFILE_MAX_FIGURES, playback=playback)
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
+                             max_tokens=1600 if playback else 1100)
+        return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage")
+
+    stage = "not launched yet — this is a plan" if operating_stage == "opening" else "already operating"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        fig_future = pool.submit(read_figures)
+        cap_future = pool.submit(capacity.read, list(sources.values()), stage)
+        try:
+            raw, usage = fig_future.result()
+            log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                      purpose="casefile", usage=usage, success=True)
+        except Exception as exc:
+            log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                      purpose="casefile", success=False, error=str(exc)[:500])
+            logger.warning("casefile failed open: %s", str(exc)[:200])
+            raw = {}
+        picture, cap_usage, cap_error = cap_future.result()
+    if cap_usage is not None or cap_error is not None:
+        log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose="casefile:capacity", usage=cap_usage, success=cap_error is None, error=cap_error)
+
+    out = shape_casefile(raw, sources, playback,
+                         [d["value"] for d in (picture or {}).get("derived") or []])
+    out["capacity"] = picture
+    return out
+
+
 def _format_numbers(raw: str | None) -> str:
     """The discovery answers as prompt lines — same tolerance as the intake:
     malformed client JSON reads as 'none given', never a 500."""
