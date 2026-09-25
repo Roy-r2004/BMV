@@ -123,7 +123,7 @@ export default function SiteNav() {
             className="!inline-flex items-center justify-center text-xs sm:text-sm py-2.5 px-3.5 sm:px-4 whitespace-nowrap leading-none min-h-10"
           >
             <span className="sm:hidden">Start</span>
-            <span className="hidden sm:inline">Create My Version</span>
+            <span className="hidden sm:inline">Start a consultation</span>
           </GlowButton>
         </div>
       </div>

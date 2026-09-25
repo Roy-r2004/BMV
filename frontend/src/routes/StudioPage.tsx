@@ -23,6 +23,7 @@ import Building from '../components/consult/Building';
 import Package, { type PackageScreen } from '../components/consult/Package';
 import '../styles/consult.css';
 import SiteFooter from '../components/SiteFooter';
+import { clearFrontDoor, peekFrontDoor } from '../utils/frontDoor';
 import {
   approveReview,
   createStudioRequest,
@@ -1455,7 +1456,9 @@ export default function StudioPage() {
     business_description: '',
     email: '',
     industry: '',
-    main_problem: '',
+    // What they typed into the landing page's question box, when they came
+    // from there. Only on a fresh consultation — never over a run's own URL.
+    main_problem: routeId == null ? peekFrontDoor() : '',
     target_customers: '',
     desired_outcome: '',
     reference_url: '',
@@ -2220,6 +2223,7 @@ export default function StudioPage() {
 
   const goNext = () => {
     if (!validateStep(step)) return;
+    clearFrontDoor();
     // Idempotent (keyed on the brief) — re-fires only when the name,
     // description or stage actually changed since the last fetch. Fired from
     // step 0 now rather than step 1, because the description moved onto the
