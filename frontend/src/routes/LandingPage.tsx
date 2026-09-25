@@ -47,7 +47,7 @@ function Ask({ big = false }: { big?: boolean }) {
               start();
             }
           }}
-          placeholder={big ? "Say it the way you'd say it across a table." : 'e.g. "We keep missing calls in the evening and I think we\'re losing bookings."'}
+          placeholder={big ? "Say it the way you'd say it across a table." : 'e.g. "We keep missing calls in the evening." or "I want to open a second clinic but can\'t tell if the numbers work."'}
           aria-label="What are you trying to work out?"
         />
         <div className="home-box-row">
@@ -92,11 +92,12 @@ export default function LandingPage() {
         <div className="home-wrap home-hero-grid">
           <div>
             <h1 className="home-display home-h1">
-              Before you build anything, find out what's <em>actually wrong.</em>
+              Before you build or open anything, find out what will <em>actually work.</em>
             </h1>
             <p className="home-lead">
-              Tell us what you're trying to work out. We test every explanation against your own
-              numbers, yours included, and say so plainly when the answer isn't software.
+              Running a business or planning one, tell us what you're trying to work out. We test every
+              explanation against your own numbers, yours included, and say so plainly when the answer
+              isn't software.
             </p>
             <Ask />
             <div className="home-trust">
@@ -128,6 +129,41 @@ export default function LandingPage() {
           </div>
         </div>
       </header>
+
+      <section className="home-s home-paths">
+        <div className="home-wrap">
+          <h2 className="home-display home-h2">Running a business, or opening one.</h2>
+          <p className="home-intro">
+            The same consultation, asked differently. A business that trades has volumes, prices and a
+            ceiling to test. One being planned has a price it means to charge and a capacity it is
+            building toward, and those get tested before you spend.
+          </p>
+          <div className="home-path-grid">
+            <div className="home-path">
+              <span className="home-chip blue">Already trading</span>
+              <h3>We find what's really holding it back.</h3>
+              <ul>
+                <li>Your volumes, prices and ceiling, from your answers or your own booking export</li>
+                <li>Every explanation tested against them, including the one you walked in with</li>
+                <li>A fix you can pilot on Monday, and the number that tells you it worked</li>
+              </ul>
+              <p className="home-path-eg">"You're not short of clients. You're full."</p>
+              <Link to="/demo" className="home-btn sm">Start with your business</Link>
+            </div>
+            <div className="home-path open">
+              <span className="home-chip green">Opening something new</span>
+              <h3>We test the plan before you spend on it.</h3>
+              <ul>
+                <li>The price you plan to charge and the capacity you're building toward</li>
+                <li>Whether the numbers hold at the volume you can realistically reach, and when</li>
+                <li>What to prove in the first weeks, before the lease, the hire or the build</li>
+              </ul>
+              <p className="home-path-eg">"The second clinic can work. Not at your current prices."</p>
+              <Link to="/demo" className="home-btn blue sm">Start with your plan</Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="home-s home-tested">
         <div className="home-wrap home-two">
@@ -180,7 +216,7 @@ export default function LandingPage() {
             {[
               { who: 'A reformer pilates studio', came: 'Came in asking for a booking app.', a: "You're not short of clients.", b: "You're full.", kind: 'Pricing', tone: 'amber', next: 'Next: a six-week price pilot' },
               { who: 'A family dental clinic', came: 'Came in asking for more ads.', a: 'Your ads work.', b: "Your follow-up doesn't.", kind: 'Software', tone: 'blue', next: 'Next: we build the recall system' },
-              { who: 'A neighbourhood bakery', came: 'Came in asking for an ordering app.', a: "You don't need an app.", b: 'You need a 5am shift.', kind: 'Staffing', tone: 'dim', next: 'Next: a four-week staffing trial' },
+              { who: 'A café, not open yet', came: 'Came in asking for an ordering app.', a: 'The location works.', b: "The rent doesn't, without breakfast.", kind: 'Opening', tone: 'green', next: 'Next: a four-week breakfast trial' },
             ].map((f) => (
               <div className="home-find" key={f.who}>
                 <p className="who">{f.who}</p>
