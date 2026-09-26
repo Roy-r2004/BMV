@@ -1,25 +1,33 @@
 /**
- * The landing page: the honesty is what it sells.
+ * The landing page: the product itself, in one scroll story.
  *
- * It opens where the consultation opens — "What are you trying to work out?"
- * — beside one example answer drawn in 3D, so a visitor sees the product
- * before reading about it. Then: their own idea tested like any other, the
- * findings that were not software, how it works, everything they walk away
- * with (real screens and real pages from one engagement), pricing, and the
- * question again.
- *
- * Every figure on it belongs to the one example, and says so.
+ * A sticky 3D stage (productScene) sits behind ten chapters. The product's six
+ * layers come forward one at a time (the question, the conversation, the test,
+ * the answer, the package, the system), then the blueprint and the technical
+ * plan flip past section by section, because their depth is the point. No
+ * customer example: the software is what's on show. The question box waits at
+ * the end, after the visitor has seen what it leads to.
  */
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
-import WeekScene from '../components/home/WeekScene';
+import { CAPTIONS, CHAPTERS, mountProductScene } from '../components/home/productScene';
 import { saveFrontDoor } from '../utils/frontDoor';
-import '../styles/home.css';
+import '../styles/landing.css';
 
-function Ask({ big = false }: { big?: boolean }) {
+function Chapter({ state, deep = false, children }: { state: number; deep?: boolean; children: React.ReactNode }) {
+  return (
+    <section className={`ls-chapter${deep ? ' ls-chapter--deep' : ''}`} data-state={state}>
+      <div className="ls-wrap">
+        <div className="ls-col">{children}</div>
+      </div>
+    </section>
+  );
+}
+
+function Ask() {
   const navigate = useNavigate();
   const [text, setText] = useState('');
   const start = () => {
@@ -28,325 +36,227 @@ function Ask({ big = false }: { big?: boolean }) {
   };
   return (
     <form
-      className={`home-ask${big ? ' big' : ''}`}
+      className="ls-ask"
       onSubmit={(e) => {
         e.preventDefault();
         start();
       }}
     >
-      {!big ? <label htmlFor="home-ask-top">What are you trying to work out?</label> : null}
-      <div className="home-box">
-        <textarea
-          id={big ? 'home-ask-bottom' : 'home-ask-top'}
-          rows={2}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              start();
-            }
-          }}
-          placeholder={big ? "Say it the way you'd say it across a table." : 'e.g. "We keep missing calls in the evening." or "I want to open a second clinic but can\'t tell if the numbers work."'}
-          aria-label="What are you trying to work out?"
-        />
-        <div className="home-box-row">
-          <span>{big ? 'Free. About 15 minutes to an honest answer.' : 'A problem, a decision, or something you want to start.'}</span>
-          <button type="submit" className="home-btn blue">Start the conversation</button>
-        </div>
+      <label htmlFor="ls-ask">What are you trying to work out?</label>
+      <textarea
+        id="ls-ask"
+        rows={2}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            start();
+          }
+        }}
+        placeholder="A problem that's costing you, a decision you're stuck on, or something you want to start."
+      />
+      <div className="ls-ask-row">
+        <span>No card. No sales call.</span>
+        <button type="submit" className="ls-cta">Start the conversation</button>
       </div>
     </form>
   );
 }
 
-function Circle() {
-  return (
-    <svg className="home-circle" viewBox="0 0 1000 200" preserveAspectRatio="none" aria-hidden="true">
-      <path
-        d="M140 22 C 380 2, 820 6, 968 34 C 1012 48, 1004 150, 950 176 C 760 206, 260 204, 40 182 C -6 170, -8 70, 52 38 C 90 18, 150 14, 196 12"
-        fill="none" stroke="#2563EB" strokeWidth="2.6" strokeLinecap="round" vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-const GETS = [
-  { t: 'Your honest answer', d: 'The finding in two lines, the evidence in your own figures, and what the fix is worth, with the working shown.', w: 'Every consultation' },
-  { t: 'Monday plan and pilot tracker', d: 'What to do this week, the message to send, and the numbers to log each week until you know.', w: 'Every consultation' },
-  { t: 'The blueprint', d: 'What to build, module by module, in what order, and how it makes or saves money.', w: 'With the package' },
-  { t: 'The technical plan', d: 'Every module and AI agent specced for whoever builds it: data, tools, guardrails and the build order.', w: 'With the package' },
-  { t: 'The operations manual', d: 'Who does what, every day: the procedures, the checklists and the forms your staff actually use.', w: 'With the package' },
-  { t: 'Your product screens', d: 'Your software drawn for your business, with your services and your numbers, each screen checked twice.', w: 'With the package' },
-  { t: 'The execution playbook', d: 'The steps in order, and who takes each one: you, us, or a partner. Quick wins first.', w: 'With the package' },
-  { t: 'Your AI team', d: 'The AI employees the system needs, what each one decides alone, and where it hands over to a person.', w: 'With the package' },
-];
-
 export default function LandingPage() {
-  const [revealed, setRevealed] = useState(false);
+  const storyRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const labelsRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState(0);
+
+  useEffect(() => {
+    const story = storyRef.current, stage = stageRef.current, labels = labelsRef.current;
+    if (!story || !stage || !labels) return;
+    return mountProductScene({ story, stage, labels, onState: setState });
+  }, []);
+
+  const goTo = (i: number) => {
+    const el = storyRef.current?.querySelector(`[data-state="${i}"]`);
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // a document chapter starts at its first page; narrow screens read every chapter from its top
+    const top = el?.classList.contains('ls-chapter--deep') || window.innerWidth < 1024;
+    el?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: top ? 'start' : 'center' });
+  };
 
   return (
-    <div className="home">
+    <div className="ls-page min-h-screen">
       <SiteNav />
 
-      <header className="home-hero">
-        <div className="home-wrap home-hero-grid">
-          <div>
-            <h1 className="home-display home-h1">
-              Before you build or open anything, find out what will <em>actually work.</em>
-            </h1>
-            <p className="home-lead">
-              Running a business or planning one, tell us what you're trying to work out. We test every
-              explanation against your own numbers, yours included, and say so plainly when the answer
-              isn't software.
-            </p>
-            <Ask />
-            <div className="home-trust">
-              <p><b>Free</b> to find out</p>
-              <p><b>About 15 minutes</b> to an honest answer</p>
-              <p><b>Nothing built</b> until you say so</p>
-            </div>
-          </div>
-
-          <div>
-            <div className={`home-answer${revealed ? ' revealed' : ''}`}>
-              <span className="home-chip dim">Example consultation</span>
-              <p className="home-for">A reformer pilates studio. The owner came in asking for a booking app.</p>
-              <div className="home-heads">
-                <p className="home-pre home-display">Her week, as she described it.</p>
-                <h2 className="home-finding home-display">
-                  You're not short of clients.<span>You're full.</span>
-                </h2>
-              </div>
-              <WeekScene onReveal={() => setRevealed(true)} />
-              <div className="home-band">
-                <div><b>384 of 432</b><span>spots taken every week</span></div>
-                <div className="move"><b>≈ $45,000 a year</b><span>moving 6pm and 7pm to $28, if regulars stay</span></div>
-              </div>
-            </div>
-            <p className="home-under">
-              Her week, drawn only from what she told us. The answer was a six-week price pilot, not an app.
-            </p>
-          </div>
+      <div className="ls-story" ref={storyRef}>
+        <div className="ls-stage" ref={stageRef}>
+          <div className="ls-scrim" />
+          <div className="ls-labels" ref={labelsRef} aria-hidden="true" />
+          <nav className="ls-index" aria-label="Sections on this page">
+            {CHAPTERS.map((name, i) => (
+              <button
+                key={name}
+                type="button"
+                className={i === state ? 'is-on' : undefined}
+                aria-current={i === state ? 'step' : undefined}
+                onClick={() => goTo(i)}
+              >
+                <span>{name}</span>
+                <i aria-hidden="true" />
+              </button>
+            ))}
+          </nav>
+          <p className="ls-caption">{CAPTIONS[state]}</p>
         </div>
-      </header>
 
-      <section className="home-s home-paths">
-        <div className="home-wrap">
-          <h2 className="home-display home-h2">Running a business, or opening one.</h2>
-          <p className="home-intro">
-            The same consultation, asked differently. A business that trades has volumes, prices and a
-            ceiling to test. One being planned has a price it means to charge and a capacity it is
-            building toward, and those get tested before you spend.
+        <Chapter state={0}>
+          <h1 className="ls-display ls-h1">
+            A consultancy that fits in your browser.
+            <span className="ls-quiet">And tells you the truth.</span>
+          </h1>
+          <p className="ls-lede">
+            It finds what's really holding your business back, or tests the one you're about to open. Then it designs
+            the system that fixes it, down to a full blueprint and a technical plan any team can build from. If the fix
+            isn't software, it says so first.
           </p>
-          <div className="home-path-grid">
-            <div className="home-path">
-              <span className="home-chip blue">Already trading</span>
-              <h3>We find what's really holding it back.</h3>
-              <ul>
-                <li>Your volumes, prices and ceiling, from your answers or your own booking export</li>
-                <li>Every explanation tested against them, including the one you walked in with</li>
-                <li>A fix you can pilot on Monday, and the number that tells you it worked</li>
-              </ul>
-              <p className="home-path-eg">"You're not short of clients. You're full."</p>
-              <Link to="/demo" className="home-btn sm">Start with your business</Link>
-            </div>
-            <div className="home-path open">
-              <span className="home-chip green">Opening something new</span>
-              <h3>We test the plan before you spend on it.</h3>
-              <ul>
-                <li>The price you plan to charge and the capacity you're building toward</li>
-                <li>Whether the numbers hold at the volume you can realistically reach, and when</li>
-                <li>What to prove in the first weeks, before the lease, the hire or the build</li>
-              </ul>
-              <p className="home-path-eg">"The second clinic can work. Not at your current prices."</p>
-              <Link to="/demo" className="home-btn blue sm">Start with your plan</Link>
-            </div>
+          <div className="ls-go">
+            <button type="button" className="ls-ghost" onClick={() => goTo(1)}>
+              See how it works
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 5v14M6 13l6 6 6-6" />
+              </svg>
+            </button>
+            <span>Free. About 15 minutes, when you're ready.</span>
           </div>
-        </div>
-      </section>
+        </Chapter>
 
-      <section className="home-s home-tested">
-        <div className="home-wrap home-two">
-          <div>
-            <h2 className="home-display home-h2">Your idea gets tested like any other.</h2>
-            <p className="home-intro">
-              We write out every explanation that fits what you told us, test each one against your own
-              figures, and give the strongest to two reviewers whose only job is to break it. You watch it
-              happen, live.
-            </p>
-            <p className="home-intro">
-              People are usually right about the symptom and often wrong about the cause. That's not a
-              criticism. It's why you'd hire a consultant.
-            </p>
-          </div>
-          <div>
-            <div className="home-hyp out">
-              <span className="n">1</span>
-              <div><div className="chips"><span className="home-chip blue">What you told us</span></div><p className="s1">Booking admin is costing you evening clients.</p></div>
-              <div><span className="home-chip amber">Doesn't hold up</span><p className="why">The evenings are already full. A booking app can't add spots to a class that's sold out.</p></div>
-            </div>
-            <div className="home-hyp">
-              <span className="n">2</span>
-              <div><div className="chips"><span className="home-chip dim">Capacity</span></div><p className="s1">You're at your ceiling: 12 reformers, 36 classes a week.</p></div>
-              <div><span className="home-chip green">Supported</span><p className="why">12 × 6 × 6 = 432 spots. Every evening has a waiting list.</p></div>
-            </div>
-            <div className="home-hyp lead">
-              <Circle />
-              <span className="home-best home-hand">holds up best</span>
-              <span className="n">3</span>
-              <div><div className="chips"><span className="home-chip dim">Price</span><span className="home-chip dim">Software can't fix this</span></div><p className="s1">She charges $10 less than two comparable studios, so the evenings sell out.</p></div>
-              <div><span className="home-chip green">Supported</span><p className="why">$22 here, $32 nearby, and a waiting list at 6pm and 7pm.</p></div>
-            </div>
-            <div className="home-margin">
-              <div><h4>Does anything else explain it?</h4><p className="home-hand">Tried location and class times. Neither explains a waiting list at her price.</p><p className="home-hand held">held ✓</p></div>
-              <div><h4>Are we just agreeing with her?</h4><p className="home-hand">No. It contradicts what she walked in with. It rests on her figures, not her words.</p><p className="home-hand held">held ✓</p></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="home-s home-tint" id="examples">
-        <div className="home-wrap">
-          <h2 className="home-display home-h2">Sometimes the answer isn't software.</h2>
-          <p className="home-intro">
-            We build software, so recommending it when it won't help is the most expensive mistake we could
-            make. When the fix is a price, a process or a person, you read that in the first sentence.
+        <Chapter state={1}>
+          <h2 className="ls-display ls-h2">
+            It starts with one question.
+            <span className="ls-quiet">Not a form.</span>
+          </h2>
+          <p className="ls-body">
+            Say what you're trying to work out, the way you'd say it across a table. A problem, a decision, or something
+            you want to start. That's the whole front door.
           </p>
-          <div className="home-finds">
-            {[
-              { who: 'A reformer pilates studio', came: 'Came in asking for a booking app.', a: "You're not short of clients.", b: "You're full.", kind: 'Pricing', tone: 'amber', next: 'Next: a six-week price pilot' },
-              { who: 'A family dental clinic', came: 'Came in asking for more ads.', a: 'Your ads work.', b: "Your follow-up doesn't.", kind: 'Software', tone: 'blue', next: 'Next: we build the recall system' },
-              { who: 'A café, not open yet', came: 'Came in asking for an ordering app.', a: 'The location works.', b: "The rent doesn't, without breakfast.", kind: 'Opening', tone: 'green', next: 'Next: a four-week breakfast trial' },
-            ].map((f) => (
-              <div className="home-find" key={f.who}>
-                <p className="who">{f.who}</p>
-                <p className="came">{f.came}</p>
-                <h3>{f.a}<span>{f.b}</span></h3>
-                <div className="next"><span className={`home-chip ${f.tone}`}>{f.kind}</span><b>{f.next}</b></div>
-              </div>
+        </Chapter>
+
+        <Chapter state={2}>
+          <h2 className="ls-display ls-h2">Then it asks what matters.</h2>
+          <p className="ls-body">
+            One question at a time, each one following your last answer. Your figures build up beside you as you talk,
+            and you can drop in a spreadsheet or an export so it reads the numbers itself.
+          </p>
+          <ul className="ls-points">
+            <li><span><b>Every figure is yours.</b> Nothing is estimated or filled in for you.</span></li>
+            <li><span><b>A blank beats a guess.</b> "I don't know" is always an answer.</span></li>
+          </ul>
+        </Chapter>
+
+        <Chapter state={3}>
+          <h2 className="ls-display ls-h2">
+            It tests every explanation.
+            <span className="ls-quiet">Including yours.</span>
+          </h2>
+          <p className="ls-body">
+            It writes out every cause that fits, tests each one against your own numbers, and hands the strongest to two
+            reviewers whose only job is to break it. You watch it happen, live.
+          </p>
+          <ul className="ls-points">
+            <li><span><b>Struck out</b> when your figures rule it out.</span></li>
+            <li><span><b>Circled</b> when it survives the reviewers.</span></li>
+          </ul>
+        </Chapter>
+
+        <Chapter state={4}>
+          <h2 className="ls-display ls-h2">Then it tells you the truth.</h2>
+          <p className="ls-body">
+            The finding in two lines, the evidence in your own numbers, and what fixing it is worth, with the working
+            shown. <b>Nothing is built until you've read it.</b>
+          </p>
+          <ul className="ls-points">
+            <li><span><b>Pilot it</b> on Monday, with no software at all.</span></li>
+            <li><span><b>Build it,</b> and get the full package in about ten minutes.</span></li>
+            <li><span><b>Push back,</b> and it thinks again with what you told it.</span></li>
+          </ul>
+        </Chapter>
+
+        <Chapter state={5}>
+          <h2 className="ls-display ls-h2">
+            And designs the system.
+            <span className="ls-quiet">Everything, in one package.</span>
+          </h2>
+          <ul className="ls-points">
+            <li><span><b>Your product screens,</b> drawn for your business and checked twice.</span></li>
+            <li><span><b>The blueprint and technical plan,</b> in full. More on both next.</span></li>
+            <li><span><b>An AI team,</b> with exactly what each one decides alone.</span></li>
+            <li><span><b>The operations manual and a Monday plan,</b> so work starts before the code does.</span></li>
+          </ul>
+        </Chapter>
+
+        <Chapter state={6} deep>
+          <h2 className="ls-display ls-h2">
+            A blueprint, not a slide deck.
+            <span className="ls-quiet">Every decision, with the numbers behind it.</span>
+          </h2>
+          <p className="ls-body">
+            The whole business on paper, written for you: the decision it recommends and why, the financial case worked
+            out from your own figures, the customer journey, every module of the product, who does what with humans and
+            AI on one chart, what to build first, the scoreboard, and what could make it fail.
+          </p>
+          <div className="ls-stats">
+            <div><b>19</b><span>sections, from the decision to three ways forward</span></div>
+            <div><b>Every figure</b><span>traced to one you gave, or marked as ours</span></div>
+            <div><b>Honest</b><span>about what could make it fail</span></div>
+          </div>
+        </Chapter>
+
+        <Chapter state={7} deep>
+          <h2 className="ls-display ls-h2">
+            A technical plan any team can build from.
+            <span className="ls-quiet">Down to the data model.</span>
+          </h2>
+          <ul className="ls-points">
+            <li><span><b>How the system works,</b> end to end, in plain language first.</span></li>
+            <li><span><b>Every module:</b> its features, its data model, its screens.</span></li>
+            <li><span><b>Every AI agent:</b> what it decides alone, its tools, its guardrails.</span></li>
+            <li><span><b>The APIs and integrations,</b> and how your information stays safe.</span></li>
+            <li><span><b>The build order,</b> and the checks that say each part is done.</span></li>
+          </ul>
+          <p className="ls-body">
+            Build it with us, with your own team, or with anyone else. <b>The plan is yours either way.</b>
+          </p>
+        </Chapter>
+
+        <Chapter state={8}>
+          <h2 className="ls-display ls-h2">
+            For any business.
+            <span className="ls-quiet">Running, or about to open.</span>
+          </h2>
+          <p className="ls-body">
+            The questions change with what you do and how far along you are. The rigour doesn't. Every system it designs
+            is built around one business: yours.
+          </p>
+          <div className="ls-kinds">
+            {['Clinics', 'Shops', 'Studios', 'Restaurants', 'Logistics', 'Services', 'Professional firms', 'Something new'].map((k) => (
+              <span key={k}>{k}</span>
             ))}
           </div>
-          <p className="home-fine">Illustrative examples. Your answer comes from your numbers, and we never invent one.</p>
-        </div>
-      </section>
+        </Chapter>
 
-      <section className="home-s" id="how">
-        <div className="home-wrap">
-          <h2 className="home-display home-h2">How it works.</h2>
-          <p className="home-intro">
-            About fifteen minutes to an honest answer. Building only starts if you choose it, and it's one
-            click away whatever we find.
-          </p>
-          <ol className="home-steps">
-            {[
-              { h: 'One question', p: "What you're trying to work out, in your own words. No forms.", t: '2 min' },
-              { h: 'A short conversation', p: 'One question at a time. Your figures fill in beside you as you answer.', t: '5 min' },
-              { h: 'Watch it think', p: 'Explanations tested and struck out. Two reviewers argue in the margin.', t: '2 min' },
-              { h: 'Your answer', p: 'The finding in two lines, your own week drawn, and what the fix is worth.', t: 'You decide', gate: true },
-              { h: 'Your package', p: "Monday's steps, the documents, your screens, and a tracker for the pilot.", t: '10 min, if you choose' },
-            ].map((s, i) => (
-              <li className={`home-step${s.gate ? ' gate' : ''}`} key={s.h}>
-                <span className="no">{i + 1}</span>
-                <h3>{s.h}</h3>
-                <p>{s.p}</p>
-                <span className="t">{s.t}</span>
-              </li>
-            ))}
-          </ol>
-          <div className="home-gateline">
-            <p><b>Nothing is built before you've read the answer.</b> <span>You can correct it, send us a file, or ask us to think again.</span></p>
-            <Link to="/demo" className="home-btn blue sm">Start the conversation</Link>
+        <Chapter state={9}>
+          <h2 className="ls-display ls-h2">
+            Free to find out.
+            <span className="ls-quiet">Quoted only if you build.</span>
+          </h2>
+          <div className="ls-stats">
+            <div><b>15 min</b><span>to an honest answer</span></div>
+            <div><b>$0</b><span>for the answer and the whole package</span></div>
+            <div><b>You</b><span>decide whether anything gets built</span></div>
           </div>
-        </div>
-      </section>
-
-      <section className="home-s">
-        <div className="home-wrap">
-          <h2 className="home-display home-h2">Everything you walk away with.</h2>
-          <p className="home-intro">
-            Whatever the answer, you leave with more than a paragraph. These are real screens and real pages
-            from one engagement.
-          </p>
-          <div className="home-show">
-            <div className="home-screens">
-              <figure className="home-shot s3"><img src="/landing/screen-analytics.jpg" alt="Analytics screen drawn for the studio" loading="lazy" /></figure>
-              <figure className="home-shot main">
-                <div className="bar"><i /><i /><i /><span>Halo Flow: dashboard</span></div>
-                <img src="/landing/screen-dashboard.jpg" alt="The dashboard drawn for the studio" loading="lazy" />
-              </figure>
-              <figure className="home-shot s2"><img src="/landing/screen-schedule.jpg" alt="Schedule screen drawn for the studio" loading="lazy" /></figure>
-              <p className="home-cap home-hand">your software, drawn for your business</p>
-            </div>
-            <div className="home-pages">
-              <img className="pg p1" src="/landing/doc-pilot-2.jpg" alt="A page of the pilot plan" loading="lazy" />
-              <img className="pg p2" src="/landing/doc-blueprint-4.jpg" alt="A page of the blueprint" loading="lazy" />
-              <img className="pg p3" src="/landing/doc-technical-4.jpg" alt="A page of the technical plan" loading="lazy" />
-              <img className="pg p4" src="/landing/doc-operations-3.jpg" alt="A page of the operations manual" loading="lazy" />
-              <p className="home-cap home-hand">every page written for you</p>
-            </div>
-          </div>
-          <div className="home-gets">
-            {GETS.map((g) => (
-              <div className="home-get" key={g.t}>
-                <h3>{g.t}</h3>
-                <p>{g.d}</p>
-                <span className="when">{g.w}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="home-s">
-        <div className="home-wrap home-two home-pack">
-          <div>
-            <h2 className="home-display home-h2">It opens with Monday.</h2>
-            <p className="home-intro">
-              Most consultancies bury the first step on page forty. Your package starts with what you can do
-              this week, before any software exists.
-            </p>
-            <div className="home-list">
-              <div><b>Every number is yours</b><span>Your figures, arithmetic on them with the working shown, or a number we propose and label as ours.</span></div>
-              <div><b>Assumptions are marked</b><span>Whatever we couldn't check is listed, and the pilot is how you settle it.</span></div>
-              <div><b>Share it with a partner</b><span>A read-only link you can send, and turn off whenever you like.</span></div>
-            </div>
-          </div>
-          <div className="home-monday">
-            <h3>Start here on Monday</h3>
-            <p className="sub">None of these needs the software to be built first.</p>
-            <ol>
-              <li><span className="k">1</span><div><b>Tell your 6pm and 7pm regulars the new $28 price, starting in two weeks.</b><span>The message is written for you.</span></div></li>
-              <li><span className="k">2</span><div><b>Keep every daytime class at $22.</b><span>Changing only the evenings lets you read the effect cleanly.</span></div></li>
-              <li><span className="k">3</span><div><b>Log fill and the waiting list each week for six weeks.</b><span>At the end, the rule you agreed on up front tells you whether to keep $28.</span></div></li>
-            </ol>
-          </div>
-        </div>
-      </section>
-
-      <section className="home-s home-tint" id="pricing">
-        <div className="home-wrap">
-          <h2 className="home-display home-h2 wide">The consultation is free. Building is quoted with you.</h2>
-          <p className="home-intro">No checkout, no card. If you want it built, we write the scope together after you've read the answer.</p>
-          <div className="home-plans">
-            <div className="home-plan free">
-              <p className="nm">The consultation</p><p className="pr">Free</p>
-              <ul><li>Your honest answer, with the working</li><li>Your Monday plan and pilot tracker</li><li>Blueprint, technical plan, operations manual</li><li>Product screens drawn for you</li></ul>
-              <div className="cta"><Link to="/demo" className="home-btn blue sm">Start the conversation</Link></div>
-            </div>
-            <div className="home-plan"><p className="nm">Launch</p><p className="pr">4 to 8 weeks, quoted</p><ul><li>The core of your package, built for real</li><li>Owner and admin basics</li><li>Payments on your main path</li></ul></div>
-            <div className="home-plan"><p className="nm">Growth</p><p className="pr">8 to 12 weeks, quoted</p><ul><li>Everything in Launch</li><li>Staff dashboards and automations</li><li>Care after launch</li></ul></div>
-            <div className="home-plan"><p className="nm">Custom</p><p className="pr">Scoped together</p><ul><li>Integrations and multiple locations</li><li>Advanced roles and reporting</li><li>An ongoing product team</li></ul></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="home-last">
-        <div className="home-wrap">
-          <h2 className="home-display">What are you trying to work out?</h2>
-          <p>A problem that's costing you, a decision you're stuck on, or something you want to start.</p>
-          <Ask big />
-        </div>
-      </section>
+          <Ask />
+        </Chapter>
+      </div>
 
       <SiteFooter />
     </div>
