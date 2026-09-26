@@ -1,472 +1,511 @@
-/* Private AI — enterprise-facing page in the site's light register: white
-   ground with pale blue radials, ink typography, the blue accent family.
-   Its own component vocabulary: card grids, a comparison table, a numbered
-   step flow, a conceptual environment diagram. The hero illustration keeps
-   its dark ground and is framed as a panel — a window into the client's
-   environment. The closing CTA is the one deliberately dark band. */
+/* Private AI — one scroll story on the same white / pale-blue ground as
+   About. A sticky stage holds a white architectural model of the client's
+   environment (EnvironmentModel); the chapters scroll over it in a left-hand
+   column. Below 1024px the model sits on top and each chapter reads in a
+   panel that starts halfway down the screen. */
 
 .pai-page {
+  --pai-ground: #f5f9ff;
+  --pai-ink: #0f172a;
+  --pai-muted: #475569;
+  --pai-faint: #94a3b8;
+  --pai-line: rgba(15, 23, 42, 0.09);
+  --pai-blue: #2563eb;
+  color: var(--pai-ink);
   background:
-    radial-gradient(1000px 480px at 82% -8%, rgba(37, 99, 235, 0.08), transparent 62%),
-    radial-gradient(820px 440px at -8% 30%, rgba(96, 165, 250, 0.07), transparent 58%),
-    #ffffff;
-  color: #0f172a;
-  min-height: 100vh;
-}
-
-.pai-grid-field {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
-  background-size: 46px 46px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent 55%);
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent 55%);
+    radial-gradient(1100px 620px at 85% 8%, rgba(96, 165, 250, 0.16), transparent 62%),
+    radial-gradient(900px 560px at 70% 92%, rgba(34, 211, 238, 0.08), transparent 60%),
+    var(--pai-ground);
 }
 
 .pai-display {
   font-family: var(--font-display);
   letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
-.pai-kicker {
-  font-family: var(--font-body);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: #2563eb;
-}
+/* ── the story and its sticky stage ──────────────────────────────────── */
 
-.pai-section {
+.pai-story {
   position: relative;
 }
 
-.pai-section.border-t {
-  border-color: rgba(15, 23, 42, 0.08);
+.pai-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  margin-bottom: -100vh;
+  margin-bottom: -100dvh;
+  overflow: hidden;
+  z-index: 0;
 }
 
-/* ── buttons ─────────────────────────────────────────────────────────── */
+.pai-stage > canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
 
-.pai-cta {
+.pai-stage--flat {
+  display: none;
+}
+
+.pai-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    var(--pai-ground) 0%,
+    rgba(245, 249, 255, 0.82) 30%,
+    rgba(245, 249, 255, 0) 52%
+  );
+}
+
+.pai-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pai-lbl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font: 600 12px/1 var(--font-body);
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #dbeafe;
+  color: var(--pai-ink);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.pai-lbl::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pai-blue);
+}
+
+.pai-lbl--hot {
+  border-color: var(--pai-blue);
+  color: var(--pai-blue);
+}
+
+/* chapter index, right edge of the stage */
+.pai-index {
+  position: absolute;
+  right: max(16px, 2.2vw);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 3;
+}
+
+.pai-index button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 5px 0;
+  color: var(--pai-faint);
+  font: 500 12px/1 var(--font-body);
+  cursor: pointer;
+}
+
+.pai-index i {
+  display: block;
+  width: 14px;
+  height: 1.5px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+.pai-index span {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.pai-index:hover span,
+.pai-index button:focus-visible span,
+.pai-index .is-on span {
+  opacity: 1;
+}
+
+.pai-index .is-on {
+  color: var(--pai-ink);
+}
+
+.pai-index .is-on i {
+  width: 34px;
+  background: linear-gradient(90deg, #2563eb, #06b6d4);
+}
+
+.pai-index button:focus-visible {
+  outline: 2px solid var(--pai-blue);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* clears the site's chat button in the bottom-right corner */
+.pai-caption {
+  position: absolute;
+  right: 112px;
+  bottom: 30px;
+  max-width: 320px;
+  padding-left: 14px;
+  border-left: 1.5px solid #06b6d4;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pai-muted);
+  z-index: 3;
+}
+
+/* ── chapters ────────────────────────────────────────────────────────── */
+
+.pai-chapter {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding-block: 112px 72px;
+  pointer-events: none;
+}
+
+.pai-chapter--step {
+  min-height: 80vh;
+}
+
+.pai-col {
+  width: min(540px, 42vw);
+  pointer-events: auto;
+}
+
+.pai-h1 {
+  font-size: clamp(2.6rem, 5vw, 4.4rem);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: var(--pai-ink);
+}
+
+.pai-h2 {
+  font-size: clamp(1.9rem, 3.2vw, 2.9rem);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  color: var(--pai-ink);
+}
+
+.pai-h2--step {
+  margin-top: 1rem;
+  font-size: clamp(1.7rem, 2.7vw, 2.45rem);
+}
+
+.pai-lede {
+  margin-top: 1.6rem;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--pai-muted);
+  max-width: 33em;
+}
+
+.pai-body {
+  margin-top: 1.1rem;
+  line-height: 1.65;
+  color: var(--pai-muted);
+  max-width: 34em;
+}
+
+.pai-body strong {
+  color: var(--pai-ink);
+  font-weight: 600;
+}
+
+.pai-note {
+  margin-top: 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.pai-actions {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pai-cta,
+.pai-ghost {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: #ffffff;
-  background: linear-gradient(100deg, #2563eb, #3b82f6);
+  padding: 0.8rem 1.15rem;
   border-radius: 0.75rem;
-  padding: 0.85rem 1.4rem;
-  text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 14px 30px -14px rgba(37, 99, 235, 0.6);
+  font-weight: 600;
+  font-size: 0.94rem;
+  line-height: 1;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.pai-cta {
+  color: #ffffff;
+  background: linear-gradient(90deg, #2563eb, #06b6d4);
+  box-shadow: 0 8px 22px -10px rgba(37, 99, 235, 0.65);
 }
 
 .pai-cta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 18px 36px -12px rgba(37, 99, 235, 0.7);
+  box-shadow: 0 10px 26px -8px rgba(37, 99, 235, 0.75);
 }
 
-.pai-ghost-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: #334155;
-  text-decoration: none;
-  padding: 0.85rem 0.4rem;
+.pai-ghost {
+  color: var(--pai-ink);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #dbeafe;
+  cursor: pointer;
+}
+
+.pai-ghost:hover {
+  border-color: #93c5fd;
+}
+
+.pai-cta:focus-visible,
+.pai-ghost:focus-visible,
+.pai-reason:focus-visible,
+.pai-seg button:focus-visible {
+  outline: 2px solid var(--pai-blue);
+  outline-offset: 3px;
+}
+
+/* why: each reason rings its part of the model */
+.pai-reasons {
+  margin-top: 1.6rem;
+}
+
+.pai-reason {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  width: 100%;
+  padding: 0.95rem 0;
+  border-top: 1px solid var(--pai-line);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pai-reason-mark {
+  width: 10px;
+  height: 10px;
+  margin-top: 0.45em;
+  border-radius: 50%;
+  border: 1.5px solid var(--pai-faint);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.pai-reason-title {
+  display: block;
+  font: 600 1.08rem/1.35 var(--font-display);
+  letter-spacing: -0.01em;
+  color: var(--pai-ink);
   transition: color 0.2s ease;
 }
 
-.pai-ghost-btn:hover {
-  color: #2563eb;
-}
-
-/* ── hero pill (mobile) ─────────────────────────────────────────────── */
-
-.pai-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #334155;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 999px;
-  background: #ffffff;
-  padding: 0.5rem 1rem;
-  box-shadow: 0 6px 16px -12px rgba(15, 23, 42, 0.4);
-}
-
-.pai-pill svg {
-  color: #2563eb;
-  flex: 0 0 auto;
-}
-
-/* The pill is mobile-only. Its display:inline-flex above loads after the
-   Tailwind utilities, so the markup's lg:hidden loses the cascade — hide
-   it here at the same breakpoint instead. */
-@media (min-width: 1024px) {
-  .pai-pill {
-    display: none;
-  }
-}
-
-/* ── hero illustration — the client's environment, labeled as such ───── */
-
-/* The illustration's own ground is near-black, so on the light page it is
-   framed as a dark panel: a window into the client's environment. The
-   panel background matches the image ground so there is no visible seam. */
-.pai-hero-image {
-  width: 100%;
-  height: auto;
-  border-radius: 1.25rem;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: #020617;
-  box-shadow: 0 30px 60px -30px rgba(15, 23, 42, 0.45);
-}
-
-/* Let it bleed slightly past the column on large screens. */
-@media (min-width: 1024px) {
-  .pai-hero-image {
-    width: 108%;
-    max-width: none;
-    margin-left: -4%;
-  }
-}
-
-/* ── why-cards ───────────────────────────────────────────────────────── */
-
-.pai-card {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: #ffffff;
-  padding: 1.4rem 1.35rem;
-  box-shadow: 0 16px 40px -32px rgba(15, 23, 42, 0.4);
-}
-
-/* Two-up on phones (the reference layout) needs tighter cards. */
-@media (max-width: 639px) {
-  .pai-card {
-    padding: 1rem 0.95rem;
-  }
-
-  .pai-card h3 {
-    font-size: 0.9rem;
-  }
-
-  .pai-card p {
-    font-size: 0.78rem;
-  }
-}
-
-.pai-card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.65rem;
-  background: rgba(37, 99, 235, 0.08);
-  border: 1px solid rgba(37, 99, 235, 0.16);
-  color: #2563eb;
-  margin-bottom: 0.9rem;
-}
-
-.pai-card h3 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1rem;
-  color: #0f172a;
-  margin-bottom: 0.45rem;
-}
-
-.pai-card p {
-  color: #475569;
-  font-size: 0.85rem;
+.pai-reason-body {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.93rem;
   line-height: 1.55;
+  color: var(--pai-muted);
 }
 
-/* ── how-it-works steps ─────────────────────────────────────────────── */
+.pai-reason.is-on .pai-reason-mark {
+  background: var(--pai-blue);
+  border-color: var(--pai-blue);
+}
 
-.pai-steps {
+.pai-reason.is-on .pai-reason-title {
+  color: var(--pai-blue);
+}
+
+/* how it works: one step per screen */
+.pai-stepno {
+  font-size: clamp(3rem, 6vw, 5rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(90deg, #2563eb, #06b6d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.pai-stepno small {
+  margin-left: 0.6rem;
+  font: 600 0.8rem/1 var(--font-body);
+  letter-spacing: 0;
+  color: var(--pai-muted);
+  -webkit-text-fill-color: var(--pai-muted);
+  vertical-align: 0.9em;
+}
+
+/* cloud vs private */
+.pai-seg {
+  margin-top: 1.6rem;
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.pai-seg button {
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--pai-muted);
+  cursor: pointer;
+}
+
+.pai-seg button[aria-pressed='true'] {
+  color: #ffffff;
+  background: linear-gradient(90deg, #2563eb, #06b6d4);
+}
+
+.pai-mode-read {
+  margin-top: 1rem;
+  min-height: 3.2em;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--pai-ink);
+}
+
+.pai-compare {
+  margin-top: 1rem;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
 }
 
-@media (max-width: 900px) {
-  .pai-steps {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.pai-compare > div {
+  transition: opacity 0.3s ease;
 }
 
-@media (max-width: 560px) {
-  .pai-steps {
-    grid-template-columns: 1fr;
-  }
+.pai-compare > .is-dim {
+  opacity: 0.42;
 }
 
-.pai-step {
-  position: relative;
-}
-
-.pai-step-head {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-bottom: 0.85rem;
-}
-
-.pai-step-no {
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #2563eb;
-  font-variant-numeric: tabular-nums;
-}
-
-.pai-step-icon {
-  width: 1.15rem;
-  height: 1.15rem;
-  color: #2563eb;
-}
-
-.pai-step h3 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.98rem;
-  color: #0f172a;
-  margin-bottom: 0.5rem;
-}
-
-.pai-step p {
-  color: #475569;
-  font-size: 0.83rem;
-  line-height: 1.55;
-}
-
-.pai-step-connector {
-  position: absolute;
-  top: -0.15rem;
-  right: -1.35rem;
-  color: rgba(15, 23, 42, 0.25);
-  font-size: 1.1rem;
-}
-
-@media (max-width: 900px) {
-  .pai-step-connector {
-    display: none;
-  }
-}
-
-/* ── integration flow diagram ───────────────────────────────────────── */
-
-.pai-flow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  justify-content: center;
-  gap: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.25rem;
-  background: #f8fafc;
-  padding: 1.75rem;
-}
-
-.pai-flow-node {
-  flex: 1 1 10rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  text-align: center;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 1rem;
-  background: #ffffff;
-  padding: 1.5rem 1rem;
-  box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.5);
-}
-
-.pai-flow-node p {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.pai-flow-icon {
-  width: 1.6rem;
-  height: 1.6rem;
-  color: #64748b;
-}
-
-.pai-flow-node--core {
-  border: 1px dashed rgba(37, 99, 235, 0.55);
-  background: rgba(37, 99, 235, 0.05);
-}
-
-.pai-flow-node--core .pai-flow-icon {
-  color: #2563eb;
-}
-
-.pai-flow-node-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.35rem;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: #2563eb;
-}
-
-.pai-flow-arrow {
-  align-self: center;
-  color: rgba(15, 23, 42, 0.3);
-  font-size: 1.1rem;
-}
-
-@media (max-width: 700px) {
-  .pai-flow-arrow {
-    display: none;
-  }
-}
-
-/* ── cloud vs private comparison ────────────────────────────────────── */
-
-.pai-compare {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.pai-compare-col {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: #ffffff;
-  padding: 1.4rem 1.35rem;
-  box-shadow: 0 16px 40px -32px rgba(15, 23, 42, 0.4);
-}
-
-.pai-compare-col--core {
-  border-color: rgba(37, 99, 235, 0.3);
-  background: rgba(37, 99, 235, 0.04);
-}
-
-.pai-compare-head {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1rem;
-  color: #64748b;
-}
-
-.pai-compare-col--core .pai-compare-head {
-  color: #2563eb;
-}
-
-.pai-compare-head h3 {
-  font-family: var(--font-display);
-  font-weight: 700;
+.pai-compare h3 {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--pai-line);
   font-size: 1rem;
-  color: #0f172a;
+  font-weight: 600;
 }
 
-.pai-compare-col ul {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.pai-compare ul {
+  margin-top: 0.5rem;
 }
 
-.pai-compare-col li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  font-size: 0.85rem;
-  color: #334155;
-  line-height: 1.4;
+.pai-compare li {
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+  color: var(--pai-muted);
 }
-
-.pai-compare-col li svg {
-  flex: 0 0 auto;
-  margin-top: 0.15rem;
-  color: #2563eb;
-}
-
-.pai-compare-vs {
-  position: absolute;
-  top: 2.1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: #ffffff;
-  background: #0f172a;
-  border: 3px solid #ffffff;
-  box-shadow: 0 8px 20px -10px rgba(15, 23, 42, 0.5);
-}
-
-@media (max-width: 640px) {
-  .pai-compare {
-    grid-template-columns: 1fr;
-  }
-  .pai-compare-vs {
-    position: static;
-    transform: none;
-    margin: 0.5rem auto;
-  }
-}
-
-/* ── quote / callout boxes ──────────────────────────────────────────── */
 
 .pai-quote {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1rem;
-  background: #f8fafc;
-  padding: 1.2rem 1.35rem;
-  color: #334155;
-  font-size: 0.9rem;
-  line-height: 1.55;
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid #dbeafe;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+  color: var(--pai-ink);
+  max-width: 34em;
 }
 
-.pai-quote svg {
-  flex: 0 0 auto;
-  color: #d97706;
-  margin-top: 0.1rem;
+/* ── narrow screens: model above, text in a panel below ─────────────── */
+
+@media (max-width: 1023px) {
+  .pai-scrim,
+  .pai-index,
+  .pai-caption {
+    display: none;
+  }
+
+  .pai-chapter,
+  .pai-chapter--step {
+    min-height: 100vh;
+    align-items: flex-start;
+    padding-block: 50vh 24px;
+    padding-block: 50dvh 24px;
+  }
+
+  .pai-col {
+    width: auto;
+    padding: 1.4rem 1.25rem;
+    border-radius: 1rem;
+    border: 1px solid #dbeafe;
+    background: rgba(255, 255, 255, 0.9);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 10px 30px -18px rgba(37, 99, 235, 0.35);
+  }
+
+  .pai-lbl {
+    font-size: 11px;
+    padding: 5px 8px 5px 7px;
+  }
 }
 
-.pai-quote--shield svg {
-  color: #2563eb;
+@media (max-width: 639px) {
+  .pai-compare {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
 }
 
-/* ── bottom cta panel — the one deliberately dark band ──────────────── */
+/* No WebGL: the chapters read as a plain page. */
+.pai-story:has(.pai-stage--flat) .pai-chapter {
+  min-height: 0;
+  padding-block: 4.5rem 1rem;
+}
 
-.pai-panel {
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 1.5rem;
-  background:
-    radial-gradient(600px 260px at 85% -20%, rgba(37, 99, 235, 0.25), transparent 60%),
-    linear-gradient(140deg, #0d1b33, #020617 70%);
-  box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.6);
+.pai-story:has(.pai-stage--flat) .pai-chapter:first-of-type {
+  padding-top: 8rem;
+}
+
+.pai-story:has(.pai-stage--flat) .pai-col {
+  width: min(640px, 100%);
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pai-index i,
+  .pai-index span,
+  .pai-lbl,
+  .pai-reason-mark,
+  .pai-reason-title,
+  .pai-compare > div {
+    transition: none;
+  }
 }

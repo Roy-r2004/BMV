@@ -48,29 +48,24 @@ SITE_KNOWLEDGE = """
 - Scope labels used in the form (not prices): Starter scope, Standard scope, Full build, Not sure yet
 - Timeline options: ASAP (2–4 weeks), 1–2 months, 2–3 months, Flexible
 
-## Industry solutions (ready-made platforms at /solutions)
-Each can be customized and launched for a business:
-- Healthcare & Clinics — intake AI + patient portal
-- Barbershops & Salons — booking + style memory
-- Restaurants & Cafes — menu AI + kitchen board
-- Real Estate — listing AI + agent CRM
-- Gyms & Fitness Coaching — member portal + churn alerts
-- Legal & Consulting — counsel AI + vault
-- Retail & E-commerce — NL search + seller hub
-- Home Services — quote AI + dispatch
-- Education & Tutoring — tutor match + auto-billing
-- Automotive Services — bay scheduler + status bot
-- Hospitality & Hotels — direct booking + concierge
-- Nonprofits — donate AI + campaigns
-
-Solution setup phases: ready-made platform → customer tools → team ops → customize & launch
+## Solutions (concepts at /solutions)
+/solutions shows concepts of large AI systems we can build, each shown screen by screen.
+They are concepts, not delivered client projects and not ready-made products — never
+say a client already runs one, and never quote results for them.
+- Run the business — Business Digital Twin, Autonomous AI Workforce, Autonomous Finance Office,
+  AI Procurement Negotiator, AI Compliance Officer, Sovereign Company AI
+- Grow revenue — Synthetic Customer Lab, AI Sales Development Team, Voice AI Contact Center,
+  Personal Video Studio, Dynamic Pricing Engine
+- Create — Generative Product Studio, AI Ad Film Studio, 3D & AR Commerce,
+  Global Localisation Studio, Brand & Legal Guardian
+- See the physical world — Vision-Powered Store, Hospital Command Center, Construction Site Twin,
+  Predictive Maintenance Radar, Energy Autopilot
+Any of them is shaped around the visitor's business after a consultation; building is quoted.
 
 ## Key site pages (guide the user)
 - / — Home: consultancy story, how it works, examples, packages, FAQ
 - /demo — Start free: the 3-minute AI demo (diagnosis, product screens, blueprint, packages)
-- /examples — Example output concepts
-- /solutions — Industry ready-made solutions
-- /solutions/:id — Solution detail
+- /solutions — AI solution concepts, grouped by area of the business
 - /private-ai — Private AI deployments on infrastructure the client owns and controls
 - /about — Who we are / method
 - /login, /signup — Account

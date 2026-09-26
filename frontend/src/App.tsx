@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import ScrollManager from './components/ScrollManager';
 import { AuthProvider } from './context/AuthContext';
 // The landing stays eager — it is the first paint. Every other route is a
@@ -9,9 +9,7 @@ import LandingPage from './routes/LandingPage';
 import SiteChatWidget from './components/SiteChatWidget';
 import './styles/mobile-shell.css';
 
-const ExamplesPage = lazy(() => import('./routes/ExamplesPage'));
 const SolutionsPage = lazy(() => import('./routes/SolutionsPage'));
-const SolutionDetailPage = lazy(() => import('./routes/SolutionDetailPage'));
 const AboutPage = lazy(() => import('./routes/AboutPage'));
 const PrivateAIPage = lazy(() => import('./routes/PrivateAIPage'));
 const SubmitPage = lazy(() => import('./routes/SubmitPage'));
@@ -36,10 +34,12 @@ export default function App() {
         <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/examples" element={<ExamplesPage />} />
-
+          {/* /solutions is the showroom of AI concepts. It took over from the
+              Examples page, and replaced the old per-industry catalogue, so
+              links to either still land here. */}
           <Route path="/solutions" element={<SolutionsPage />} />
-          <Route path="/solutions/:id" element={<SolutionDetailPage />} />
+          <Route path="/solutions/:id" element={<Navigate to="/solutions" replace />} />
+          <Route path="/examples" element={<Navigate to="/solutions" replace />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/private-ai" element={<PrivateAIPage />} />
           <Route path="/submit" element={<SubmitPage />} />

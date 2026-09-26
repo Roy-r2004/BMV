@@ -5,16 +5,15 @@ type FooterLink = { to: To; label: string };
 
 const PRODUCT_LINKS: FooterLink[] = [
   { to: '/demo', label: 'Create my version' },
-  { to: '/solutions', label: 'Solutions by industry' },
+  { to: '/solutions', label: 'Solutions' },
   { to: '/demo', label: 'Live demos' },
-  { to: '/examples', label: 'Example outputs' },
   { to: { pathname: '/', hash: 'how-it-works' }, label: 'How it works' },
 ];
 
 const COMPANY_LINKS: FooterLink[] = [
   { to: '/about', label: 'About us' },
   { to: '/demo', label: 'Live demos' },
-  { to: '/examples', label: 'What we build' },
+  { to: '/solutions', label: 'What we build' },
   { to: '/demo', label: 'Get started' },
 ];
 
@@ -97,7 +96,7 @@ export default function SiteFooter() {
             {' '}· BMV AI · Custom MVP design by our team
           </p>
           <div className="flex gap-6">
-            <Link to="/examples" className="hover:text-slate-300 transition-colors">Examples</Link>
+            <Link to="/solutions" className="hover:text-slate-300 transition-colors">Solutions</Link>
             <Link to="/about" className="hover:text-slate-300 transition-colors">About</Link>
             <Link to="/demo" className="hover:text-slate-300 transition-colors">Get started</Link>
           </div>

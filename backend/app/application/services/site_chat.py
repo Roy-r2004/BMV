@@ -26,7 +26,7 @@ Conversation style (required):
 - Answer in 2–4 sentences using ONLY the grounded facts below
 - ALWAYS end with one clear follow-up question (to learn their industry, goal, or next step)
 - Ask about their business when useful: industry, biggest time-sink, what they want to automate
-- Offer a next step with a path when it helps (/demo, /solutions, /private-ai, /about, /examples)
+- Offer a next step with a path when it helps (/demo, /solutions, /private-ai, /about)
 - Do NOT dump long lists and stop. Do NOT sound robotic or like FAQ copy-paste
 
 Hard rules (never break):
@@ -100,7 +100,7 @@ def _scrub_money(text: str) -> str:
 _FOLLOWUPS = (
     "What kind of business are you running?",
     "What’s the biggest thing you’d love to automate first?",
-    "Want me to point you to the free demo at /demo, or browse /solutions for your industry?",
+    "Want me to point you to the free demo at /demo, or show you what we build at /solutions?",
     "Curious — are you exploring, or ready to see a preview?",
 )
 
@@ -115,7 +115,7 @@ def _ensure_question(text: str, last_user: str = "") -> str:
         return cleaned
     low = (last_user or "").lower()
     if any(w in low for w in ("solution", "industry", "healthcare", "restaurant", "retail")):
-        q = "Which industry are you in — or should I walk you through /solutions?"
+        q = "What kind of business are you in — or should I walk you through /solutions?"
     elif any(w in low for w in ("package", "plan", "launch", "growth", "custom")):
         q = "Are you aiming to launch fast, or do you need staff roles and care (Growth)?"
     elif any(w in low for w in ("start", "begin", "how do", "preview")):
@@ -160,7 +160,7 @@ def reply_site_chat(
     if not ai.is_available():
         return (
             "I’m briefly offline, but the short version: we’re an AI consultancy — "
-            "free personalized demo at /demo, industry solutions at /solutions. "
+            "free personalized demo at /demo, AI solution concepts at /solutions. "
             "Pricing is always a custom quote. What are you trying to automate?"
         )
 

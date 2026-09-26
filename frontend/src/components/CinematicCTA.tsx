@@ -19,8 +19,8 @@ export default function CinematicCTA({
   subtitle = 'Tell us how you work. We map the AI opportunities, show a free preview, then our team builds the real product.',
   primaryLabel = 'Find my AI fit',
   primaryTo = '/demo',
-  secondaryLabel = 'Browse examples',
-  secondaryTo = '/examples',
+  secondaryLabel = 'Browse solutions',
+  secondaryTo = '/solutions',
 }: Props) {
   return (
     <section className="landing-cta-band relative py-20 sm:py-28 overflow-hidden text-white">

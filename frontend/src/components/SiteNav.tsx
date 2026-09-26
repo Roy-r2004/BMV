@@ -12,7 +12,6 @@ import { scrollToTop } from '../utils/scroll';
 const LINKS = [
   { to: '/solutions', label: 'Solutions' },
   { to: '/demo', label: 'Demo' },
-  { to: '/examples', label: 'Examples' },
   { to: '/about', label: 'About' },
   { to: '/private-ai', label: 'Private AI' },
 ];
