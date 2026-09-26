@@ -191,13 +191,12 @@ class Settings:
     REVIEW_TOKEN: str = _env_or("REVIEW_TOKEN", "")
     MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))
     MAX_DISCOVERY_QUESTIONS: int = int(_env_or("MAX_DISCOVERY_QUESTIONS", "6"))
-    # The adaptive interview. A consultation that will not converge in twelve
-    # questions has a different problem, and an owner who has answered twelve
-    # is being processed rather than consulted — the cap is a product
-    # decision, not a cost one, and it is enforced server-side because the
-    # model is the thing being capped.
-    INTERVIEW_MAX_ROUNDS: int = int(_env_or("INTERVIEW_MAX_ROUNDS", "3"))
-    INTERVIEW_MAX_PER_ROUND: int = int(_env_or("INTERVIEW_MAX_PER_ROUND", "4"))
+    # The fact-finding interview. It works through the brief's fact list and
+    # ends when nothing on it is still needed — so the rounds cap is a safety
+    # rail, not the product. Two questions a round keeps every follow-up close
+    # to the answer before it.
+    INTERVIEW_MAX_ROUNDS: int = int(_env_or("INTERVIEW_MAX_ROUNDS", "18"))
+    INTERVIEW_MAX_PER_ROUND: int = int(_env_or("INTERVIEW_MAX_PER_ROUND", "2"))
     MIN_MODULES_PER_REQUEST: int = int(_env_or("MIN_MODULES_PER_REQUEST", "3"))
     MAX_MODULES_PER_REQUEST: int = int(_env_or("MAX_MODULES_PER_REQUEST", "7"))
     VARIANTS_PER_ROLE: int = int(_env_or("VARIANTS_PER_ROLE", "2"))

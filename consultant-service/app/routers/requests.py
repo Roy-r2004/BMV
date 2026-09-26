@@ -14,7 +14,7 @@ from app import auth_client, mailer
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
-from app.pipeline import compositing, decide, evidence, export_pdf, export_pilot, export_pptx, orchestrator, screen_story, what_this_is
+from app.pipeline import compositing, decide, evidence, export_pdf, export_pptx, orchestrator, screen_story, what_this_is
 from app.pipeline import action_plan as plan_stage
 from app.pipeline import answer as answer_stage
 from app.pipeline import capacity as capacity_stage
@@ -168,6 +168,80 @@ def _sanitize_ops_numbers(raw: str | None) -> str | None:
     return json.dumps(cleaned) if cleaned else None
 
 
+_BRIEF_FACT_STATUSES = ("need", "got", "estimate", "file")
+MAX_BRIEF_FACTS = 50
+MAX_UNKNOWNS = 20
+
+
+def _clip(v, limit: int) -> str:
+    return " ".join(str(v or "").split())[:limit]
+
+
+def _sanitize_brief(raw: str | None) -> dict | None:
+    """The scope the interview agreed — question, what it lets them do, what
+    is in and out, and the fact list — as the client's page sends it back.
+    Client-built JSON, so every part is shape-checked and bounded; anything
+    malformed is dropped, never a 500 (the brief is context, not a gate)."""
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw[:200_000])
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    lets_raw = data.get("lets") if isinstance(data.get("lets"), dict) else {}
+    lets = {k: _clip(lets_raw.get(k), 120) for k in ("know", "see", "have") if _clip(lets_raw.get(k), 120)}
+
+    def strings(v, count: int, limit: int) -> list[str]:
+        return [t for t in (_clip(x, limit) for x in (v if isinstance(v, list) else [])[:count]
+                            if isinstance(x, str)) if t]
+
+    facts = []
+    for f in (data.get("facts") if isinstance(data.get("facts"), list) else [])[:MAX_BRIEF_FACTS]:
+        if not isinstance(f, dict):
+            continue
+        key, label = _clip(f.get("key"), 40), _clip(f.get("label"), 60)
+        if not key or not label:
+            continue
+        status = _clip(f.get("status"), 10)
+        facts.append({"key": key, "group": _clip(f.get("group"), 30), "label": label,
+                      "status": status if status in _BRIEF_FACT_STATUSES else "need",
+                      "value": _clip(f.get("value"), 60)})
+    brief = {"question": _clip(data.get("question"), 240), "lets": lets,
+             "in_scope": strings(data.get("in_scope"), 5, 90),
+             "out_scope": strings(data.get("out_scope"), 4, 90), "facts": facts}
+    if not (brief["question"] or lets or brief["in_scope"] or brief["out_scope"] or facts):
+        return None
+    return brief
+
+
+def _sanitize_unknowns(raw: str | None) -> list[str]:
+    """Fact labels the client told us they did not know. Labels only, bounded."""
+    if not raw:
+        return []
+    try:
+        items = json.loads(raw[:50_000])
+    except (TypeError, ValueError):
+        return []
+    out: list[str] = []
+    for x in items if isinstance(items, list) else []:
+        label = _clip(x, 80) if isinstance(x, str) else ""
+        if label and label not in out:
+            out.append(label)
+        if len(out) >= MAX_UNKNOWNS:
+            break
+    return out
+
+
+def _brief(req: Request) -> dict | None:
+    try:
+        data = json.loads(req.brief_json) if getattr(req, "brief_json", None) else None
+    except (TypeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 @router.post("")
 def create_request(
     business_name: str = Form(...),
@@ -190,6 +264,10 @@ def create_request(
     ops_numbers: str | None = Form(None),
     document_owner: str | None = Form(None),
     document_approver: str | None = Form(None),
+    # The scope the interview agreed (JSON), and the facts they did not know
+    # (JSON list of labels) — those we estimate, and label as ours.
+    brief: str | None = Form(None),
+    unknowns: str | None = Form(None),
     # Their own files, sent from the conversation ("drop your booking export
     # in"). Read by the diagnosis half before it forms an explanation.
     files: list[UploadFile] | None = File(None),
@@ -212,6 +290,19 @@ def create_request(
             detail="We're generating a lot of previews right now — please try again in a few minutes.",
         )
 
+    scope = _sanitize_brief(brief)
+    unknown_labels = _sanitize_unknowns(unknowns)
+    if unknown_labels:
+        business_description = (
+            f"{business_description}\n\nFigures the client did not know — estimate these, and label "
+            f"every estimate as ours, never as theirs:\n"
+            + "\n".join(f"- {label}" for label in unknown_labels))
+    question = (scope or {}).get("question") or ""
+    if question:
+        business_description = f"{business_description}\n\nThe question this engagement answers: {question}"
+        if not (desired_outcome or "").strip():
+            desired_outcome = question
+
     req = Request(
         business_name=business_name,
         business_description=business_description,
@@ -233,6 +324,7 @@ def create_request(
         ops_numbers_json=_sanitize_ops_numbers(ops_numbers),
         document_owner=(document_owner or "").strip()[:200] or None,
         document_approver=(document_approver or "").strip()[:200] or None,
+        brief_json=json.dumps(scope) if scope else None,
         owner_email=user["email"],
         public_id=secrets.token_urlsafe(9),
         phase_started_at=datetime.utcnow(),
@@ -492,6 +584,8 @@ def _decision_payload(req: Request) -> dict:
         "capacity": capacity_stage.load(req),
         "answer": answer_stage.load(req),
         "action_plan": plan_stage.load(req),
+        "decisions": plan_stage.load_decisions(req),
+        "brief": _brief(req),
         "operating_stage": req.operating_stage,
     }
 
@@ -634,37 +728,6 @@ def remove_evidence(request_ref: str, claim_id: str,
     return {"figures": remaining}
 
 
-@router.post("/{request_ref}/decision/accept")
-def accept_advice(request_ref: str, authorization: str | None = Header(None),
-                  db: Session = Depends(get_db)):
-    """Take the answer and stop. The brief is the deliverable.
-
-    Reached when we told them a build will not fix the diagnosed cause and
-    they agreed. Terminal, and NOT a failure — `is_failed` stays false, so
-    nothing in the client's listing reads this as an engagement that broke.
-    """
-    req = _load_request(request_ref, db)
-    _require_owner(req, authorization)
-
-    if req.status not in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED):
-        raise HTTPException(status_code=409, detail="This engagement has no decision waiting")
-
-    db.query(Request).filter(
-        Request.id == req.id,
-        Request.status == orchestrator.AWAITING_APPROVAL,
-    ).update({"status": orchestrator.ADVISED, "is_generating": False, "is_failed": False},
-             synchronize_session=False)
-    db.commit()
-    db.refresh(req)
-
-    # Taking the answer used to end the engagement with a paragraph. It now
-    # starts what they do about it: the plan is written in the background and
-    # the page polls for it. Started once — a second press while it is being
-    # written, or after it is written, starts nothing.
-    started = _start_plan(db, req)
-    return {"id": req.id, "status": req.status, "plan_started": started}
-
-
 def _start_plan(db: Session, req: Request) -> bool:
     current = plan_stage.load(req) or {}
     if current.get("status") in (plan_stage.WRITING, plan_stage.READY):
@@ -684,14 +747,17 @@ def _start_plan(db: Session, req: Request) -> bool:
 @router.post("/{request_ref}/plan/retry")
 def retry_plan(request_ref: str, authorization: str | None = Header(None),
                db: Session = Depends(get_db)):
-    """Write the plan after it failed — or for the first time, on a package
-    built before plans existed. Not a way to reroll a good one."""
+    """Write the roadmap after it failed — or for the first time, on a package
+    built before roadmaps existed. Not a way to reroll a good one."""
     req = _load_request(request_ref, db)
     _require_owner(req, authorization)
     if (plan_stage.load(req) or {}).get("status") not in (None, plan_stage.FAILED):
-        raise HTTPException(status_code=409, detail="This plan is already written or being written")
-    if not req.consulting_recommendations_json:
-        raise HTTPException(status_code=409, detail="There is no answer to write a plan from yet")
+        raise HTTPException(status_code=409, detail="This roadmap is already written or being written")
+    if not (req.consulting_recommendations_json or answer_stage.load(req)):
+        raise HTTPException(status_code=409, detail="There is no answer to write a roadmap from yet")
+    if req.is_generating and req.status == orchestrator.BUILDING:
+        # the build in flight writes it; a second writer would race it
+        raise HTTPException(status_code=409, detail="Your plans are still being written")
     return {"plan_started": _start_plan(db, req)}
 
 
@@ -700,34 +766,43 @@ def get_plan(request_ref: str, review_token: str | None = None,
              authorization: str | None = Header(None), db: Session = Depends(get_db)):
     req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
-    return {"plan": plan_stage.load(req), "log": plan_stage.load_log(req),
-            "capacity": capacity_stage.load(req)}
+    return {"plan": plan_stage.load(req), "decisions": plan_stage.load_decisions(req)}
 
 
-@router.post("/{request_ref}/plan/log")
-def log_pilot_week(request_ref: str, week: int = Form(...), values: str = Form("{}"),
-                   note: str | None = Form(None), authorization: str | None = Header(None),
-                   db: Session = Depends(get_db)):
-    """One week of the pilot, entered by the owner against the plan's own
-    measures. Upserts: correcting last week's number is the same call."""
+MAX_CHOICES = 12
+
+
+@router.post("/{request_ref}/decisions")
+def record_decisions(request_ref: str, choices: str = Form("{}"), go: bool = Form(False),
+                     authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """The owner's answers to the roadmap's decisions — the only work the
+    engagement leaves them. Merges: answering one decision keeps the others.
+    `go` is "go ahead": we are told by mail, and the page shows it as given."""
     req = _load_request(request_ref, db)
     _require_owner(req, authorization)
-    plan = plan_stage.load(req) or {}
-    if plan.get("status") != plan_stage.READY:
-        raise HTTPException(status_code=409, detail="There is no plan to track yet")
-    weeks = int(plan.get("weeks") or 6)
-    if not 1 <= week <= max(weeks, 12):
-        raise HTTPException(status_code=422, detail=f"Week must be between 1 and {max(weeks, 12)}")
     try:
-        parsed = json.loads(values or "{}")
+        parsed = json.loads(choices or "{}")
     except ValueError:
-        raise HTTPException(status_code=422, detail="Values must be a JSON object")
+        raise HTTPException(status_code=422, detail="Choices must be a JSON object")
     if not isinstance(parsed, dict):
-        raise HTTPException(status_code=422, detail="Values must be a JSON object")
-    log = plan_stage.record(plan, plan_stage.load_log(req), week, parsed, note or "")
-    req.pilot_log_json = json.dumps(log)
+        raise HTTPException(status_code=422, detail="Choices must be a JSON object")
+    parsed = {str(k)[:20]: v for k, v in list(parsed.items())[:MAX_CHOICES] if isinstance(v, str)}
+
+    plan = plan_stage.load(req)
+    current = plan_stage.record_choices(plan, plan_stage.load_decisions(req), parsed)
+    if go:
+        current["go_ahead"] = True
+        current["go_at"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    req.decisions_json = json.dumps(current)
     db.commit()
-    return {"log": log}
+    if go:
+        # the mail reads by question, not by "d1"
+        asked = {d.get("id"): d.get("question") for d in (plan or {}).get("decisions") or []
+                 if isinstance(d, dict)}
+        mailer.notify_team_go_ahead(req.public_id or req.id, req.business_name or "",
+                                    req.owner_email or req.email,
+                                    {asked.get(k) or k: v for k, v in (current.get("choices") or {}).items()})
+    return {"decisions": current}
 
 
 @router.post("/{request_ref}/share")
@@ -770,7 +845,11 @@ def revise_decision(request_ref: str, note: str = Form(...),
     if len(text) < 10:
         raise HTTPException(status_code=422, detail="Tell us what we got wrong, in a sentence or two")
 
-    if req.status not in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED, "failed"):
+    # BUILDING too: the plans are written straight after the answer, and a
+    # client who reads it and disagrees must not have to wait them out. The
+    # build in flight sees its token change and stops on its own.
+    if req.status not in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED, "failed",
+                          orchestrator.BUILDING):
         raise HTTPException(status_code=409, detail="This engagement has no decision waiting")
 
     claimed = db.query(Request).filter(
@@ -928,11 +1007,12 @@ def get_preview(request_ref: str, review_token: str | None = None,
         # The operations-manual appendix: {"checklists": [...], "forms": [...]}
         "checklists": json.loads(req.checklists_json) if req.checklists_json else None,
         # The package page opens with these: the answer it was built around,
-        # their week, what to do on Monday, and the tracker's entries so far.
+        # their week, the implementation roadmap and what they chose on it.
         "answer": answer_stage.load(req),
         "capacity": capacity_stage.load(req),
         "action_plan": plan_stage.load(req),
-        "pilot_log": plan_stage.load_log(req),
+        "decisions": plan_stage.load_decisions(req),
+        "brief": _brief(req),
         "intervention_kind": recommendations.get("intervention_kind"),
         # What the documents still assume. Shown as its own box on the
         # package page, not left for them to find in the fine print.
@@ -1149,18 +1229,12 @@ def export_zip_route(request_ref: str, review_token: str | None = None,
 
 
 def build_zip(req: Request) -> tuple[str, str]:
-    """Every document this engagement has, zipped. The plan leads, because it
-    is the one they use first; volumes that aren't ready are skipped."""
+    """Every document this engagement has, zipped. Volumes that aren't ready
+    are skipped."""
     import zipfile
 
     file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "engagement"))
     built = []
-    plan = plan_stage.load(req) or {}
-    if plan.get("status") == plan_stage.READY:
-        try:
-            built.append((export_pilot.build_pilot_pdf(req), f"00 - {plan.get('title') or 'Your plan'}.pdf"))
-        except ValueError:
-            pass
     for kind, name in (
         ("blueprint", "Volume I - The Blueprint.pdf"),
         ("technical", "Volume II - The Technical Plan.pdf"),
@@ -1192,22 +1266,18 @@ def export_pdf_route(request_ref: str, kind: str, review_token: str | None = Non
         raise HTTPException(status_code=404, detail="Unknown document")
     req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
-    # The plan is theirs the moment it is written — it is not part of the
-    # reviewed package, and holding their Monday steps behind a review queue
-    # would hold back the one document with nothing to review but their own
-    # figures.
-    if kind != "pilot" and _pending_for(req, review_token):
+    if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
     out_path, filename = pdf_file(req, kind)
     return FileResponse(out_path, media_type="application/pdf", filename=filename)
 
 
-PDF_KINDS = ("blueprint", "technical", "operations", "pilot")
+PDF_KINDS = ("blueprint", "technical", "operations")
 
 
 def pdf_file(req: Request, kind: str) -> tuple[str, str]:
     try:
-        out_path = export_pilot.build_pilot_pdf(req) if kind == "pilot" else export_pdf.build_pdf(req, kind)
+        out_path = export_pdf.build_pdf(req, kind)
     except ValueError:
         raise HTTPException(status_code=400, detail="Document not ready yet")
     file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "document"))

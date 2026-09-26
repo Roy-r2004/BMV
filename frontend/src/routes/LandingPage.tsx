@@ -175,9 +175,9 @@ export default function LandingPage() {
             shown. <b>Nothing is built until you've read it.</b>
           </p>
           <ul className="ls-points">
-            <li><span><b>Pilot it</b> on Monday, with no software at all.</span></li>
-            <li><span><b>Build it,</b> and get the full package in about ten minutes.</span></li>
-            <li><span><b>Push back,</b> and it thinks again with what you told it.</span></li>
+            <li><span><b>Every plan,</b> written for you.</span></li>
+            <li><span><b>We do the work;</b> you make the calls.</span></li>
+            <li><span><b>Push back,</b> and it thinks again.</span></li>
           </ul>
         </Chapter>
 

@@ -1,54 +1,47 @@
 /**
- * The honest answer. The screen the whole consultation exists for.
+ * The answer, and the plans being written beside it.
  *
- * It has to land in five seconds and survive a sceptical second read. So the
- * finding is two short lines, their own week is drawn beside it, and the
- * three figures that prove it sit along the bottom next to the choice they
- * now have to make. Everything that got us here is one click below, for the
- * second read.
- *
- * Building is never a dead end: whichever answer we gave, the other path is
- * one click away.
+ * The answer is a pyramid: the governing thought first, then the few points
+ * that hold it up, each with its arithmetic shown in small type underneath.
+ * What we estimated or could not check is boxed in amber, because it is marked
+ * the same way in every plan. On the right, the plans write themselves while
+ * they read; nothing waits on a button. Pushing back is always one click away.
  */
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
-import type { StudioDecision, StudioFigure } from '../../api/consultant';
-import WeekGrid, { WeekLegend } from './WeekGrid';
+import type { StudioDecision } from '../../api/consultant';
 import { fmt } from '../../utils/week';
 
-const SCOPES = ['Starter scope', 'Standard scope', 'Full build', 'Not sure yet'];
-const TIMELINES = ['ASAP (2–4 weeks)', '1–2 months', '2–3 months', 'Flexible'];
+/** Each document and the stretch of the run's progress it is written in. */
+const DOCS: { title: string; note: string; from: number; to: number }[] = [
+  { title: 'The blueprint', note: 'The decision, the case, every module', from: 42, to: 56 },
+  { title: 'The technical plan', note: 'For whoever builds it', from: 56, to: 60 },
+  { title: 'The operations manual', note: 'Who does what, every day', from: 60, to: 61 },
+  { title: 'The implementation roadmap', note: 'Who does what, week by week', from: 61, to: 62 },
+  { title: 'Your product screens', note: 'Drawn for you, checked twice', from: 62, to: 100 },
+  { title: 'Your AI team', note: 'What each one decides alone', from: 42, to: 56 },
+];
 
-function Emphasised({ text, emphasis }: { text: string; emphasis: string }) {
-  if (!emphasis || !text.includes(emphasis)) return <>{text}</>;
-  const [a, b] = text.split(emphasis, 2);
-  return (
-    <>
-      {a}
-      <b className="font-semibold text-[var(--cx-txt)]">{emphasis}</b>
-      {b}
-    </>
-  );
+interface Pillar {
+  key: string;
+  text: string;
+  lead?: string;
+  fig?: string;
+  work?: string;
 }
 
 function Modal({ children, onClose, label }: { children: React.ReactNode; onClose: () => void; label: string }) {
   return (
-    <div className="cx-modal-back" role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.target === e.currentTarget && onClose()}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+    <div
+      className="cx-modal-back"
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+    >
       <div className="cx-card cx-modal">{children}</div>
-    </div>
-  );
-}
-
-function Choices({ options, value, onChange, label }: { options: string[]; value: string; onChange: (v: string) => void; label: string }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="mt-3 flex flex-wrap gap-2">
-      {options.map((o) => (
-        <button key={o} type="button" role="radio" aria-checked={value === o} className={`cx-choice${value === o ? ' on' : ''}`} onClick={() => onChange(o)}>
-          {o}
-        </button>
-      ))}
     </div>
   );
 }
@@ -56,203 +49,190 @@ function Choices({ options, value, onChange, label }: { options: string[]; value
 export default function Answer({
   decision,
   firstName,
-  onBuild,
-  onAccept,
+  pct,
+  writing,
+  onOpenPlans,
   onRevise,
-  onUpload,
+  onStartPlans,
   busy,
   error,
-  evidenceBusy,
-  evidenceNote,
-  evidenceError,
-  figures,
-  onDeleteFigure,
 }: {
   decision: StudioDecision;
   firstName: string | null;
-  onBuild: (scope: { budget_range: string; timeline: string }) => void;
-  onAccept: () => void;
+  pct: number;
+  writing: boolean;
+  onOpenPlans?: () => void;
   onRevise: (note: string) => void;
-  onUpload: (f: File) => void;
+  onStartPlans?: () => void;
   busy: boolean;
   error: string | null;
-  evidenceBusy: boolean;
-  evidenceNote: string | null;
-  evidenceError: string | null;
-  /** Figures read out of files they sent, each verified against its cell. */
-  figures: StudioFigure[];
-  onDeleteFigure: (id: string) => void;
 }) {
   const reduce = useReducedMotion();
-  const [building, setBuilding] = useState(false);
   const [revising, setRevising] = useState(false);
-  const [scope, setScope] = useState(SCOPES[3]);
-  const [timeline, setTimeline] = useState(TIMELINES[3]);
   const [note, setNote] = useState('');
-  const [showWorking, setShowWorking] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  const a = decision.answer;
+  const a = decision.answer ?? null;
   const d = decision.decision;
-  const picture = decision.capacity ?? null;
+  const diag = decision.diagnosis;
   const headline = a?.headline || d.central_problem || 'Here is what we found.';
   const turn = a?.turn || '';
-  const sub = a?.sub || d.summary || '';
-  const move = a?.move ?? null;
-  const actionName = a?.action?.name || 'first-weeks plan';
-  const builds = decision.builds;
+  const sub = a?.sub || (a ? '' : d.summary || '');
+  const unverified = d.unverified ?? [];
+  const cites = diag?.leading?.cites ?? [];
+  const citeText = (ids: string[]) =>
+    ids
+      .map((id) => cites.find((c) => c.id === id))
+      .filter(Boolean)
+      .map((c) => c!.source || c!.text)
+      .filter(Boolean)
+      .join('; ');
 
-  const band: { value: string; label: string }[] = [];
-  if (picture && picture.taken != null) {
-    band.push({
-      value: `${fmt(picture.taken)} of ${fmt(picture.capacity)}`,
-      label: picture.shape === 'total' ? `${picture.unit_plural} used a ${picture.period ?? 'week'}` : `${picture.unit_plural} taken every week`,
-    });
+  // The points that hold the answer up, in order: their own figures, then the
+  // value of the move, then anything else the diagnosis rests on.
+  const pillars: Pillar[] = [];
+  const usedCites = new Set<string>();
+  for (const f of a?.figures ?? []) {
+    f.cites.forEach((c) => usedCites.add(c));
+    const from = citeText(f.cites);
+    pillars.push({ key: `f-${f.value}-${f.label}`, text: f.label, fig: f.value, work: from ? `From your answers: ${from}.` : 'From your answers.' });
   }
-  for (const f of a?.figures ?? []) band.push({ value: f.value, label: f.label });
+  const move = a?.move ?? null;
+  if (move) {
+    move.cites.forEach((c) => usedCites.add(c));
+    const proposed = move.proposed.length
+      ? ` ${move.proposed.map((p) => `${p.label || 'The target'} (${fmt(p.value)})`).join(' and ')} ${move.proposed.length > 1 ? 'are' : 'is'} our proposal; the rest is yours.`
+      : ' Every term is one of your figures.';
+    pillars.push({ key: 'move', text: move.label, fig: move.display, work: `${move.working}.${proposed}` });
+  }
+  for (const c of cites) {
+    if (usedCites.has(c.id) || !c.text) continue;
+    pillars.push({ key: `c-${c.id}`, text: c.text, work: c.source ? `From ${c.source}.` : undefined });
+  }
+  const shown = pillars.slice(0, 5);
+
+  const legacy = !writing && (decision.status === 'awaiting_approval' || decision.status === 'advised');
+  const ready = pct >= 100;
+  const docState = (from: number, to: number): 'queued' | 'busy' | 'ok' => {
+    if (pct >= to || (!writing && ready)) return 'ok';
+    if (writing && pct >= from) return 'busy';
+    return 'queued';
+  };
 
   const enter = (delay: number) =>
-    reduce ? {} : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.6, delay } };
-
-  const diag = decision.diagnosis;
-  const unverified = d.unverified ?? [];
+    reduce ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, delay } };
 
   return (
-    <section className="pt-8">
-      <div className="grid items-start gap-12 xl:grid-cols-[minmax(0,1fr)_minmax(560px,0.95fr)]">
-        <div className="min-w-0">
-          <motion.p className="cx-faint text-[17px]" {...enter(0)}>
-            {firstName ? `${firstName}, here's what we found.` : "Here's what we found."}
-          </motion.p>
-          <motion.h1 className="cx-h1 mt-5" {...enter(0.08)}>
+    <section className="cx-stage">
+      <p className="cx-kicker">{firstName ? `${firstName}, the answer` : 'The answer'}</p>
+      <div className="cx-ans">
+        <motion.div className="cx-pane cx-gov" {...enter(0)}>
+          <h2>
             {headline}
-            {turn ? <span className="block text-[var(--cx-blue)]">{turn}</span> : null}
-          </motion.h1>
-          {sub ? (
-            <motion.p className="cx-lead mt-8 max-w-[44ch]" {...enter(0.2)}>
-              <Emphasised text={sub} emphasis={a?.emphasis ?? ''} />
-            </motion.p>
-          ) : null}
-          {decision.revisions ? (
-            <p className="cx-faint mt-6 max-w-[60ch] text-[15px]">
-              Diagnosed again with what you told us: "{decision.revisions}"
-            </p>
-          ) : null}
-        </div>
+            {turn ? <span>{turn}</span> : null}
+          </h2>
+          {sub ? <p className="cx-sub">{sub}</p> : null}
 
-        {picture ? (
-          <motion.div className="cx-card p-7 sm:p-8" {...enter(0.35)}>
-            <WeekLegend picture={picture} />
-            <div className="mt-6">
-              <WeekGrid picture={picture} />
-            </div>
-            <p className="cx-faint mt-6 text-[14px]">
-              Drawn only from what you told us: {picture.basis.join(', ')}.
-            </p>
-          </motion.div>
-        ) : diag?.leading?.cites?.length ? (
-          <motion.div className="cx-card p-8" {...enter(0.35)}>
-            <p className="cx-small font-semibold text-[var(--cx-txt3)]">What this rests on — your own figures</p>
-            <ul className="mt-4 space-y-4">
-              {diag.leading.cites.map((c) => (
-                <li key={c.id} className="border-l-2 border-[var(--cx-line)] pl-4 text-[16.5px]">{c.text}</li>
+          {shown.length ? (
+            <ol className="cx-pillars">
+              {shown.map((p, i) => (
+                <li key={p.key} className="cx-pillar">
+                  <span className="k">{i + 1}</span>
+                  <div>
+                    <p>{p.lead ? <b>{p.lead} </b> : null}{p.text}</p>
+                    {p.work ? <p className="work">{p.work}</p> : null}
+                  </div>
+                  {p.fig ? <span className="fig">{p.fig}</span> : <span />}
+                </li>
               ))}
-            </ul>
-          </motion.div>
-        ) : null}
+            </ol>
+          ) : null}
+
+          {decision.revisions ? (
+            <p className="cx-faint" style={{ marginTop: 18, fontSize: 14 }}>
+              Worked through again with what you told us: “{decision.revisions}”
+            </p>
+          ) : null}
+
+          {unverified.length ? (
+            <div className="cx-estd">
+              <b>What we estimated or couldn't check.</b> Each is marked in every plan.
+              <ul>
+                {unverified.map((u) => (
+                  <li key={u}>• {u}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </motion.div>
+
+        <motion.aside className="cx-pane cx-writing" {...enter(0.15)} aria-live="polite">
+          <h3>{legacy ? 'Your plans' : ready ? 'Your plans are ready' : 'Your plans are being written'}</h3>
+          <p>Everything needed to build this, for you or for any team.</p>
+          <div className="cx-docs">
+            {DOCS.map((doc) => {
+              const st = legacy ? 'queued' : docState(doc.from, doc.to);
+              return (
+                <div key={doc.title} className={`cx-docline${st === 'busy' ? ' busy' : st === 'ok' ? ' ok' : ''}`}>
+                  <span className="ic" aria-hidden="true" />
+                  <div>
+                    <b>{doc.title}</b>
+                    <small>{doc.note}</small>
+                  </div>
+                  <span className="st">{legacy ? '' : st === 'ok' ? 'Ready' : st === 'busy' ? 'Writing' : 'Queued'}</span>
+                </div>
+              );
+            })}
+          </div>
+          {legacy ? (
+            <button type="button" className="cx-btn cx-btn--blue" onClick={onStartPlans} disabled={busy || !onStartPlans}>
+              {busy ? 'Starting…' : 'Write my plans'}
+            </button>
+          ) : (
+            <button type="button" className="cx-btn cx-btn--blue" onClick={onOpenPlans} disabled={!ready || !onOpenPlans}>
+              Open your plans
+            </button>
+          )}
+          {!ready && !legacy ? (
+            <p className="cx-faint" style={{ marginTop: 10, fontSize: 13, textAlign: 'center' }}>
+              You don't need to wait here. We'll email you when it's ready.
+            </p>
+          ) : null}
+          <p className="cx-pushback">
+            Something off? <button type="button" onClick={() => setRevising(true)} disabled={busy}>Push back on the answer</button>
+          </p>
+          {error ? <p className="cx-error" role="alert" style={{ marginTop: 10, textAlign: 'center' }}>{error}</p> : null}
+        </motion.aside>
       </div>
 
-      <motion.div
-        className="mt-16 grid items-end gap-10 border-t border-[var(--cx-line)] pt-8 lg:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]"
-        {...enter(0.5)}
-      >
-        {band.slice(0, 2).map((f) => (
-          <div key={f.value + f.label}>
-            <b className="block cx-display text-[clamp(30px,2.8vw,42px)]">{f.value}</b>
-            <span className="cx-muted mt-2 block text-[15px]">{f.label}</span>
-          </div>
-        ))}
-        {move ? (
-          <div>
-            <b className="block cx-display text-[clamp(30px,2.8vw,42px)] text-[var(--cx-blue)]">{move.display}</b>
-            <span className="cx-muted mt-2 block text-[15px]">{move.label}</span>
-            <button type="button" className="cx-link cx-small mt-2" onClick={() => setShowWorking((v) => !v)} aria-expanded={showWorking}>
-              {showWorking ? 'Hide the working' : 'How we worked it out'}
-            </button>
-          </div>
-        ) : null}
-        <div className="flex flex-col items-start gap-3 lg:items-end">
-          {decision.status === 'awaiting_approval' || decision.status === 'advised' ? (
-            builds ? (
-              <>
-                <button type="button" className="cx-btn cx-btn--blue" onClick={() => setBuilding(true)} disabled={busy}>
-                  Build the package
-                </button>
-                <div className="flex flex-wrap gap-5">
-                  <button type="button" className="cx-link" onClick={onAccept} disabled={busy}>Just the {actionName} for now</button>
-                  <button type="button" className="cx-link" onClick={() => setRevising(true)} disabled={busy}>This isn't right</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <button type="button" className="cx-btn cx-btn--blue" onClick={onAccept} disabled={busy}>
-                  {busy ? 'Starting…' : `Start the ${actionName}`}
-                </button>
-                <div className="flex flex-wrap gap-5">
-                  <button type="button" className="cx-link" onClick={() => setBuilding(true)} disabled={busy}>Build the system too</button>
-                  <button type="button" className="cx-link" onClick={() => setRevising(true)} disabled={busy}>This isn't right</button>
-                </div>
-              </>
-            )
-          ) : null}
-        </div>
-      </motion.div>
-      {error ? <p className="cx-error mt-4 text-right" role="alert">{error}</p> : null}
-
-      {showWorking && move ? (
-        <div className="cx-tint mt-6 p-6">
-          <p className="text-[16.5px]"><b>The working:</b> {move.working}.</p>
-          {move.proposed.length ? (
-            <p className="cx-muted mt-2 text-[15px]">
-              {move.proposed.map((p) => `${p.label || 'The proposed figure'} (${fmt(p.value)})`).join(' and ')} {move.proposed.length > 1 ? 'are' : 'is'} our proposal, not your figure. Everything else is yours.
-            </p>
-          ) : (
-            <p className="cx-muted mt-2 text-[15px]">Every term is one of your own figures or a calendar constant.</p>
-          )}
-        </div>
-      ) : null}
-
-      <details className="mt-16 group">
-        <summary className="cx-link cursor-pointer list-none text-[16.5px]">
-          How we got here: the explanations we tested, what the reviewers said, and what we couldn't check
-        </summary>
-        <div className="mt-8 grid gap-8 lg:grid-cols-2">
+      <details className="cx-howwe">
+        <summary>How we got here: the explanations we tested, and what the reviewers said</summary>
+        <div className="cx-howwe-grid">
           {diag ? (
-            <div className="cx-card p-8">
+            <div className="cx-card" style={{ padding: 28 }}>
               <h2 className="cx-h3">The explanations we tested</h2>
-              <ul className="mt-5 space-y-5">
+              <ul style={{ marginTop: 18, display: 'grid', gap: 18 }}>
                 <li>
                   <span className="cx-chip cx-chip--green">Held up</span>
-                  <p className="mt-2 font-semibold">{diag.leading.statement}</p>
-                  {diag.leading.because ? <p className="cx-muted mt-1 text-[15px]">{diag.leading.because}</p> : null}
+                  <p style={{ marginTop: 8, fontWeight: 600 }}>{diag.leading.statement}</p>
+                  {diag.leading.because ? <p className="cx-muted" style={{ marginTop: 4, fontSize: 15 }}>{diag.leading.because}</p> : null}
                 </li>
                 {diag.considered.map((c) => (
                   <li key={c.statement}>
                     <span className={`cx-chip ${c.verdict === 'refuted' ? 'cx-chip--dim' : 'cx-chip--amber'}`}>
                       {c.verdict === 'refuted' ? 'Ruled out' : c.verdict === 'supported' ? 'Also supported' : "Couldn't check"}
                     </span>
-                    <p className="mt-2">{c.statement}</p>
-                    {c.because ? <p className="cx-muted mt-1 text-[15px]">{c.because}</p> : null}
+                    <p style={{ marginTop: 8 }}>{c.statement}</p>
+                    {c.because ? <p className="cx-muted" style={{ marginTop: 4, fontSize: 15 }}>{c.because}</p> : null}
                   </li>
                 ))}
               </ul>
               {diag.challenges.length ? (
                 <>
-                  <h3 className="mt-8 font-semibold">What the two reviewers said</h3>
-                  <ul className="mt-3 space-y-3">
+                  <h3 style={{ marginTop: 28, fontWeight: 600, fontFamily: 'var(--cx-body)', letterSpacing: 0 }}>What the two reviewers said</h3>
+                  <ul style={{ marginTop: 10, display: 'grid', gap: 10 }}>
                     {diag.challenges.map((c) => (
-                      <li key={c.angle} className="text-[15.5px]">
-                        <span className={c.kills ? 'text-[var(--cx-red)] font-semibold' : 'text-[var(--cx-green)] font-semibold'}>
+                      <li key={c.angle} style={{ fontSize: 15.5 }}>
+                        <span style={{ fontWeight: 600, color: c.kills ? 'var(--cx-red)' : 'var(--cx-green)' }}>
                           {c.kills ? 'Found a hole: ' : 'Held: '}
                         </span>
                         {c.because}
@@ -263,95 +243,56 @@ export default function Answer({
               ) : null}
             </div>
           ) : null}
-          <div className="cx-card p-8">
+          <div className="cx-card" style={{ padding: 28 }}>
             <h2 className="cx-h3">What we couldn't check</h2>
             {unverified.length ? (
-              <ul className="mt-4 space-y-2">
+              <ul style={{ marginTop: 14, display: 'grid', gap: 8 }}>
                 {unverified.map((u) => (
-                  <li key={u} className="text-[15.5px]">• {u}</li>
+                  <li key={u} style={{ fontSize: 15.5 }}>• {u}</li>
                 ))}
               </ul>
             ) : (
-              <p className="cx-muted mt-3">Nothing listed. Confidence: {d.confidence ?? 'medium'}.</p>
+              <p className="cx-muted" style={{ marginTop: 12 }}>Nothing listed. Confidence: {d.confidence ?? 'medium'}.</p>
             )}
             {d.why_not_the_others ? (
               <>
-                <h3 className="mt-6 font-semibold">Why not the other kinds of fix</h3>
-                <p className="cx-muted mt-2 text-[15.5px]">{d.why_not_the_others}</p>
+                <h3 style={{ marginTop: 24, fontWeight: 600, fontFamily: 'var(--cx-body)', letterSpacing: 0 }}>Why not the other kinds of fix</h3>
+                <p className="cx-muted" style={{ marginTop: 8, fontSize: 15.5 }}>{d.why_not_the_others}</p>
               </>
             ) : null}
-            <div className="mt-8 border-t border-[var(--cx-line)] pt-6">
-              <p className="font-semibold">Have the actual numbers?</p>
-              <p className="cx-muted mt-1 text-[15px]">
-                Send a booking export or a sales sheet and we'll diagnose again with it. Every figure is checked against its cell.
-              </p>
-              <input ref={fileRef} type="file" className="hidden" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.pdf"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onUpload(f);
-                  e.target.value = '';
-                }} />
-              <button type="button" className="cx-btn cx-btn--ghost cx-btn--sm mt-4" disabled={evidenceBusy} onClick={() => fileRef.current?.click()}>
-                {evidenceBusy ? 'Reading…' : 'Send a file'}
-              </button>
-              {figures.length ? (
-                <ul className="mt-5 space-y-3">
-                  {figures.map((f) => (
-                    <li key={f.id} className="flex items-start justify-between gap-4 text-[15px]">
-                      <span>
-                        <b>{f.value.toLocaleString('en-US')} {f.unit}</b> {f.text}
-                        <span className="cx-faint block text-[13px]">{f.source}</span>
-                      </span>
-                      <button type="button" className="cx-link cx-small" onClick={() => onDeleteFigure(f.id)} disabled={evidenceBusy}>
-                        remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {evidenceNote ? <p className="cx-muted mt-3 text-[15px]">{evidenceNote}</p> : null}
-              {evidenceError ? <p className="cx-error mt-3">{evidenceError}</p> : null}
-            </div>
           </div>
         </div>
       </details>
 
-      {building ? (
-        <Modal label="Before we build" onClose={() => setBuilding(false)}>
-          <h2 className="cx-h3">Before we build</h2>
-          <p className="cx-muted mt-2">
-            {builds
-              ? 'About ten minutes. Everything is built around the answer you just read.'
-              : "We still think the fix doesn't need software to start. The package carries out the change; it won't replace it."}
-          </p>
-          <p className="mt-6 font-semibold">What scope are you thinking?</p>
-          <Choices options={SCOPES} value={scope} onChange={setScope} label="Scope" />
-          <p className="mt-6 font-semibold">And when?</p>
-          <Choices options={TIMELINES} value={timeline} onChange={setTimeline} label="Timeline" />
-          <div className="mt-8 flex flex-wrap items-center gap-4">
-            <button type="button" className="cx-btn cx-btn--blue" disabled={busy}
-              onClick={() => onBuild({ budget_range: scope, timeline })}>
-              {busy ? 'Starting…' : 'Start building'}
-            </button>
-            <button type="button" className="cx-link" onClick={() => setBuilding(false)}>Not yet</button>
-          </div>
-        </Modal>
-      ) : null}
-
       {revising ? (
-        <Modal label="What did we get wrong?" onClose={() => setRevising(false)}>
-          <h2 className="cx-h3">What did we get wrong?</h2>
-          <p className="cx-muted mt-2">
-            Tell us in a sentence or two. We'll diagnose again with it, and you'll watch it happen.
+        <Modal label="Tell us what we got wrong" onClose={() => setRevising(false)}>
+          <h2 className="cx-h3">Tell us what we got wrong</h2>
+          <p className="cx-muted" style={{ marginTop: 8 }}>
+            We re-run the analysis with what you tell us, and rewrite the plans to match.
           </p>
-          <textarea className="cx-textarea mt-5" rows={4} value={note} onChange={(e) => setNote(e.target.value)} autoFocus
-            placeholder="e.g. The evening waiting list is only two or three people, and most of them get in." />
-          <div className="mt-6 flex flex-wrap items-center gap-4">
-            <button type="button" className="cx-btn cx-btn--blue" disabled={busy || note.trim().length < 10}
-              onClick={() => onRevise(note.trim())}>
-              Diagnose again
+          <textarea
+            className="cx-textarea"
+            style={{ marginTop: 18 }}
+            rows={4}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            autoFocus
+            aria-label="Your note"
+            placeholder="e.g. The evening waiting list is only two or three people, and most of them get in."
+          />
+          <div className="cx-row" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
+            <button type="button" className="cx-textbtn" onClick={() => setRevising(false)}>Cancel</button>
+            <button
+              type="button"
+              className="cx-btn cx-btn--blue"
+              disabled={busy || note.trim().length < 10}
+              onClick={() => {
+                onRevise(note.trim());
+                setRevising(false);
+              }}
+            >
+              Send
             </button>
-            <button type="button" className="cx-link" onClick={() => setRevising(false)}>Cancel</button>
           </div>
         </Modal>
       ) : null}

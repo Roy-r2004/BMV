@@ -96,13 +96,18 @@ class Request(Base):
     # verified product of terms. Null when it could not be written — the
     # screen then shows the decision's own summary.
     answer_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # What they do next Monday (app/pipeline/action_plan.py): first steps,
-    # schedule, the message to send, the measures and the decision rule.
+    # The implementation roadmap (app/pipeline/action_plan.py): phases we
+    # carry out, and the few decisions only the owner can make.
     # {"status": "writing"} while it is being written.
     action_plan_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # The pilot tracker: [{"week", "values": {measure_id: number}, "note"}],
-    # entered by the owner against the plan's measures.
+    # Legacy: the retired pilot tracker. Kept so old rows still load; unused.
     pilot_log_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The engagement's scope as agreed in the interview: the question, the
+    # facts gathered and which the client did not know (sanitized JSON).
+    brief_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The owner's answers to the roadmap's decisions:
+    # {"choices": {decision_id: option}, "go_ahead": bool, "go_at": iso}.
+    decisions_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A read-only link the owner can hand to a partner. Null until they make
     # one; cleared when they revoke it.
     share_token: Mapped[str | None] = mapped_column(String(40), unique=True, index=True, nullable=True)

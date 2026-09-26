@@ -4,8 +4,8 @@
 co-founder, the accountant, the person who signs off the spend. Engagements
 are private to one account, so this is a second, narrower door: a token the
 owner created and can revoke, opening the finished package and nothing else.
-It cannot answer the decision, send it back, log a pilot week or make another
-link; those stay on the owner's routes, which demand the owner's session.
+It cannot answer the decision, send it back, answer the roadmap's decisions or
+make another link; those stay on the owner's routes, which demand the owner's session.
 """
 
 import json
@@ -63,12 +63,12 @@ def shared_package(token: str, db: Session = Depends(get_db)):
         "status": req.status,
         "answer": answer_stage.load(req),
         "capacity": capacity_stage.load(req),
+        # the implementation roadmap, and what the owner chose on it — read-only
         "action_plan": plan if (plan or {}).get("status") == plan_stage.READY else None,
-        "pilot_log": plan_stage.load_log(req),
+        "decisions": plan_stage.load_decisions(req),
         "summary": decision.get("consulting_summary") or req.consulting_analysis,
         "unverified": decision.get("unverified") or [],
         "documents": {
-            "pilot": (plan or {}).get("status") == plan_stage.READY,
             "blueprint": bool(req.mvp_blueprint),
             "technical": bool(req.technical_plan),
             "operations": bool(req.procedures_json or req.org_json or req.checklists_json),

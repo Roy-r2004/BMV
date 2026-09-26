@@ -72,15 +72,32 @@ def enabled() -> bool:
 def notify_owner_ready(ref: str | int, owner_email: str | None, business_name: str) -> None:
     send_async(
         owner_email,
-        f"{business_name} — your package is ready",
+        f"{business_name} — your answer and plans are ready",
         (
-            f"The package we were building for {business_name} is finished.\n\n"
+            f"The answer for {business_name} is ready, and so is every plan behind it: "
+            f"the blueprint, the technical plan, the operations manual, the product screens "
+            f"and the implementation roadmap.\n\n"
             f"Open it here (sign in with this address):\n"
             f"{_run_url(ref)}\n\n"
-            f"It opens with what you can start on Monday, before any of the software exists. "
-            f"The documents, the product screens and your pilot tracker are underneath.\n\n"
-            f"Anything we got wrong, or ready to talk about building it? Just reply to this email.\n\n"
+            f"We do the work. The only thing left for you is a few decisions, "
+            f"on the page — each one is a tap.\n\n"
+            f"Anything we got wrong? Just reply to this email.\n\n"
             f"— Build My Version · buildmyversion.com\n"
+        ),
+    )
+
+
+def notify_team_go_ahead(ref: str | int, business_name: str, owner_email: str | None,
+                         choices: dict | None) -> None:
+    """The owner pressed go ahead on the roadmap: tell us, with their calls."""
+    lines = "\n".join(f"- {k}: {v}" for k, v in (choices or {}).items()) or "- (no decisions answered)"
+    send_async(
+        settings.SMTP_USER,
+        f"Go ahead — {business_name}",
+        (
+            f"{owner_email or 'The owner'} asked us to build {business_name}.\n\n"
+            f"The engagement:\n{_run_url(ref)}\n\n"
+            f"Their decisions:\n{lines}\n"
         ),
     )
 

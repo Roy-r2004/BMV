@@ -2,24 +2,24 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
-  fetchCaseFile,
+  fetchScope,
   getStudioPlan,
-  logPilotWeek,
+  readInterviewFile,
   retryStudioPlan,
+  saveDecisions,
   shareStudio,
   unshareStudio,
-  type CaseFigure,
-  type CaseFile,
-  type ActionPlan,
-  type PilotEntry,
+  type DecisionState,
+  type Fact,
+  type Roadmap,
+  type Scope,
 } from '../api/consultant';
 import Chrome from '../components/consult/Chrome';
 import FrontDoor from '../components/consult/FrontDoor';
+import Brief from '../components/consult/Brief';
 import Interview from '../components/consult/Interview';
-import Playback from '../components/consult/Playback';
 import Thinking from '../components/consult/Thinking';
 import Answer from '../components/consult/Answer';
-import Building from '../components/consult/Building';
 import Package, { type PackageScreen } from '../components/consult/Package';
 import '../styles/consult.css';
 import SiteFooter from '../components/SiteFooter';
@@ -36,11 +36,7 @@ import {
   getStudioProgress,
   getStudioDecision,
   approveStudioDecision,
-  acceptStudioAdvice,
   reviseStudioDecision,
-  getStudioEvidence,
-  uploadStudioEvidence,
-  deleteStudioEvidence,
   consultantAssetUrl,
   isAtCapacity,
   isNotFound,
@@ -55,7 +51,6 @@ import {
   type StudioPreview,
   type StudioProgress,
   type StudioDecision,
-  type StudioFigure,
   type StudioScreen,
 } from '../api/consultant';
 /** One round of the interview as the server returned it. */
@@ -109,7 +104,9 @@ import '../styles/studio.css';
 // waiting on the client. Nothing is running and nothing is built — the two
 // states 'building' and 'reveal' used to cover between them, which is why
 // the run needs its own act rather than a flag on one of theirs.
-type Act = 'intake' | 'loading' | 'briefing' | 'pending' | 'decision' | 'building' | 'reveal' | 'failed' | 'missing' | 'private';
+// 'ready' is the answer on screen with every plan written: the run is over,
+// but they are still reading the answer, so the plans wait for their click.
+type Act = 'intake' | 'loading' | 'pending' | 'decision' | 'building' | 'ready' | 'reveal' | 'failed' | 'missing' | 'private';
 
 type ResultTab = 'screens' | 'blueprint' | 'technical' | 'playbook' | 'team' | 'plans';
 
@@ -181,11 +178,6 @@ function Icon({ path, className }: { path: string; className?: string }) {
 // Budget and timeline moved to the approval gate, where they are a question
 // someone who wants the build is happy to answer; nothing before `plan`
 // reads them anyway.
-const INTAKE_STEPS = [
-  { id: 'problem', label: 'Your situation', subtitle: 'Tell us in your own words' },
-  { id: 'conversation', label: 'The conversation', subtitle: 'A few questions before we answer' },
-] as const;
-
 /** Shown only when the tailoring call itself is unreachable — the server
  *  already serves its own fallback on model failure. Mirrors that set. */
 const LOCAL_DISCOVERY_FALLBACK: Record<OperatingStage, DiscoveryQuestion[]> = {
@@ -217,17 +209,6 @@ const NAME_QUESTION: DiscoveryQuestion = {
   why: 'So everything we write is addressed to you, not to "the business". If it has no name yet, a working name is fine.',
   field: 'business_name',
 };
-
-/** Replace the numbers in `value` with the ones in `next`, when both say the
- *  same shape of thing ("10 of 12" edited to "about 11 of 12" shows "11 of
- *  12"); otherwise show what they typed. */
-function reshapeValue(value: string, token: string, next: string): string {
-  const oldN: string[] = token.match(/\d[\d,.]*/g) ?? [];
-  const newN: string[] = next.match(/\d[\d,.]*/g) ?? [];
-  if (!oldN.length || oldN.length !== newN.length) return next;
-  let i = 0;
-  return value.replace(/\d[\d,.]*/g, (m) => (oldN.includes(m) && i < newN.length ? newN[i++] : m));
-}
 
 // Every export download carries the caller's session. The export routes are
 // auth-gated, and a plain <a href> navigation sends no Authorization header —
@@ -1434,10 +1415,6 @@ export default function StudioPage() {
   const [decision, setDecision] = useState<StudioDecision | null>(null);
   const [gateBusy, setGateBusy] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
-  const [figures, setFigures] = useState<StudioFigure[]>([]);
-  const [evidenceBusy, setEvidenceBusy] = useState(false);
-  const [evidenceNote, setEvidenceNote] = useState<string | null>(null);
-  const [evidenceError, setEvidenceError] = useState<string | null>(null);
   // Which half of the run this is. The diagnosis stops at the gate and the
   // build only starts when the client presses it, so the running screen has
   // to say which one it is showing — the server's `status` says so too, but
@@ -1446,7 +1423,6 @@ export default function StudioPage() {
   const [phase, setPhase] = useState<RunPhase>('diagnosing');
   const [activeTab, setActiveTab] = useState<ResultTab>('screens');
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
-  const [copied, setCopied] = useState(false);
   // Screens whose file did not load. A missing byte gets an honest tile
   // instead of a browser's broken-image glyph.
   const [brokenSrc, setBrokenSrc] = useState<Record<string, true>>({});
@@ -1497,20 +1473,25 @@ export default function StudioPage() {
   // know. The current question is the first one not in here.
   const [committed, setCommitted] = useState<string[]>([]);
   const roundAsked = useRef(0);
-  // The case file beside the conversation, refreshed as they answer, and the
-  // one played back before the diagnosis. Latest call wins.
-  const [caseFile, setCaseFile] = useState<CaseFile | null>(null);
-  const [caseLoading, setCaseLoading] = useState(false);
-  const caseCall = useRef<{ key: string; promise: Promise<CaseFile> } | null>(null);
-  const [playbackFile, setPlaybackFile] = useState<CaseFile | null>(null);
-  const [playbackLoading, setPlaybackLoading] = useState(false);
-  const [correction, setCorrection] = useState('');
+  // The brief: the question we will answer, and the list of every fact we
+  // need. The interview works through the list and ends when nothing on it is
+  // still needed — gathered, read from a file, or ours to estimate.
+  const [scope, setScope] = useState<Scope | null>(null);
+  const [scopeLoading, setScopeLoading] = useState(false);
+  const [facts, setFacts] = useState<Fact[]>([]);
+  // Figures read out of files they dropped in, as lines the interview reads.
+  const [fileFacts, setFileFacts] = useState<string[]>([]);
+  const [fileBusy, setFileBusy] = useState(false);
+  const [fileNote, setFileNote] = useState<string | null>(null);
+  const [fileReadTick, setFileReadTick] = useState(0);
+  const [lastHeard, setLastHeard] = useState<string | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
   // Files they dropped into the conversation, sent with the engagement.
   const [files, setFiles] = useState<File[]>([]);
-  const [pilotLog, setPilotLog] = useState<PilotEntry[]>([]);
-  // The plan on a finished package, when it is written after the fact.
-  const [revealPlan, setRevealPlan] = useState<ActionPlan | null>(null);
+  // The roadmap on a finished package, when it is rewritten after the fact,
+  // and the calls they have made on it.
+  const [revealPlan, setRevealPlan] = useState<Roadmap | null>(null);
+  const [decisionState, setDecisionState] = useState<DecisionState>({});
   // The review gate. The token arrives as ?review=... on the reviewer's
   // link; its presence turns the page into the review view of the run.
   const reviewToken = useMemo(
@@ -1532,7 +1513,6 @@ export default function StudioPage() {
   // returns IS the current run's reasoning — no client-side merging needed.
   const thinking = progress?.thinking ?? [];
 
-  const resultUrl = routeId != null ? `${window.location.origin}${studioResultPath(routeId)}` : null;
 
   const showResult = useCallback(async (id: StudioRef) => {
     try {
@@ -1543,6 +1523,7 @@ export default function StudioPage() {
         return;
       }
       setPreview(data);
+      setDecisionState(data.decisions ?? {});
       setActiveTab('screens');
       setAct('reveal');
     } catch (err) {
@@ -1569,11 +1550,6 @@ export default function StudioPage() {
       setDecision(await getStudioDecision(id));
       setGateError(null);
       setAct('decision');
-      // Figures are a separate read and a failure to load them must not cost
-      // the client their brief — the panel simply starts empty.
-      getStudioEvidence(id)
-        .then((e) => setFigures(e.figures ?? []))
-        .catch(() => undefined);
     } catch (err) {
       if (isUnauthorized(err)) {
         setPrivateReason('signin');
@@ -1609,65 +1585,6 @@ export default function StudioPage() {
     }
   }, [routeId]);
 
-  const uploadEvidence = useCallback(async (file: File) => {
-    if (routeId == null) return;
-    setEvidenceBusy(true);
-    setEvidenceError(null);
-    setEvidenceNote(null);
-    try {
-      const r = await uploadStudioEvidence(routeId, file);
-      setFigures((prev) => [...prev, ...r.figures]);
-      // The dropped count is stated, never hidden. A client who sent a file
-      // is owed the news that we threw part of it away, and why.
-      setEvidenceNote(
-        `Read ${r.added} figure${r.added === 1 ? '' : 's'} from ${file.name}.` +
-          (r.rejected > 0
-            ? ` ${r.rejected} more we could not match to a cell, so we left them out.`
-            : '') +
-          (r.rediagnosing ? ' Diagnosing again with them now…' : ''),
-      );
-      if (r.rediagnosing) {
-        setPhase('diagnosing');
-        setAct('building');
-      }
-    } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setEvidenceError(detail || 'We could not read that file just now. Try again in a moment.');
-    } finally {
-      setEvidenceBusy(false);
-    }
-  }, [routeId]);
-
-  const deleteFigure = useCallback(async (id: string) => {
-    if (routeId == null) return;
-    setEvidenceBusy(true);
-    try {
-      const r = await deleteStudioEvidence(routeId, id);
-      setFigures(r.figures);
-      setEvidenceNote(null);
-    } catch {
-      setEvidenceError('We could not remove that just now.');
-    } finally {
-      setEvidenceBusy(false);
-    }
-  }, [routeId]);
-
-  const acceptAdvice = useCallback(async () => {
-    if (routeId == null) return;
-    setGateBusy(true);
-    setGateError(null);
-    try {
-      await acceptStudioAdvice(routeId);
-      // Re-read rather than patching the local copy: the server owns whether
-      // this engagement is now terminal, and a refresh must show the same.
-      await loadDecision(routeId);
-    } catch {
-      setGateError('We could not save that just now. Try again in a moment.');
-    } finally {
-      setGateBusy(false);
-    }
-  }, [routeId, loadDecision]);
-
   const reviseDecision = useCallback(async (note: string) => {
     if (routeId == null) return;
     setGateBusy(true);
@@ -1684,6 +1601,12 @@ export default function StudioPage() {
       setGateBusy(false);
     }
   }, [routeId]);
+
+  // Where the page is, readable from the poll without re-creating it.
+  const actRef = useRef(act);
+  actRef.current = act;
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
 
   // Decide what a run's state means — used both on first load of a result URL
   // and on every poll, so there is exactly one set of rules.
@@ -1736,6 +1659,12 @@ export default function StudioPage() {
       // abandoned before it ever started. showResult tells them apart by
       // whether there is anything to show.
       sessionStorage.removeItem(RESUME_KEY);
+      // Finished while they were reading the answer: keep the answer on
+      // screen and let "Open your plans" take them there.
+      if (actRef.current === 'building' && phaseRef.current === 'building') {
+        setAct('ready');
+        return;
+      }
       void showResult(id);
     },
     [showResult, loadDecision],
@@ -1800,21 +1729,6 @@ export default function StudioPage() {
     return () => clearInterval(t);
   }, [act, routeId, showResult]);
 
-  // The plan is written in the background after they take the answer. Poll
-  // for it until it is written — or until it fails, which the page offers to
-  // retry.
-  const planStatus = decision?.action_plan?.status;
-  useEffect(() => {
-    if (act !== 'decision' || routeId == null || decision?.status !== 'advised') return;
-    if (planStatus && planStatus !== 'writing') return;
-    const t = setInterval(() => {
-      getStudioDecision(routeId)
-        .then(setDecision)
-        .catch(() => undefined);
-    }, 3000);
-    return () => clearInterval(t);
-  }, [act, routeId, decision?.status, planStatus]);
-
   // A plan asked for on a finished package: poll until it is written.
   const revealPlanStatus = revealPlan?.status;
   useEffect(() => {
@@ -1828,15 +1742,6 @@ export default function StudioPage() {
     }, 3000);
     return () => clearInterval(t);
   }, [act, routeId, revealPlanStatus]);
-
-  // The tracker's entries, whenever a package is on screen.
-  useEffect(() => {
-    if (routeId == null) return;
-    if (act !== 'reveal' && !(act === 'decision' && decision?.status === 'advised')) return;
-    getStudioPlan(routeId)
-      .then((r) => setPilotLog(r.log ?? []))
-      .catch(() => undefined);
-  }, [act, routeId, decision?.status]);
 
   // A build resumed from its URL has no decision in memory, and the building
   // screen pins the answer it is built around. Read it once.
@@ -2016,12 +1921,50 @@ export default function StudioPage() {
     [form],
   );
 
-  /** One round of the interview. Round 1 fires the moment they have said what
-   *  is wrong; later rounds once they have answered something, so a follow-up
-   *  always follows an actual answer. */
-  const askRound = useCallback(async (n: number) => {
-    // The only precondition now. The business has no name yet on round 1 —
-    // asking for it is the conversation's job, not the form's.
+  /** What a round settled: values their answers gave, facts the list was
+   *  missing, and — when the interview ends — whatever is still open becomes
+   *  ours to estimate, marked as ours. */
+  const applyRound = (r: { updates?: { key: string; value: string }[]; new_facts?: Fact[]; estimate_rest?: string[] }) => {
+    // A fact that IS an intake field (the name, what they do) fills the form
+    // too — the engagement cannot launch without them, and an answer the list
+    // already holds must not be asked for again at the end.
+    const fieldOf = new Map(facts.map((f) => [f.key, f.field]));
+    const fills: Record<string, string> = {};
+    for (const u of r.updates ?? []) {
+      const field = fieldOf.get(u.key);
+      if (field && (CONVERSATION_FIELDS as readonly string[]).includes(field)) fills[field] = u.value;
+    }
+    if (Object.keys(fills).length) {
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(fills)) {
+          const key = k as (typeof CONVERSATION_FIELDS)[number];
+          if (!String(next[key] ?? '').trim()) next[key] = v;
+        }
+        return next;
+      });
+    }
+    setFacts((prev) => {
+      const upd = new Map((r.updates ?? []).map((u) => [u.key, u.value]));
+      const rest = new Set(r.estimate_rest ?? []);
+      const next = prev.map((f): Fact => {
+        if (f.status !== 'estimate' && upd.has(f.key)) {
+          return { ...f, status: f.status === 'file' ? 'file' : 'got', value: upd.get(f.key) ?? f.value };
+        }
+        if (f.status === 'need' && rest.has(f.key)) return { ...f, status: 'estimate', value: '' };
+        return f;
+      });
+      const known = new Set(next.map((f) => f.key));
+      const added = (r.new_facts ?? [])
+        .filter((f) => !known.has(f.key))
+        .map((f): Fact => (rest.has(f.key) ? { ...f, status: 'estimate' } : f));
+      return [...next, ...added];
+    });
+  };
+
+  /** One round of the interview, over the fact list. Round 1 fires the moment
+   *  the brief is written; later rounds once the round before is answered. */
+  const askRound = useCallback(async (n: number, factList?: Fact[]) => {
     if (form.main_problem.trim().length < 15) return;
     setDiscoveryLoading(true);
     try {
@@ -2033,24 +1976,26 @@ export default function StudioPage() {
         engagement_type: form.engagement_type,
         main_problem: form.main_problem.trim(),
         desired_outcome: form.desired_outcome.trim() || undefined,
-        // Exactly what the pipeline will see, so it cannot re-ask for
-        // something it already has.
         ops_numbers: JSON.stringify(opsNumbersPairs()),
         asked: JSON.stringify(rounds.flatMap((r) => r.questions.map((q) => q.label))),
         known: JSON.stringify(knownFields()),
         round: n,
+        facts: JSON.stringify(factList ?? facts),
+        file_facts: JSON.stringify(fileFacts),
       });
       if (r.questions.length > 0) {
         setRounds((prev) => [...prev, { questions: r.questions, because: r.because }]);
       }
-      // Read off their own words instead of asked as pills. Only ever fills a
-      // gap: a value the client has already changed is theirs, not ours.
+      applyRound(r);
       setForm((prev) => ({
         ...prev,
-        engagement_type: (r.inferred.engagement_type as EngagementType) ?? prev.engagement_type,
-        operating_stage: (r.inferred.operating_stage as OperatingStage) ?? prev.operating_stage,
+        engagement_type: (r.inferred?.engagement_type as EngagementType) ?? prev.engagement_type,
+        operating_stage: (r.inferred?.operating_stage as OperatingStage) ?? prev.operating_stage,
       }));
-      setInterviewDone(r.done);
+      // A round with nothing to ask ends fact-finding even when the server is
+      // still waiting on the name: the page asks for it last (NAME_QUESTION),
+      // rather than waiting on a round that will never come.
+      setInterviewDone(r.done || r.questions.length === 0);
       setInterviewClosing(r.because);
     } catch {
       // The interview must never trap the client on a step. A failed first
@@ -2065,176 +2010,163 @@ export default function StudioPage() {
       setDiscoveryLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, opsNumbersPairs, knownFields, rounds]);
+  }, [form, opsNumbersPairs, knownFields, rounds, facts, fileFacts]);
 
-  const prefetchDiscovery = useCallback(() => {
+  /** The brief, written the moment they leave the front door, and the first
+   *  round asked behind it — so by the time they have read the brief, the
+   *  first question is waiting. Keyed on what they wrote. */
+  const startBrief = useCallback(() => {
     const problem = form.main_problem.trim();
     if (problem.length < 15) return;
-    // Keyed on the complaint alone now. It is the only thing they have told
-    // us when the first round fires, and everything else is downstream of it:
-    // a different complaint is a different conversation, and following up on
-    // answers to questions nobody would have asked about it is worse than
-    // starting again.
     if (discoveryKey.current === problem) return;
     discoveryKey.current = problem;
     setRounds([]);
     setCommitted([]);
-    setCaseFile(null);
     setInterviewDone(false);
+    setFacts([]);
+    setFileFacts([]);
+    setLastHeard(null);
+    setScope(null);
+    setScopeLoading(true);
     roundAsked.current = 1;
-    void askRound(1);
-  }, [form.main_problem, askRound]);
+    fetchScope(problem, form.site_url.trim() || undefined)
+      .then((sc) => {
+        if (discoveryKey.current !== problem) return;
+        setScope(sc);
+        setFacts(sc.facts);
+        setForm((prev) => ({
+          ...prev,
+          operating_stage: (sc.inferred?.operating_stage as OperatingStage) ?? prev.operating_stage,
+          engagement_type: (sc.inferred?.engagement_type as EngagementType) ?? prev.engagement_type,
+        }));
+        void askRound(1, sc.facts);
+      })
+      .catch(() => {
+        if (discoveryKey.current === problem) void askRound(1, []);
+      })
+      .finally(() => setScopeLoading(false));
+  }, [form.main_problem, form.site_url, askRound]);
 
-  /** The inputs the case file is read from: only what they have committed,
-   *  so it refreshes when they answer and not on every keystroke. */
-  const caseInputs = useCallback(() => {
-    const ops = opsNumbersPairs().filter((p) => committed.includes(p.id));
-    return {
-      main_problem: form.main_problem.trim(),
-      ops_numbers: ops,
-      known: knownFields() as Record<string, string>,
-      operating_stage: form.operating_stage,
-      playback: true,
-    };
-  }, [opsNumbersPairs, committed, form.main_problem, form.operating_stage, knownFields]);
-
-  const caseKey = useMemo(
-    () => JSON.stringify({
-      p: form.main_problem.trim(),
-      a: committed.map((id) => [id, (numbersAnswers[id] ?? '').trim()]),
+  /** A question whose facts a file or an earlier answer already settled is
+   *  not asked. */
+  const factStatus = useMemo(() => new Map(facts.map((f) => [f.key, f.status])), [facts]);
+  const settledQ = useCallback(
+    (q: DiscoveryQuestion) => Boolean(q.fills?.length) && (q.fills ?? []).every((k) => {
+      const st = factStatus.get(k);
+      return st != null && st !== 'need';
     }),
-    [form.main_problem, committed, numbersAnswers],
+    [factStatus],
   );
+  const currentQuestion = allQuestions.find((q) => !committed.includes(q.id) && !settledQ(q)) ?? null;
 
-  // After every answer: re-read the case file. A newer call supersedes an
-  // older one — the panel never shows an answer being taken back.
+  // When the round's questions are all answered (or settled), ask the next.
+  // Skipping is not the end any more: "I don't know" means we estimate it,
+  // and the list still decides when we have everything.
   useEffect(() => {
-    if (act !== 'intake' || step !== 1 || committed.length === 0) return;
-    if (caseCall.current?.key === caseKey) return;
-    const promise = fetchCaseFile(caseInputs());
-    caseCall.current = { key: caseKey, promise };
-    setCaseLoading(true);
-    void promise.then((file) => {
-      if (caseCall.current?.key !== caseKey) return;
-      setCaseFile((prev) => (file.figures.length || file.capacity || !prev ? file : prev));
-      setCaseLoading(false);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [act, step, caseKey]);
-
-  // When the round's last question is answered, ask the next round — unless
-  // they skipped every question in it, in which case follow-ups would be
-  // follow-ups to nothing.
-  useEffect(() => {
-    if (act !== 'intake' || step !== 1) return;
+    if (act !== 'intake' || step < 1) return;
     if (discoveryLoading || interviewDone || rounds.length === 0) return;
     const qs = rounds.flatMap((r) => r.questions);
-    if (!qs.every((q) => committed.includes(q.id))) return;
+    if (!qs.every((q) => committed.includes(q.id) || settledQ(q))) return;
     const next = rounds.length + 1;
     if (roundAsked.current >= next) return;
-    const last = rounds[rounds.length - 1];
-    if (!last.questions.some((q) => (numbersAnswers[q.id] ?? '').trim())) {
-      setInterviewDone(true);
-      return;
-    }
     roundAsked.current = next;
     void askRound(next);
-  }, [act, step, committed, rounds, discoveryLoading, interviewDone, numbersAnswers, askRound]);
+  }, [act, step, committed, rounds, discoveryLoading, interviewDone, askRound, settledQ]);
+
+  // A file read mid-interview: the questions on screen may be answered by it,
+  // so they are set aside and the next round is asked with the file in hand.
+  useEffect(() => {
+    if (fileReadTick === 0 || discoveryLoading || interviewDone) return;
+    const pending = rounds.flatMap((r) => r.questions).filter((q) => !committed.includes(q.id)).map((q) => q.id);
+    if (pending.length) setCommitted((prev) => [...prev, ...pending]);
+    const next = rounds.length + 1;
+    roundAsked.current = next;
+    void askRound(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileReadTick]);
 
   const commitQuestion = (id: string) => {
     setFinishError(null);
     setCommitted((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
-  const reopenQuestion = (id: string) => {
-    setCommitted((prev) => prev.filter((x) => x !== id));
+  const answerCurrent = (value: string) => {
+    const q = currentQuestion;
+    const v = value.trim();
+    if (!q || !v) return;
+    answerQuestion(q.id, v);
+    const fills = q.fills ?? [];
+    // One fact, a short answer: it goes on the list at once. The next round
+    // reads every answer and writes each value properly.
+    if (fills.length === 1 && v.length <= 40) {
+      setFacts((prev) => prev.map((f): Fact => (f.key === fills[0] && f.status === 'need' ? { ...f, status: 'got', value: v } : f)));
+    }
+    setLastHeard(`Got it: ${v.length > 60 ? `${v.slice(0, 57)}…` : v}`);
+    commitQuestion(q.id);
   };
 
-  /** Their files, checked here only for what the server would refuse anyway:
-   *  the type and the size. Three at most. */
+  const dontKnowCurrent = () => {
+    const q = currentQuestion;
+    if (!q) return;
+    answerQuestion(q.id, '');
+    const fills = new Set(q.fills ?? []);
+    setFacts((prev) => prev.map((f): Fact => (fills.has(f.key) && f.status === 'need' ? { ...f, status: 'estimate', value: '' } : f)));
+    setLastHeard("Noted. We'll estimate it and mark it as ours in every plan.");
+    commitQuestion(q.id);
+  };
+
+  /** Their files: checked here for type and size, read at once so the list
+   *  fills from them, and sent again with the engagement as evidence. */
   const addFiles = (incoming: File[]) => {
     const ok = incoming.filter((f) => /\.(csv|tsv|txt|xlsx|xlsm|pdf)$/i.test(f.name) && f.size <= 8 * 1024 * 1024);
     if (ok.length < incoming.length) {
-      setFinishError('We can read spreadsheets, CSV files and PDFs up to 8 MB. Anything else was left out.');
+      setFileNote('We can read spreadsheets, CSV files and PDFs up to 8 MB. Anything else was left out.');
     }
-    setFiles((prev) => [...prev, ...ok].slice(0, 3));
+    const room = Math.max(0, 3 - files.length);
+    const taken = ok.slice(0, room);
+    setFiles((prev) => [...prev, ...taken].slice(0, 3));
+    for (const f of taken) {
+      setFileBusy(true);
+      readInterviewFile(f)
+        .then((r) => {
+          setFileFacts((prev) => [...prev, ...r.figures]);
+          setFileNote(
+            r.figures.length
+              ? `Read ${r.file}: ${r.figures.length} figure${r.figures.length === 1 ? '' : 's'}. Updating the list.`
+              : `We read ${r.file} but found no figures we could check against its cells. It still goes to the analysis.`,
+          );
+          if (r.figures.length) setFileReadTick((t) => t + 1);
+        })
+        .catch(() => setFileNote(`We couldn't read ${f.name} just now. It still goes with the engagement.`))
+        .finally(() => setFileBusy(false));
+    }
   };
 
-  /** From the conversation to the playback: every rule once more, then the
-   *  case file played back — reusing the one already read if nothing has
-   *  changed since. */
+  /** Fact-finding is done: every rule once more, then straight to the
+   *  analysis. The list on screen was the playback. */
   const finishInterview = async () => {
     const allValid = STEP_RULES.map((_, i) => validateStep(i)).every(Boolean);
     if (!allValid) {
       setFinishError(
         form.business_name.trim().length < 2
-          ? "We still need the business's name. Tap “change” on that question above, or answer the last one."
+          ? "We still need the business's name. Answer the last question, or tell us in your own words."
           : 'We still need a couple of sentences on what you do.',
       );
       return;
     }
     setFinishError(null);
     setSubmitError(null);
-    setCorrection('');
-    setAct('briefing');
-    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
-    const pending = caseCall.current;
-    if (pending && pending.key === caseKey) {
-      setPlaybackLoading(true);
-      const file = await pending.promise;
-      setPlaybackFile(file);
-      setPlaybackLoading(false);
-      if (file.summary || file.figures.length) return;
-    }
-    setPlaybackLoading(true);
-    const file = await fetchCaseFile(caseInputs());
-    setPlaybackFile(file);
-    setPlaybackLoading(false);
-  };
-
-  /** A figure corrected on the playback rewrites the sentence it was read
-   *  from, so the diagnosis reads the corrected answer, not the old one with
-   *  a note beside it. */
-  const editFigure = (f: CaseFigure, next: string) => {
-    const swap = (text: string) => {
-      if (text.includes(f.token)) return text.replace(f.token, next);
-      const i = text.toLowerCase().indexOf(f.token.toLowerCase());
-      return i < 0 ? `${text} (correction: ${next})` : text.slice(0, i) + next + text.slice(i + f.token.length);
-    };
-    if (f.source === 'main_problem') {
-      setForm((p) => ({ ...p, main_problem: swap(p.main_problem) }));
-    } else if (f.source.startsWith('field:')) {
-      const key = f.source.slice(6) as keyof typeof form;
-      setForm((p) => ({ ...p, [key]: swap(String(p[key] ?? '')) }));
-      const q = rounds.flatMap((r) => r.questions).find((x) => x.field === key);
-      if (q) setNumbersAnswers((p) => ({ ...p, [q.id]: swap(p[q.id] ?? '') }));
-    } else {
-      setNumbersAnswers((p) => ({ ...p, [f.source]: swap(p[f.source] ?? '') }));
-    }
-    setPlaybackFile((pf) =>
-      pf && {
-        ...pf,
-        figures: pf.figures.map((x) =>
-          x === f ? { ...x, token: next, value: reshapeValue(x.value, x.token, next) } : x,
-        ),
-      },
-    );
+    await launchEngagement(null);
   };
 
   const goNext = () => {
-    if (!validateStep(step)) return;
+    if (!validateStep(0)) return;
     clearFrontDoor();
-    // Idempotent (keyed on the brief) — re-fires only when the name,
-    // description or stage actually changed since the last fetch. Fired from
-    // step 0 now rather than step 1, because the description moved onto the
-    // first screen: by the time they reach the conversation the questions are
-    // already written, and the step reads as a consultant who had read the
-    // brief before walking in.
-    prefetchDiscovery();
-    setStep((s) => Math.min(s + 1, INTAKE_STEPS.length - 1));
+    startBrief();
+    setStep(1);
   };
 
-  const goBack = () => setStep((s) => Math.max(s - 1, 0));
+  const goBack = () => setStep(0);
 
   const buildIntake = () => ({
     business_name: form.business_name.trim(),
@@ -2259,6 +2191,8 @@ export default function StudioPage() {
     engagement_type: form.engagement_type,
     ops_numbers: opsNumbersPairs(),
     files,
+    brief: scope ? JSON.stringify({ ...scope, facts }) : undefined,
+    unknowns: JSON.stringify(facts.filter((f) => f.status === 'estimate').map((f) => f.label)),
   });
 
   const launchEngagement = async (addendum: string | null) => {
@@ -2335,18 +2269,6 @@ export default function StudioPage() {
     navigate('/demo');
   };
 
-  const copyLink = async () => {
-    if (!resultUrl) return;
-    try {
-      await navigator.clipboard.writeText(resultUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2400);
-    } catch {
-      // Clipboard blocked (insecure origin, denied permission): the link is
-      // on screen and selectable, so there is nothing to apologise for.
-    }
-  };
-
   const openLightbox = (src: string, alt: string) => {
     setLightbox({ src, alt });
     requestAnimationFrame(() => dialogRef.current?.showModal());
@@ -2391,17 +2313,16 @@ export default function StudioPage() {
   const [chromeStep, chromeWhere] = ((): [number, string] => {
     switch (act) {
       case 'intake':
-        return step === 0 ? [0, 'Your situation'] : [1, 'Questions'];
-      case 'briefing':
-        return [1, 'Before we start'];
+        return step === 0 ? [0, 'Your question'] : step === 1 ? [0, 'The brief'] : [1, 'Fact-finding'];
       case 'building':
-        return phase === 'building' ? [4, 'Building your package'] : [2, 'Diagnosis'];
+        return phase === 'building' ? [3, 'The answer'] : [2, 'Analysis'];
+      case 'ready':
       case 'decision':
-        return decision?.status === 'advised' ? [5, 'Yours to keep'] : [3, 'Your answer'];
+        return [3, 'The answer'];
       case 'reveal':
-        return [5, 'Yours to keep'];
+        return [4, 'Your plans'];
       case 'pending':
-        return [5, 'In final review'];
+        return [4, 'In final review'];
       default:
         return [0, ''];
     }
@@ -2424,23 +2345,23 @@ export default function StudioPage() {
   const unshare = async () => {
     await unshareStudio(routeId as StudioRef);
   };
-  const saveWeek = async (week: number, values: Record<string, number>, note: string) => {
-    const r = await logPilotWeek(routeId as StudioRef, week, values, note);
-    setPilotLog(r.log);
-  };
   const retryPlan = async () => {
     if (routeId == null) return;
     try {
       await retryStudioPlan(routeId);
     } finally {
-      if (act === 'decision') await loadDecision(routeId);
-      else setRevealPlan({ status: 'writing' });
+      setRevealPlan({ status: 'writing' });
     }
   };
-  const finding = decision?.answer
-    ? [decision.answer.headline, decision.answer.turn].filter(Boolean).join(' ')
-    : decision?.decision.central_problem ?? null;
-
+  const choose = (id: string, option: string) => {
+    setDecisionState((prev) => ({ ...prev, choices: { ...(prev.choices ?? {}), [id]: option } }));
+    if (routeId != null) void saveDecisions(routeId, { [id]: option }).catch(() => undefined);
+  };
+  const goAhead = async () => {
+    if (routeId == null) return;
+    const r = await saveDecisions(routeId, decisionState.choices ?? {}, true);
+    setDecisionState(r.decisions);
+  };
   return (
     <div className="cx">
       <Chrome
@@ -2476,47 +2397,37 @@ export default function StudioPage() {
             )}
 
             {act === 'intake' && step === 1 && (
-              <motion.div key="interview" {...fade}>
-                <button type="button" className="cx-link cx-small mt-2" onClick={goBack}>
-                  Back to what you wrote
-                </button>
-                <Interview
-                  questions={allQuestions}
-                  answers={numbersAnswers}
-                  committed={committed}
-                  onAnswer={answerQuestion}
-                  onCommit={commitQuestion}
-                  onReopen={reopenQuestion}
-                  loading={discoveryLoading}
-                  done={interviewDone}
-                  closing={interviewClosing}
-                  estimatedTotal={allQuestions.length + (interviewDone ? 0 : 2)}
-                  caseFile={caseFile}
-                  caseLoading={caseLoading}
-                  files={files}
-                  onAddFiles={addFiles}
-                  onRemoveFile={(i) => setFiles((prev) => prev.filter((_, j) => j !== i))}
-                  onFinish={() => void finishInterview()}
-                  finishError={finishError}
+              <motion.div key="brief" {...fade}>
+                <Brief
+                  firstName={firstName}
+                  said={form.main_problem}
+                  scope={scope}
+                  loading={scopeLoading}
+                  onConfirm={() => setStep(2)}
+                  onChange={goBack}
                 />
               </motion.div>
             )}
 
-            {act === 'briefing' && (
-              <motion.div key="playback" {...fade}>
-                <Playback
-                  file={playbackFile}
-                  loading={playbackLoading}
-                  businessName={form.business_name.trim()}
-                  fallbackAnswers={opsNumbersPairs().map((p) => ({ question: p.question, answer: p.answer }))}
-                  mainProblem={form.main_problem}
-                  onEditFigure={editFigure}
-                  correction={correction}
-                  onCorrection={setCorrection}
-                  onStart={() => void launchEngagement(correction.trim() ? `- ${correction.trim()}` : null)}
-                  onBack={() => setAct('intake')}
+            {act === 'intake' && step === 2 && (
+              <motion.div key="interview" {...fade}>
+                <Interview
+                  question={currentQuestion}
+                  facts={facts}
+                  asked={committed.length}
+                  loading={discoveryLoading}
+                  done={interviewDone && !currentQuestion && !discoveryLoading}
+                  closing={interviewClosing}
+                  lastHeard={lastHeard}
+                  onAnswer={answerCurrent}
+                  onDontKnow={dontKnowCurrent}
+                  files={files}
+                  fileBusy={fileBusy}
+                  fileNote={fileNote}
+                  onAddFiles={addFiles}
+                  onFinish={() => void finishInterview()}
+                  finishError={finishError ?? submitError}
                   submitting={submitting}
-                  error={submitError}
                 />
               </motion.div>
             )}
@@ -2661,46 +2572,16 @@ export default function StudioPage() {
 
             {act === 'decision' && decision && (
               <motion.div key={`decision-${decision.status}`} {...fade}>
-                {decision.status === 'advised' ? (
-                  <>
-                    <Package
-                      mode="plan"
-                      businessName={decision.business_name ?? buildingName}
-                      answer={decision.answer ?? null}
-                      fallbackFinding={decision.decision.central_problem ?? decision.decision.summary}
-                      capacity={decision.capacity ?? null}
-                      plan={decision.action_plan ?? null}
-                      log={pilotLog}
-                      unverified={decision.decision.unverified ?? []}
-                      screens={[]}
-                      docs={{ blueprint: false, technical: false, operations: false }}
-                      onDownload={download}
-                      onShare={share}
-                      onUnshare={unshare}
-                      canEdit
-                      onSaveWeek={saveWeek}
-                      onRetryPlan={() => void retryPlan()}
-                      onBuild={() => void approveDecision()}
-                    />
-                    {gateError ? <p className="cx-error mt-6" role="alert">{gateError}</p> : null}
-                  </>
-                ) : (
-                  <Answer
-                    decision={decision}
-                    firstName={firstName}
-                    onBuild={(scope) => void approveDecision(scope)}
-                    onAccept={() => void acceptAdvice()}
-                    onRevise={(note) => void reviseDecision(note)}
-                    onUpload={(f) => void uploadEvidence(f)}
-                    busy={gateBusy}
-                    error={gateError}
-                    evidenceBusy={evidenceBusy}
-                    evidenceNote={evidenceNote}
-                    evidenceError={evidenceError}
-                    figures={figures}
-                    onDeleteFigure={(id) => void deleteFigure(id)}
-                  />
-                )}
+                <Answer
+                  decision={decision}
+                  firstName={firstName}
+                  pct={pct}
+                  writing={false}
+                  onStartPlans={() => void approveDecision()}
+                  onRevise={(note) => void reviseDecision(note)}
+                  busy={gateBusy}
+                  error={gateError}
+                />
               </motion.div>
             )}
 
@@ -2708,33 +2589,49 @@ export default function StudioPage() {
               <motion.div key={`run-${phase}`} {...fade}>
                 {phase === 'diagnosing' ? (
                   <Thinking steps={thinking} stage={progress?.stage ?? null} elapsed={elapsed} businessName={buildingName} />
-                ) : (
-                  <Building
-                    businessName={buildingName}
-                    finding={finding}
+                ) : decision ? (
+                  <Answer
+                    decision={decision}
+                    firstName={firstName}
                     pct={pct}
-                    elapsed={elapsed}
-                    label={progress?.label ?? null}
-                    detail={progress?.detail ?? null}
-                    notifyEmail={progress?.notify?.enabled ? progress.notify.email ?? null : null}
-                    resultUrl={resultUrl}
-                    copied={copied}
-                    onCopy={copyLink}
+                    writing
+                    onRevise={(note) => void reviseDecision(note)}
+                    busy={gateBusy}
+                    error={gateError}
                   />
+                ) : (
+                  <p className="cx-lead pt-[12vh]">
+                    Opening your answer<span className="cx-typing"><i /><i /><i /></span>
+                  </p>
                 )}
+              </motion.div>
+            )}
+
+            {act === 'ready' && decision && (
+              <motion.div key="ready" {...fade}>
+                <Answer
+                  decision={decision}
+                  firstName={firstName}
+                  pct={100}
+                  writing
+                  onOpenPlans={() => {
+                    if (routeId != null) void showResult(routeId);
+                  }}
+                  onRevise={(note) => void reviseDecision(note)}
+                  busy={gateBusy}
+                  error={gateError}
+                />
               </motion.div>
             )}
 
             {act === 'reveal' && preview && (
               <motion.section key="reveal" {...fade} transition={{ duration: 0.5 }}>
                 <Package
-                  mode="full"
                   businessName={preview.business_name}
                   answer={preview.answer ?? null}
                   fallbackFinding={preview.preview_summary}
-                  capacity={preview.capacity ?? null}
-                  plan={revealPlan ?? preview.action_plan ?? null}
-                  log={pilotLog}
+                  roadmap={revealPlan ?? preview.action_plan ?? null}
+                  decisions={decisionState}
                   unverified={preview.unverified ?? []}
                   screens={packageScreens}
                   docs={{
@@ -2745,9 +2642,9 @@ export default function StudioPage() {
                   onDownload={download}
                   onShare={share}
                   onUnshare={unshare}
-                  canEdit={!reviewToken}
-                  onSaveWeek={saveWeek}
-                  onRetryPlan={() => void retryPlan()}
+                  onChoose={choose}
+                  onGoAhead={goAhead}
+                  onRetryRoadmap={() => void retryPlan()}
                   onOpenScreen={(sc) => openLightbox(sc.full, sc.label)}
                   readOnly={Boolean(reviewToken)}
                 />

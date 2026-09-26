@@ -188,21 +188,21 @@ const layerAnswer = () => glass('Your answer', (g) => {
   g.strokeStyle = '#dbeafe'; g.beginPath(); g.moveTo(40, 300); g.lineTo(640, 300); g.stroke();
   [40, 200].forEach((x) => { bar(g, x, 322, 120, 22, '#0f172a'); bar(g, x, 354, 90, 8, '#dbe5f5'); });
   bar(g, 360, 322, 150, 22, '#2563eb'); bar(g, 360, 354, 110, 8, '#dbe5f5');
-  g.fillStyle = grad(g, 40, 220); rr(g, 40, 382, 170, 40, 20); g.fill(); g.fillStyle = '#fff'; g.font = '600 13.5px Inter'; g.fillText('Start the pilot', 72, 407);
+  g.fillStyle = grad(g, 40, 220); rr(g, 40, 382, 170, 40, 20); g.fill(); g.fillStyle = '#fff'; g.font = '600 13.5px Inter'; g.fillText('Open your plans', 68, 407);
   g.strokeStyle = '#93c5fd'; g.lineWidth = 1.5; rr(g, 222, 382, 170, 40, 20); g.stroke(); g.fillStyle = '#0f172a'; g.fillText('Build the system', 246, 407);
   g.fillStyle = '#64748b'; g.font = '500 13px Inter'; g.fillText("This isn't right", 410, 407);
 });
 
 const layerPackage = () => glass('Your package', (g) => {
   g.fillStyle = '#e4edff'; rr(g, 30, 52, 300, 360, 18); g.fill();
-  g.fillStyle = '#0f172a'; g.font = '700 20px Syne'; g.fillText('Start here on Monday', 50, 88);
+  g.fillStyle = '#0f172a'; g.font = '700 20px Syne'; g.fillText('Your implementation roadmap', 50, 88);
   for (let i = 0; i < 3; i++) {
     const y = 120 + i * 92; g.fillStyle = '#2563eb'; g.beginPath(); g.arc(64, y + 14, 15, 0, 7); g.fill();
     g.fillStyle = '#fff'; g.font = '700 14px Inter'; g.fillText(String(i + 1), 60, y + 19);
     bar(g, 92, y + 4, 200, 11, '#0f172a'); bar(g, 92, y + 24, 150, 11, '#0f172a'); bar(g, 92, y + 46, 180, 8, '#94a3b8');
   }
   g.fillStyle = '#0f172a'; g.font = '700 18px Syne'; g.fillText('Your documents', 356, 88);
-  ['Pilot plan', 'Blueprint', 'Technical plan', 'Operations manual'].forEach((t, i) => {
+  ['Roadmap', 'Blueprint', 'Technical plan', 'Operations manual'].forEach((t, i) => {
     const y = 110 + i * 74;
     g.strokeStyle = '#dbeafe'; g.beginPath(); g.moveTo(356, y - 6); g.lineTo(650, y - 6); g.stroke();
     g.fillStyle = '#f3f7ff'; g.strokeStyle = '#93c5fd'; rr(g, 356, y + 6, 32, 42, 4); g.fill(); g.stroke();

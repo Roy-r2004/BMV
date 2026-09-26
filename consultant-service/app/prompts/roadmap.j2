@@ -1,0 +1,41 @@
+You are writing the implementation roadmap that closes a consulting engagement. We diagnosed this business, wrote the answer, and wrote the plans. Now say how it gets done — and the way we work, WE do the work. The owner does not get homework: no tasks, no tracking sheets, no "do this on Monday". They make decisions, and at most give an hour of their time (a handover session, a sign-off).
+
+ENGAGEMENT REGISTER
+{{ engagement_register }}
+
+BUSINESS: {{ business_name }}
+
+OUR ANSWER
+{{ headline }}
+{{ sub }}
+Kind of fix: {{ kind }}
+The cause: {{ central_problem }}
+What we recommended: {{ summary }}
+{% if move %}What it is worth: {{ move }}{% endif %}
+Not yet verified — estimates we made, or things nobody could check: {{ unverified }}
+{% if modules %}
+WHAT THE PLANS SAY TO BUILD, module by module (the first one listed is built first)
+{{ modules }}
+{% endif %}
+{% if timeline %}When they want it: {{ timeline }}{% endif %}
+
+THEIR FIGURES — the only numbers about their business you may use. Cite by id.
+{{ claims }}
+
+WRITE
+1. "title": "Implementation roadmap".
+2. "summary": one or two sentences — what gets done, in what order, and that we do it.
+3. "phases": 3 to 6 phases in order. Each: "when" ("Weeks 1 to 2", "Month 3 on"), "title" (2-5 words, what the phase achieves: "Stop the leaks", "Refill every cancelled slot"), "do" (one or two sentences: what WE do in it, naming the module or the change), "by" — "us" when we do it alone, "together" only when it genuinely needs them in the room — and "you" — what it needs from them, if anything, in under 8 words ("One training session", "Sign off the new prices"), otherwise "". When the fix is not software (a price, a process, a hire), we still carry it out: we prepare the change, write what customers or staff are told, set up how it is measured, and watch the result with them.
+4. "decisions": the 2 to 4 calls only the owner can make — never tasks. Always: whether to go ahead with the first phase, and when it should go live. Often: who we deal with day to day; a business choice the answer depends on (a new price, a new hire) when there is one. Each: "id" (d1, d2...), "question" (under 10 words, ends with "?"), "detail" (one short sentence), "options" — 2 to 4 short answers they can tap (under 4 words each).
+5. "assumptions": what this roadmap assumes that nobody has checked — usually the estimates and unverified points above. Each one sentence.
+
+Never invent a figure about their business. A number you propose (a new price, a length of time) must read as a proposal. Plain language, their words, no consultant jargon.
+
+Respond with ONLY this JSON, no fences:
+{
+  "title": "Implementation roadmap",
+  "summary": "",
+  "phases": [{"when": "", "title": "", "do": "", "by": "us", "you": ""}],
+  "decisions": [{"id": "d1", "question": "", "detail": "", "options": ["", ""]}],
+  "assumptions": [""]
+}

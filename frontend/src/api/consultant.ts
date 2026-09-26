@@ -58,6 +58,10 @@ export interface StudioIntake {
   /** Their own files — a booking export, a sales sheet — sent with the
    *  engagement and read before the diagnosis forms a single explanation. */
   files?: File[];
+  /** The agreed brief (JSON Scope with current fact statuses). */
+  brief?: string;
+  /** Labels of the facts they didn't know (JSON string[]), estimated by us. */
+  unknowns?: string;
 }
 
 export type OperatingStage = 'operating' | 'opening';
@@ -83,6 +87,68 @@ export interface DiscoveryQuestion {
    *  collects what the form used to ask for. Empty for a number question.
    *  Only names the server recognises ever arrive here. */
   field?: string;
+  /** The fact keys an answer to this question fills on the data request. */
+  fills?: string[];
+  /** Tap-to-answer options; typing stays available beside them. */
+  options?: string[];
+}
+
+/** One line on the data request: a fact we need to write the plans.
+ *  `estimate` means they did not know and we will estimate it, marked as ours. */
+export interface Fact {
+  key: string;
+  group: string;
+  label: string;
+  field: string;
+  status: 'need' | 'got' | 'estimate' | 'file';
+  value: string;
+}
+
+/** The brief: the question we will answer, agreed before any fact-finding. */
+export interface Scope {
+  question: string;
+  lets: { know: string; see: string; have: string };
+  in_scope: string[];
+  out_scope: string[];
+  facts: Fact[];
+  inferred: { operating_stage: 'operating' | 'opening' | null; engagement_type: 'capability' | 'full' | null };
+  source: 'ai' | 'fallback';
+}
+
+/** Write the brief from their first sentence (and their site, when given). */
+export async function fetchScope(main_problem: string, site_url?: string): Promise<Scope> {
+  const form = new FormData();
+  form.set('main_problem', main_problem);
+  if (site_url) form.set('site_url', site_url);
+  const { data } = await consultantClient.post('/api/discovery/scope', form, { timeout: 45000 });
+  return {
+    question: typeof data?.question === 'string' ? data.question : '',
+    lets: {
+      know: data?.lets?.know ?? '',
+      see: data?.lets?.see ?? '',
+      have: data?.lets?.have ?? '',
+    },
+    in_scope: Array.isArray(data?.in_scope) ? data.in_scope : [],
+    out_scope: Array.isArray(data?.out_scope) ? data.out_scope : [],
+    facts: Array.isArray(data?.facts) ? data.facts : [],
+    inferred: {
+      operating_stage: data?.inferred?.operating_stage ?? null,
+      engagement_type: data?.inferred?.engagement_type ?? null,
+    },
+    source: data?.source === 'ai' ? 'ai' : 'fallback',
+  };
+}
+
+/** Read a file dropped into fact-finding: the figures it holds, as lines the
+ *  interviewer can use to fill the data request. */
+export async function readInterviewFile(file: File): Promise<{ file: string; figures: string[] }> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await consultantClient.post('/api/discovery/read-file', form, { timeout: 120000 });
+  return {
+    file: typeof data?.file === 'string' ? data.file : file.name,
+    figures: Array.isArray(data?.figures) ? data.figures : [],
+  };
 }
 
 /** The questions a consultant would open with, tailored to this brief.
@@ -121,6 +187,12 @@ export interface InterviewRound {
   /** Fields without which the engagement cannot be launched at all. The
    *  interview will not call itself done while this is non-empty. */
   still_needed: string[];
+  /** Facts the last answer filled or changed on the data request. */
+  updates: { key: string; value: string }[];
+  /** Facts the interviewer found it needs that the brief did not list. */
+  new_facts: Fact[];
+  /** Keys it will estimate rather than ask about. */
+  estimate_rest: string[];
 }
 
 export async function fetchInterviewRound(input: {
@@ -145,6 +217,10 @@ export async function fetchInterviewRound(input: {
    *  builder decides what is still missing, rather than the prompt guessing
    *  from whichever arguments happened to be passed. */
   known?: string;
+  /** The data request as it stands, as JSON Fact[]. */
+  facts?: string;
+  /** Figures read out of files they dropped in, as JSON string[]. */
+  file_facts?: string;
   round: number;
 }): Promise<InterviewRound> {
   const form = new FormData();
@@ -159,6 +235,8 @@ export async function fetchInterviewRound(input: {
   if (input.ops_numbers) form.set('ops_numbers', input.ops_numbers);
   if (input.asked) form.set('asked', input.asked);
   if (input.known) form.set('known', input.known);
+  if (input.facts) form.set('facts', input.facts);
+  if (input.file_facts) form.set('file_facts', input.file_facts);
   form.set('round', String(input.round));
   const { data } = await consultantClient.post('/api/discovery/interview', form, { timeout: 30000 });
   return {
@@ -171,6 +249,9 @@ export async function fetchInterviewRound(input: {
       operating_stage: data?.inferred?.operating_stage ?? null,
     },
     still_needed: Array.isArray(data?.still_needed) ? data.still_needed : [],
+    updates: Array.isArray(data?.updates) ? data.updates : [],
+    new_facts: Array.isArray(data?.new_facts) ? data.new_facts : [],
+    estimate_rest: Array.isArray(data?.estimate_rest) ? data.estimate_rest : [],
   };
 }
 
@@ -353,25 +434,42 @@ export interface PlanMeasure {
   baseline_from: string | null;
 }
 
-/** What they do next Monday. `status: 'writing'` while it is being written. */
-export interface ActionPlan {
+/** One phase of the implementation roadmap: who does it, and what (if
+ *  anything) it asks of the owner. */
+export interface RoadmapPhase {
+  when: string;
+  title: string;
+  do: string;
+  by: 'us' | 'together';
+  you: string;
+}
+
+/** A call only the owner can make, offered as tap options. */
+export interface RoadmapDecision {
+  id: string;
+  question: string;
+  detail: string;
+  options: string[];
+}
+
+/** How it gets done. `status: 'writing'` while it is being written. */
+export interface Roadmap {
   status: 'writing' | 'ready' | 'failed';
   title?: string;
   summary?: string;
-  weeks?: number;
-  monday?: { do: string; why: string }[];
-  schedule?: { when: string; do: string }[];
-  message?: { to: string; text: string } | null;
-  measures?: PlanMeasure[];
-  decision_rule?: string;
+  phases?: RoadmapPhase[];
+  decisions?: RoadmapDecision[];
   assumptions?: string[];
-  if_it_fails?: string;
 }
 
-export interface PilotEntry {
-  week: number;
-  values: Record<string, number>;
-  note: string;
+/** Kept for older imports. */
+export type ActionPlan = Roadmap;
+
+/** The owner's calls on the roadmap, and whether they said go. */
+export interface DecisionState {
+  choices?: Record<string, string>;
+  go_ahead?: boolean;
+  go_at?: string;
 }
 
 /** A figure from their own answers, with the exact words it was read from. */
@@ -420,26 +518,24 @@ export async function fetchCaseFile(input: {
 }
 
 export async function getStudioPlan(ref: StudioRef): Promise<{
-  plan: ActionPlan | null;
-  log: PilotEntry[];
-  capacity: CapacityPicture | null;
+  plan: Roadmap | null;
+  decisions: DecisionState;
 }> {
   const { data } = await consultantClient.get(`/api/requests/${ref}/plan`);
-  return data;
+  return { plan: data?.plan ?? null, decisions: data?.decisions ?? {} };
 }
 
-export async function logPilotWeek(
+/** The owner's calls on the roadmap, and (with `go`) the go-ahead. */
+export async function saveDecisions(
   ref: StudioRef,
-  week: number,
-  values: Record<string, number>,
-  note: string,
-): Promise<{ log: PilotEntry[] }> {
+  choices: Record<string, string>,
+  go?: boolean,
+): Promise<{ decisions: DecisionState }> {
   const form = new FormData();
-  form.set('week', String(week));
-  form.set('values', JSON.stringify(values));
-  if (note) form.set('note', note);
-  const { data } = await consultantClient.post(`/api/requests/${ref}/plan/log`, form);
-  return data;
+  form.set('choices', JSON.stringify(choices));
+  form.set('go', go ? 'true' : 'false');
+  const { data } = await consultantClient.post(`/api/requests/${ref}/decisions`, form);
+  return { decisions: data?.decisions ?? {} };
 }
 
 export async function retryStudioPlan(ref: StudioRef): Promise<{ plan_started: boolean }> {
@@ -463,11 +559,12 @@ export interface SharedPackage {
   status: string;
   answer: StudioAnswer | null;
   capacity: CapacityPicture | null;
-  action_plan: ActionPlan | null;
-  pilot_log: PilotEntry[];
+  action_plan: Roadmap | null;
+  decisions?: DecisionState;
+  brief?: Scope | null;
   summary: string | null;
   unverified: string[];
-  documents: { pilot: boolean; blueprint: boolean; technical: boolean; operations: boolean };
+  documents: { blueprint: boolean; technical: boolean; operations: boolean };
   screens: { role_label: string; image_url: string; hero_url: string | null; story: StudioStory | null }[];
 }
 
@@ -602,8 +699,9 @@ export interface StudioPreview {
    *  on runs made before these existed. */
   answer?: StudioAnswer | null;
   capacity?: CapacityPicture | null;
-  action_plan?: ActionPlan | null;
-  pilot_log?: PilotEntry[];
+  action_plan?: Roadmap | null;
+  decisions?: DecisionState;
+  brief?: Scope | null;
   intervention_kind?: string | null;
   /** What the documents still assume, stated on the package page. */
   unverified?: string[];
@@ -733,7 +831,7 @@ export function studioZipUrl(ref: StudioRef): string {
   return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/zip`;
 }
 
-export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations' | 'pilot';
+export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations';
 
 /** Fetch an export with the caller's session attached and hand it to the
  *  browser as a saved file. The export routes are auth-gated, and a plain
@@ -847,6 +945,8 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   if (intake.operating_stage) form.set('operating_stage', intake.operating_stage);
   if (intake.engagement_type) form.set('engagement_type', intake.engagement_type);
   if (intake.ops_numbers?.length) form.set('ops_numbers', JSON.stringify(intake.ops_numbers));
+  if (intake.brief) form.set('brief', intake.brief);
+  if (intake.unknowns) form.set('unknowns', intake.unknowns);
   // Files dropped into the conversation. The diagnosis reads them first.
   for (const f of intake.files ?? []) form.append('files', f);
   const { data } = await consultantClient.post('/api/requests', form, { timeout: 60000 });
@@ -927,7 +1027,9 @@ export interface StudioDecision {
   capacity?: CapacityPicture | null;
   /** The answer screen's parts. Null → fall back to the decision's summary. */
   answer?: StudioAnswer | null;
-  action_plan?: ActionPlan | null;
+  action_plan?: Roadmap | null;
+  decisions?: DecisionState;
+  brief?: Scope | null;
   operating_stage?: string | null;
 }
 
@@ -992,13 +1094,6 @@ export async function deleteStudioEvidence(
   claimId: string,
 ): Promise<{ figures: StudioFigure[] }> {
   const { data } = await consultantClient.delete(`/api/requests/${ref}/evidence/${claimId}`);
-  return data;
-}
-
-/** Take the answer and stop. Only offered when we said a build won't help;
- *  the brief is then the deliverable, and this is not a failed engagement. */
-export async function acceptStudioAdvice(ref: StudioRef): Promise<{ status: string }> {
-  const { data } = await consultantClient.post(`/api/requests/${ref}/decision/accept`);
   return data;
 }
 

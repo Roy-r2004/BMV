@@ -11,9 +11,10 @@ stage, marked source="fallback" — the intake never blocks on this call.
 
 import json
 import logging
+import os
 import re
 
-from fastapi import APIRouter, Depends, Form, Header, HTTPException
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app import auth_client
@@ -208,6 +209,288 @@ FILLABLE = {
 REQUIRED_FIELDS = ("business_name", "business_description")
 
 
+# ── the brief and the fact list ──────────────────────────────────────────────
+# A serious engagement agrees the question before it asks anything, and works
+# from a data request list: every fact needed to answer it and to write plans
+# a team could build from. The list is written per business — how many facts,
+# and which, depend on what they asked — and bounded, never fixed.
+
+FACTS_MIN, FACTS_MAX = 10, 30
+#: How many facts one round of the interview may add, when an answer shows
+#: the list missed something. The list can grow; it cannot run away.
+FACTS_ADDED_PER_ROUND = 4
+FACT_STATUSES = ("need", "got", "estimate", "file")
+
+_FALLBACK_FACTS = {
+    "operating": [
+        ("business_name", "The business", "Name", "business_name"),
+        ("what_you_do", "The business", "What you do, and how big", "business_description"),
+        ("customers", "Customers", "Who your customers are", "target_customers"),
+        ("find_you", "Customers", "How customers find you", ""),
+        ("volume", "Customers", "Customers or jobs a week", ""),
+        ("price", "Money", "What you charge", ""),
+        ("revenue", "Money", "How you make money", "revenue_today"),
+        ("costs", "Money", "Monthly running costs", ""),
+        ("capacity", "Capacity", "Most you can handle a week", ""),
+        ("used", "Capacity", "How much of that is used", ""),
+        ("tools", "How you run today", "Tools you run it on", ""),
+        ("people", "How you run today", "Who does what", ""),
+        ("success", "Goals and limits", "What success looks like", "desired_outcome"),
+        ("timeline", "Goals and limits", "When you need it", ""),
+        ("fixed", "Goals and limits", "What won't change", ""),
+    ],
+    "opening": [
+        ("business_name", "The business", "Name", "business_name"),
+        ("what_you_do", "The business", "What it will do, and how big", "business_description"),
+        ("customers", "Customers", "Who it is for", "target_customers"),
+        ("find_you", "Customers", "How they will find you", ""),
+        ("where", "The business", "Where it will be", ""),
+        ("price", "Money", "What you plan to charge", ""),
+        ("revenue", "Money", "How it will make money", "revenue_today"),
+        ("budget", "Money", "Budget to open", ""),
+        ("costs", "Money", "Expected monthly costs", ""),
+        ("capacity", "Capacity", "Most it could handle a week", ""),
+        ("people", "Capacity", "Who will run it", ""),
+        ("launch", "Goals and limits", "When you want to open", ""),
+        ("success", "Goals and limits", "What success looks like", "desired_outcome"),
+        ("fixed", "Goals and limits", "What won't change", ""),
+    ],
+}
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", (text or "").casefold())).strip("_")[:40]
+
+
+def fallback_facts(stage: str | None) -> list[dict]:
+    rows = _FALLBACK_FACTS["opening" if stage == "opening" else "operating"]
+    return [{"key": k, "group": g, "label": lbl, "field": f, "status": "need", "value": ""}
+            for k, g, lbl, f in rows]
+
+
+def _fact_value(value, quote, texts: list[str]) -> str:
+    """A value read off their words, kept only when the words say it: the
+    quote must be theirs, and every number in the value must be in the quote."""
+    from app.pipeline import figures
+
+    value = str(value or "").strip()[:60]
+    quote = str(quote or "").strip()
+    if not value or not quote or not figures.quoted(quote, texts):
+        return ""
+    in_quote = figures.given([quote])
+    if not all(figures.holds(v, in_quote) for v in figures.numbers_in(value, words=True)):
+        return ""
+    return value
+
+
+def shape_scope(raw: dict, main_problem: str) -> dict:
+    """The brief and its fact list, bounded and checked. Pure.
+
+    Anything missing is filled from a generic list rather than left thin: an
+    interview with nothing to ask for would end before it started. The two
+    facts the engagement cannot launch without are always on it.
+    """
+    raw = raw if isinstance(raw, dict) else {}
+
+    def text(v, limit: int) -> str:
+        return re.sub(r"\s+", " ", str(v or "")).strip()[:limit]
+
+    stage = text(raw.get("operating_stage"), 12).lower()
+    stage = stage if stage in ("operating", "opening") else None
+    kind = text(raw.get("engagement_type"), 12).lower()
+    kind = kind if kind in ("capability", "full") else None
+
+    question = text(raw.get("question"), 240)
+    if len(question) < 15 or not question.endswith("?"):
+        question = ""
+    lets_raw = raw.get("lets") if isinstance(raw.get("lets"), dict) else {}
+    lets = {k: text(lets_raw.get(k), 120) for k in ("know", "see", "have")}
+    in_scope = [s for s in (text(x, 90) for x in (raw.get("in_scope") or [])[:5]) if s]
+    out_scope = [s for s in (text(x, 90) for x in (raw.get("out_scope") or [])[:4]) if s]
+
+    facts: list[dict] = []
+    seen_keys: set[str] = set()
+    seen_fields: set[str] = set()
+    for f in raw.get("facts") or []:
+        if not isinstance(f, dict) or len(facts) >= FACTS_MAX:
+            continue
+        label = text(f.get("label"), 60)
+        key = _slug(str(f.get("key") or label))
+        if not label or not key or key in seen_keys:
+            continue
+        field = text(f.get("field"), 30)
+        field = field if field in FILLABLE and field not in seen_fields else ""
+        value = _fact_value(f.get("value"), f.get("quote"), [main_problem])
+        facts.append({"key": key, "group": text(f.get("group"), 30) or "The business",
+                      "label": label, "field": field,
+                      "status": "got" if value else "need", "value": value})
+        seen_keys.add(key)
+        if field:
+            seen_fields.add(field)
+
+    # The engagement cannot launch without these two, so they are on the list
+    # whatever the model wrote — first, where a person would expect them.
+    for base in reversed(fallback_facts(stage)[:2]):
+        if base["field"] not in seen_fields:
+            key = base["key"] if base["key"] not in seen_keys else f"{base['key']}_1"
+            facts.insert(0, {**base, "key": key})
+            seen_keys.add(key)
+            seen_fields.add(base["field"])
+    for base in fallback_facts(stage):
+        if len(facts) >= FACTS_MIN:
+            break
+        if base["key"] in seen_keys or (base["field"] and base["field"] in seen_fields):
+            continue
+        facts.append(base)
+        seen_keys.add(base["key"])
+        if base["field"]:
+            seen_fields.add(base["field"])
+
+    return {
+        "question": question,
+        "lets": lets,
+        "in_scope": in_scope,
+        "out_scope": out_scope,
+        "facts": facts[:FACTS_MAX],
+        "inferred": {"operating_stage": stage, "engagement_type": kind},
+        "source": "ai" if question and raw.get("facts") else "fallback",
+    }
+
+
+@router.post("/scope")
+def scope(
+    main_problem: str = Form(...),
+    site_url: str | None = Form(None),
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+):
+    """The brief: the question we will answer, and the list of facts we need.
+
+    Shown to them before the first question, the way a serious engagement
+    agrees its problem statement before any analysis. Fails open to a generic
+    fact list and an empty question, which the page states plainly rather
+    than inventing one.
+    """
+    if auth_client.resolve_user(authorization) is None:
+        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
+    problem = (main_problem or "").strip()[:2000]
+    if len(problem) < 10:
+        raise HTTPException(status_code=422, detail="Tell us what you're trying to work out first")
+    raw: dict = {}
+    try:
+        prompt = render("scope.j2", main_problem=problem, site_url=(site_url or "").strip()[:200],
+                        facts_min=FACTS_MIN, facts_max=FACTS_MAX, fields=FILLABLE)
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
+                             max_tokens=3000)
+        raw = extract_json_from_text(body["choices"][0]["message"]["content"])
+        log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose="scope", usage=body.get("usage"), success=True)
+    except Exception as exc:
+        log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose="scope", success=False, error=str(exc)[:500])
+        logger.warning("scope failed open: %s", str(exc)[:200])
+    return shape_scope(raw, problem)
+
+
+@router.post("/read-file")
+async def read_file(
+    file: UploadFile = File(...),
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+):
+    """Read the figures out of a file dropped in during the interview, so the
+    fact list fills from it at once instead of after launch. Every figure is
+    checked against the cell it came from (`evidence.extract`); the same file
+    is sent again with the engagement and read as evidence there."""
+    from app.pipeline import evidence
+
+    if auth_client.resolve_user(authorization) is None:
+        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
+    name = os.path.basename(file.filename or "upload")[:120]
+    if not name.lower().endswith(evidence.SUPPORTED):
+        raise HTTPException(status_code=422, detail=f"We can't read {name}. Send a spreadsheet, CSV or PDF.")
+    data = await file.read(evidence.MAX_FILE_BYTES + 1)
+    if len(data) > evidence.MAX_FILE_BYTES:
+        raise HTTPException(status_code=422, detail=f"{name} is larger than 8 MB.")
+    try:
+        tables = evidence.read_tables(data, name)
+    except evidence.UnreadableFile as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    found, _ = evidence.extract(db, None, tables, name) if tables else ([], 0)
+    lines = []
+    for c in found:
+        value = c.get("value")
+        shown = f"{value:,.0f}" if isinstance(value, (int, float)) and float(value).is_integer() else str(value)
+        lines.append(f"{shown} {c.get('unit') or ''}".strip() + (f": {c['text']}" if c.get("text") else "") + f" (from {name})")
+    return {"file": name, "figures": lines[:40]}
+
+
+def parse_facts(raw: str | None) -> list[dict]:
+    """The fact list as the client sends it back: bounded, statuses checked."""
+    try:
+        items = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    out, seen = [], set()
+    for f in items if isinstance(items, list) else []:
+        if not isinstance(f, dict):
+            continue
+        key = _slug(str(f.get("key") or ""))
+        label = str(f.get("label") or "").strip()[:60]
+        if not key or not label or key in seen:
+            continue
+        status = str(f.get("status") or "need")
+        out.append({"key": key, "group": str(f.get("group") or "").strip()[:30], "label": label,
+                    "field": str(f.get("field") or "") if f.get("field") in FILLABLE else "",
+                    "status": status if status in FACT_STATUSES else "need",
+                    "value": str(f.get("value") or "").strip()[:60]})
+        seen.add(key)
+        if len(out) >= FACTS_MAX + FACTS_ADDED_PER_ROUND * 4:
+            break
+    return out
+
+
+def shape_fact_updates(raw_updates, raw_new, facts: list[dict], texts: list[str]) -> tuple[list[dict], list[dict]]:
+    """What their latest answers settled, and what the list was missing. Pure.
+
+    A value is kept only when every number in it is one they gave — in an
+    answer, a file, or what they first wrote. A fact they told us they don't
+    know stays ours to estimate; an answer never overwrites that silently.
+    """
+    from app.pipeline import figures
+
+    allowed = figures.given(texts)
+    hours = figures.given_hours(texts)
+    by_key = {f["key"]: f for f in facts}
+    updates = []
+    for u in raw_updates if isinstance(raw_updates, list) else []:
+        if not isinstance(u, dict):
+            continue
+        key = _slug(str(u.get("key") or ""))
+        value = re.sub(r"\s+", " ", str(u.get("value") or "")).strip()[:60]
+        if key not in by_key or not value or by_key[key]["status"] == "estimate":
+            continue
+        # The prompt marks what we lack as "NOT KNOWN YET"; a model that
+        # echoes that back has not learned the fact, it has read our note.
+        if re.search(r"\b(not known|unknown|not (yet )?(given|stated|provided)|n/?a)\b", value, re.I):
+            continue
+        if figures.unsupported(value, allowed, lenient_below=0, hours=hours):
+            continue
+        updates.append({"key": key, "value": value})
+    added = []
+    room = max(0, min(FACTS_ADDED_PER_ROUND, FACTS_MAX + FACTS_ADDED_PER_ROUND * 4 - len(facts)))
+    for n in raw_new if isinstance(raw_new, list) else []:
+        if not isinstance(n, dict) or len(added) >= room:
+            continue
+        label = re.sub(r"\s+", " ", str(n.get("label") or "")).strip()[:60]
+        key = _slug(str(n.get("key") or label))
+        if not label or not key or key in by_key or any(a["key"] == key for a in added):
+            continue
+        added.append({"key": key, "group": str(n.get("group") or "More we need").strip()[:30],
+                      "label": label, "field": "", "status": "need", "value": ""})
+    return updates, added
+
+
 def _key(label: str) -> str:
     """A question's wording, reduced to what it is actually asking."""
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", (label or "").casefold())).strip()
@@ -273,10 +556,19 @@ def interview(
     asked: str | None = Form(None),
     known: str | None = Form(None),
     round: int = Form(1),
+    facts: str | None = Form(None),
+    file_facts: str | None = Form(None),
     authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
     """The next questions worth asking — or none, which ends the interview.
+
+    With a fact list (the brief's data request list), the interview works
+    through it: each round reads what their answers settled, asks about what
+    is still needed, and ends only when nothing is — every fact gathered, or
+    marked as one they don't know and we will estimate. That is the point of
+    the list: we keep asking until we have what the plans need, and the
+    owner never has to go and fetch anything.
 
     Replaces the one-shot tailored set with a loop that reads what they have
     already answered. The static set asked four questions whatever you said;
@@ -338,6 +630,17 @@ def interview(
         pass
     missing = {k: v for k, v in FILLABLE.items() if not filled.get(k)}
 
+    fact_list = parse_facts(facts)
+    try:
+        from_files = [str(x).strip()[:200] for x in json.loads(file_facts or "[]") if str(x).strip()][:40]
+    except (TypeError, ValueError):
+        from_files = []
+    fact_lines = "\n".join(
+        f"- {f['key']} [{f['group']}] {f['label']}: "
+        + {"got": f"GOT — {f['value']}", "file": f"GOT FROM THEIR FILE — {f['value']}",
+           "estimate": "THEY DON'T KNOW — we will estimate it; do not ask again"}.get(f["status"], "STILL NEEDED")
+        for f in fact_list)
+
     try:
         prompt = render(
             "interview.j2",
@@ -357,9 +660,11 @@ def interview(
             round=round,
             max_rounds=settings.INTERVIEW_MAX_ROUNDS,
             max_questions=settings.INTERVIEW_MAX_PER_ROUND,
+            facts=fact_lines,
+            file_facts="\n".join(f"- {x}" for x in from_files),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
-                             max_tokens=1400)
+                             max_tokens=2200)
         result = extract_json_from_text(body["choices"][0]["message"]["content"])
         log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose=f"interview:{round}", usage=body.get("usage"), success=True)
@@ -396,6 +701,15 @@ def interview(
         field = str((by_id.get(q["id"]) or {}).get("field") or "").strip()
         q["field"] = field if field in FILLABLE else ""
 
+    # What their answers settled, and what the list turned out to be missing.
+    texts = [main_problem or "", answered, *from_files, *[v for v in filled.values() if v]]
+    updates, added = shape_fact_updates(result.get("updates"), result.get("new_facts"), fact_list, texts)
+    keys = {f["key"] for f in fact_list} | {a["key"] for a in added}
+    for q in questions:
+        src = by_id.get(q["id"]) or {}
+        q["fills"] = [k for k in (_slug(str(x)) for x in (src.get("fills") or [])[:4]) if k in keys]
+        q["options"] = [o for o in (re.sub(r"\s+", " ", str(x)).strip()[:40] for x in (src.get("options") or [])[:5]) if o]
+
     def choice(key: str, allowed: tuple[str, ...]) -> str | None:
         value = str(result.get(key) or "").strip().lower()
         return value if value in allowed else None
@@ -404,16 +718,30 @@ def interview(
     # at all, so the interview does not get to call itself finished while one
     # is blank — whatever it thinks about having enough numbers.
     blocked = [f for f in REQUIRED_FIELDS if not filled.get(f)]
-    done = (bool(result.get("enough")) or not questions
-            or round >= settings.INTERVIEW_MAX_ROUNDS)
+    if fact_list:
+        # With a list, the list decides: done when nothing on it is still
+        # needed. The model saying "enough" is not enough while facts remain —
+        # but a model with nothing left worth asking, or the round cap, ends
+        # it, and whatever is still open becomes ours to estimate and label.
+        settled = {u["key"] for u in updates}
+        still = [f["key"] for f in fact_list if f["status"] == "need" and f["key"] not in settled]
+        still += [a["key"] for a in added]
+        done = not still or not questions or round >= settings.INTERVIEW_MAX_ROUNDS
+    else:
+        still = []
+        done = (bool(result.get("enough")) or not questions
+                or round >= settings.INTERVIEW_MAX_ROUNDS)
     if blocked and round < settings.INTERVIEW_MAX_ROUNDS:
         done = False
 
-    return {"questions": questions, "done": done, "source": "ai",
+    return {"questions": [] if done and not blocked else questions, "done": done, "source": "ai",
             "because": str(result.get("because") or "")[:200],
             "inferred": {"engagement_type": choice("engagement_type", ("capability", "full")),
                          "operating_stage": choice("operating_stage", ("operating", "opening"))},
-            "still_needed": blocked}
+            "still_needed": blocked,
+            "updates": updates, "new_facts": added,
+            # Open when the interview ends: ours to estimate, labelled as ours.
+            "estimate_rest": still if done else []}
 
 
 CASEFILE_MAX_FIGURES = 8

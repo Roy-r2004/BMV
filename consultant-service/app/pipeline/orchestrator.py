@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -121,21 +122,42 @@ def _fail(db: Session, request_id: int, exc: Exception) -> None:
     )
 
 
+class _Superseded(Exception):
+    """This build is no longer the engagement's current one: the client
+    pushed back (or sent a file) while the plans were being written, and a
+    fresh diagnosis has taken the row. Not a failure — the run just stops."""
+
+
+def _check_current(db: Session, request_id: int, token) -> None:
+    """Raise `_Superseded` unless this build still owns the row.
+
+    The token is the row's `phase_started_at` when the build began. Every
+    restart (revise, evidence, approve) stamps a new one, so a mismatch — or
+    a status other than BUILDING — means someone else's run is now current
+    and anything this one writes would overwrite theirs."""
+    db.expire_all()
+    row = db.get(Request, request_id)
+    if row is None or row.status != BUILDING or row.phase_started_at != token:
+        raise _Superseded()
+
+
 def run(request_id: int) -> None:
-    """The diagnosis half — entry point for the background thread.
+    """The whole engagement — entry point for the background thread.
 
     Opens its own DB session, mirroring the pattern the existing pipeline
     uses for the same reason: never run this on the request-handling
     thread/session.
 
-    It stops at the approval gate. Nothing downstream of `plan` runs until
-    the client has read what we concluded and pressed Build — a wrong
-    diagnosis used to cost them a full thirteen-stage generation and cost
-    us the credits to produce it.
+    The diagnosis runs, the answer is saved, and the plans are written
+    straight after — there is no approval gate. A client who pushes back
+    while the plans are being written restarts the diagnosis; the build in
+    flight notices through its token and stops quietly.
     """
     db: Session = SessionLocal()
     try:
         _run_diagnosis(db, request_id)
+    except _Superseded:
+        return
     except Exception as exc:
         _fail(db, request_id, exc)
     finally:
@@ -143,7 +165,7 @@ def run(request_id: int) -> None:
 
 
 def run_build(request_id: int) -> None:
-    """The build half. Reached only through the client's approval.
+    """The build half on its own — the legacy approve path.
 
     The diagnosis is re-read from the row rather than carried in memory:
     this runs in a new thread, minutes or days after the half that produced
@@ -152,6 +174,8 @@ def run_build(request_id: int) -> None:
     db: Session = SessionLocal()
     try:
         _run_build(db, request_id)
+    except _Superseded:
+        return
     except Exception as exc:
         _fail(db, request_id, exc)
     finally:
@@ -215,22 +239,26 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
     emit(db, request_id, "answering", "Writing your answer...", 28)
     answer.write(db, request_id, consult_result)
 
-    # The gate. `is_generating` goes false because nothing is running: the
-    # in-flight cap must not count an engagement that is waiting on a human,
-    # or one client reading their brief would block another's run.
+    # No gate. A firm does not hand over its answer and then wait to be asked
+    # for the plans: the answer is saved (it is readable the moment this
+    # commits) and the plans are written straight after. The build takes a
+    # fresh phase_started_at — its token — so a client who pushes back while
+    # the plans are being written supersedes it cleanly.
     req = db.get(Request, request_id)
-    req.status = AWAITING_APPROVAL
-    req.is_generating = False
+    req.status = BUILDING
+    req.is_generating = True
     req.is_failed = False
+    req.phase_started_at = datetime.utcnow()
     db.commit()
-    # A non-software answer still stops HERE rather than ending the run: the
-    # client is told plainly that a build will not fix the cause, and then
-    # decides. Ending it for them would be the same paternalism as building
-    # without asking, pointed the other way — and they paid for a build.
-    label = ("Your decision is ready to read" if decide.builds(consult_result)
-             else "We don't think you should build this — here's why")
-    emit(db, request_id, AWAITING_APPROVAL, label, GATE_PCT,
+    token = req.phase_started_at
+    emit(db, request_id, "answer_ready", "Your answer is ready — writing your plans", GATE_PCT,
          detail=consult_result.get("consulting_summary"))
+
+    req = db.get(Request, request_id)
+    analysis_saved = json.loads(req.business_analysis_json) if req.business_analysis_json else analysis_result
+    consult_saved = (json.loads(req.consulting_recommendations_json)
+                     if req.consulting_recommendations_json else consult_result)
+    _build_from(db, request_id, analysis_saved, consult_saved, token=token)
 
 
 def _read_capacity(db: Session, request_id: int) -> None:
@@ -256,35 +284,66 @@ def _run_build(db: Session, request_id: int) -> None:
         raise ValueError(f"Request {request_id} not found")
     analysis_result = json.loads(req.business_analysis_json) if req.business_analysis_json else {}
     consult_result = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
-    _build_from(db, request_id, analysis_result, consult_result)
+    # The approve route already flipped the row to BUILDING and stamped
+    # phase_started_at; a row reached some other way is claimed here.
+    if req.status != BUILDING or req.phase_started_at is None:
+        req.status = BUILDING
+        req.is_generating = True
+        req.phase_started_at = datetime.utcnow()
+        db.commit()
+    _build_from(db, request_id, analysis_result, consult_result, token=req.phase_started_at)
 
 
-def _build_from(db: Session, request_id: int, analysis_result: dict, consult_result: dict) -> None:
+def _build_from(db: Session, request_id: int, analysis_result: dict, consult_result: dict,
+                token=None) -> None:
+    """Write every plan. `token` is the row's phase_started_at when this build
+    began; each stage first checks the row still carries it, so a build the
+    client has superseded (by pushing back) stops instead of writing over the
+    new diagnosis. A stage that raises after being superseded is reported as
+    superseded too — the failure belongs to a run nobody is waiting on."""
     req = db.get(Request, request_id)
-    req.status = BUILDING
-    req.is_generating = True
-    db.commit()
+    if token is None:
+        req.status = BUILDING
+        req.is_generating = True
+        req.phase_started_at = datetime.utcnow()
+        db.commit()
+        token = req.phase_started_at
 
-    # The package opens with what they can do on Monday, before any of the
-    # software exists — so that is written first, and told the build is coming
-    # so none of its steps waits on it.
-    emit(db, request_id, "first_steps", "Writing what you can start on Monday...", 32)
-    action_plan.ensure(db, request_id, building=True)
+    def current() -> None:
+        _check_current(db, request_id, token)
 
+    try:
+        _build_stages(db, request_id, analysis_result, consult_result, current)
+    except _Superseded:
+        raise
+    except Exception:
+        # A stage that broke because the row changed under it is not a
+        # failure of the engagement the client is now looking at.
+        db.rollback()
+        current()
+        raise
+
+
+def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_result: dict,
+                  current) -> None:
+    current()
     emit(
         db, request_id, "planning", "Planning your roles and features...", 35,
         detail=consult_result.get("consulting_summary"),
     )
     plan_result = plan.plan_integration(db, request_id, consult_result)
 
+    current()
     emit(db, request_id, "decomposing", "Breaking your business down, module by module...", 42)
     decomposition = _decompose_with_preflight(
         db, request_id, analysis_result, consult_result, plan_result,
     )
 
+    current()
     emit(db, request_id, "shaping", "Mapping your journey, scoreboard and procedures...", 46)
     extras.build_extras(db, request_id, analysis_result, decomposition)
 
+    current()
     emit(
         db, request_id, "blueprint", "Writing your blueprint...", 50,
         detail=f"Concept named: {plan_result.get('concept_name', '')}",
@@ -293,12 +352,22 @@ def _build_from(db: Session, request_id: int, analysis_result: dict, consult_res
         db, request_id, analysis_result, consult_result, plan_result, decomposition,
     )
 
+    current()
     emit(db, request_id, "technical", "Writing your technical implementation plan...", 56)
     blueprint.write_technical_plan(db, request_id, consult_result, plan_result, decomposition)
 
+    current()
     emit(db, request_id, "playbook", "Writing your step-by-step execution playbook...", 60)
     playbook.write_playbook(db, request_id, plan_result, decomposition)
 
+    # The roadmap: the phases we carry out and the few decisions only the
+    # owner can make. Written after the playbook so it can lean on the
+    # modules the decomposition settled. Fails open to {"status": "failed"}.
+    current()
+    emit(db, request_id, "roadmap", "Writing your implementation roadmap...", 61)
+    action_plan.write(db, request_id)
+
+    current()
     emit(db, request_id, "quality", "Expert auditors reviewing your documents...", 61)
     qa_experts.review_quality(db, request_id)
 
@@ -307,14 +376,18 @@ def _build_from(db: Session, request_id: int, analysis_result: dict, consult_res
     # the release gate refuses FINAL without its clean, current report
     from app.pipeline import integrity
 
+    current()
     integrity.enforce(db, request_id)
 
+    current()
     emit(db, request_id, "directing", "Designing your product screens...", 62)
     archetype_id, specs = ui_spec.build_ui_specs(db, request_id, consult_result, plan_result)
 
+    current()
     emit(db, request_id, "images", "Rendering your product screenshots...", 70)
     saved_images = images.generate_demo_screens(db, request_id, archetype_id, specs)
 
+    current()
     if not saved_images:
         req = db.get(Request, request_id)
         req.status = "failed"

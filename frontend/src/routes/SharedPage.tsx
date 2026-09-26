@@ -1,10 +1,10 @@
 /**
  * A package someone shared: read-only, through a link its owner made.
  *
- * The partner sees what the owner sees on their package page — the answer,
- * Monday's steps, the documents, the screens and the pilot so far — and can
- * download all of it. They cannot answer anything, log a week, or make a link
- * of their own; the owner's page keeps those.
+ * The partner sees what the owner sees on their plans page — the answer, the
+ * documents, the roadmap, the calls made so far and the screens — and can
+ * download all of it. They cannot make a call, give the go-ahead, or make a
+ * link of their own; the owner's page keeps those.
  */
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -51,8 +51,6 @@ export default function SharedPage() {
     }))
     .filter((s) => s.src);
 
-  const built = Boolean(data?.documents.blueprint || data?.documents.technical);
-
   return (
     <div className="cx">
       <Chrome step={5} where="Shared with you" />
@@ -69,18 +67,15 @@ export default function SharedPage() {
           <>
             <p className="cx-faint pt-6 text-[15px]">Shared with you, read-only. Prepared by Build My Version for {data.business_name}.</p>
             <Package
-              mode={built ? 'full' : 'plan'}
               businessName={data.business_name}
               answer={data.answer}
               fallbackFinding={data.summary}
-              capacity={data.capacity}
-              plan={data.action_plan}
-              log={data.pilot_log}
+              roadmap={data.action_plan}
+              decisions={data.decisions ?? {}}
               unverified={data.unverified}
               screens={screens}
               docs={data.documents}
               onDownload={(k) => downloadSharedExport(token, k)}
-              canEdit={false}
               readOnly
               onOpenScreen={setZoom}
             />

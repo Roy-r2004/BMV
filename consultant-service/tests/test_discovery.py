@@ -295,3 +295,79 @@ def test_brief_tolerates_malformed_history(client, monkeypatch):
         "messages": "not json", "ops_numbers": "also not json",
     }).json()
     assert body["ok"] is True
+
+
+# ── the brief's fact list and what each answer settles ───────────────────
+
+
+PROBLEM = "I run a pilates studio. We charge $22 a class and the 6pm class is always full."
+
+
+def test_scope_always_asks_for_the_two_facts_the_engagement_launches_on():
+    from app.routers import discovery
+
+    for raw in ({}, {"facts": [{"key": "price", "label": "What you charge"}]}, "junk"):
+        got = discovery.shape_scope(raw, PROBLEM)
+        fields = {f["field"] for f in got["facts"]}
+        assert {"business_name", "business_description"} <= fields
+        assert discovery.FACTS_MIN <= len(got["facts"]) <= discovery.FACTS_MAX
+
+
+def test_scope_bounds_a_runaway_fact_list():
+    from app.routers import discovery
+
+    raw = {"question": "Should the studio raise its evening prices?",
+           "facts": [{"key": f"f{i}", "label": f"Fact {i}"} for i in range(80)]}
+    got = discovery.shape_scope(raw, PROBLEM)
+    assert len(got["facts"]) == discovery.FACTS_MAX
+    assert got["question"] == raw["question"]
+
+
+def test_scope_keeps_a_value_only_when_the_quote_is_theirs():
+    from app.routers import discovery
+
+    raw = {"facts": [
+        {"key": "price", "label": "What you charge", "value": "$22 a class", "quote": "We charge $22 a class"},
+        {"key": "costs", "label": "Monthly costs", "value": "$4,000", "quote": "rent is $4,000 a month"},
+        {"key": "price2", "label": "Evening price", "value": "$30", "quote": "We charge $22 a class"},
+    ]}
+    by = {f["key"]: f for f in discovery.shape_scope(raw, PROBLEM)["facts"]}
+    assert by["price"]["status"] == "got" and by["price"]["value"] == "$22 a class"
+    # a quote she never wrote, and a value whose number is not in the quote
+    assert by["costs"]["status"] == "need" and by["costs"]["value"] == ""
+    assert by["price2"]["status"] == "need" and by["price2"]["value"] == ""
+
+
+def _facts():
+    return [{"key": "price", "group": "Money", "label": "What you charge", "field": "", "status": "need", "value": ""},
+            {"key": "costs", "group": "Money", "label": "Monthly costs", "field": "", "status": "estimate", "value": ""},
+            {"key": "volume", "group": "Customers", "label": "Classes a week", "field": "", "status": "need", "value": ""}]
+
+
+def test_fact_updates_drop_numbers_they_never_gave():
+    from app.routers import discovery
+
+    texts = [PROBLEM, "Six classes a day, six days a week"]
+    updates, _ = discovery.shape_fact_updates(
+        [{"key": "price", "value": "$22 a class"}, {"key": "volume", "value": "40 a week"},
+         {"key": "nope", "value": "$22"}, {"key": "price", "value": ""}], [], _facts(), texts)
+    assert updates == [{"key": "price", "value": "$22 a class"}]
+
+
+def test_fact_updates_never_overwrite_what_they_said_they_do_not_know():
+    from app.routers import discovery
+
+    updates, _ = discovery.shape_fact_updates(
+        [{"key": "costs", "value": "$22"}], [], _facts(), [PROBLEM])
+    assert updates == []
+
+
+def test_new_facts_are_capped_per_round_and_never_duplicate():
+    from app.routers import discovery
+
+    new = [{"label": "Price"}] + [{"key": f"extra_{i}", "label": f"Extra {i}"} for i in range(10)]
+    new.insert(1, {"key": "price", "label": "What you charge again"})
+    _, added = discovery.shape_fact_updates([], new, _facts(), [PROBLEM])
+    assert len(added) == discovery.FACTS_ADDED_PER_ROUND
+    assert "price" not in [a["key"] for a in added]
+    assert all(a["status"] == "need" and a["value"] == "" for a in added)

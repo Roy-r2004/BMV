@@ -1,73 +1,21 @@
 /**
- * The package: theirs to keep.
+ * Your plans: everything needed to build it, theirs to keep.
  *
- * It opens with Monday, not with the documents. What they can do this week,
- * before any software exists, is the part of the engagement they will use
- * first — and the part most consultancies bury on page forty. The documents
- * sit beside it, the screens below, then the pilot tracker, and last the
- * honest box: what the documents still assume, stated rather than left in the
- * fine print.
- *
- * Also the plan-only package, for a client who took the answer and not the
- * build: the same page without the build's documents, and the build one click
- * away.
+ * A shelf of documents first (only the ones that exist), then how it gets
+ * done — the implementation roadmap, with who does each phase — beside the
+ * few calls only the owner can make. We do the work; they make the calls.
+ * Last, the screens and the honest box: what we estimated, marked in every
+ * plan rather than left in the fine print.
  */
 import { useState } from 'react';
 
-import type { ActionPlan, CapacityPicture, PilotEntry, StudioAnswer, StudioExportKind } from '../../api/consultant';
-import Tracker from './Tracker';
+import type { DecisionState, Roadmap, StudioAnswer, StudioExportKind } from '../../api/consultant';
 import { shortName } from '../../utils/names';
 
 export interface PackageScreen {
   label: string;
   src: string;
   full: string;
-}
-
-function Thumb() {
-  return (
-    <span className="cx-thumb" aria-hidden="true">
-      <i /><i /><i /><i /><i /><i />
-    </span>
-  );
-}
-
-function DocRow({ title, note, kind, primary, onDownload }: {
-  title: string;
-  note: string;
-  kind: StudioExportKind;
-  primary?: boolean;
-  onDownload: (k: StudioExportKind) => Promise<void>;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className="cx-doc-row">
-      <Thumb />
-      <div className="min-w-0">
-        <b className="block text-[17px] font-semibold">{title}</b>
-        <span className="cx-muted text-[14.5px]">{failed ? 'The download could not start. Try again in a moment.' : note}</span>
-      </div>
-      <button
-        type="button"
-        className={`cx-btn cx-btn--sm ${primary ? 'cx-btn--blue' : 'cx-btn--ghost'}`}
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          setFailed(false);
-          try {
-            await onDownload(kind);
-          } catch {
-            setFailed(true);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {busy ? 'Preparing…' : 'Download'}
-      </button>
-    </div>
-  );
 }
 
 function ShareButton({ onShare, onUnshare }: { onShare: () => Promise<string>; onUnshare: () => Promise<void> }) {
@@ -105,8 +53,8 @@ function ShareButton({ onShare, onUnshare }: { onShare: () => Promise<string>; o
       {error ? <p className="cx-error mt-2 text-right text-[13.5px]">{error}</p> : null}
       {open && url ? (
         <div className="cx-card absolute right-0 z-20 mt-3 w-[min(440px,86vw)] p-5">
-          <p className="font-semibold">A read-only link to this package</p>
-          <p className="cx-muted mt-1 text-[14.5px]">They can read and download everything. They can't change anything or log your pilot.</p>
+          <p className="font-semibold">A read-only link to your plans</p>
+          <p className="cx-muted mt-1 text-[14.5px]">They can read and download everything. They can't change anything or make the calls.</p>
           <div className="mt-4 flex gap-2">
             <input className="cx-input h-10 flex-1 text-[14px]" readOnly value={url} onFocus={(e) => e.target.select()} aria-label="Share link" />
             <button
@@ -142,209 +90,303 @@ function ShareButton({ onShare, onUnshare }: { onShare: () => Promise<string>; o
   );
 }
 
-function CopyMessage({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+function Book({ cover, title, body, action, meta }: {
+  cover: string;
+  title: string;
+  body: string;
+  action?: { label: string; run: () => Promise<void> | void };
+  meta?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
-    <button
-      type="button"
-      className="cx-btn cx-btn--ghost cx-btn--sm"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2200);
-        } catch {
-          /* selectable on screen */
-        }
-      }}
-    >
-      {copied ? 'Copied' : 'Copy the message'}
-    </button>
+    <div className="cx-pane cx-book">
+      <div className={`cx-cover ${cover}`} aria-hidden="true" />
+      <div className="min-w-0">
+        <h3>{title}</h3>
+        <p>{failed ? 'The download could not start. Try again in a moment.' : body}</p>
+        {action || meta ? (
+          <div className="meta">
+            {action ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setFailed(false);
+                  try {
+                    await action.run();
+                  } catch {
+                    setFailed(true);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? 'Preparing…' : action.label}
+              </button>
+            ) : null}
+            {meta ? <span>{meta}</span> : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
-const WORDS = ['No', 'One thing', 'Two things', 'Three things', 'Four things', 'Five things', 'Six things'];
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export default function Package({
-  mode,
   businessName,
   answer,
   fallbackFinding,
-  capacity,
-  plan,
-  log,
+  roadmap,
+  decisions,
   unverified,
   screens,
   docs,
+  stats,
   onDownload,
   onShare,
   onUnshare,
-  canEdit,
-  onSaveWeek,
-  onRetryPlan,
-  onBuild,
+  onChoose,
+  onGoAhead,
+  onRetryRoadmap,
   onOpenScreen,
   readOnly,
 }: {
-  mode: 'full' | 'plan';
   businessName: string;
   answer: StudioAnswer | null;
   fallbackFinding: string | null;
-  capacity: CapacityPicture | null;
-  plan: ActionPlan | null;
-  log: PilotEntry[];
+  roadmap: Roadmap | null;
+  decisions: DecisionState;
   unverified: string[];
   screens: PackageScreen[];
   docs: { blueprint: boolean; technical: boolean; operations: boolean };
+  stats?: { modules?: number; agents?: number; screens?: number };
   onDownload: (k: StudioExportKind) => Promise<void>;
   onShare?: () => Promise<string>;
   onUnshare?: () => Promise<void>;
-  canEdit: boolean;
-  onSaveWeek?: (week: number, values: Record<string, number>, note: string) => Promise<void>;
-  onRetryPlan?: () => void;
-  onBuild?: () => void;
+  onChoose?: (id: string, option: string) => void;
+  onGoAhead?: () => Promise<void>;
+  onRetryRoadmap?: () => void;
   onOpenScreen?: (s: PackageScreen) => void;
   readOnly?: boolean;
 }) {
+  const [going, setGoing] = useState(false);
+  const [goError, setGoError] = useState<string | null>(null);
+  const [zipBusy, setZipBusy] = useState(false);
   const [showAssumptions, setShowAssumptions] = useState(false);
+
   const short = shortName(businessName);
   const finding = answer ? [answer.headline, answer.turn].filter(Boolean).join(' ') : fallbackFinding;
-  const ready = plan?.status === 'ready';
-  // No plan at all is 'being written' only on the plan-only page, where
-  // taking the answer starts one. On a package built before plans existed it
-  // means there is none yet, and they can ask for it.
-  const writing = plan ? plan.status === 'writing' : mode === 'plan';
-  const assumptions = Array.from(new Set([...(plan?.assumptions ?? []), ...unverified].map((s) => s.trim()).filter(Boolean)));
-  const title =
-    mode === 'plan'
-      ? ready ? `${short}'s plan is ready.` : `Writing ${short}'s plan.`
-      : `${short}'s package is ready.`;
+  const phases = roadmap?.phases ?? [];
+  const calls = roadmap?.decisions ?? [];
+  const choices = decisions.choices ?? {};
+  const ready = roadmap?.status === 'ready';
+  const writingRoadmap = roadmap?.status === 'writing';
+  const failedRoadmap = roadmap?.status === 'failed';
+  const assumptions = Array.from(
+    new Set([...(roadmap?.assumptions ?? []), ...unverified].map((s) => s.trim()).filter(Boolean)),
+  );
+  const screenCount = stats?.screens ?? screens.length;
+  const agents = stats?.agents ?? 0;
+
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const goAhead = async () => {
+    if (!onGoAhead) return;
+    setGoing(true);
+    setGoError(null);
+    try {
+      await onGoAhead();
+    } catch {
+      setGoError("That didn't go through. Try again in a moment.");
+    } finally {
+      setGoing(false);
+    }
+  };
+
+  const downloadAll = async () => {
+    setZipBusy(true);
+    try {
+      await onDownload('zip');
+    } catch {
+      /* the individual downloads remain */
+    } finally {
+      setZipBusy(false);
+    }
+  };
 
   return (
-    <section className="pt-8">
-      <div className="flex flex-wrap items-end justify-between gap-8">
-        <div className="min-w-0 max-w-[62ch]">
-          <h1 className="cx-h2">{title}</h1>
-          {finding ? (
-            <p className="cx-lead mt-5">
-              {mode === 'full' ? 'Built around your answer: ' : 'Your answer: '}
-              {finding}
-              {mode === 'plan' ? ' Start with the steps below — none of them needs software.' : ''}
-            </p>
-          ) : null}
+    <section className="cx-stage">
+      <p className="cx-kicker">Your plans</p>
+      <div className="cx-plans-head">
+        <div className="min-w-0" style={{ maxWidth: '46em' }}>
+          <h1 className="cx-title">Everything needed to build it. Written for {short}.</h1>
+          <p className="cx-lede">
+            {finding ? <>Built around the answer: {finding} </> : null}
+            Every figure in these plans is one you gave us, arithmetic on those figures, or an estimate marked as ours.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          {!readOnly && onShare && onUnshare ? <ShareButton onShare={onShare} onUnshare={onUnshare} /> : null}
-          {mode === 'full' ? (
-            <button type="button" className="cx-btn cx-btn--blue" onClick={() => void onDownload('zip').catch(() => undefined)}>
-              Download everything
-            </button>
-          ) : null}
-        </div>
+        {!readOnly && onShare && onUnshare ? <ShareButton onShare={onShare} onUnshare={onUnshare} /> : null}
       </div>
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-[1.12fr_1fr]">
-        <section className="cx-tint p-8 sm:p-9">
-          <h2 className="cx-h3" style={{ fontSize: "clamp(24px, 2.2vw, 32px)" }}>Start here on Monday</h2>
-          <p className="cx-muted mt-2">None of these needs the software to be built first.</p>
-          {ready ? (
-            <ol className="mt-6">
-              {(plan?.monday ?? []).map((s, i) => (
-                <li key={i} className="grid grid-cols-[44px_1fr] gap-3 border-t border-[rgba(37,99,235,0.2)] py-5">
-                  <span className="cx-step-n">{i + 1}</span>
+      <div className="cx-shelf">
+        {docs.blueprint ? (
+          <Book
+            cover=""
+            title="The blueprint"
+            body="The decision, the financial case, every module, the org chart, the scoreboard, and what could make it fail."
+            action={{ label: 'Download', run: () => onDownload('blueprint') }}
+            meta={stats?.modules ? plural(stats.modules, 'module', 'modules') : undefined}
+          />
+        ) : null}
+        {docs.technical ? (
+          <Book
+            cover="c2"
+            title="The technical plan"
+            body="How the system works, the data model, each AI agent's tools and guardrails, the APIs, security and build order."
+            action={{ label: 'Download', run: () => onDownload('technical') }}
+          />
+        ) : null}
+        {docs.operations ? (
+          <Book
+            cover="c3"
+            title="The operations manual"
+            body="How the work runs, day to day, once it's live: routines, checklists and who does what."
+            action={{ label: 'Download', run: () => onDownload('operations') }}
+          />
+        ) : null}
+        {screens.length ? (
+          <Book
+            cover="c4"
+            title="Your product screens"
+            body={`The screens your team and customers will use, drawn for ${short} and checked twice.`}
+            action={{ label: 'View', run: () => scrollTo('cx-screens') }}
+            meta={plural(screenCount, 'screen', 'screens')}
+          />
+        ) : null}
+        {agents > 0 ? (
+          <Book
+            cover="c5"
+            title="Your AI team"
+            body="What each agent decides alone, and where it hands over to a person. In the blueprint."
+            action={docs.blueprint ? { label: 'Read', run: () => onDownload('blueprint') } : undefined}
+            meta={plural(agents, 'agent', 'agents')}
+          />
+        ) : null}
+        {ready && phases.length ? (
+          <Book
+            cover="c6"
+            title="The implementation roadmap"
+            body="Who does what, phase by phase, from go-ahead to running on the new system."
+            action={{ label: 'Read', run: () => scrollTo('cx-roadmap') }}
+            meta={plural(phases.length, 'phase', 'phases')}
+          />
+        ) : null}
+      </div>
+
+      <div className="cx-plan-grid">
+        <div className="cx-pane cx-road" id="cx-roadmap">
+          <h3>{roadmap?.title || 'How it gets done'}</h3>
+          <p>{roadmap?.summary || 'We do the work. You make the calls.'}</p>
+          {ready && phases.length ? (
+            <ol className="cx-phases">
+              {phases.map((ph, i) => (
+                <li key={`${ph.when}-${i}`} className="cx-phase">
+                  <span className="when">{ph.when}</span>
                   <div>
-                    <b className="block text-[18px] font-semibold leading-snug">{s.do}</b>
-                    {s.why ? <span className="cx-muted mt-1 block text-[15px]">{s.why}</span> : null}
+                    <h4>{ph.title}</h4>
+                    <p>{ph.do}</p>
+                    <div className="who">
+                      <span className="cx-chip cx-chip--blue">{ph.by === 'together' ? 'Together' : 'We do it'}</span>
+                      {ph.you ? <span className="cx-chip cx-chip--dim">You: {ph.you}</span> : null}
+                    </div>
                   </div>
                 </li>
               ))}
             </ol>
-          ) : writing ? (
-            <div className="mt-6 space-y-5" aria-live="polite">
-              <p className="cx-muted">Writing your plan — about half a minute<span className="cx-typing"><i /><i /><i /></span></p>
+          ) : writingRoadmap || !roadmap ? (
+            <div className="cx-phases" aria-live="polite">
+              <p className="cx-muted" style={{ fontSize: 14.5 }}>
+                Writing your roadmap<span className="cx-typing"><i /><i /><i /></span>
+              </p>
               {[0, 1, 2].map((i) => (
-                <div key={i} className="grid grid-cols-[44px_1fr] gap-3">
-                  <span className="cx-step-n opacity-40">{i + 1}</span>
-                  <div className="space-y-2 pt-2"><div className="cx-skel w-11/12" /><div className="cx-skel w-6/12" /></div>
+                <div key={i} className="cx-phase">
+                  <div className="cx-skel" style={{ width: '70%' }} />
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div className="cx-skel" style={{ width: '60%' }} />
+                    <div className="cx-skel" style={{ width: '90%' }} />
+                  </div>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="mt-6">
-              <p>
-                {plan
-                  ? "We couldn't write the plan just now."
-                  : 'We can write what you can start on Monday from your answer. About half a minute.'}
-              </p>
-              {onRetryPlan && !readOnly ? (
-                <button type="button" className="cx-btn cx-btn--blue cx-btn--sm mt-4" onClick={onRetryPlan}>
-                  {plan ? 'Try again' : 'Write my Monday plan'}
+          ) : failedRoadmap || (ready && !phases.length) ? (
+            <div className="cx-phases">
+              <p style={{ fontSize: 15 }}>We couldn't write the roadmap just now. Everything else is ready.</p>
+              {onRetryRoadmap && !readOnly ? (
+                <button type="button" className="cx-btn cx-btn--blue cx-btn--sm" style={{ marginTop: 14 }} onClick={onRetryRoadmap}>
+                  Try again
                 </button>
               ) : null}
             </div>
-          )}
-        </section>
-
-        <section className="cx-card p-8">
-          <h2 className="cx-h3">Your documents</h2>
-          <div className="mt-4">
-            {ready ? (
-              <DocRow title={plan?.title || 'Your plan'} note={`${plan?.weeks ?? 6} weeks, ${plan?.message ? 'the message, ' : ''}the tracking sheet`} kind="pilot" primary onDownload={onDownload} />
-            ) : null}
-            {mode === 'full' && docs.blueprint ? (
-              <DocRow title="Blueprint" note="What to build, in what order, and what it's worth" kind="blueprint" onDownload={onDownload} />
-            ) : null}
-            {mode === 'full' && docs.technical ? (
-              <DocRow title="Technical plan" note="For whoever builds it" kind="technical" onDownload={onDownload} />
-            ) : null}
-            {mode === 'full' && docs.operations ? (
-              <DocRow title="Operations manual" note="Who does what, every day" kind="operations" onDownload={onDownload} />
-            ) : null}
-          </div>
-          {mode === 'plan' && onBuild && !readOnly ? (
-            <div className="mt-6 border-t border-[var(--cx-line)] pt-6">
-              <p className="font-semibold">Want the system too?</p>
-              <p className="cx-muted mt-1 text-[15px]">
-                The blueprint, technical plan, operations manual and product screens, built around this answer. About ten minutes.
-              </p>
-              <button type="button" className="cx-btn cx-btn--ghost cx-btn--sm mt-4" onClick={onBuild}>Build the system too</button>
-            </div>
-          ) : null}
-        </section>
-      </div>
-
-      {ready && (plan?.schedule?.length || plan?.message) ? (
-        <div className="mt-8 grid gap-8 lg:grid-cols-2">
-          {plan?.schedule?.length ? (
-            <section className="cx-card p-8">
-              <h2 className="cx-h3">Week by week</h2>
-              <ol className="mt-4">
-                {plan.schedule.map((r, i) => (
-                  <li key={i} className="grid grid-cols-[110px_1fr] gap-4 border-t border-[var(--cx-line)] py-3 first:border-t-0">
-                    <b className="text-[15px] font-semibold text-[var(--cx-blue)]">{r.when}</b>
-                    <span className="text-[15.5px]">{r.do}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
-          {plan?.message ? (
-            <section className="cx-card p-8">
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <h2 className="cx-h3">The message, ready to send</h2>
-                <CopyMessage text={plan.message.text} />
-              </div>
-              <p className="cx-faint mt-1 text-[14.5px]">To {plan.message.to}</p>
-              <p className="mt-4 whitespace-pre-line rounded-2xl bg-[#f5f8ff] p-5 text-[16px] leading-relaxed">{plan.message.text}</p>
-            </section>
           ) : null}
         </div>
-      ) : null}
 
-      {mode === 'full' && screens.length > 0 ? (
-        <>
+        <div className="cx-pane cx-decide">
+          <h3>Only you can decide</h3>
+          <p>
+            {calls.length
+              ? `${calls.length === 1 ? 'One call' : `${calls.length} calls`}. No homework.`
+              : ready ? 'Nothing to decide yet. No homework.' : 'Your calls appear with the roadmap.'}
+          </p>
+          {calls.map((c) => {
+            const picked = choices[c.id];
+            return (
+              <div key={c.id} className={`cx-dec${picked ? ' ok' : ''}`}>
+                <h4>{c.question}</h4>
+                {c.detail ? <p>{c.detail}</p> : null}
+                <div className="cx-opts" role="radiogroup" aria-label={c.question}>
+                  {c.options.map((o) => (
+                    <button
+                      key={o}
+                      type="button"
+                      role="radio"
+                      aria-checked={picked === o}
+                      className={`cx-opt${picked === o ? ' sel' : ''}`}
+                      disabled={readOnly || !onChoose || Boolean(decisions.go_ahead)}
+                      onClick={() => onChoose?.(c.id, o)}
+                    >
+                      {o}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          <div className="cx-final">
+            {decisions.go_ahead ? (
+              <p className="cx-gotit" role="status">We've got it. We'll be in touch within one working day.</p>
+            ) : !readOnly && onGoAhead ? (
+              <button type="button" className="cx-btn cx-btn--blue" onClick={goAhead} disabled={going}>
+                {going ? 'Sending…' : 'Have us build it'}
+              </button>
+            ) : null}
+            {goError ? <p className="cx-error" role="alert">{goError}</p> : null}
+            {docs.blueprint || docs.technical || docs.operations ? (
+              <button type="button" className="cx-btn cx-btn--ghost" onClick={downloadAll} disabled={zipBusy}>
+                {zipBusy ? 'Preparing…' : 'Download everything'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {screens.length ? (
+        <div id="cx-screens" style={{ scrollMarginTop: 20 }}>
           <div className="mt-14 flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="cx-h3" style={{ fontSize: "clamp(24px, 2.2vw, 32px)" }}>Your product screens</h2>
+            <h2 className="cx-h3" style={{ fontSize: 'clamp(22px, 2vw, 28px)' }}>Your product screens</h2>
             <p className="cx-faint text-[15px]">Drawn for {short}, each checked twice before it reached you.</p>
           </div>
           <div className="mt-6 grid gap-7 md:grid-cols-2 xl:grid-cols-3">
@@ -357,32 +399,23 @@ export default function Package({
               </figure>
             ))}
           </div>
-        </>
-      ) : null}
-
-      {ready && plan?.measures?.length ? (
-        <div className="mt-14">
-          <Tracker plan={plan} log={log} capacity={capacity} canEdit={canEdit && !readOnly} onSave={onSaveWeek} />
         </div>
       ) : null}
 
       {assumptions.length ? (
-        <div className="cx-tint mt-14 p-6 sm:p-7">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <p className="max-w-[80ch] text-[16.5px] cx-muted">
-              <b className="text-[var(--cx-txt)]">
-                {WORDS[Math.min(assumptions.length, 6)] ?? `${assumptions.length} things`} in {mode === 'full' ? 'these documents are' : 'this plan are'} still assumptions.
-              </b>{' '}
-              {ready ? 'The pilot is how you settle them.' : 'Nothing here treats them as settled.'}
+        <div className="cx-assume">
+          <div className="cx-row" style={{ justifyContent: 'space-between' }}>
+            <p style={{ margin: 0 }}>
+              <b>We estimated {plural(assumptions.length, 'thing', 'things')}.</b> Each is marked in every plan.
             </p>
-            <button type="button" className="cx-btn cx-btn--ghost" onClick={() => setShowAssumptions((v) => !v)} aria-expanded={showAssumptions}>
+            <button type="button" className="cx-link cx-small" onClick={() => setShowAssumptions((v) => !v)} aria-expanded={showAssumptions}>
               {showAssumptions ? 'Hide them' : 'See what they are'}
             </button>
           </div>
           {showAssumptions ? (
-            <ul className="mt-5 space-y-2">
+            <ul>
               {assumptions.map((a) => (
-                <li key={a} className="text-[15.5px]">• {a}</li>
+                <li key={a}>• {a}</li>
               ))}
             </ul>
           ) : null}
