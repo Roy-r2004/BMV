@@ -64,6 +64,9 @@
 /* ── type ── */
 .cx-display { font-family: var(--cx-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 .cx-h1 { font: 700 clamp(40px, 5.6vw, 84px)/0.98 var(--cx-display); letter-spacing: -0.02em; }
+/* the front door's question: sized by height too, so the button is on screen without scrolling */
+.cx-h1.cx-door-h1 { font-size: clamp(36px, min(5.2vw, 8.2vh), 80px); }
+.cx-field.cx-door-field { font-size: clamp(16px, min(1.4vw, 2.3vh), 20px); padding: 18px 22px; }
 .cx-h2 { font: 700 clamp(28px, 3.4vw, 52px)/1.02 var(--cx-display); letter-spacing: -0.02em; }
 .cx-h3 { font: 700 22px/1.15 var(--cx-display); letter-spacing: -0.01em; }
 .cx-lead { font-size: clamp(17px, 1.35vw, 19.5px); color: var(--cx-txt2); line-height: 1.55; }
