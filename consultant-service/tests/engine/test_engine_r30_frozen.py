@@ -1,7 +1,8 @@
 """The frozen manifest (design 13.5).
 
 `app/pipeline`, `app/prompts`, `tools` and the top-level suite that proves
-them were byte-identical at commit f9fc846 and must stay byte-identical: the
+them were byte-identical at commit f9fc846, re-frozen at 820a5d8 after the owner's
+2026-09 rewrite (consultation flow, roadmap, screens), and must stay so: the
 engine imports r30, it never edits it, and the owner's contract says so in
 those words. This file is the enforcement.
 
@@ -75,7 +76,7 @@ def manifest() -> dict:
 def test_manifest_declares_its_rules(manifest):
     """The manifest says which commit it was recorded at and which trees it
     covers, so a reader never has to infer the scope from the file list."""
-    assert manifest["commit"] == "f9fc846"
+    assert manifest["commit"] == "820a5d8"
     assert tuple(manifest["roots"]) == FROZEN_ROOTS
     assert manifest["file_count"] == len(manifest["files"])
     assert manifest["file_count"] > 0
