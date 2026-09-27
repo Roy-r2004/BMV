@@ -236,14 +236,26 @@ def _plan(db: Session, request_id: int, inputs: dict) -> dict | None:
     return None
 
 
-def _draw(inputs: dict, plan: dict, screen: dict) -> tuple[dict | None, list[dict]]:
-    """One screen's body, drawn from its brief. Returns (body, usage logs)."""
+def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None) -> tuple[dict | None, list[dict]]:
+    """One screen's body, drawn from its brief. Returns (body, usage logs).
+
+    `reference` is a screen of THIS product already drawn (the overview), the
+    standard the rest are held to. Only the first screen, with nothing of its
+    own to match yet, sees the worked example from another business — so one
+    business's nouns never travel into another's screens."""
     module = next((m for m in inputs["modules"] if m["id"] == screen.get("module_id")), None)
+    if reference is not None:
+        example = json.dumps({k: reference[k] for k in ("heading", "subheading", "actions", "rows") if k in reference},
+                             ensure_ascii=False)
+        example_note = f"A screen of {plan['product']['name']} already drawn: the standard to match, with the same cast"
+    else:
+        example = _example_for(screen.get("blocks") or [])
+        example_note = "A screen drawn to the standard, from another business (copy the density and the tone, never the content)"
     base = dict(
         product=plan["product"], business_name=inputs["business_name"],
         nav_labels=", ".join(i["label"] for g in plan["nav"] for i in g["items"]),
         cast=plan["cast"], claims=inputs["claims"], screen=screen, module=module,
-        block_guide=BLOCK_GUIDE, example=_example_for(screen.get("blocks") or []),
+        block_guide=BLOCK_GUIDE, example=example, example_note=example_note,
     )
     logs, feedback = [], ""
     for attempt in (1, 2):
@@ -305,8 +317,15 @@ def build(db: Session, request_id: int) -> int:
     if plan is None:
         return 0
 
+    # The overview is drawn first and alone; every other screen is then drawn
+    # against it, in parallel, so the whole system matches one standard that
+    # belongs to this business.
+    first, rest = plan["screens"][0], plan["screens"][1:]
+    first_body, first_logs = _draw(inputs, plan, first)
+    results = [(first["id"], (first_body, first_logs))]
+    reference = first_body
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        results = list(pool.map(lambda s: (s["id"], _draw(inputs, plan, s)), plan["screens"]))
+        results += list(pool.map(lambda s: (s["id"], _draw(inputs, plan, s, reference)), rest))
     bodies = {}
     for sid, (body, logs) in results:
         for entry in logs:
@@ -324,6 +343,7 @@ def build(db: Session, request_id: int) -> int:
         logger.warning("only %d screens drawn for request %s; not saving", len(system["screens"]), request_id)
         return 0
 
+    system["version"] = PROMPT_VERSION
     req = db.get(Request, request_id)
     req.screens_json = json.dumps(system, ensure_ascii=False)
     db.commit()
