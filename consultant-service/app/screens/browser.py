@@ -61,6 +61,35 @@ def render_pngs(html: str, screen_ids: list[str], out_dir: str, scale: int = 2) 
     return out
 
 
+def measure_overflow(html: str, screen_ids: list[str]) -> dict[str, int]:
+    """How far each screen's work area runs past the frame, in CSS px. The
+    frame is a fixed 1280 × 800 and clips, so a screen the model overfilled
+    would otherwise lose its bottom silently. Empty without a browser."""
+    if not available():
+        return {}
+    from playwright.sync_api import sync_playwright
+
+    out: dict[str, int] = {}
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+        page.set_content(html, wait_until="load")
+        page.wait_for_timeout(150)
+        for sid in screen_ids:
+            try:
+                page.evaluate("id => window.postMessage({type: 'bmv:show', id: id}, '*')", sid)
+                page.wait_for_timeout(40)
+                over = page.evaluate(
+                    "id => { const w = document.querySelector('#screen-' + id + ' .work');"
+                    " return w ? Math.max(0, w.scrollHeight - w.clientHeight, w.scrollWidth - w.clientWidth) : 0; }", sid)
+                if over > 0:
+                    out[sid] = int(over)
+            except Exception as exc:
+                logger.warning("screen %s could not be measured: %s", sid, str(exc)[:160])
+        browser.close()
+    return out
+
+
 def render_pdf(html: str, out_path: str) -> str:
     """The proposal, printed. Raises when no browser is available."""
     if not available():

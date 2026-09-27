@@ -236,13 +236,15 @@ def _plan(db: Session, request_id: int, inputs: dict) -> dict | None:
     return None
 
 
-def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None) -> tuple[dict | None, list[dict]]:
+def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None,
+          note: str = "") -> tuple[dict | None, list[dict]]:
     """One screen's body, drawn from its brief. Returns (body, usage logs).
 
     `reference` is a screen of THIS product already drawn (the overview), the
     standard the rest are held to. Only the first screen, with nothing of its
     own to match yet, sees the worked example from another business — so one
-    business's nouns never travel into another's screens."""
+    business's nouns never travel into another's screens. `note` is what was
+    wrong with a previous drawing (it overflowed the frame), for the redraw."""
     module = next((m for m in inputs["modules"] if m["id"] == screen.get("module_id")), None)
     if reference is not None:
         example = json.dumps({k: reference[k] for k in ("heading", "subheading", "actions", "rows") if k in reference},
@@ -260,6 +262,8 @@ def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None)
     logs, feedback = [], ""
     for attempt in (1, 2):
         prompt = render_prompt("screen.j2", **base)
+        if note:
+            prompt += "\n\nYOUR LAST DRAWING OF THIS SCREEN DID NOT FIT THE FRAME:\n" + note
         if feedback:
             prompt += "\n\nYOUR LAST ATTEMPT WAS REJECTED FOR THESE REASONS — fix exactly these:\n" + feedback
         try:
@@ -276,6 +280,33 @@ def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None)
             return body, logs
         feedback = "\n".join(f"- {p}" for p in problems) or "- no drawable rows"
     return None, logs
+
+
+def _fit(db: Session, request_id: int, inputs: dict, plan: dict, bodies: dict, reference: dict | None) -> dict:
+    """Measure every drawn screen in the browser and redraw the ones that run
+    past the frame. Without a browser there is nothing to measure."""
+    if not bodies or not browser.available():
+        return bodies
+    try:
+        html = render.system_html(schema.assemble(plan, bodies), mode="print")
+        over = browser.measure_overflow(html, list(bodies))
+    except Exception as exc:
+        logger.warning("screens could not be measured: %s", str(exc)[:200])
+        return bodies
+    if not over:
+        return bodies
+    by_id = {s["id"]: s for s in plan["screens"]}
+    for sid, px in over.items():
+        note = (f"- it ran {px}px past the bottom of the 800px frame. Use fewer rows, shorter tables, "
+                f"fewer cards per column, or drop the least important block; keep the same content otherwise")
+        body, logs = _draw(inputs, plan, by_id[sid], None if sid == plan["screens"][0]["id"] else reference, note=note)
+        for entry in logs:
+            log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
+                      purpose=entry["purpose"].replace("screen:", "screen-fit:"), usage=entry.get("usage"),
+                      success=entry["success"], error=entry.get("error"))
+        if body:
+            bodies[sid] = body
+    return bodies
 
 
 def _save_pngs(db: Session, req: Request, system: dict) -> int:
@@ -335,6 +366,11 @@ def build(db: Session, request_id: int) -> int:
         if body:
             bodies[sid] = body
 
+    # A screen that overfills the fixed frame is redrawn once, told by how
+    # much; one that still overflows is kept (the frame clips the bottom)
+    # rather than dropped, since a slightly cut screen beats a missing one.
+    bodies = _fit(db, request_id, inputs, plan, bodies, reference)
+
     for s in plan["screens"]:
         s["caption"] = _clean_text(s.get("caption", ""), inputs["allowed"], inputs["hours"])
     plan["story"] = _check_story(plan.get("story") or {}, inputs["allowed"], inputs["hours"])
@@ -362,9 +398,17 @@ def load(req: Request) -> dict | None:
 def payload(req: Request) -> dict:
     """What the site needs to show the system live: the screens with their
     captions and thumbnails, and the page itself."""
+    empty = {"available": False, "product": None, "screens": [], "html": None, "pdf_available": False}
     system = load(req)
     if not system:
-        return {"available": False, "product": None, "screens": [], "html": None, "pdf_available": False}
+        return empty
+    try:
+        html = render.system_html(system, mode="web")
+    except Exception as exc:
+        # A saved system the templates cannot draw is a bug to log, never a
+        # page that fails to open.
+        logger.exception("saved system for request %s could not be rendered: %s", req.id, str(exc)[:200])
+        return empty
     cache_v = int(req.created_at.timestamp()) if req.created_at else 0
     out_dir = os.path.join(settings.UPLOADS_DIR, "images", str(req.id))
     screens = []
@@ -376,5 +420,4 @@ def payload(req: Request) -> dict:
     p = system["product"]
     return {"available": True,
             "product": {"name": p["name"], "tagline": p.get("tagline", ""), "workspace": p.get("workspace", "")},
-            "screens": screens, "html": render.system_html(system, mode="web"),
-            "pdf_available": browser.available()}
+            "screens": screens, "html": html, "pdf_available": browser.available()}

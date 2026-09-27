@@ -54,7 +54,8 @@ def test_a_plan_is_bounded_and_always_has_a_navigation():
     assert plan and problems == []
     assert len(plan["screens"]) == schema.SCREENS_MAX
     assert plan["product"]["accent"] == schema.DEFAULT_ACCENT
-    assert [i["screen"] for i in plan["nav"][0]["items"]] == [s["id"] for s in plan["screens"]][:8] or plan["nav"]
+    # no navigation in the reply: one is built that lists every screen
+    assert [i["screen"] for g in plan["nav"] for i in g["items"]] == [s["id"] for s in plan["screens"]]
 
 
 def test_too_few_screens_is_no_plan():
@@ -180,6 +181,29 @@ def test_a_screen_the_renderer_cannot_draw_is_retried_then_dropped(monkeypatch):
     # the navigation still lists it, marked absent, so the sidebar stays whole
     nav = {i["screen"]: i["live"] for g in generate.load(req)["nav"] for i in g["items"]}
     assert nav["schedule"] is False and nav["today"] is True
+    db.close()
+
+
+def test_a_screen_that_overflows_the_frame_is_redrawn_once_with_the_reason(monkeypatch):
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    prompts = {}
+
+    def screen_reply(prompt):
+        title = prompt.split("Title: ")[1].split("\n")[0].strip()
+        prompts.setdefault(title, []).append(prompt)
+        s = next(x for x in ex.values() if x["title"] == title)
+        return {"rows": s["rows"]}
+
+    _fake_chat(monkeypatch, {"plan": _plan_reply(), "screen": screen_reply})
+    # a browser that finds the schedule 120px too tall, then nothing to capture
+    monkeypatch.setattr(browser, "available", lambda: True)
+    monkeypatch.setattr(browser, "measure_overflow", lambda html, ids: {"schedule": 120})
+    monkeypatch.setattr(browser, "render_pngs", lambda html, ids, out_dir, scale=2: {})
+    db = SessionLocal()
+    req = _request(db)
+    assert generate.build(db, req.id) == 6
+    assert len(prompts["Schedule"]) == 2 and len(prompts["Today"]) == 1
+    assert "120px past the bottom" in prompts["Schedule"][1]
     db.close()
 
 
