@@ -1,5 +1,5 @@
-"""Thin HTTP client for both AI calls this service makes — text (analyze /
-consult / plan / image-prompt-crafting) and image generation — both routed
+"""Thin HTTP client for the text calls this service makes (analysis,
+consulting, planning, the diagnosis and every document stage), routed
 through OpenRouter so there's one key and one place cost is tracked.
 
 Deliberately not importing anything from `backend/` — this service is fully
@@ -7,7 +7,6 @@ isolated (see the plan). Each function returns raw response data; callers
 are responsible for logging an AiUsageEvent row.
 """
 
-import base64
 import logging
 import time
 
@@ -129,117 +128,3 @@ def chat(
         raise AiProviderError(f"OpenRouter chat failed for {model}: {last_error}")
 
     raise AiProviderError(f"OpenRouter chat failed for {model}: {last_error}")
-
-
-def generate_image(
-    prompt: str,
-    *,
-    model: str | None = None,
-    reference_images: list[bytes] | None = None,
-    max_tokens: int = 10000,
-    timeout: float = 120.0,
-    image_config: dict | None = None,
-) -> dict:
-    """Calls an image-output-capable model via OpenRouter's chat completions
-    endpoint (modalities=["image", "text"]). Returns {"image_bytes": bytes, "usage": dict | None}.
-
-    image_config: OpenRouter's output-size hint, e.g.
-    {"image_size": "2K", "aspect_ratio": "16:9"} — omitted from the request
-    body entirely when None. Probed 2026-08-12 on the salon anchor prompt
-    (docs/evidence/session34/probe/): gemini-3.1-flash-image honours it
-    (2752x1536, same 1.79:1 shape as its default, $0.1019 vs $0.070);
-    gemini-3-pro-image accepts the field and ignores it on BOTH slugs
-    (1376x768 and image_tokens=1120 exactly as without it). Models that
-    ignore it do so silently, so adopting a size means re-measuring output
-    dimensions, not trusting this parameter.
-
-    reference_images: optional PNG bytes attached alongside the prompt as
-    image_url content parts — used for multi-screen visual consistency
-    (screen 2+ receives the selected anchor screenshot and is asked to
-    preserve its design). Models that can't take image input will error;
-    callers gate this on config, and generate_demo_screens retries once
-    without references on failure.
-
-    max_tokens is generous (not the usual tight cap) — this model spends
-    ~1000-1500 tokens on internal reasoning before the ~4000+ tokens of
-    actual image output. Seen in testing: a 4096 cap let reasoning alone
-    exhaust the budget and return `finish_reason: "length"` with zero
-    image — a real, silent-looking failure, not a cost-safety trade-off
-    worth making here.
-    """
-    if reference_images:
-        content: list | str = [{"type": "text", "text": prompt}] + [
-            {
-                "type": "image_url",
-                "image_url": {"url": "data:image/png;base64," + base64.b64encode(img).decode()},
-            }
-            for img in reference_images
-        ]
-    else:
-        content = prompt
-
-    # Image responses are ~1MB JSON bodies streamed over long-lived
-    # connections — transport drops mid-body (RemoteProtocolError: "peer
-    # closed connection") happen in practice, seen taking out all parallel
-    # candidates of a request at once. Upstream rate limits arrive the same
-    # way the text path sees them: an HTTP 200 carrying choices[0].error and
-    # no image at all. Neither bills, so a couple of spaced retries are free
-    # insurance for a lead's request.
-    resolved_model = model or settings.IMAGE_MODEL
-    body_json: dict = {
-        "model": resolved_model,
-        "messages": [{"role": "user", "content": content}],
-        "modalities": ["image", "text"],
-        "max_tokens": max_tokens,
-    }
-    if image_config:
-        body_json["image_config"] = image_config
-    last_error: str | None = None
-    for attempt in range(3):
-        if attempt:
-            time.sleep(3 * attempt)
-        try:
-            resp = httpx.post(
-                CHAT_URL,
-                headers=_headers(),
-                json=body_json,
-                timeout=timeout,
-            )
-        except httpx.TransportError as exc:
-            last_error = f"transport error: {exc}"
-            logger.warning("retrying image call: model=%s %s", resolved_model, last_error)
-            continue
-
-        if resp.status_code >= 400:
-            last_error = f"HTTP {resp.status_code}: {resp.text[:300]}"
-            if resp.status_code in RETRYABLE_STATUS:
-                logger.warning("retrying image call: model=%s %s", resolved_model, last_error)
-                continue
-            raise AiProviderError(f"OpenRouter image {resp.status_code}: {resp.text[:500]}")
-
-        body = resp.json()
-        error = _upstream_error(body)
-        if error is not None:
-            last_error = f"upstream error {error.get('code')}: {str(error.get('message'))[:300]}"
-            if _is_retryable(error):
-                logger.warning("retrying image call: model=%s %s", resolved_model, last_error)
-                continue
-            raise AiProviderError(f"OpenRouter image failed for {resolved_model}: {last_error}")
-
-        message = (body.get("choices") or [{}])[0].get("message", {})
-        images = message.get("images") or []
-        if not images:
-            raise AiProviderError(f"OpenRouter image response had no images: {body}")
-
-        url = (images[0].get("image_url") or {}).get("url", "")
-        if url.startswith("data:"):
-            _, _, b64 = url.partition(",")
-            return {"image_bytes": base64.b64decode(b64), "usage": body.get("usage")}
-        if url:
-            image_resp = httpx.get(url, timeout=timeout)
-            image_resp.raise_for_status()
-            return {"image_bytes": image_resp.content, "usage": body.get("usage")}
-
-        raise AiProviderError(f"OpenRouter image response had an empty image_url: {body}")
-
-    raise AiProviderError(f"OpenRouter image failed for {resolved_model} after retries: {last_error}")

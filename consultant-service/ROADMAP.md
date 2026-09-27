@@ -1,5 +1,9 @@
 # Phase 1 — the image-demo pipeline, made astonishing
 
+> **Status (2026-09-27): superseded.** The image-model screen stage this plan
+> describes was retired and its code removed; product screens are now drawn
+> as HTML by `app/screens/`. Kept as the record of the W1–W7 work.
+
 *Written 2026-08-10, on `consultant-images-pipeline` freshly updated from
 main (merge `7c5eae4`, hardening `29c28ef`). Owner reframe: image demos are
 **Phase 1 of BMV** — the thing a lead sees first, at a fraction of a full

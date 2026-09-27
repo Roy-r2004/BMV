@@ -15,12 +15,12 @@ from app.routers import shared as shared_router
 
 # Nothing in this service configured logging, so the root logger sat at
 # WARNING and every logger.info the pipeline writes went nowhere. That is
-# most of its telemetry: which composition variant won, what each candidate
-# scored, which model produced it, when the text-truth gate rejected one.
-# Found on request 68 — the first end-to-end run through the public path —
-# where the console showed HTTP lines and not one word about the images.
-# The warnings did arrive, via logging's last-resort handler, which is why
-# it went unnoticed: failures were visible and successes were not.
+# most of its telemetry: which stage is running, which model answered, and
+# why a stage fell back. Found on request 68 — the first end-to-end run
+# through the public path — where the console showed HTTP lines and not one
+# word about the run itself. The warnings did arrive, via logging's
+# last-resort handler, which is why it went unnoticed: failures were
+# visible and successes were not.
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",

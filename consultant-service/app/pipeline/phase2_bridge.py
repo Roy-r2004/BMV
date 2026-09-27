@@ -204,9 +204,10 @@ def _joined(existing: str | None, addendum: str) -> str:
 def build_phase2_brief(req: Request, *, image_register: str | None = None) -> Phase2Brief:
     """A finished Phase-1 request -> the Phase-2 intake payload.
 
-    `image_register` is the register the demo actually shipped in (the
-    caller's `settings.IMAGE_REGISTER`); passed in rather than read here so
-    this stays a pure function of its arguments.
+    `image_register` is the visual register the Phase-1 screens shipped in
+    (the retired image stage's "cinematic" / "light" setting); passed in
+    rather than read from settings so this stays a pure function of its
+    arguments.
     """
     brief = Phase2Brief()
 

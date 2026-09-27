@@ -20,14 +20,20 @@ Crops are geometric, not semantic — a fixed top band and a fixed centre
 region. Nothing here knows which pixels hold the chart, and pretending
 otherwise (by asking a model where to crop) would spend money to make a
 deterministic step unreliable.
+
+The image-model stage that produced these screenshots is retired (screens
+are now drawn as HTML by app/screens/). This module stays because old
+engagements' composites are still on disk and still served: `variant_url`
+resolves them for the API and the deck exporter, and `compose_presentation`
+can still render one. `derive_palette` moved here from the retired
+art-packs module, which was the only other thing it needed.
 """
 
+import colorsys
 import io
 import os
 
 from PIL import Image, ImageDraw, ImageFilter
-
-from app.pipeline.art_packs import derive_palette
 
 COMPOSITE_VERSION = "composite-v1"
 
@@ -41,6 +47,104 @@ _CORNER_RADIUS_RATIO = 0.012
 _MARGIN_RATIO = 0.05
 _SHADOW_BLUR_RATIO = 0.022
 _SHADOW_OFFSET_RATIO = 0.012
+
+# ── Brand palette (moved verbatim from the retired art_packs module) ──────
+# Fixed across every brand. Real production SaaS is built on near-neutral
+# surfaces with one strong accent; deriving these from the brand is what
+# makes generated UI look like a colored template.
+_NEUTRALS = {
+    "canvas": "#F8F9FB",
+    "surface": "#FFFFFF",
+    "border": "#E5E7EB",
+    "text_primary": "#111827",
+    "text_secondary": "#6B7280",
+}
+# A red that means "overdue" must read as red whatever the client's logo
+# looks like, so the semantic colors are never derived from the brand.
+_SEMANTIC = {
+    "positive": "#059669",
+    "negative": "#DC2626",
+    "warning": "#D97706",
+}
+
+_FALLBACK_BRAND = "#2563EB"
+
+
+def _hex_to_rgb(value: str) -> tuple[float, float, float]:
+    value = (value or "").strip().lstrip("#")
+    if len(value) == 3:
+        value = "".join(ch * 2 for ch in value)
+    if len(value) != 6:
+        raise ValueError(f"not a hex color: {value!r}")
+    return tuple(int(value[i : i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def _rgb_to_hex(rgb: tuple[float, float, float]) -> str:
+    return "#" + "".join(f"{round(max(0.0, min(1.0, c)) * 255):02X}" for c in rgb)
+
+
+def _shift(hex_color: str, *, lightness: float | None = None, saturation_scale: float = 1.0,
+           hue_turn: float = 0.0) -> str:
+    r, g, b = _hex_to_rgb(hex_color)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    h = (h + hue_turn) % 1.0
+    s = max(0.0, min(1.0, s * saturation_scale))
+    if lightness is not None:
+        l = max(0.0, min(1.0, lightness))
+    return _rgb_to_hex(colorsys.hls_to_rgb(h, l, s))
+
+
+def _relative_luminance(hex_color: str) -> float:
+    """WCAG relative luminance. HLS lightness is the wrong measure here: a
+    pale yellow (#F5D142) sits at lightness 0.61 — apparently mid-range —
+    while being far too bright to put white text on."""
+    channels = []
+    for channel in _hex_to_rgb(hex_color):
+        channels.append(channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4)
+    r, g, b = channels
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast_with_white(hex_color: str) -> float:
+    return 1.05 / (_relative_luminance(hex_color) + 0.05)
+
+
+def derive_palette(primary: str | None, secondary: str | None = None) -> dict[str, str]:
+    """Fourteen exact hex values from the client's brand color.
+
+    A brand color too bright to sit behind white text is darkened for the
+    `primary` role rather than used as-is: a #F5D142 "primary" produces
+    illegible buttons. Darkened just enough to clear 3:1 against white —
+    the brand stays recognisable. Plain colorsys arithmetic: deterministic,
+    testable, and free.
+    """
+    try:
+        base = _rgb_to_hex(_hex_to_rgb(primary or _FALLBACK_BRAND))
+    except ValueError:
+        base = _FALLBACK_BRAND
+
+    usable = base
+    r, g, b = _hex_to_rgb(base)
+    _, lightness, _ = colorsys.rgb_to_hls(r, g, b)
+    while _contrast_with_white(usable) < 3.0 and lightness > 0.08:
+        lightness -= 0.04
+        usable = _shift(base, lightness=lightness)
+
+    try:
+        accent = _shift(secondary, lightness=0.42) if secondary else _shift(usable, hue_turn=0.083)
+    except ValueError:
+        accent = _shift(usable, hue_turn=0.083)
+
+    return {
+        "primary": usable,
+        "primary_dark": _shift(usable, lightness=0.30),
+        "primary_tint": _shift(usable, lightness=0.93, saturation_scale=0.85),
+        "accent": accent,
+        "chart_series_2": _shift(usable, hue_turn=0.055, lightness=0.55),
+        "chart_series_3": _shift(usable, hue_turn=-0.055, lightness=0.62, saturation_scale=0.8),
+        **_NEUTRALS,
+        **_SEMANTIC,
+    }
 
 
 def variant_url(file_path: str, variant: str, uploads_dir: str) -> str | None:

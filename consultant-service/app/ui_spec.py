@@ -1,18 +1,15 @@
-"""Typed UI spec sitting between business analysis and image generation.
+"""Typed UI spec — the pydantic shape of `GeneratedImage.spec_json`.
 
-The core philosophy of the demo-screenshot pipeline:
-
-    BUSINESS ANALYSIS -> STRUCTURED UI SPEC -> PROMPT TEMPLATE
-    -> IMAGE GENERATION -> QUALITY REVIEW -> FINAL SCREENSHOTS
-
-Image prompts are built deterministically from this spec (see
-pipeline/prompt_builder.py) instead of letting an LLM write freeform image
-prompts — personalization lives in the DATA (labels, names, KPIs,
-terminology), while layout/style stay controlled and consistent.
+Written by the retired image-model screen stage (one spec per generated
+screen, from session 35 on) and still read today: pipeline/screen_story.py
+composes the caption under an old engagement's screenshot from the strings
+in its spec, and the engine's built-in methods reuse `_Tolerant` as their
+lenient base model. New screens are drawn as HTML by app/screens/ and carry
+no UIDemoSpec.
 
 Validation is deliberately tolerant (defaults everywhere, extra keys
-ignored): a partially-filled spec from the LLM should degrade to a thinner
-screenshot, never fail the pipeline.
+ignored): a partially-filled spec on an old row should degrade to a thinner
+caption, never fail the page that shows it.
 """
 
 import re
