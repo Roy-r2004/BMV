@@ -77,6 +77,14 @@ def shared_package(token: str, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/{token}/system")
+def shared_system(token: str, db: Session = Depends(get_db)):
+    """The system, live, for a partner with the link."""
+    from app.screens import generate as screens_stage
+
+    return screens_stage.payload(_load(token, db))
+
+
 @router.get("/{token}/export/{kind}")
 def shared_export(token: str, kind: str, db: Session = Depends(get_db)):
     req = _load(token, db)

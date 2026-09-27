@@ -1,0 +1,268 @@
+{# The proposal: the system, screen by screen, as a printed document. A4
+   landscape. The screens are the same frames the website shows, scaled to
+   the page; around them, the pages a serious proposal has: the question, the
+   ambition, what changes, what it is worth, the whole platform on one page,
+   the principles, how it fits their world, the alternatives, how it goes live. #}
+{% import '_frame.html' as frame with context %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ p.title }}</title>
+<style>
+{{ fonts_css|safe }}
+{{ css|safe }}
+@page { size: A4 landscape; margin: 0; }
+html, body { background: #fff; }
+body { font-size: 13px; }
+.page { position: relative; width: 297mm; height: 210mm; padding: 13mm 15mm 12mm; page-break-after: always; overflow: hidden; background: #fafaf7; color: var(--ink); }
+.page:last-child { page-break-after: auto; }
+.page.dark { background: var(--accent); color: #fff; }
+.page.dark .muted, .page.dark .faint { color: rgba(255,255,255,.72); }
+.brand { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
+.brand .mark { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--ink); }
+.brand .mark i { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); display: inline-block; }
+.page.dark .brand, .page.dark .brand .mark { color: rgba(255,255,255,.8); }
+.page.dark .brand .mark i { background: rgba(255,255,255,.9); }
+h1.d { font-family: var(--display); font-weight: 700; font-size: 38px; line-height: 1.04; letter-spacing: -.02em; max-width: 14ch; }
+h2.d { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.08; letter-spacing: -.02em; }
+h3.d { font-family: var(--display); font-weight: 700; font-size: 16px; line-height: 1.2; }
+.kicker { font-size: 11.5px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+.page.dark .kicker { color: rgba(255,255,255,.7); }
+.lede { font-size: 14px; line-height: 1.55; color: var(--muted); max-width: 56ch; margin-top: 12px; }
+.page.dark .lede { color: rgba(255,255,255,.82); }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.cols4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.hair { border-top: 1px solid var(--line); }
+.page.dark .hair { border-top-color: rgba(255,255,255,.25); }
+.no { font-size: 12px; font-weight: 600; color: #b58a1c; }
+
+/* cover */
+.cover { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: start; height: calc(100% - 26px); }
+.cover .float { position: relative; height: 100%; }
+.fcard { position: absolute; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: 0 18px 40px -26px rgba(20,20,18,.45); font-size: 12px; }
+.fcard .lb { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.fcard .big { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.fcard .big small { font-size: 12px; color: var(--muted); font-weight: 500; }
+.fcard .sq { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-top: 10px; }
+.fcard .sq i { display: block; height: 9px; border-radius: 2px; background: var(--accent); }
+.fcard .sq i.o { background: var(--line); }
+.fcard .row { display: flex; align-items: center; gap: 10px; }
+.fcard.n { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fcard.n .muted { color: rgba(255,255,255,.7); }
+.journey { position: absolute; left: 0; right: 0; bottom: 0; }
+.journey svg { width: 100%; height: 80px; display: block; overflow: visible; }
+.journey .lb { display: grid; font-size: 11px; color: var(--muted); }
+.journey .lb b { display: block; color: var(--ink); font-weight: 600; font-size: 12px; }
+
+/* screen pages */
+.shotbox { margin: 14px auto 0; width: calc(1280px * var(--k)); height: calc(800px * var(--k)); }
+.shot { width: 1280px; height: 800px; transform: scale(var(--k)); transform-origin: 0 0; }
+.shead { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 20px; }
+.shead p { color: var(--muted); font-size: 13px; margin-top: 4px; max-width: 90ch; }
+
+/* index */
+.index { column-count: 2; column-gap: 40px; margin-top: 26px; font-size: 15px; line-height: 1.9; }
+.index li { list-style: none; break-inside: avoid; }
+.index li b { display: inline-block; width: 28px; color: var(--accent); font-weight: 600; }
+
+/* changes */
+.chg { display: grid; grid-template-columns: 1.1fr 1.4fr 1.2fr; gap: 22px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.45; }
+.chg:first-of-type { border-top: 0; }
+.chg b { font-size: 13px; }
+.chg .lb { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+
+/* worth */
+.worth { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; margin-top: 22px; }
+.worth .in { display: grid; gap: 10px; }
+.worth .in div { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; }
+.worth .in div b { display: block; font-size: 22px; letter-spacing: -.02em; font-weight: 600; margin-bottom: 2px; }
+.worth .out { background: var(--tint); border-radius: 14px; padding: 26px 28px; }
+.worth .out b { display: block; font-family: var(--display); font-size: 48px; letter-spacing: -.03em; line-height: 1; color: var(--tint-ink); }
+.worth .out span { display: block; font-size: 15px; font-weight: 600; margin-top: 8px; }
+.worth .out p { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
+/* platform */
+.plat { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.plat .g { border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 16px 18px; }
+.plat .g.hero { background: var(--accent); color: #fff; border-color: var(--accent); }
+.plat .g h3 { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.plat .g .sub { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+.plat .g.hero .sub { color: rgba(255,255,255,.7); }
+.plat .g li { list-style: none; padding: 7px 0; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.4; }
+.plat .g.hero li { border-top-color: rgba(255,255,255,.2); }
+.plat .g li b { display: block; font-size: 12.5px; }
+.plat .g li span { color: var(--muted); }
+.plat .g.hero li span { color: rgba(255,255,255,.75); }
+
+/* principles / fit */
+.pr { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 40px; margin-top: 24px; }
+.pr div { border-top: 1px solid var(--line); padding-top: 10px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.pr div b { display: block; color: var(--ink); font-size: 14px; margin-bottom: 3px; }
+
+/* comparison */
+.cmp { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 12.5px; }
+.cmp th { text-align: left; font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line-strong); font-size: 12px; color: var(--muted); }
+.cmp th:last-child { background: var(--accent); color: #fff; border-radius: 8px 8px 0 0; }
+.cmp td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.cmp td:first-child { font-weight: 600; }
+.cmp td:last-child { background: var(--tint); font-weight: 500; }
+
+/* go live */
+.golive { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 22px; }
+.golive div b.n { display: block; font-family: var(--display); font-size: 34px; color: var(--accent); line-height: 1; margin-bottom: 8px; }
+.golive div b { display: block; font-size: 14px; }
+.golive div p { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
+.golive div em { display: block; font-style: normal; font-size: 11.5px; color: var(--accent); font-weight: 600; margin-top: 6px; }
+.next { margin-top: 20px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+.next .box { border-radius: 12px; padding: 18px 20px; }
+.next .box.a { background: var(--accent); color: #fff; }
+.next .box.b { background: #fff; border: 1px solid var(--line); }
+.next .box b { display: block; font-size: 15px; margin-bottom: 6px; }
+.next .box li { list-style: none; font-size: 12.5px; line-height: 1.5; padding-left: 12px; position: relative; }
+.next .box li::before { content: "•"; position: absolute; left: 0; }
+.next .cta { margin-top: 12px; display: inline-block; background: var(--accent); color: #fff; border-radius: 8px; padding: 9px 14px; font-size: 12.5px; font-weight: 600; }
+.foot-band { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); color: rgba(255,255,255,.85); padding: 10px 15mm; font-size: 11.5px; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+{# ── cover ── #}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span><span>Proposal for {{ p.business }}, {{ p.date }}</span></div>
+  <div class="cover" style="margin-top: 26px">
+    <div>
+      <h1 class="d">{{ p.headline }}</h1>
+      <p class="lede">{{ p.intro }}</p>
+      {% if p.journey %}<div class="journey" style="position: static; margin-top: 40px">
+        <svg viewBox="0 0 600 70" preserveAspectRatio="none"><path d="{{ p.journey_path }}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>{% for s in p.journey %}<circle cx="{{ s.x }}" cy="{{ s.y }}" r="5" fill="{{ '#d6a83c' if loop.last else '#fff' }}" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>{% endfor %}</svg>
+        <div class="lb" style="grid-template-columns: repeat({{ p.journey|length }}, 1fr)">{% for s in p.journey %}<div style="text-align: {{ 'left' if loop.first else ('right' if loop.last else 'center') }}"><b>{{ s.label }}</b>{{ s.sub }}</div>{% endfor %}</div>
+      </div>{% endif %}
+    </div>
+    <div class="float">
+      {% if p.hero_kpi %}<div class="fcard" style="right: 8%; top: 4%; width: 230px"><div class="lb">{{ p.hero_kpi.label }} <span class="chip info" style="float:right">Sample</span></div><div class="big">{{ p.hero_kpi.value }}</div>{% if p.hero_kpi.sub %}<div class="muted" style="margin-top:4px">{{ p.hero_kpi.sub }}</div>{% endif %}<div class="sq">{% for i in range(24) %}<i{% if i >= p.hero_kpi.fill %} class="o"{% endif %}></i>{% endfor %}</div></div>{% endif %}
+      {% for r in p.hero_rows %}<div class="fcard {{ 'n' if loop.first else '' }}" style="left: {{ 6 + loop.index0 * 12 }}%; top: {{ 40 + loop.index0 * 22 }}%; width: 300px"><div class="row">{% if r.tag %}<span class="chip {{ r.tone }}">{{ r.tag }}</span>{% endif %}<span>{{ r.text }}</span></div>{% if r.action %}<div style="margin-top:8px"><span class="btn sm{% if not loop.first %} primary{% endif %}">{{ r.action }}</span></div>{% endif %}</div>{% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ── ambition ── #}
+{% if p.ambition.title %}
+<section class="page dark">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 70px; max-width: 70ch">
+    <h1 class="d" style="max-width: 20ch">{{ p.ambition.title }}</h1>
+    <p class="lede">{{ p.ambition.text }}</p>
+  </div>
+  {% if p.ambition.pillars %}<div class="cols3" style="margin-top: 56px">{% for x in p.ambition.pillars %}<div><div class="hair" style="margin-bottom: 10px"></div><h3 class="d">{{ x.title }}</h3><p class="muted" style="margin-top: 6px; font-size: 12.5px; line-height: 1.5">{{ x.text }}</p></div>{% endfor %}</div>{% endif %}
+</section>
+{% endif %}
+
+{# ── index ── #}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 50px">
+    <div class="kicker">The product</div>
+    <h1 class="d" style="max-width: 24ch">How {{ p.business_short }} will run on {{ p.product_name }}</h1>
+    <p class="lede">The following pages show each part of the system as {{ p.business_short }}'s team will use it. Names and figures are sample data. No real customer information is used.</p>
+    <ol class="index">{% for s in system.screens %}<li><b>{{ loop.index }}.</b>{{ s.title }}</li>{% endfor %}</ol>
+  </div>
+</section>
+
+{# ── one page per screen ── #}
+{% for s in system.screens %}
+<section class="page" style="--k: {{ p.k }}">
+  <div class="shead"><div><h2 class="d">{{ s.title }}</h2><p>{{ s.caption }}</p></div><span class="no">{{ loop.index }} of {{ system.screens|length }}</span></div>
+  <div class="shotbox"><div class="shot">{{ frame.frame(system, s) }}</div></div>
+</section>
+{% endfor %}
+
+{# ── what changes ── #}
+{% if p.changes %}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 26px">
+    <h2 class="d">What changes for {{ p.business_short }}</h2>
+    <p class="lede" style="margin-top: 6px">The everyday problems a business like this deals with, and how {{ p.product_name }} handles each one.</p>
+    <div style="margin-top: 18px">{% for c in p.changes %}<div class="chg"><div><b>{{ c.today }}</b></div><div><div class="lb">With {{ p.product_name }}</div>{{ c['with'] }}</div><div><div class="lb">What it means for {{ p.business_short }}</div>{{ c.means }}</div></div>{% endfor %}</div>
+  </div>
+</section>
+{% endif %}
+
+{# ── what it is worth, from their own figures ── #}
+{% if p.move %}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 26px">
+    <h2 class="d">What this is worth to {{ p.business_short }}</h2>
+    <p class="lede" style="margin-top: 6px">Worked out from the figures you gave us. Every term is yours, or marked as our proposal.</p>
+    <div class="worth">
+      <div class="in">{% for f in p.figures %}<div><b>{{ f.value }}</b>{{ f.label }}</div>{% endfor %}</div>
+      <div class="out"><b>{{ p.move.display }}</b><span>{{ p.move.label }}</span><p>{{ p.move.working }}.</p>{% if p.move.proposed %}<p>{{ p.move.proposed }}</p>{% endif %}</div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ── everything in one platform ── #}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 22px">
+    <h2 class="d">Everything {{ p.business_short }} runs, in one system</h2>
+    <p class="lede" style="margin-top: 6px">Every part shares the same records, the same permissions and the same reports, so information entered once is available wherever it is needed.</p>
+    <div class="plat">{% for g in p.groups %}<div class="g{% if loop.first %} hero{% endif %}"><h3>{{ g.title }}</h3>{% if g.sub %}<div class="sub">{{ g.sub }}</div>{% endif %}<ul>{% for i in g['items'] %}<li><b>{{ i.title }}</b><span>{{ i.text }}</span></li>{% endfor %}</ul></div>{% endfor %}</div>
+  </div>
+</section>
+
+{# ── principles ── #}
+{% if p.principles %}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 26px">
+    <h2 class="d" style="max-width: 24ch">{{ p.principles_title }}</h2>
+    {% if p.principles_intro %}<p class="lede" style="margin-top: 6px">{{ p.principles_intro }}</p>{% endif %}
+    <div class="pr">{% for x in p.principles %}<div><b>{{ x.title }}</b>{{ x.text }}</div>{% endfor %}</div>
+  </div>
+</section>
+{% endif %}
+
+{# ── local fit ── #}
+{% if p.local_fit %}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 26px">
+    <h2 class="d" style="max-width: 24ch">{{ p.local_title }}</h2>
+    <div class="pr">{% for x in p.local_fit %}<div><b>{{ x.title }}</b>{{ x.text }}</div>{% endfor %}</div>
+  </div>
+</section>
+{% endif %}
+
+{# ── alternatives ── #}
+{% if p.comparison.rows %}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 26px">
+    <h2 class="d">Why {{ p.product_name }}, and not the alternatives</h2>
+    <table class="cmp"><thead><tr><th></th>{% for c in p.comparison.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in p.comparison.rows %}<tr><td>{{ r.label }}</td>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+  </div>
+</section>
+{% endif %}
+
+{# ── how it goes live ── #}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 22px">
+    <h2 class="d">How {{ p.business_short }} goes live</h2>
+    {% if p.phases %}<div class="golive">{% for ph in p.phases %}<div><b class="n">{{ loop.index }}</b><b>{{ ph.title }}</b><p>{{ ph.do }}</p><em>{{ ph.when }}{% if ph.you %} · {{ ph.you }}{% endif %}</em></div>{% endfor %}</div>
+    {% else %}<p class="lede">We do the work, in phases agreed with you. The implementation roadmap on your plans page has the detail.</p>{% endif %}
+    <div class="next">
+      <div class="box a"><b>How we work</b><ul><li>We do the work. You make the calls.</li><li>Your own forms, names and ways of working are built in.</li><li>A direct line to the people building it.</li>{% for n in p.needs %}<li>{{ n }}</li>{% endfor %}</ul></div>
+      <div class="box b"><b>Proposed next step</b><p style="font-size: 12.5px; color: var(--muted); line-height: 1.5">Say yes to phase one on your plans page. We take it from there and come back with a go-live date.</p><span class="cta">Have us build it</span></div>
+    </div>
+  </div>
+  <div class="foot-band"><span>{{ p.product_name }} · {{ p.business }}</span><span>Build My Version</span></div>
+</section>
+</body>
+</html>

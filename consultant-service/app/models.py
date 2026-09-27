@@ -108,6 +108,10 @@ class Request(Base):
     # The owner's answers to the roadmap's decisions:
     # {"choices": {decision_id: option}, "go_ahead": bool, "go_at": iso}.
     decisions_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: the system drawn for this business, screen by screen (app/screens):
+    #: the product, its navigation, the cast, every screen's blocks, and the
+    #: proposal's narrative pages
+    screens_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A read-only link the owner can hand to a partner. Null until they make
     # one; cleared when they revoke it.
     share_token: Mapped[str | None] = mapped_column(String(40), unique=True, index=True, nullable=True)

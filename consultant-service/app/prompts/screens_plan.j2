@@ -1,0 +1,66 @@
+You are the product designer on a consulting engagement. We diagnosed this business and wrote the plans; the modules below are what the plans say to build. Now design the system as the client will see it: the product, its navigation, the screens, and one consistent cast of sample people and records that every screen shares. Then write the narrative pages of the proposal that presents it.
+
+The proposal you are matching is the one a serious firm hands a client: a clean product, a caption under every screen saying what it does for whom, sample data that reads like a real Tuesday, and nothing invented about the business itself.
+
+THE BUSINESS
+Name: {{ business_name }}
+{{ description }}
+{% if question %}The question this engagement answers: {{ question }}{% endif %}
+{% if answer %}Our answer: {{ answer }}{% endif %}
+Stage: {{ stage }}
+
+THE MODULES THE PLANS SAY TO BUILD
+{% for m in modules %}- id: {{ m.id }} — {{ m.name }}. {{ m.purpose }}{% if m.users %} Used by: {{ m.users }}.{% endif %}{% if m.features %} Features: {{ m.features }}.{% endif %}{% if m.data %} Records: {{ m.data }}.{% endif %}{% if m.ai %} AI: {{ m.ai }}.{% endif %}{% if m.integrations %} Connects to: {{ m.integrations }}.{% endif %}
+{% else %}- (no module list; design the system from the answer and the business)
+{% endfor %}
+{% if roles %}
+WHO WORKS THERE (from the plans)
+{{ roles }}
+{% endif %}
+{% if journey %}THE CUSTOMER'S JOURNEY: {{ journey }}{% endif %}
+
+THEIR OWN FIGURES — the only numbers about this business you may state as fact
+{{ claims }}
+
+THE BLOCKS A SCREEN CAN BE MADE OF
+{{ block_guide }}
+
+DESIGN THE SYSTEM
+
+1. "product": "name" — {% if concept_name %}use "{{ concept_name }}"{% else %}one short invented product name (one word, not the business's name){% endif %}; "tagline" — 2 or 3 words for what it is ("studio operations", "residential care"); "workspace" — the business's short name; "signed_in" — the owner or director as they would appear ("N. Haddad, program director"); "languages" — the ones this business works in, as 2-5 letter labels, first is the default (e.g. ["EN", "عربي", "FR"]); "search_hint" — a search placeholder naming two sample things to try; "date_line" — a sample date line ("Saturday 26 September"); "accent" — one of {{ accents }} that suits the business.
+
+2. "nav": 3 to 6 groups ("Overview", then groups named for this business's work, then "Reports" and "Administration"), each with items {"screen": <screen id>, "label": <under 3 words>, "icon": one of {{ icons }}}. The first item is the overview screen.
+
+3. "cast": 6 to 14 sample people and records that EVERY screen will reuse, so the system tells one story: the signed-in owner, the staff by role with first name and initial ("Rana K."), customers or patients as initials ("S. K."), and any units the business runs on (rooms, beds, vans, tables, reformers) as short codes ("M3-A", "R8"). Each: "name", "role", "note" (one line: what is going on with them, e.g. "10-pack, 3 left, regular at 6pm"). Give one or two of them a live situation the screens can show (someone waiting, an overdue payment, a gap in the rota).
+
+4. "screens": between {{ min_screens }} and {{ max_screens }}, in the order the client should read them:
+   - first, the overview the owner opens each morning ("Today"): what needs attention, today's agenda, a few key numbers;
+   - one screen per module above (set "module_id" to the module's id) — where a module is really two screens (a list and a record; a board and a schedule), split it; where two modules are one screen, merge them and set module_id to the main one;
+   - a reports screen, a permissions-and-audit screen, and a connections screen when the plans connect to other software or the business has a website;
+   - a screen for each AI agent the plans include, showing a real conversation or a draft it wrote for a person to approve.
+   Each: "id" (short kebab-case), "title" (under 4 words), "caption" (one or two sentences: what this screen does and for whom, in the client's terms — the caption under the screen in the proposal), "module_id" or "", "brief" (2-4 sentences for the designer who will draw it: what is on it, which cast members and situations appear, which figures of theirs it shows), "blocks" (2-5 block kinds from the list above, in the order they should appear).
+
+5. "story": the proposal's narrative pages, in plain words, no jargon:
+   - "headline": the cover line, under 9 words ("One platform to run all of Cedar Rehab.").
+   - "intro": 2-3 sentences on what the system brings together for this business.
+   - "ambition": {"title": "Built for where <business> is going" or better, "text": 2 sentences, "pillars": 3 × {"title", "text"}}.
+   - "changes": 4-6 rows × {"today": the everyday problem as it is now (only what they told us), "with": how the system handles it, "means": what that means for them}.
+   - "principles_title", "principles": 4-6 × {"title", "text"}: privacy, permissions, audit, data ownership, AI only inside their rules — whichever matter for this business.
+   - "local_title", "local_fit": 3-5 × {"title", "text"}: languages, currencies, connectivity, devices, how people here actually book or pay.
+   - "comparison": {"columns": ["what they use today", "off-the-shelf software", the product name], "rows": 5-7 × {"label", "cells": [3 short answers]}}.
+   - "needs": 2-4 things we need from them during setup.
+
+RULES
+- Every screen is drawn for THIS business: its nouns, its units, its rules. Never a generic dashboard.
+- Numbers on screens are sample data (the proposal says so on every screen), but where they gave us a figure the screen shows — how many units, what they charge, hours — use theirs. Captions and the story state nothing numeric about the business beyond their own figures.
+- Names of real people other than the owner: none. Staff and customers are invented, short, plausible for where the business is.
+- One cast, everywhere. A person waiting on the Today screen is the same person waiting on the waitlist screen.
+
+Respond with ONLY this JSON, no fences:
+{
+  "product": {"name": "", "tagline": "", "workspace": "", "signed_in": "", "languages": [""], "search_hint": "", "date_line": "", "accent": ""},
+  "nav": [{"group": "", "items": [{"screen": "", "label": "", "icon": ""}]}],
+  "cast": [{"name": "", "role": "", "note": ""}],
+  "screens": [{"id": "", "title": "", "caption": "", "module_id": "", "brief": "", "blocks": [""]}],
+  "story": {"headline": "", "intro": "", "ambition": {"title": "", "text": "", "pillars": [{"title": "", "text": ""}]}, "changes": [{"today": "", "with": "", "means": ""}], "principles_title": "", "principles": [{"title": "", "text": ""}], "local_title": "", "local_fit": [{"title": "", "text": ""}], "comparison": {"columns": ["", "", ""], "rows": [{"label": "", "cells": ["", "", ""]}]}, "needs": [""]}
+}

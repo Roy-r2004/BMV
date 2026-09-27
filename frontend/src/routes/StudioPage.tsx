@@ -21,6 +21,7 @@ import Interview from '../components/consult/Interview';
 import Thinking from '../components/consult/Thinking';
 import Answer from '../components/consult/Answer';
 import Package, { type PackageScreen } from '../components/consult/Package';
+import SystemViewer from '../components/consult/SystemViewer';
 import '../styles/consult.css';
 import SiteFooter from '../components/SiteFooter';
 import { clearFrontDoor, peekFrontDoor } from '../utils/frontDoor';
@@ -34,6 +35,7 @@ import {
   saveReviewDocs,
   getStudioPreview,
   getStudioProgress,
+  getStudioSystem,
   getStudioDecision,
   approveStudioDecision,
   reviseStudioDecision,
@@ -52,6 +54,7 @@ import {
   type StudioProgress,
   type StudioDecision,
   type StudioScreen,
+  type SystemPayload,
 } from '../api/consultant';
 /** One round of the interview as the server returned it. */
 interface Round {
@@ -1409,6 +1412,9 @@ export default function StudioPage() {
   const [act, setAct] = useState<Act>(routeId == null ? 'intake' : 'loading');
   const [progress, setProgress] = useState<StudioProgress | null>(null);
   const [preview, setPreview] = useState<StudioPreview | null>(null);
+  // The navigable system behind the package. Null until it has loaded, and
+  // on legacy runs that have none — the PNG screens stand in either way.
+  const [system, setSystem] = useState<SystemPayload | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
@@ -1523,6 +1529,11 @@ export default function StudioPage() {
         return;
       }
       setPreview(data);
+      // The system rides beside the package, not inside it: its HTML is
+      // large, and the plans must not wait on it. Absent or failed, the
+      // PNG screens show as before.
+      setSystem(null);
+      void getStudioSystem(id, reviewToken).then(setSystem).catch(() => setSystem(null));
       setDecisionState(data.decisions ?? {});
       setActiveTab('screens');
       setAct('reveal');
@@ -2634,6 +2645,7 @@ export default function StudioPage() {
                   decisions={decisionState}
                   unverified={preview.unverified ?? []}
                   screens={packageScreens}
+                  system={system}
                   docs={{
                     blueprint: Boolean(preview.mvp_blueprint),
                     technical: Boolean(preview.technical_plan),
@@ -2681,7 +2693,11 @@ export default function StudioPage() {
                   </div>
                 )}
 
-                {activeTab === 'screens' && (screens.length === 0 ? (
+                {activeTab === 'screens' && (system?.available && system.html ? (
+                  <div className="cx-sys-tab">
+                    <SystemViewer system={system} businessName={preview.business_name} compact onDownloadPdf={() => download('system')} />
+                  </div>
+                ) : screens.length === 0 ? (
                   <div className="studio-panel p-8 text-center max-w-xl mx-auto">
                     <p className="text-slate-600 font-semibold">This run's screens aren't on file.</p>
                     <p className="mt-3 text-slate-600 text-sm">

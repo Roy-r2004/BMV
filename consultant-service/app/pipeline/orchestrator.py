@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import action_plan, analyze, answer, blueprint, capacity, consult, decide, decompose, diagnose, extras, images, plan, playbook, qa_experts, research, ui_spec
+from app.pipeline import action_plan, analyze, answer, blueprint, capacity, consult, decide, decompose, diagnose, extras, plan, playbook, qa_experts, research
 from app.pipeline.structural import engagement_subjects as _subjects_of
 from app.pipeline.structural import preflight as _structural_preflight
 
@@ -379,24 +379,22 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     current()
     integrity.enforce(db, request_id)
 
+    # The system, screen by screen: designed once (product, navigation, one
+    # cast of sample people), then every screen drawn from its brief in the
+    # renderer's own block vocabulary. HTML, not pictures: the site shows it
+    # live and the proposal prints it. Fails open — a package without its
+    # screens is still a package, and the page says the screens are missing.
     current()
-    emit(db, request_id, "directing", "Designing your product screens...", 62)
-    archetype_id, specs = ui_spec.build_ui_specs(db, request_id, consult_result, plan_result)
+    emit(db, request_id, "screens", "Drawing your system, screen by screen...", 66)
+    from app.screens import generate as screens_stage
+
+    try:
+        screens_drawn = screens_stage.build(db, request_id)
+    except Exception as exc:
+        logging.getLogger("consultant.orchestrator").warning("screens stage failed open: %s", str(exc)[:200])
+        screens_drawn = 0
 
     current()
-    emit(db, request_id, "images", "Rendering your product screenshots...", 70)
-    saved_images = images.generate_demo_screens(db, request_id, archetype_id, specs)
-
-    current()
-    if not saved_images:
-        req = db.get(Request, request_id)
-        req.status = "failed"
-        req.is_failed = True
-        req.is_generating = False
-        db.commit()
-        emit(db, request_id, "failed", "Screenshot generation failed for every screen", 70)
-        return
-
     req = db.get(Request, request_id)
     # A run with neither written volume produced no deliverable, whatever else
     # survived. Every document stage fails OPEN so one bad call degrades the
@@ -432,4 +430,4 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     if not (_settings.REVIEW_MODE == "gate" and req.review_status == "pending"):
         mailer.notify_owner_ready(req.public_id or request_id, req.owner_email or req.email,
                                   req.business_name or "")
-    emit(db, request_id, "done", "Done", 100, detail=f"{len(saved_images)} images ready")
+    emit(db, request_id, "done", "Done", 100, detail=f"{screens_drawn} screens drawn")

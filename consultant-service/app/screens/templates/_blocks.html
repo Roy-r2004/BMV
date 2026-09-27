@@ -1,0 +1,206 @@
+{# The block library. One macro per kind; `block(b)` dispatches. Every block
+   arrives already shaped and pre-measured by render.py (grid columns, bar
+   heights, line paths), so nothing here computes — it only draws. #}
+
+{% macro icon(name) -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.get(name, icons['dot']) }}</svg>
+{%- endmacro %}
+
+{% macro cell(c) -%}
+  {%- if c is mapping -%}
+    {%- if c.chip is defined %}<span class="chip {{ c.tone }}">{{ c.chip }}</span>
+    {%- elif c.action is defined %}<span class="btn sm">{{ c.action }}</span>
+    {%- elif c.strong is defined %}<b>{{ c.strong }}</b>
+    {%- endif -%}
+  {%- else %}{{ c }}{% endif -%}
+{%- endmacro %}
+
+{% macro title(b) -%}
+  {% if b.title or b.sub %}<div class="t"><b>{{ b.title }}</b>{% if b.sub %}<span>{{ b.sub }}</span>{% endif %}</div>{% endif %}
+{%- endmacro %}
+
+{% macro kpis(b) -%}
+<div class="kpis" style="grid-template-columns: repeat({{ b['items']|length }}, 1fr)">
+  {% for i in b['items'] %}<div class="kpi"><b>{{ i.value }}</b><span>{{ i.label }}</span>{% if i.sub %}<em>{{ i.sub }}</em>{% endif %}</div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro list(b) -%}
+<div class="card list">{{ title(b) }}
+  {% for r in b.rows %}<div class="r">{% if r.tag %}<span class="chip {{ r.tone }}">{{ r.tag }}</span>{% else %}<span></span>{% endif %}<span>{{ r.text }}</span>{% if r.action %}<span class="btn sm">{{ r.action }}</span>{% else %}<span></span>{% endif %}</div>{% endfor %}
+  {% if b.footer %}<div class="foot">{{ b.footer }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro agenda(b) -%}
+<div class="card agenda">{{ title(b) }}
+  {% for r in b.rows %}<div class="r{% if r.now %} now{% endif %}"><span class="tm">{{ r.time }}</span><div><b>{{ r.title }}</b>{% if r.sub %}<span>{{ r.sub }}</span>{% endif %}</div></div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro table(b) -%}
+<div class="card">{{ title(b) }}
+  <table class="tbl"><thead><tr>{% for c in b.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for r in b.rows %}<tr>{% for c in r %}<td{% if loop.last and c is mapping and c.action is defined %} class="act"{% endif %}>{{ cell(c) }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+  {% if b.footer %}<div class="foot">{{ b.footer }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro pipeline(b) -%}
+<div class="card">{{ title(b) }}
+  <div class="pipe" style="grid-template-columns: repeat({{ b.columns|length }}, 1fr)">
+  {% for c in b.columns %}<div class="col"><div class="h"><span>{{ c.title }}</span><i>{{ c.cards|length }}</i></div>
+    {% for k in c.cards %}<div class="pcard"><b>{{ k.title }}</b>{% if k.tags %}<div class="tags">{% for t in k.tags %}<span>{{ t }}</span>{% endfor %}</div>{% endif %}{% for l in k.lines %}<div class="ln">{{ l }}</div>{% endfor %}{% if k.alert %}<div class="alert">{{ k.alert }}</div>{% endif %}{% if k.action %}<span class="btn sm">{{ k.action }}</span>{% endif %}</div>{% endfor %}
+  </div>{% endfor %}
+  </div>
+  {% if b.footer %}<div class="foot">{{ b.footer }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro board(b) -%}
+<div class="card">{{ title(b) }}
+  <div class="board{% if not b.side %} noside{% endif %}">
+    <div>
+      {% for g in b.groups %}<div class="grp">{% if g.title %}<span>{{ g.title }}</span>{% endif %}<div class="cells">{% for c in g.cells %}<div class="cell {{ c.state }}"><b>{{ c.code }}</b>{{ c.label if c.label else (c.state|capitalize if c.state != 'occupied' else '') }}</div>{% endfor %}</div></div>{% endfor %}
+      {% if b.legend %}<div class="legend">{% for s in b.legend %}<span class="{{ s.state }}">{{ s.label }}</span>{% endfor %}</div>{% endif %}
+    </div>
+    {% if b.side %}<div class="sidecard"><b>{{ b.side.title }}</b>{% for l in b.side.lines %}<p>{{ l }}</p>{% endfor %}{% if b.side.actions %}<div class="acts">{% for a in b.side.actions %}<span class="btn sm{% if loop.first %} primary{% endif %}">{{ a }}</span>{% endfor %}</div>{% endif %}</div>{% endif %}
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro record(b) -%}
+<div class="card">
+  <div class="record"><div class="av">{{ b.initials }}</div><div><b>{{ b.name }}</b><span>{{ b.meta }}</span></div><div class="sp"></div>{% if b.action %}<span class="btn primary">{{ b.action }}</span>{% endif %}</div>
+  {% if b.tabs %}<div class="tabs">{% for t in b.tabs %}<span{% if t == b.active_tab %} class="on"{% endif %}>{{ t }}</span>{% endfor %}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro stages(b) -%}
+<div class="stages" style="grid-template-columns: repeat({{ b['items']|length }}, 1fr)">
+  {% for s in b['items'] %}<div class="stage {{ s.state }}"><b>{{ s.label }}</b>{% if s.sub %}<span>{{ s.sub }}</span>{% endif %}</div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro progress(b) -%}
+<div class="card prog">{{ title(b) }}
+  {% for i in b['items'] %}<div class="i"><div class="l"><b>{{ i.label }}</b>{% if i.status %}<span>{{ i.status }}</span>{% endif %}</div><div class="bar"><i style="width: {{ i.pct }}%"></i></div></div>{% endfor %}
+  {% if b.footer %}<div class="foot">{{ b.footer }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro bars(b) -%}
+<div class="card">{{ title(b) }}
+  {% if b.horizontal %}<div class="hbars">{% for i in b['items'] %}<div class="b"><span>{{ i.label }}</span><i style="width: {{ i.h }}%"></i><em>{{ i.display or i.value_text }}</em></div>{% endfor %}</div>
+  {% else %}<div class="bars">{% for i in b['items'] %}<div class="b"><em>{{ i.display or i.value_text }}</em><i style="height: {{ i.h }}%"></i><span>{{ i.label }}</span></div>{% endfor %}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro line(b) -%}
+<div class="card line">{{ title(b) }}
+  <svg viewBox="0 0 {{ b.svg.w }} {{ b.svg.h }}" preserveAspectRatio="none">
+    <path d="{{ b.svg.area }}" fill="var(--tint)" opacity=".7"/>
+    <path d="{{ b.svg.path }}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    {% for p in b.svg.pts %}<circle cx="{{ p.x }}" cy="{{ p.y }}" r="3" fill="#fff" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>{% endfor %}
+  </svg>
+  <div class="lbls">{% for p in b.points %}<span>{{ p.label }}{% if p.display %} · {{ p.display }}{% endif %}</span>{% endfor %}</div>
+</div>
+{%- endmacro %}
+
+{% macro form(b) -%}
+<div class="card form">{{ title(b) }}
+  {% for f in b.fields %}<div class="f"><label>{{ f.label }}</label>{% if f.help %}<div class="help">{{ f.help }}</div>{% endif %}
+    {% if f.type == 'choice' %}<div class="opts">{% for o in f.options %}<span{% if o == f.selected %} class="on"{% endif %}>{{ o }}</span>{% endfor %}</div>
+    {% elif f.type == 'scale' %}<div class="scale">{% for n in range(0, 11) %}<span{% if f.selected == n|string %} class="on"{% endif %}>{{ n }}</span>{% endfor %}</div>
+    {% elif f.type == 'check' %}<div class="check"><i class="{% if f.selected in ('yes', 'true', 'on') %}on{% endif %}">✓</i><span>{{ f.value or f.selected }}</span></div>
+    {% elif f.type == 'select' %}<div class="in sel"><span>{{ f.value or f.selected or f.options[0] if f.options else '' }}</span><span class="faint">▾</span></div>
+    {% elif f.type == 'textarea' %}<div class="in ta{% if not f.value %} empty{% endif %}">{{ f.value or f.help or '' }}</div>
+    {% else %}<div class="in{% if not f.value %} empty{% endif %}">{{ f.value or 'Type here' }}</div>{% endif %}
+  </div>{% endfor %}
+  {% if b.note or b.primary or b.secondary %}<div class="ft"><span class="n">{{ b.note }}</span><div class="acts">{% if b.secondary %}<span class="btn ghost">{{ b.secondary }}</span>{% endif %}{% if b.primary %}<span class="btn primary">{{ b.primary }}</span>{% endif %}</div></div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro schedule(b) -%}
+<div class="card">{{ title(b) }}
+  <div class="sched">
+    <div class="hd" style="grid-template-columns: 44px repeat({{ b.days|length }}, 1fr)"><span></span>{% for d in b.days %}<span>{{ d }}</span>{% endfor %}</div>
+    {% for s in b.slots %}<div class="sl" style="grid-template-columns: 44px repeat({{ b.days|length }}, 1fr)"><span class="tm">{{ s.time }}</span>{% for c in s.cells %}{% if c %}<div class="c {{ c.tone }}"><b>{{ c.title }}</b>{% if c.sub %}<span>{{ c.sub }}</span>{% endif %}</div>{% else %}<div class="c"></div>{% endif %}{% endfor %}</div>{% endfor %}
+  </div>
+  {% if b.legend %}<div class="legend">{% for s in b.legend %}<span class="{{ s.state }}">{{ s.label }}</span>{% endfor %}</div>{% endif %}
+  {% if b.footer %}<div class="foot">{{ b.footer }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro matrix(b) -%}
+<div class="card matrix">{{ title(b) }}
+  {% if b.tabs %}<div class="tabs">{% for t in b.tabs %}<span{% if t == b.active %} class="on"{% endif %}>{{ t }}</span>{% endfor %}</div>{% endif %}
+  <table class="tbl"><thead><tr>{% for c in b.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for r in b.rows %}<tr>{% for c in r %}<td{% if not loop.first and c %} class="v"{% endif %}>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+</div>
+{%- endmacro %}
+
+{% macro log(b) -%}
+<div class="card log">{{ title(b) }}
+  {% for r in b.rows %}<div class="r"><span class="tm">{{ r.time }}</span><span class="who">{{ r.who }}</span><span>{% if r.blocked %}<span class="blk">Blocked</span>{% endif %}{{ r.text }}</span></div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro cards(b) -%}
+<div class="card">{{ title(b) }}
+  <div class="cards" style="grid-template-columns: repeat({{ b.cols }}, 1fr)">
+    {% for i in b['items'] %}<div class="ccard"><div><b>{{ i.title }}</b><span>{{ i.text }}</span></div>
+      {% if i.state == 'connected' %}<span class="chip good">Connected</span>{% elif i.state == 'connect' %}<span class="btn sm">{{ i.action or 'Connect' }}</span>{% elif i.state == 'on' %}<span class="toggle on"></span>{% elif i.state == 'off' %}<span class="toggle"></span>{% elif i.action %}<span class="btn sm">{{ i.action }}</span>{% endif %}
+    </div>{% endfor %}
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro note(b) -%}
+<div class="note {{ b.tone }}">{{ b.text }}</div>
+{%- endmacro %}
+
+{% macro feed(b) -%}
+<div class="card feed">{{ title(b) }}
+  {% for r in b.rows %}<div class="r"><div class="m">{{ r.meta }}</div><div>{{ r.text }}{% if r.tag %}<span class="chip dim">{{ r.tag }}</span>{% endif %}</div></div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro draft(b) -%}
+<div class="card draft"><div class="t"><b>{{ b.title }} <span class="chip info">{{ b.badge }}</span></b></div>
+  {% if b.note %}<p>{{ b.note }}</p>{% endif %}
+  <ul>{% for x in b.bullets %}<li>{{ x.text }}{% if x.cite %}<span class="chip dim">{{ x.cite }}</span>{% endif %}</li>{% endfor %}</ul>
+  {% if b.primary or b.secondary %}<div class="acts">{% if b.primary %}<span class="btn primary">{{ b.primary }}</span>{% endif %}{% if b.secondary %}<span class="btn">{{ b.secondary }}</span>{% endif %}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro chat(b) -%}
+<div class="card chat">{{ title(b) }}
+  <div class="msgs">{% for m in b.messages %}<div class="m {{ m.from }}"><span class="w">{{ 'AI' if m.from == 'agent' else 'Customer' }}</span>{{ m.text }}</div>{% endfor %}</div>
+  {% if b.note %}<div class="foot">{{ b.note }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro block(b) -%}
+  {%- if b.kind == 'kpis' %}{{ kpis(b) }}
+  {%- elif b.kind == 'list' %}{{ list(b) }}
+  {%- elif b.kind == 'agenda' %}{{ agenda(b) }}
+  {%- elif b.kind == 'table' %}{{ table(b) }}
+  {%- elif b.kind == 'pipeline' %}{{ pipeline(b) }}
+  {%- elif b.kind == 'board' %}{{ board(b) }}
+  {%- elif b.kind == 'record' %}{{ record(b) }}
+  {%- elif b.kind == 'stages' %}{{ stages(b) }}
+  {%- elif b.kind == 'progress' %}{{ progress(b) }}
+  {%- elif b.kind == 'bars' %}{{ bars(b) }}
+  {%- elif b.kind == 'line' %}{{ line(b) }}
+  {%- elif b.kind == 'form' %}{{ form(b) }}
+  {%- elif b.kind == 'schedule' %}{{ schedule(b) }}
+  {%- elif b.kind == 'matrix' %}{{ matrix(b) }}
+  {%- elif b.kind == 'log' %}{{ log(b) }}
+  {%- elif b.kind == 'cards' %}{{ cards(b) }}
+  {%- elif b.kind == 'note' %}{{ note(b) }}
+  {%- elif b.kind == 'feed' %}{{ feed(b) }}
+  {%- elif b.kind == 'draft' %}{{ draft(b) }}
+  {%- elif b.kind == 'chat' %}{{ chat(b) }}
+  {%- endif -%}
+{%- endmacro %}

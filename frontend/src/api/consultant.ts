@@ -573,6 +573,77 @@ export async function getSharedPackage(token: string): Promise<SharedPackage> {
   return data;
 }
 
+/** One screen of the rendered system: what its sidebar entry says, the one
+ *  line under it in the proposal, the blueprint module it belongs to (when
+ *  it belongs to one), and a still of it when one was printed. */
+export interface SystemScreen {
+  id: string;
+  title: string;
+  caption: string;
+  module_id: string | null;
+  png_url: string | null;
+}
+
+/** The client's system as one navigable HTML document — sidebar, every
+ *  screen, sample data — the same document the proposal PDF is printed from.
+ *  `html` is complete and self-contained; render it in a sandboxed iframe
+ *  (allow-scripts, no same-origin) and talk to it over postMessage:
+ *    page → frame  { type: 'bmv:show',  id }
+ *    frame → page  { type: 'bmv:shown', id }        on load, and on its own sidebar clicks
+ *    frame → page  { type: 'bmv:size',  height }    content height at its 1280px design width
+ *  `available` is false on runs made before the system existed — the PNG
+ *  screens stand in. `pdf_available` is false when the server cannot print. */
+export interface SystemPayload {
+  available: boolean;
+  product: { name: string; tagline: string; workspace: string } | null;
+  screens: SystemScreen[];
+  html: string | null;
+  pdf_available: boolean;
+}
+
+/** The payload as the viewer can rely on it: every list an array, every
+ *  string a string — a missing field degrades to "not available", never to a
+ *  crash in the middle of the plans page. */
+function asSystemPayload(data: unknown): SystemPayload {
+  const d = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
+  const p = d.product && typeof d.product === 'object' ? (d.product as Record<string, unknown>) : null;
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const screens: SystemScreen[] = Array.isArray(d.screens)
+    ? (d.screens as unknown[])
+        .filter((s): s is Record<string, unknown> => Boolean(s) && typeof s === 'object')
+        .map((s) => ({
+          id: str(s.id),
+          title: str(s.title),
+          caption: str(s.caption),
+          module_id: typeof s.module_id === 'string' ? s.module_id : null,
+          png_url: typeof s.png_url === 'string' ? s.png_url : null,
+        }))
+        .filter((s) => s.id)
+    : [];
+  const html = typeof d.html === 'string' && d.html ? d.html : null;
+  return {
+    available: Boolean(d.available) && html !== null && screens.length > 0,
+    product: p ? { name: str(p.name), tagline: str(p.tagline), workspace: str(p.workspace) } : null,
+    screens,
+    html,
+    pdf_available: Boolean(d.pdf_available),
+  };
+}
+
+/** The owner's (or reviewer's) view of the system. Same auth as the preview:
+ *  the session token rides on every call, the review token as a query. */
+export async function getStudioSystem(ref: StudioRef, reviewToken?: string | null): Promise<SystemPayload> {
+  const suffix = reviewToken ? `?review_token=${encodeURIComponent(reviewToken)}` : '';
+  const { data } = await consultantClient.get(`/api/requests/${ref}/system${suffix}`, { timeout: 60000 });
+  return asSystemPayload(data);
+}
+
+/** The same system through a partner link. No auth — the token is the key. */
+export async function getSharedSystem(token: string): Promise<SystemPayload> {
+  const { data } = await consultantClient.get(`/api/shared/${encodeURIComponent(token)}/system`, { timeout: 60000 });
+  return asSystemPayload(data);
+}
+
 async function saveBlob(path: string, fallback: string): Promise<void> {
   const { data, headers } = await consultantClient.get<Blob>(path, { responseType: 'blob', timeout: 180000 });
   const match = /filename="?([^";]+)"?/.exec(String(headers['content-disposition'] ?? ''));
@@ -822,7 +893,7 @@ export interface StudioQuickWin {
 
 /** The blueprint or technical plan as a branded PDF. Only offer once the
  *  run is done — the route 400s before the document exists. */
-export function studioPdfUrl(ref: StudioRef, kind: 'blueprint' | 'technical' | 'operations'): string {
+export function studioPdfUrl(ref: StudioRef, kind: 'blueprint' | 'technical' | 'operations' | 'system'): string {
   return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/pdf/${kind}`;
 }
 
@@ -831,7 +902,10 @@ export function studioZipUrl(ref: StudioRef): string {
   return `${CONSULTANT_API_BASE}/api/requests/${ref}/export/zip`;
 }
 
-export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations';
+/** What can be downloaded. 'system' is the proposal PDF: every screen of the
+ *  rendered system printed with its caption, served at
+ *  /export/pdf/system (owner) and /export/system (shared link). */
+export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations' | 'system';
 
 /** Fetch an export with the caller's session attached and hand it to the
  *  browser as a saved file. The export routes are auth-gated, and a plain

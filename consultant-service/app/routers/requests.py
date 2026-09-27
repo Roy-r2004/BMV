@@ -1233,6 +1233,8 @@ def build_zip(req: Request) -> tuple[str, str]:
     are skipped."""
     import zipfile
 
+    from app.screens import export as screens_export
+
     file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "engagement"))
     built = []
     for kind, name in (
@@ -1244,6 +1246,10 @@ def build_zip(req: Request) -> tuple[str, str]:
             built.append((export_pdf.build_pdf(req, kind), name))
         except ValueError:
             continue
+    try:
+        built.append((screens_export.build_system_pdf(req), "Volume IV - Your System, Screen by Screen.pdf"))
+    except (screens_export.NotReady, RuntimeError):
+        pass
     if not built:
         raise HTTPException(status_code=400, detail="Documents not ready yet")
 
@@ -1272,16 +1278,42 @@ def export_pdf_route(request_ref: str, kind: str, review_token: str | None = Non
     return FileResponse(out_path, media_type="application/pdf", filename=filename)
 
 
-PDF_KINDS = ("blueprint", "technical", "operations")
+PDF_KINDS = ("blueprint", "technical", "operations", "system")
 
 
 def pdf_file(req: Request, kind: str) -> tuple[str, str]:
+    file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "document"))
+    if kind == "system":
+        # The proposal: the system screen by screen, printed by a browser
+        # from the same HTML the site shows.
+        from app.screens import export as screens_export
+
+        try:
+            out_path = screens_export.build_system_pdf(req)
+        except screens_export.NotReady:
+            raise HTTPException(status_code=400, detail="Your system is not drawn yet")
+        except RuntimeError:
+            raise HTTPException(status_code=503, detail="The proposal cannot be printed on this server right now")
+        return out_path, f"{file_stub}-system.pdf"
     try:
         out_path = export_pdf.build_pdf(req, kind)
     except ValueError:
         raise HTTPException(status_code=400, detail="Document not ready yet")
-    file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "document"))
     return out_path, f"{file_stub}-{kind}.pdf"
+
+
+@router.get("/{request_ref}/system")
+def get_system(request_ref: str, review_token: str | None = None,
+               authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """The system drawn for this business, live: every screen's caption and
+    thumbnail, and the page the site embeds and navigates."""
+    from app.screens import generate as screens_stage
+
+    req = _load_request(request_ref, db)
+    _require_view(req, review_token, authorization)
+    if _pending_for(req, review_token):
+        raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
+    return screens_stage.payload(req)
 
 
 @router.get("/{request_ref}/export/pptx")

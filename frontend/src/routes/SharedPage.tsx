@@ -13,8 +13,10 @@ import {
   consultantAssetUrl,
   downloadSharedExport,
   getSharedPackage,
+  getSharedSystem,
   isForbidden,
   type SharedPackage,
+  type SystemPayload,
 } from '../api/consultant';
 import Chrome from '../components/consult/Chrome';
 import Package, { type PackageScreen } from '../components/consult/Package';
@@ -23,6 +25,9 @@ import '../styles/consult.css';
 export default function SharedPage() {
   const { token = '' } = useParams<{ token: string }>();
   const [data, setData] = useState<SharedPackage | null>(null);
+  // The navigable system, fetched beside the package. Null on legacy runs,
+  // or when it cannot be had — the PNG screens then stand in.
+  const [system, setSystem] = useState<SystemPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<PackageScreen | null>(null);
 
@@ -37,6 +42,11 @@ export default function SharedPage() {
             ? 'This package is still being reviewed. The link will open once it is released.'
             : "This link doesn't open anything. It may have been turned off by the person who shared it.",
         );
+      });
+    getSharedSystem(token)
+      .then((s) => !cancelled && setSystem(s))
+      .catch(() => {
+        /* no system for this run: the screens grid remains */
       });
     return () => {
       cancelled = true;
@@ -74,6 +84,7 @@ export default function SharedPage() {
               decisions={data.decisions ?? {}}
               unverified={data.unverified}
               screens={screens}
+              system={system}
               docs={data.documents}
               onDownload={(k) => downloadSharedExport(token, k)}
               readOnly

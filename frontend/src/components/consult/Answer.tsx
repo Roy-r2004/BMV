@@ -19,7 +19,7 @@ const DOCS: { title: string; note: string; from: number; to: number }[] = [
   { title: 'The technical plan', note: 'For whoever builds it', from: 56, to: 60 },
   { title: 'The operations manual', note: 'Who does what, every day', from: 60, to: 61 },
   { title: 'The implementation roadmap', note: 'Who does what, week by week', from: 61, to: 62 },
-  { title: 'Your product screens', note: 'Drawn for you, checked twice', from: 62, to: 100 },
+  { title: 'Your system, screen by screen', note: 'Every screen, drawn for you', from: 62, to: 100 },
   { title: 'Your AI team', note: 'What each one decides alone', from: 42, to: 56 },
 ];
 

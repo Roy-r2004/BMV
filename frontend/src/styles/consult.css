@@ -433,10 +433,74 @@
 .cx-assume b { color: var(--cx-amber); }
 .cx-assume ul { margin-top: 10px; display: grid; gap: 4px; }
 
+/* 6 · your system, screen by screen
+   The system runs live in a sandboxed frame; the list beside it is the same
+   sidebar, outside the glass. The frame draws its own window chrome, so the
+   card around it is only a hairline and a shadow. */
+.cx-sys { margin-top: 22px; }
+.cx-sys-tab { margin-top: 8px; }
+.cx-sys-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; }
+.cx-sys-name { margin: 0; min-width: 0; font-size: 15px; font-weight: 600; }
+.cx-sys-name span { font-weight: 400; color: var(--cx-txt2); }
+.cx-sys-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cx-sys > .cx-error { margin-top: 8px; }
+.cx-sys-grid { margin-top: 14px; display: grid; grid-template-columns: minmax(260px, 300px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.cx-sys.compact .cx-sys-grid { grid-template-columns: minmax(240px, 270px) minmax(0, 1fr); gap: 14px; }
+.cx-sys-list { display: grid; gap: 4px; margin: 0; padding: 6px; background: rgba(255, 255, 255, 0.94); border: 1px solid var(--cx-line); border-radius: 16px; }
+.cx-sys-row { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; width: 100%; padding: 10px 12px; border: 0; border-radius: 12px; background: none; color: var(--cx-txt2); font: 500 14.5px/1.35 var(--cx-body); text-align: left; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.cx-sys-row:hover { background: var(--cx-bg1); color: var(--cx-txt); }
+.cx-sys-row.on { background: var(--cx-blue-soft); color: var(--cx-txt); }
+.cx-sys-row:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.45); outline-offset: -3px; }
+.cx-sys-row .n { padding-top: 2px; font-size: 12px; font-weight: 700; color: var(--cx-txt3); }
+.cx-sys-row.on .n { color: var(--cx-blue); }
+.cx-sys-row .t { min-width: 0; display: grid; gap: 3px; }
+.cx-sys-row b { font-weight: 600; }
+.cx-sys-row small { font-size: 13px; font-weight: 400; line-height: 1.4; color: var(--cx-txt2); }
+.cx-sys-stage { min-width: 0; }
+.cx-sys-frame { background: #fff; border: 1px solid var(--cx-line); border-radius: 16px; overflow: hidden; box-shadow: 0 24px 60px -40px rgba(30, 63, 179, 0.45); }
+.cx-sys-iframe { display: block; width: 100%; border: 0; background: #fff; aspect-ratio: 16 / 10; }
+.cx-sys-cap { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; font-size: 14px; color: var(--cx-txt2); }
+.cx-sys-cap p { margin: 0; min-width: 0; }
+.cx-sys-cap b { font-weight: 600; color: var(--cx-txt); }
+
+/* full screen: the same list and a second frame of the same document */
+.cx-sys-over { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; padding: 16px clamp(16px, 3vw, 40px) 24px; overflow: auto; background: rgba(11, 23, 54, 0.97); animation: cx-fadein 0.2s ease both; }
+@keyframes cx-fadein { from { opacity: 0; } }
+.cx-sys-over-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; color: #fff; }
+.cx-sys-over-bar p { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; }
+.cx-sys-over .cx-btn--ghost { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.35); }
+.cx-sys-over .cx-btn--ghost:hover:not(:disabled) { border-color: rgba(255, 255, 255, 0.7); }
+.cx-sys-over .cx-chip--dim { background: rgba(255, 255, 255, 0.14); color: #fff; }
+/* align-content: start — the body is stretched to the overlay's height, and a stretched grid would otherwise
+   hand the spare height to its rows: fine with two columns in one row, a gap below the chips at one column */
+.cx-sys-over-body { flex: 1; width: 100%; max-width: 1640px; margin: 16px auto 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; align-content: start; }
+.cx-sys-over .cx-sys-list { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
+.cx-sys-over .cx-sys-row { color: rgba(255, 255, 255, 0.72); }
+.cx-sys-over .cx-sys-row:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.cx-sys-over .cx-sys-row.on { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.cx-sys-over .cx-sys-row .n { color: rgba(255, 255, 255, 0.45); }
+.cx-sys-over .cx-sys-row.on .n { color: #9dbdfb; }
+.cx-sys-over .cx-sys-row small { color: rgba(255, 255, 255, 0.7); }
+/* wide enough to read, never wider than its design, and short enough to fit the viewport with the bar */
+.cx-sys-over-stage { min-width: 0; max-width: min(1280px, calc((100vh - 170px) * 1.6)); }
+.cx-sys-over .cx-sys-frame { border-color: rgba(255, 255, 255, 0.18); box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.8); }
+.cx-sys-over .cx-sys-cap { color: rgba(255, 255, 255, 0.75); }
+.cx-sys-over .cx-sys-cap b { color: #fff; }
+
 @media (max-width: 980px) {
   .cx-brief, .cx-ff, .cx-ans, .cx-plan-grid, .cx-howwe-grid { grid-template-columns: minmax(0, 1fr); }
   .cx-drl, .cx-writing { position: static; max-height: none; }
   .cx-shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* the screen list becomes a row of chips above the frame */
+  .cx-sys-grid, .cx-sys.compact .cx-sys-grid, .cx-sys-over-body { grid-template-columns: minmax(0, 1fr); }
+  .cx-sys-list { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+  .cx-sys-row { flex: none; width: auto; grid-template-columns: minmax(0, 1fr); padding: 8px 14px; border: 1px solid var(--cx-line); border-radius: 999px; }
+  .cx-sys-row.on { border-color: var(--cx-blue); }
+  .cx-sys-row .n, .cx-sys-row small { display: none; }
+  .cx-sys-row b { white-space: nowrap; }
+  .cx-sys-over .cx-sys-row { border-color: rgba(255, 255, 255, 0.18); }
+  .cx-sys-over .cx-sys-row.on { border-color: #9dbdfb; }
+  .cx-sys-over-stage { max-width: none; }
 }
 @media (max-width: 720px) {
   .cx-lets, .cx-scope, .cx-sum { grid-template-columns: minmax(0, 1fr); }
@@ -447,6 +511,13 @@
   .cx-pillar { grid-template-columns: 30px minmax(0, 1fr); }
   .cx-pillar .fig { grid-column: 2; }
   .cx-type { flex-wrap: wrap; }
+  .cx-sys-head { align-items: flex-start; }
+  .cx-sys-tools { width: 100%; }
+  .cx-sys-tools .cx-btn { flex: 1; }
+  .cx-sys-frame { border-radius: 12px; }
+  .cx-sys-cap { font-size: 13.5px; }
+  .cx-sys-over { padding: 12px 12px 16px; }
+  .cx-sys-over-bar .cx-sys-tools { width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

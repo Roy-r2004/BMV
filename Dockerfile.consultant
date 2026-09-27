@@ -1,6 +1,8 @@
-# consultant-service: standalone image-demo pipeline (FastAPI + Pillow +
-# python-pptx). No Node/Playwright needed — unlike the main backend, this
-# service never runs a browser or a preview-app build.
+# consultant-service: the consultation pipeline (FastAPI + Pillow +
+# python-pptx + reportlab). It carries one browser: Chromium, through
+# Playwright, prints the system screens to PNG and the proposal to PDF
+# (app/screens). Without it the live HTML system still works; only the
+# thumbnails and the PDF are lost.
 FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -17,7 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app/consultant-service
 
 COPY consultant-service/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && playwright install --with-deps chromium \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY consultant-service/ ./
 

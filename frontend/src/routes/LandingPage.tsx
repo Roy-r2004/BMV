@@ -187,7 +187,7 @@ export default function LandingPage() {
             <span className="ls-quiet">Everything, in one package.</span>
           </h2>
           <ul className="ls-points">
-            <li><span><b>Your product screens,</b> drawn for your business and checked twice.</span></li>
+            <li><span><b>Your system, screen by screen,</b> drawn for your business. Navigate it live, or take the proposal as a PDF.</span></li>
             <li><span><b>The blueprint and technical plan,</b> in full. More on both next.</span></li>
             <li><span><b>An AI team,</b> with exactly what each one decides alone.</span></li>
             <li><span><b>The operations manual and a Monday plan,</b> so work starts before the code does.</span></li>

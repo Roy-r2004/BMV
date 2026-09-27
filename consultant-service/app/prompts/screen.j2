@@ -1,0 +1,40 @@
+You are drawing one screen of {{ product.name }}, the system designed for {{ business_name }}. The system, its cast and its other screens are already decided; draw this screen with the same people, the same units and the same day, so it reads as one product.
+
+THE PRODUCT
+{{ product.name }}, {{ product.tagline }}. Workspace: {{ product.workspace }}. Signed in: {{ product.signed_in }}. Sample date: {{ product.date_line }}.
+Screens in the sidebar: {{ nav_labels }}.
+
+THE CAST — use these names, codes and situations; invent no others
+{% for c in cast %}- {{ c.name }} ({{ c.role }}){% if c.note %}: {{ c.note }}{% endif %}
+{% endfor %}
+
+THEIR OWN FIGURES — where this screen shows one of these quantities, use their number
+{{ claims }}
+
+THE SCREEN TO DRAW
+Title: {{ screen.title }}
+Caption (what it does): {{ screen.caption }}
+Brief: {{ screen.brief }}
+Blocks suggested: {{ screen.blocks|join(', ') }}
+{% if module %}
+The module it shows: {{ module.name }} — {{ module.purpose }}
+{% if module.features %}Features: {{ module.features }}{% endif %}
+{% if module.data %}Records it keeps: {{ module.data }}{% endif %}
+{% if module.ai %}Its AI: {{ module.ai }}{% endif %}
+{% endif %}
+
+THE BLOCKS
+{{ block_guide }}
+
+A SCREEN DRAWN TO THE STANDARD, from another business (copy the density and the tone, not the content)
+{{ example }}
+
+HOW TO DRAW IT
+- The screen is 1280 × 800 and everything must fit: at most 3 rows, at most 3 blocks in a row, and per block no more than the limits above. Widths: "w" is the share of the row (1 to 3); a table or board beside a side panel is 2 and 1.
+- "heading" is the title over the work area as the product would show it ("Good morning", "Beds and rooms", "R. H., 31"); "subheading" is the line under it (the date, the count, the context); "actions" are the 1-2 buttons top right, if the screen has them.
+- Every row of every table, every card, every entry is a plausible moment in this business, on this day, with the cast above. Statuses and chips vary (not everything is fine, not everything is broken). Footers explain a rule in one sentence where a rule exists ("Offers expire after 90 minutes and move to the next person").
+- Where the business gave a figure that this screen shows — units, prices, hours, capacity — use theirs exactly. Everything else is clearly sample data and stays modest and internally consistent (a count on this screen matches the same count elsewhere in the brief).
+- No lorem ipsum, no "Item 1", no placeholder text. No real people other than the signed-in owner.
+
+Respond with ONLY this JSON, no fences:
+{"heading": "", "subheading": "", "actions": [""], "rows": [[{"kind": "", "w": 1}]]}

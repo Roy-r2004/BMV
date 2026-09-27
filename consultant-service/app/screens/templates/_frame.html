@@ -1,0 +1,39 @@
+{# The product frame: window chrome, sidebar, top bar, and one screen's work
+   area. Used whole on each proposal page, and in parts by the web page,
+   which keeps one sidebar and swaps the work area with JavaScript. #}
+{% import '_blocks.html' as blocks with context %}
+
+{% macro chrome(system) -%}
+<div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="name">{{ system.product.name }}{% if system.product.tagline %}, {{ system.product.tagline }}{% endif %}</div><span class="badge">Sample data</span></div>
+{%- endmacro %}
+
+{% macro sidebar(system, active_id) -%}
+<nav class="side">
+  <div class="ws"><b>{{ system.product.workspace or system.product.name }}</b><span>Demo workspace</span></div>
+  {% for g in system.nav %}{% if g.group %}<div class="grp">{{ g.group }}</div>{% endif %}
+    {% for i in g['items'] %}<a data-screen="{{ i.screen }}" class="{% if i.screen == active_id %}active{% elif not i.live %}off{% endif %}">{{ blocks.icon(i.icon) }}<span>{{ i.label }}</span></a>{% endfor %}
+  {% endfor %}
+  {% if system.product.signed_in %}<div class="who">Signed in as {{ system.product.signed_in }}</div>{% endif %}
+</nav>
+{%- endmacro %}
+
+{% macro topbar(system) -%}
+<div class="top">
+  <div class="search">{{ blocks.icon('search') }}<span>{{ system.product.search_hint or 'Search' }}</span></div>
+  <div class="sp"></div>
+  {% if system.product.languages %}<div class="lang">{% for l in system.product.languages %}<span{% if loop.first %} class="on"{% endif %}>{{ l }}</span>{% endfor %}</div>{% endif %}
+  <div class="bell">{{ blocks.icon('bell') }}<i>{{ system.product.alerts }}</i></div>
+  <div class="avatar">{{ system.product.initials }}</div>
+</div>
+{%- endmacro %}
+
+{% macro work(screen) -%}
+<div class="work">
+  <div class="head"><div><h1>{{ screen.heading or screen.title }}</h1>{% if screen.subheading %}<div class="sub">{{ screen.subheading }}</div>{% endif %}</div>{% if screen.actions %}<div class="act">{% for a in screen.actions %}<span class="btn{% if loop.first %} primary{% endif %}">{{ a }}</span>{% endfor %}</div>{% endif %}</div>
+  <div class="rows">{% for r in screen.rows %}<div class="row" style="grid-template-columns: {{ r.cols }}">{% for b in r.blocks %}{{ blocks.block(b) }}{% endfor %}</div>{% endfor %}</div>
+</div>
+{%- endmacro %}
+
+{% macro frame(system, screen) -%}
+<div class="frame">{{ chrome(system) }}<div class="body">{{ sidebar(system, screen.id) }}<div class="main">{{ topbar(system) }}{{ work(screen) }}</div></div></div>
+{%- endmacro %}

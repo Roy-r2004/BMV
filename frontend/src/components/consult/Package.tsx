@@ -9,8 +9,9 @@
  */
 import { useState } from 'react';
 
-import type { DecisionState, Roadmap, StudioAnswer, StudioExportKind } from '../../api/consultant';
+import type { DecisionState, Roadmap, StudioAnswer, StudioExportKind, SystemPayload } from '../../api/consultant';
 import { shortName } from '../../utils/names';
+import SystemViewer from './SystemViewer';
 
 export interface PackageScreen {
   label: string;
@@ -90,42 +91,46 @@ function ShareButton({ onShare, onUnshare }: { onShare: () => Promise<string>; o
   );
 }
 
-function Book({ cover, title, body, action, meta }: {
+type BookAction = { label: string; run: () => Promise<void> | void };
+
+function Book({ cover, title, body, action, extra, meta }: {
   cover: string;
   title: string;
   body: string;
-  action?: { label: string; run: () => Promise<void> | void };
+  action?: BookAction;
+  /** A second way to take it — the document row's own download, beside View. */
+  extra?: BookAction;
   meta?: string;
 }) {
-  const [busy, setBusy] = useState(false);
+  // The label of the action that is running, so only that one says so.
+  const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const run = (a: BookAction) => async () => {
+    setBusy(a.label);
+    setFailed(false);
+    try {
+      await a.run();
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  };
+  const button = (a: BookAction) => (
+    <button type="button" disabled={busy !== null} onClick={run(a)}>
+      {busy === a.label ? 'Preparing…' : a.label}
+    </button>
+  );
   return (
     <div className="cx-pane cx-book">
       <div className={`cx-cover ${cover}`} aria-hidden="true" />
       <div className="min-w-0">
         <h3>{title}</h3>
         <p>{failed ? 'The download could not start. Try again in a moment.' : body}</p>
-        {action || meta ? (
+        {action || extra || meta ? (
           <div className="meta">
-            {action ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  setFailed(false);
-                  try {
-                    await action.run();
-                  } catch {
-                    setFailed(true);
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                {busy ? 'Preparing…' : action.label}
-              </button>
-            ) : null}
+            {action ? button(action) : null}
+            {extra ? button(extra) : null}
             {meta ? <span>{meta}</span> : null}
           </div>
         ) : null}
@@ -144,6 +149,7 @@ export default function Package({
   decisions,
   unverified,
   screens,
+  system,
   docs,
   stats,
   onDownload,
@@ -161,7 +167,10 @@ export default function Package({
   roadmap: Roadmap | null;
   decisions: DecisionState;
   unverified: string[];
+  /** The PNG screens of older runs. Shown only when there is no system. */
   screens: PackageScreen[];
+  /** The navigable system. Replaces the screens when it is available. */
+  system?: SystemPayload | null;
   docs: { blueprint: boolean; technical: boolean; operations: boolean };
   stats?: { modules?: number; agents?: number; screens?: number };
   onDownload: (k: StudioExportKind) => Promise<void>;
@@ -191,6 +200,8 @@ export default function Package({
   );
   const screenCount = stats?.screens ?? screens.length;
   const agents = stats?.agents ?? 0;
+  // The system, when this run has one. Legacy runs fall back to their PNGs.
+  const sys = system?.available && system.html && system.screens.length ? system : null;
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -258,11 +269,20 @@ export default function Package({
             action={{ label: 'Download', run: () => onDownload('operations') }}
           />
         ) : null}
-        {screens.length ? (
+        {sys ? (
+          <Book
+            cover="c4"
+            title="Your system, screen by screen"
+            body={`Every screen your team and customers will use, drawn for ${short}. Navigate it here, or take the PDF.`}
+            action={{ label: 'View', run: () => scrollTo('cx-system') }}
+            extra={sys.pdf_available ? { label: 'Download as PDF', run: () => onDownload('system') } : undefined}
+            meta={plural(sys.screens.length, 'screen', 'screens')}
+          />
+        ) : screens.length ? (
           <Book
             cover="c4"
             title="Your product screens"
-            body={`The screens your team and customers will use, drawn for ${short} and checked twice.`}
+            body={`The screens your team and customers will use, drawn for ${short}.`}
             action={{ label: 'View', run: () => scrollTo('cx-screens') }}
             meta={plural(screenCount, 'screen', 'screens')}
           />
@@ -383,11 +403,19 @@ export default function Package({
         </div>
       </div>
 
-      {screens.length ? (
+      {sys ? (
+        <div id="cx-system" style={{ scrollMarginTop: 20 }}>
+          <div className="mt-14 flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="cx-h3" style={{ fontSize: 'clamp(22px, 2vw, 28px)' }}>Your system, screen by screen</h2>
+            <p className="cx-faint text-[15px]">Drawn for {short}, with sample data. Click the sidebar inside it, or pick a screen from the list.</p>
+          </div>
+          <SystemViewer system={sys} businessName={businessName} readOnly={readOnly} onDownloadPdf={() => onDownload('system')} />
+        </div>
+      ) : screens.length ? (
         <div id="cx-screens" style={{ scrollMarginTop: 20 }}>
           <div className="mt-14 flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="cx-h3" style={{ fontSize: 'clamp(22px, 2vw, 28px)' }}>Your product screens</h2>
-            <p className="cx-faint text-[15px]">Drawn for {short}, each checked twice before it reached you.</p>
+            <p className="cx-faint text-[15px]">Drawn for {short}, with sample data.</p>
           </div>
           <div className="mt-6 grid gap-7 md:grid-cols-2 xl:grid-cols-3">
             {screens.slice(0, 6).map((s) => (

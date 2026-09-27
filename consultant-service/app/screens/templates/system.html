@@ -1,0 +1,75 @@
+{# The live system, for the website: one frame, every screen inside it, the
+   sidebar switching between them. Scales itself to the width it is given and
+   talks to the page that embeds it with postMessage (see the script). #}
+{% import '_frame.html' as frame with context %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ system.product.name }}</title>
+{% if fonts_link %}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">{% endif %}
+<style>
+{{ fonts_css|safe }}
+{{ css|safe }}
+html, body { margin: 0; background: transparent; overflow: hidden; }
+.bmv-stage { width: 1280px; transform-origin: 0 0; }
+.frame { box-shadow: none; border-radius: 12px; }
+.work[hidden] { display: none; }
+.side a { user-select: none; }
+.side a:not(.off):not(.active):hover { background: rgba(0,0,0,.05); }
+.side a:not(.off) { cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="bmv-stage" id="stage">
+  <div class="frame">
+    {{ frame.chrome(system) }}
+    <div class="body">
+      {{ frame.sidebar(system, system.screens[0].id) }}
+      <div class="main">
+        {{ frame.topbar(system) }}
+        {% for s in system.screens %}<div id="screen-{{ s.id }}" data-screen="{{ s.id }}"{% if not loop.first %} hidden{% endif %} class="work-wrap">{{ frame.work(s) }}</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var screens = {{ screen_ids|tojson }};
+  var current = screens[0];
+  var links = Array.prototype.slice.call(document.querySelectorAll('.side a[data-screen]'));
+  function show(id) {
+    if (screens.indexOf(id) < 0) return;
+    current = id;
+    screens.forEach(function (s) { document.getElementById('screen-' + s).hidden = (s !== id); });
+    links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('data-screen') === id); });
+    post({ type: 'bmv:shown', id: id });
+  }
+  function post(msg) { try { window.parent.postMessage(msg, '*'); } catch (e) {} }
+  function fit() {
+    var w = document.documentElement.clientWidth || window.innerWidth;
+    var k = Math.min(1, w / 1280);
+    var stage = document.getElementById('stage');
+    stage.style.transform = 'scale(' + k + ')';
+    document.body.style.height = Math.round(800 * k) + 'px';
+    // the unscaled design height: the page scales it by its own width
+    post({ type: 'bmv:size', height: 800, scale: k });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') post({ type: 'bmv:key', key: 'Escape' });
+  });
+  links.forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); if (!a.classList.contains('off')) show(a.getAttribute('data-screen')); });
+  });
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (d.type === 'bmv:show' && typeof d.id === 'string') show(d.id);
+  });
+  window.addEventListener('resize', fit);
+  fit();
+  post({ type: 'bmv:shown', id: current });
+})();
+</script>
+</body>
+</html>
