@@ -59,8 +59,27 @@ app.include_router(engine_router.router)
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    _warn_if_mail_is_not_configured()
     _fail_stranded_requests()
     engine_startup()
+
+
+MAIL_NOT_CONFIGURED = "Mail is not configured: failures, stalls and ready notices will not be emailed."
+_mail_warned = False
+
+
+def _warn_if_mail_is_not_configured() -> None:
+    """Say so once, at startup, when mail cannot be sent. Every notice still
+    reads honestly without it (nobody is told "we have been told"), but the
+    team would hear of no failed run, no stall and no ready package, and the
+    only sign of it would be silence."""
+    global _mail_warned
+    from app import mailer
+
+    if _mail_warned or mailer.enabled():
+        return
+    _mail_warned = True
+    logging.getLogger("consultant.startup").warning(MAIL_NOT_CONFIGURED)
 
 
 def _fail_stranded_requests() -> threading.Thread | None:

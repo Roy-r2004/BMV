@@ -3369,3 +3369,67 @@ def test_the_check_sentences_carry_no_review_or_confidence_language():
         assert sentence.endswith(".")
         for word in FORBIDDEN_ON_THE_METHOD_PAGE + ("AI", "model", "pipeline", "try again"):
             assert not re.search(rf"\b{re.escape(word)}\b", sentence, re.IGNORECASE), (word, sentence)
+
+
+# -- startup says so when mail cannot be sent -------------------------------
+
+
+def _startup_warnings(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records
+            if r.name == "consultant.startup" and r.levelname == "WARNING"]
+
+
+def test_startup_warns_once_when_mail_is_not_configured(monkeypatch, caplog):
+    import main
+
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "")
+    monkeypatch.setattr(main, "_mail_warned", False)
+    caplog.set_level("WARNING", logger="consultant.startup")
+
+    main._warn_if_mail_is_not_configured()
+    main._warn_if_mail_is_not_configured()
+
+    assert _startup_warnings(caplog) == [
+        "Mail is not configured: failures, stalls and ready notices will not be emailed."]
+
+
+def test_startup_says_nothing_about_mail_that_is_configured(monkeypatch, caplog):
+    import main
+
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "pw")
+    monkeypatch.setattr(settings, "SMTP_USER", "consulting@example.com")
+    monkeypatch.setattr(main, "_mail_warned", False)
+    caplog.set_level("WARNING", logger="consultant.startup")
+
+    main._warn_if_mail_is_not_configured()
+
+    assert _startup_warnings(caplog) == []
+
+
+def test_the_live_compose_file_passes_the_mail_settings_to_the_service():
+    """docker-compose.coolify.yml gives the consultant container no env_file,
+    so a setting it does not name never reaches the service."""
+    here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    with open(os.path.join(here, "docker-compose.coolify.yml"), encoding="utf-8") as fh:
+        text = fh.read()
+    # the consultant service's block: from its key to the next top-level key
+    # or service (read as text: the suite does not depend on a YAML parser)
+    start = text.index("\n  consultant:\n")
+    following = re.search(r"\n(?:  [a-z][\w-]*:|[a-z][\w-]*:)", text[start + 1:])
+    block = text[start:start + 1 + following.start()] if following else text[start:]
+    for name in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "REVIEW_MODE", "REVIEW_TOKEN",
+                 "ENGAGEMENT_LEAD", "STALL_MAIL_WINDOW_SECONDS", "STAGE_REPLY_ATTEMPTS"):
+        # passed through, and empty when unset: never a value written here
+        assert f"\n      {name}: ${{{name}:-}}\n" in block, name
+
+
+def test_an_empty_mail_setting_reads_as_unset(monkeypatch):
+    """What the compose file passes when Coolify has no value: the setting's
+    own default, never a crash on int("")."""
+    from app import config
+
+    for name, default in (("SMTP_PORT", "465"), ("STALL_MAIL_WINDOW_SECONDS", "300"), ("SMTP_HOST", "h")):
+        monkeypatch.setenv(name, "")
+        assert config._env_or(name, default) == default
+    monkeypatch.setenv("STAGE_REPLY_ATTEMPTS", "")
+    assert config._env_int_within("STAGE_REPLY_ATTEMPTS", 2, 1, 3) == 2

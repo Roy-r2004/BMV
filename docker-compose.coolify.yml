@@ -119,6 +119,20 @@ services:
       # Defaults to the SAME public domain already used for CORS_ORIGINS on
       # `app` above, since that's this business's one real frontend origin.
       FRONTEND_ORIGIN: ${CORS_ORIGINS:-https://buildmyversion.com}
+      # Mail: without these the service sends nothing, so the team never hears
+      # of a failed or stalled run and no client gets a ready notice. Passed
+      # through from Coolify's env panel; each is empty when unset, and
+      # app/config.py reads an empty value as unset (its own default), so
+      # leaving any of them out changes nothing.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      REVIEW_MODE: ${REVIEW_MODE:-}
+      REVIEW_TOKEN: ${REVIEW_TOKEN:-}
+      ENGAGEMENT_LEAD: ${ENGAGEMENT_LEAD:-}
+      STALL_MAIL_WINDOW_SECONDS: ${STALL_MAIL_WINDOW_SECONDS:-}
+      STAGE_REPLY_ATTEMPTS: ${STAGE_REPLY_ATTEMPTS:-}
       # DATABASE_URL / PORT / UPLOADS_DIR: baked into Dockerfile.consultant
       # already (sqlite:////app/data/consultant.db, 8002, symlinked to
       # /app/data/uploads) — nothing to set here.
