@@ -190,9 +190,10 @@ const BUDGET_OPTIONS = ['Starter scope', 'Standard scope', 'Full build', 'Not su
 const RESUME_KEY = 'bmv_studio_request_id';
 
 /** Whether the run has stopped for good, by any of the flags the server can
- *  set when it fails one. */
+ *  set when it fails one: the same three the server's own /progress gate reads
+ *  (an older row can say it failed in its status alone). */
 function isFailedRun(p: StudioProgress | null): boolean {
-  return Boolean(p && (p.is_failed || p.stage === 'failed'));
+  return Boolean(p && (p.is_failed || p.stage === 'failed' || p.status === 'failed'));
 }
 
 /** Whether a decision read back for a run holds an answer to show. */
