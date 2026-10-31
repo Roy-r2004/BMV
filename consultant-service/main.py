@@ -59,9 +59,9 @@ app.include_router(engine_router.router)
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
-    _warn_if_mail_is_not_configured()
     _fail_stranded_requests()
     engine_startup()
+    _warn_if_mail_is_not_configured()
 
 
 MAIL_NOT_CONFIGURED = "Mail is not configured: failures, stalls and ready notices will not be emailed."
