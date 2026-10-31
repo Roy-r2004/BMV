@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
+  asStalled,
   fetchScope,
   getStudioPlan,
   readInterviewFile,
@@ -181,23 +182,6 @@ function Icon({ path, className }: { path: string; className?: string }) {
 // Budget and timeline moved to the approval gate, where they are a question
 // someone who wants the build is happy to answer; nothing before `plan`
 // reads them anyway.
-/** Shown only when the tailoring call itself is unreachable — the server
- *  already serves its own fallback on model failure. Mirrors that set. */
-const LOCAL_DISCOVERY_FALLBACK: Record<OperatingStage, DiscoveryQuestion[]> = {
-  operating: [
-    { id: 'admin-hours', label: 'How many hours a week go to repetitive admin?', placeholder: 'e.g. 12 hours on bookings, follow-ups, paperwork', why: 'Time is the first cost your system removes - this sizes it.' },
-    { id: 'avg-value', label: 'What is one sale, visit or job worth on average?', placeholder: 'e.g. $85', why: 'Lets every recovered hour and missed sale be valued at your own prices.' },
-    { id: 'monthly-volume', label: 'How many customers, orders or jobs in a typical month?', placeholder: 'e.g. 340', why: 'Sets the scale every other number multiplies against.' },
-    { id: 'loss-rate', label: 'What share of bookings or leads never turn into money?', placeholder: 'e.g. about 20% no-show or go quiet', why: 'Recovered losses are usually the fastest payback - this sizes them.' },
-  ],
-  opening: [
-    { id: 'planned-price', label: 'What do you plan to charge for one sale, visit or job?', placeholder: 'e.g. $30', why: 'Anchors every capacity and payback calculation in your own pricing.' },
-    { id: 'planned-capacity', label: 'How many customers or orders are you built to handle per week at launch?', placeholder: 'e.g. 200', why: 'Your target capacity is what the system has to keep full.' },
-    { id: 'planned-hires', label: 'How many people do you plan to hire for phones, bookings or admin?', placeholder: 'e.g. 1 part-time', why: 'Every role the system covers is a hire you can delay.' },
-    { id: 'launch-budget', label: 'What is your launch budget for tools and software?', placeholder: 'e.g. $5,000', why: 'Keeps every recommendation inside what you actually planned to spend.' },
-  ],
-};
-
 const BUDGET_OPTIONS = ['Starter scope', 'Standard scope', 'Full build', 'Not sure yet'];
 
 // Kept only as a bridge for someone who lands on bare /studio with a run
@@ -1473,6 +1457,10 @@ export default function StudioPage() {
   const [interviewDone, setInterviewDone] = useState(false);
   const [interviewClosing, setInterviewClosing] = useState('');
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
+  // Set when the brief or a round could not be answered. The interview stays
+  // exactly where it is and shows this in place of the next question; Continue
+  // asks the same thing again. Nothing here ends the interview.
+  const [stalled, setStalled] = useState<{ message: string; onContinue: () => void } | null>(null);
   const [numbersAnswers, setNumbersAnswers] = useState<Record<string, string>>({});
   const discoveryKey = useRef<string | null>(null);
   // One question at a time: the ids they have answered or said they don't
@@ -1643,7 +1631,9 @@ export default function StudioPage() {
       });
       if (p.is_failed || p.stage === 'failed') {
         sessionStorage.removeItem(RESUME_KEY);
-        setFailureDetail(p.detail ?? null);
+        // Only the reason written for the client. `detail` is the live stage
+        // note and can name a stage or an exception; it is not for this page.
+        setFailureDetail(p.failure?.reason ?? null);
         setAct('failed');
         return;
       }
@@ -1977,6 +1967,7 @@ export default function StudioPage() {
    *  the brief is written; later rounds once the round before is answered. */
   const askRound = useCallback(async (n: number, factList?: Fact[]) => {
     if (form.main_problem.trim().length < 15) return;
+    setStalled(null);
     setDiscoveryLoading(true);
     try {
       const r = await fetchInterviewRound({
@@ -2008,20 +1999,23 @@ export default function StudioPage() {
       // rather than waiting on a round that will never come.
       setInterviewDone(r.done || r.questions.length === 0);
       setInterviewClosing(r.because);
-    } catch {
-      // The interview must never trap the client on a step. A failed first
-      // round serves the static set; a failed later round simply ends it.
-      setRounds((prev) =>
-        prev.length
-          ? prev
-          : [{ questions: LOCAL_DISCOVERY_FALLBACK[form.operating_stage], because: '' }],
-      );
-      setInterviewDone(true);
+    } catch (err) {
+      // A round we could not get is not a round with nothing to ask. Stock
+      // questions would put our words in the client's mouth, and ending the
+      // interview would tell them we have everything when we do not. The
+      // page stays as it is and says what happened; Continue asks this same
+      // round again, through the ref so it reads the answers as they are then.
+      setStalled({
+        message: asStalled(err).message,
+        onContinue: () => void askRoundRef.current(n, factList),
+      });
     } finally {
       setDiscoveryLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, opsNumbersPairs, knownFields, rounds, facts, fileFacts]);
+  const askRoundRef = useRef(askRound);
+  askRoundRef.current = askRound;
 
   /** The brief, written the moment they leave the front door, and the first
    *  round asked behind it — so by the time they have read the brief, the
@@ -2031,6 +2025,7 @@ export default function StudioPage() {
     if (problem.length < 15) return;
     if (discoveryKey.current === problem) return;
     discoveryKey.current = problem;
+    setStalled(null);
     setRounds([]);
     setCommitted([]);
     setInterviewDone(false);
@@ -2052,11 +2047,23 @@ export default function StudioPage() {
         }));
         void askRound(1, sc.facts);
       })
-      .catch(() => {
-        if (discoveryKey.current === problem) void askRound(1, []);
+      .catch((err) => {
+        // No brief is not a brief with no facts on it: asking round 1 over an
+        // empty list would be the stock interview again. Say what happened;
+        // Continue starts the brief over, from the problem as it is then.
+        if (discoveryKey.current !== problem) return;
+        setStalled({
+          message: asStalled(err).message,
+          onContinue: () => {
+            discoveryKey.current = null;
+            startBriefRef.current();
+          },
+        });
       })
       .finally(() => setScopeLoading(false));
   }, [form.main_problem, form.site_url, askRound]);
+  const startBriefRef = useRef(startBrief);
+  startBriefRef.current = startBrief;
 
   /** A question whose facts a file or an earlier answer already settled is
    *  not asked. */
@@ -2232,7 +2239,7 @@ export default function StudioPage() {
       setSubmitError(
         isAtCapacity(err)
           ? 'The studio is rendering at full capacity right now — give it a few minutes and try again.'
-          : 'Something went wrong reaching the studio. Try again in a moment.',
+          : 'We could not start your engagement. Nothing you entered is lost; press the button again when you are ready.',
       );
     } finally {
       setSubmitting(false);
@@ -2428,6 +2435,7 @@ export default function StudioPage() {
                   asked={committed.length}
                   loading={discoveryLoading}
                   done={interviewDone && !currentQuestion && !discoveryLoading}
+                  stalled={stalled}
                   closing={interviewClosing}
                   lastHeard={lastHeard}
                   onAnswer={answerCurrent}
@@ -3042,15 +3050,15 @@ export default function StudioPage() {
             {act === 'failed' && (
               <motion.section key="failed" {...fade} transition={{ duration: 0.45 }}>
                 <div className="max-w-xl mx-auto studio-panel p-8 text-center">
-                  <p className="studio-kicker mb-4">The studio hit a wall</p>
+                  <p className="studio-kicker mb-4">We could not finish this one</p>
                   <h1 className="studio-display text-3xl font-bold text-navy">
                     That run didn't make it
                   </h1>
                   <p className="mt-4 text-slate-600">
-                    {failureDetail || 'Something in the pipeline failed and the run was stopped. Nothing was charged to you, and trying again usually just works.'}
+                    {failureDetail || 'Our side failed and the run stopped.'}
                   </p>
-                  <button type="button" className="studio-cta mt-8" onClick={startOver}>
-                    Try again
+                  <button type="button" className="studio-cta mt-8 sm:max-w-xs" onClick={startOver}>
+                    Start a new engagement
                   </button>
                 </div>
               </motion.section>

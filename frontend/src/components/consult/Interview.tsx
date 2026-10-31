@@ -116,6 +116,7 @@ export default function Interview({
   asked,
   loading,
   done,
+  stalled,
   closing,
   lastHeard,
   onAnswer,
@@ -133,6 +134,9 @@ export default function Interview({
   asked: number;
   loading: boolean;
   done: boolean;
+  /** Set when the next question could not be got. Shown in its place, with the
+   *  one thing the client can do: Continue, which asks again. */
+  stalled: { message: string; onContinue: () => void } | null;
   closing: string;
   lastHeard: string | null;
   onAnswer: (value: string) => void;
@@ -228,7 +232,15 @@ export default function Interview({
       <div className="cx-ff">
         <div className="cx-pane cx-ask">
           <AnimatePresence mode="wait" initial={false}>
-            {done ? (
+            {stalled ? (
+              <motion.div key="stalled" className="cx-stalled" role="alert" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                <p className="cx-ask-meta"><span>Question {asked + 1}</span></p>
+                <p className="cx-stalled-msg">{stalled.message}</p>
+                <div className="cx-row">
+                  <button type="button" className="cx-btn cx-btn--blue" onClick={stalled.onContinue}>Continue</button>
+                </div>
+              </motion.div>
+            ) : done ? (
               <motion.div key="done" className="cx-done" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                 <p className="cx-ask-meta"><span>Fact-finding complete</span></p>
                 <h2 style={{ marginTop: 18 }}>That's everything we need to build your plans.</h2>

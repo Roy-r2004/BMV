@@ -326,6 +326,8 @@
 .cx-sum > div { padding: 14px; border-radius: 14px; background: var(--cx-bg1); font-size: 13px; color: var(--cx-txt2); }
 .cx-sum b { display: block; font: 700 1.6rem/1 var(--cx-display); color: var(--cx-txt); margin-bottom: 4px; }
 .cx-done h2 { color: var(--cx-hot); font-size: 1.9rem; line-height: 1.1; }
+.cx-stalled-msg { margin: 18px 0 0; font-size: 1.15rem; line-height: 1.45; color: var(--cx-txt); }
+.cx-stalled .cx-row { margin-top: 24px; }
 
 .cx-drl { padding: 22px 22px 16px; position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow: auto; }
 .cx-drl-head { display: flex; align-items: center; gap: 14px; }
@@ -508,6 +510,7 @@
   .cx-phase { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .cx-brief > .cx-pane, .cx-ask, .cx-gov, .cx-road, .cx-decide { padding: 22px 18px; }
   .cx-ask { min-height: 0; }
+  .cx-stalled .cx-btn { width: 100%; }
   .cx-pillar { grid-template-columns: 30px minmax(0, 1fr); }
   .cx-pillar .fig { grid-column: 2; }
   .cx-type { flex-wrap: wrap; }

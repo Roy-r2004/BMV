@@ -76,8 +76,54 @@ export interface OpsNumber {
   answer: string;
 }
 
+/** The interview could not move on. The page keeps what the client has said and
+ *  offers Continue, which asks again — it never fills the gap with stock
+ *  questions or calls the interview finished.
+ *
+ *  `ours` is the service answering 503: our side failed, and `message` is the
+ *  plain sentence it wrote for the client. `connection` is no answer at all
+ *  (offline, dropped, timed out), which is not something we can describe in
+ *  more detail than that. */
+export class StalledError extends Error {
+  kind: 'ours' | 'connection';
+
+  constructor(kind: 'ours' | 'connection', message: string) {
+    super(message);
+    this.name = 'StalledError';
+    this.kind = kind;
+  }
+}
+
+const STALLED_OURS = 'Our side stalled and the interview paused. Your answers so far are still on this page.';
+const STALLED_CONNECTION = 'Your connection dropped. Continue when it is back.';
+
+/** The stall a failed discovery call amounts to, or null when it is not one (a
+ *  401, a 422): those are handled as before, not offered a Continue. */
+function stallOf(error: unknown): StalledError | null {
+  if (error instanceof StalledError) return error;
+  if (!axios.isAxiosError(error)) return null;
+  if (error.response?.status === 503) {
+    const detail: unknown = error.response.data?.detail;
+    return new StalledError('ours', typeof detail === 'string' && detail.trim() ? detail : STALLED_OURS);
+  }
+  // No response covers an offline browser, a dropped connection and axios's
+  // own timeout (code ECONNABORTED / ETIMEDOUT): none of them reached us.
+  return error.response ? null : new StalledError('connection', STALLED_CONNECTION);
+}
+
+function stalledOrThrow(error: unknown): never {
+  throw stallOf(error) ?? error;
+}
+
+/** Whatever went wrong with a discovery call, as the stall the client is shown.
+ *  An error that is not one of the two named stalls still ends nothing: the
+ *  interview stays where it is and Continue asks again. */
+export function asStalled(error: unknown): StalledError {
+  return stallOf(error) ?? new StalledError('connection', STALLED_CONNECTION);
+}
+
 /** One tailored discovery question, written by the fast model from the
- *  brief (or a stage-generic fallback when that call fails). */
+ *  brief. */
 export interface DiscoveryQuestion {
   id: string;
   label: string;
@@ -115,12 +161,15 @@ export interface Scope {
   source: 'ai' | 'fallback';
 }
 
-/** Write the brief from their first sentence (and their site, when given). */
+/** Write the brief from their first sentence (and their site, when given).
+ *  Rejects with a StalledError when our side or their connection stopped it. */
 export async function fetchScope(main_problem: string, site_url?: string): Promise<Scope> {
   const form = new FormData();
   form.set('main_problem', main_problem);
   if (site_url) form.set('site_url', site_url);
-  const { data } = await consultantClient.post('/api/discovery/scope', form, { timeout: 45000 });
+  const { data } = await consultantClient
+    .post('/api/discovery/scope', form, { timeout: 45000 })
+    .catch(stalledOrThrow);
   return {
     question: typeof data?.question === 'string' ? data.question : '',
     lets: {
@@ -151,29 +200,10 @@ export async function readInterviewFile(file: File): Promise<{ file: string; fig
   };
 }
 
-/** The questions a consultant would open with, tailored to this brief.
- *  The service never fails closed (it serves a fallback set), so a reject
- *  here means the network itself — callers keep their own local fallback. */
-export async function fetchDiscoveryQuestions(input: {
-  business_name: string;
-  business_description: string;
-  industry?: string;
-  operating_stage: OperatingStage;
-  engagement_type?: EngagementType;
-}): Promise<DiscoveryQuestion[]> {
-  const form = new FormData();
-  form.set('business_name', input.business_name);
-  form.set('business_description', input.business_description);
-  if (input.industry) form.set('industry', input.industry);
-  form.set('operating_stage', input.operating_stage);
-  if (input.engagement_type) form.set('engagement_type', input.engagement_type);
-  const { data } = await consultantClient.post('/api/discovery/questions', form, { timeout: 15000 });
-  return Array.isArray(data?.questions) ? data.questions : [];
-}
-
 /** One round of the adaptive interview. `done` is authoritative — it goes
- *  true when the consultant has enough, when the round cap is hit, and when a
- *  round fails, so the client never waits on a step that will not advance. */
+ *  true when the consultant has enough, and when the round cap is hit. A round
+ *  that cannot be answered rejects with a StalledError instead: it is never
+ *  reported as done. */
 export interface InterviewRound {
   questions: DiscoveryQuestion[];
   done: boolean;
@@ -238,7 +268,9 @@ export async function fetchInterviewRound(input: {
   if (input.facts) form.set('facts', input.facts);
   if (input.file_facts) form.set('file_facts', input.file_facts);
   form.set('round', String(input.round));
-  const { data } = await consultantClient.post('/api/discovery/interview', form, { timeout: 30000 });
+  const { data } = await consultantClient
+    .post('/api/discovery/interview', form, { timeout: 30000 })
+    .catch(stalledOrThrow);
   return {
     questions: Array.isArray(data?.questions) ? data.questions : [],
     done: Boolean(data?.done),
@@ -341,6 +373,13 @@ export interface StudioProgress {
   detail: string | null;
   is_generating: boolean;
   is_failed: boolean;
+  /** Why a failed run stopped, in words written for the client, and whether the
+   *  team has been told. Null on a run that has not failed — and on an older
+   *  failed run that kept no record of why. */
+  failure?: { reason: string; team_notified: boolean } | null;
+  /** Which documents the run has written so far and which are still being
+   *  written. */
+  documents?: { key: string; title: string; state: 'ready' | 'writing' }[];
   updated_at: string | null;
   /** Seconds since the run started, measured server-side — see the route's
    *  comment. Never derive this from a timestamp in the browser. */
