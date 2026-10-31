@@ -189,6 +189,17 @@ const BUDGET_OPTIONS = ['Starter scope', 'Standard scope', 'Full build', 'Not su
 // still going — the URL is the source of truth, this is the safety net.
 const RESUME_KEY = 'bmv_studio_request_id';
 
+/** Whether the run has stopped for good, by any of the flags the server can
+ *  set when it fails one. */
+function isFailedRun(p: StudioProgress | null): boolean {
+  return Boolean(p && (p.is_failed || p.stage === 'failed'));
+}
+
+/** Whether a decision read back for a run holds an answer to show. */
+function hasAnswer(d: StudioDecision | null): boolean {
+  return Boolean(d && (d.answer || d.decision?.summary));
+}
+
 /** Asked only when the interview ended without the business's name. */
 const NAME_QUESTION: DiscoveryQuestion = {
   id: 'bmv-business-name',
@@ -1645,13 +1656,19 @@ export default function StudioPage() {
         if (prev == null || Math.abs(prev - fromServer) > 2000) return fromServer;
         return prev;
       });
-      if (p.is_failed || p.stage === 'failed') {
+      if (isFailedRun(p)) {
         sessionStorage.removeItem(RESUME_KEY);
         // Only the reason written for the client. `detail` is the live stage
         // note and can name a stage or an exception; it is not for this page.
         setFailureDetail(p.failure?.reason ?? null);
         setLoadError(false);
         setAct('failed');
+        // A run that stopped in the build half still has its answer. Read it
+        // quietly, so the failed page can offer it; a read that fails only
+        // means the page offers none.
+        getStudioDecision(id)
+          .then(setDecision)
+          .catch(() => undefined);
         return;
       }
       // The gate is checked BEFORE is_generating, because at the gate nothing
@@ -2320,6 +2337,10 @@ export default function StudioPage() {
     }
   };
 
+  // A failed run's page shows what it wrote, and its answer when it has one.
+  const writtenBeforeStop = (progress?.documents ?? []).filter((doc) => doc.state === 'ready');
+  const failedRunHasAnswer = writtenBeforeStop.length > 0 || hasAnswer(decision);
+
   const startOver = () => {
     sessionStorage.removeItem(RESUME_KEY);
     setPreview(null);
@@ -2642,6 +2663,7 @@ export default function StudioPage() {
                   firstName={firstName}
                   pct={pct}
                   writing={false}
+                  stopped={isFailedRun(progress)}
                   documents={progress?.documents ?? []}
                   mailPromise={Boolean(progress?.notify?.enabled)}
                   onStartPlans={() => void approveDecision()}
@@ -3125,9 +3147,39 @@ export default function StudioPage() {
                       <p className="mt-4 text-slate-600">
                         {failureDetail || 'Our side failed and the run stopped.'}
                       </p>
-                      <button type="button" className="studio-cta mt-8 sm:max-w-xs" onClick={startOver}>
-                        Start a new engagement
-                      </button>
+                      {writtenBeforeStop.length > 0 && (
+                        <div className="mt-6 text-left">
+                          <p className="studio-kicker mb-2">What was written before it stopped</p>
+                          <ul className="list-disc pl-5 text-slate-700">
+                            {writtenBeforeStop.map((doc) => (
+                              <li key={doc.key}>{doc.title}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {/* What exists comes first: their answer when there is
+                          one, else their engagements. Starting over is there,
+                          but never the main way forward. */}
+                      <div className="mt-8 flex flex-col items-center gap-3">
+                        {failedRunHasAnswer ? (
+                          <button
+                            type="button"
+                            className="studio-cta sm:max-w-xs"
+                            onClick={() => {
+                              if (routeId != null) void loadDecision(routeId);
+                            }}
+                          >
+                            Read your answer
+                          </button>
+                        ) : (
+                          <RouterLink to="/engagements" className="studio-cta sm:max-w-xs">
+                            Back to your engagements
+                          </RouterLink>
+                        )}
+                        <button type="button" className="studio-ghost-btn w-full sm:w-auto" onClick={startOver}>
+                          Start a new engagement
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>

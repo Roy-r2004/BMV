@@ -58,6 +58,7 @@ export default function Answer({
   firstName,
   pct,
   writing,
+  stopped = false,
   documents,
   mailPromise,
   onOpenPlans,
@@ -71,6 +72,10 @@ export default function Answer({
   firstName: string | null;
   pct: number;
   writing: boolean;
+  /** The run stopped before the plans were finished: the answer is read on
+   *  its own, with what was written before the stop, and nothing on this
+   *  screen says plans are on their way. */
+  stopped?: boolean;
   /** The documents the run has written or is writing, as the server reports
    *  them. The list is exactly this: nothing is shown ahead of the run. */
   documents: { key: string; title: string; state: 'ready' | 'writing' }[];
@@ -131,8 +136,9 @@ export default function Answer({
   }
   const shown = pillars.slice(0, 5);
 
-  const legacy = !writing && (decision.status === 'awaiting_approval' || decision.status === 'advised');
+  const legacy = !stopped && !writing && (decision.status === 'awaiting_approval' || decision.status === 'advised');
   const ready = pct >= 100;
+  const written = documents.filter((doc) => doc.state === 'ready');
 
   const enter = (delay: number) =>
     reduce ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, delay } };
@@ -182,43 +188,69 @@ export default function Answer({
         </motion.div>
 
         <motion.aside className="cx-pane cx-writing" {...enter(0.15)} aria-live="polite">
-          <h3>{legacy ? 'Your plans' : ready ? 'Your plans are ready' : 'Your plans are being written'}</h3>
-          <p>Everything needed to build this, for you or for any team.</p>
-          {legacy ? (
-            // At the gate nothing has been written, whatever the server lists
-            // (the AI team is known before the gate, and is not a plan).
-            <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>We start writing them when you press the button.</p>
-          ) : documents.length ? (
-            <div className="cx-docs">
-              {documents.map((doc) => (
-                <div key={doc.key} className={`cx-docline${doc.state === 'writing' ? ' busy' : ' ok'}`}>
-                  <span className="ic" aria-hidden="true" />
-                  <div>
-                    <b>{doc.title}</b>
+          {stopped ? (
+            <>
+              <h3>Your plans were not finished</h3>
+              {written.length ? (
+                <>
+                  <p>What was written before it stopped:</p>
+                  <div className="cx-docs">
+                    {written.map((doc) => (
+                      <div key={doc.key} className="cx-docline ok">
+                        <span className="ic" aria-hidden="true" />
+                        <div>
+                          <b>{doc.title}</b>
+                        </div>
+                        <span className="st">Ready</span>
+                      </div>
+                    ))}
                   </div>
-                  <span className="st">{doc.state === 'writing' ? 'Writing' : 'Ready'}</span>
-                </div>
-              ))}
-            </div>
-          ) : !ready ? (
-            <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>Your plans start in a moment.</p>
-          ) : null}
-          {legacy ? (
-            <button type="button" className="cx-btn cx-btn--blue" onClick={onStartPlans} disabled={busy || !onStartPlans}>
-              {busy ? 'Starting…' : 'Write my plans'}
-            </button>
+                </>
+              ) : (
+                <p>It stopped before any of them was written.</p>
+              )}
+            </>
           ) : (
-            <button type="button" className="cx-btn cx-btn--blue" onClick={onOpenPlans} disabled={!ready || !onOpenPlans}>
-              Open your plans
-            </button>
+            <>
+              <h3>{legacy ? 'Your plans' : ready ? 'Your plans are ready' : 'Your plans are being written'}</h3>
+              <p>Everything needed to build this, for you or for any team.</p>
+              {legacy ? (
+                // At the gate nothing has been written, whatever the server lists
+                // (the AI team is known before the gate, and is not a plan).
+                <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>We start writing them when you press the button.</p>
+              ) : documents.length ? (
+                <div className="cx-docs">
+                  {documents.map((doc) => (
+                    <div key={doc.key} className={`cx-docline${doc.state === 'writing' ? ' busy' : ' ok'}`}>
+                      <span className="ic" aria-hidden="true" />
+                      <div>
+                        <b>{doc.title}</b>
+                      </div>
+                      <span className="st">{doc.state === 'writing' ? 'Writing' : 'Ready'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : !ready ? (
+                <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>Your plans start in a moment.</p>
+              ) : null}
+              {legacy ? (
+                <button type="button" className="cx-btn cx-btn--blue" onClick={onStartPlans} disabled={busy || !onStartPlans}>
+                  {busy ? 'Starting…' : 'Write my plans'}
+                </button>
+              ) : (
+                <button type="button" className="cx-btn cx-btn--blue" onClick={onOpenPlans} disabled={!ready || !onOpenPlans}>
+                  Open your plans
+                </button>
+              )}
+              {!ready && !legacy ? (
+                <p className="cx-faint" style={{ marginTop: 10, fontSize: 13, textAlign: 'center' }}>
+                  {mailPromise
+                    ? "You don't need to wait here. We'll email you when it's ready."
+                    : 'This page updates itself as each document is finished.'}
+                </p>
+              ) : null}
+            </>
           )}
-          {!ready && !legacy ? (
-            <p className="cx-faint" style={{ marginTop: 10, fontSize: 13, textAlign: 'center' }}>
-              {mailPromise
-                ? "You don't need to wait here. We'll email you when it's ready."
-                : 'This page updates itself as each document is finished.'}
-            </p>
-          ) : null}
           <p className="cx-pushback">
             Something off? <button type="button" onClick={() => setRevising(true)} disabled={busy}>Push back on the answer</button>
           </p>
