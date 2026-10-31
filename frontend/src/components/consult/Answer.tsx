@@ -21,15 +21,22 @@ interface Pillar {
   work?: string;
 }
 
-function Modal({ children, onClose, label }: { children: React.ReactNode; onClose: () => void; label: string }) {
+/** `locked` holds the dialog open while what it sends is in flight, so a failure
+ *  is read where it was caused rather than after the dialog has gone. */
+function Modal({ children, onClose, label, locked = false }: {
+  children: React.ReactNode;
+  onClose: () => void;
+  label: string;
+  locked?: boolean;
+}) {
   return (
     <div
       className="cx-modal-back"
       role="dialog"
       aria-modal="true"
       aria-label={label}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      onClick={(e) => !locked && e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => !locked && e.key === 'Escape' && onClose()}
     >
       <div className="cx-card cx-modal">{children}</div>
     </div>
@@ -282,7 +289,7 @@ export default function Answer({
       </details>
 
       {revising ? (
-        <Modal label="Tell us what we got wrong" onClose={() => setRevising(false)}>
+        <Modal label="Tell us what we got wrong" onClose={() => setRevising(false)} locked={busy}>
           <h2 className="cx-h3">Tell us what we got wrong</h2>
           <p className="cx-muted" style={{ marginTop: 8 }}>
             We re-run the analysis with what you tell us, and rewrite the plans to match.
@@ -298,7 +305,7 @@ export default function Answer({
             placeholder="e.g. The evening waiting list is only two or three people, and most of them get in."
           />
           <div className="cx-row" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
-            <button type="button" className="cx-textbtn" onClick={() => setRevising(false)}>Cancel</button>
+            <button type="button" className="cx-textbtn" onClick={() => setRevising(false)} disabled={busy}>Cancel</button>
             <button
               type="button"
               className="cx-btn cx-btn--blue"

@@ -76,7 +76,7 @@ function Card({ h, n, testing, reduce, delay }: {
   delay: number;
 }) {
   const out = h.verdict === 'refuted';
-  const holdsUp = h.verdict === 'supported';
+  const holdsUp = h.verdict === 'supported' && !h.notTested;
   return (
     <motion.article
       className={`cx-card cx-hyp${h.leading ? ' lead' : ''}${out ? ' out' : ''}`}

@@ -268,6 +268,7 @@
 .cx-actions { margin-top: 28px; }
 .cx-textbtn { background: none; border: 0; padding: 13px 6px; color: var(--cx-txt2); font: 500 15px var(--cx-body); cursor: pointer; }
 .cx-textbtn:hover { color: var(--cx-txt); }
+.cx-textbtn:disabled { opacity: 0.5; cursor: default; }
 .cx-stage ul, .cx-stage ol { list-style: none; margin: 0; padding: 0; }
 .cx-stage h2, .cx-stage h3, .cx-stage h4 { font-family: var(--cx-display); letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
 
