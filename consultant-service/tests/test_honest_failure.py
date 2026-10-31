@@ -203,6 +203,37 @@ def test_fail_run_with_mail_down_still_fails_cleanly(monkeypatch):
     assert record["cause"] == SECRET_CAUSE
 
 
+def test_the_run_is_already_stopped_while_the_slow_mail_is_in_flight(monkeypatch):
+    """Mail can take ~20s a step. A process killed in that window must not
+    leave the run "generating" for good (it holds a concurrency slot)."""
+    request_id = _generating_row()
+    seen = {}
+
+    def mail_that_looks_at_the_row(to, subject, body):
+        row = _read(request_id)  # a fresh session: only what has been committed
+        seen.update(status=row.status, is_failed=row.is_failed, is_generating=row.is_generating,
+                    stage=row.stage, detail=row.progress_detail,
+                    failure=json.loads(row.failure_json) if row.failure_json else None)
+        return True
+
+    monkeypatch.setattr(mailer, "send_now", mail_that_looks_at_the_row)
+
+    assert _fail(request_id) is True
+
+    # when the mail was attempted: stopped, on record, and claiming nothing yet
+    assert seen["status"] == "failed" and seen["is_failed"] and not seen["is_generating"]
+    assert seen["stage"] == "failed"
+    assert seen["detail"] == client_reason("blueprint", False)
+    assert seen["failure"]["team_notified"] is False
+    assert seen["failure"]["cause"] == SECRET_CAUSE
+    # once it went: the wording is upgraded, in the screen and in the record
+    row = _read(request_id)
+    assert row.progress_detail == client_reason("blueprint", True)
+    record = json.loads(row.failure_json)
+    assert record["team_notified"] is True and record["reason"] == client_reason("blueprint", True)
+    assert row.status == "failed" and not row.is_generating
+
+
 def test_fail_run_stops_the_run_even_if_telling_the_team_blows_up(monkeypatch):
     def explode(*args, **kwargs):
         raise RuntimeError("mail layer bug")

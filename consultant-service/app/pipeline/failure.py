@@ -79,7 +79,13 @@ def client_reason(stage: str, team_notified: bool) -> str:
 
 def fail_run(db: Session, request_id: int, stage: str, cause: str) -> bool:
     """Stop the run, record why, and email the team. Returns whether the team
-    was told, which is what the client's sentence is written from."""
+    was told, which is what the client's sentence is written from.
+
+    Three phases, in this order, because the mail is slow (up to ~20s per SMTP
+    step) and the run must never read "generating" while we wait on it:
+      1. stop the run and commit, with wording that claims nobody was told;
+      2. email the team;
+      3. only if that mail went, upgrade the wording to say so."""
     # The exception that brought us here may have come from a commit; the
     # session is then unusable until it is rolled back, and the run would
     # stay "generating" for good.
@@ -89,29 +95,39 @@ def fail_run(db: Session, request_id: int, stage: str, cause: str) -> bool:
     if req is None:
         logger.warning("run %s failed at %s but its row is gone: %s", request_id, stage, cause[:200])
         return False
-    progress_pct = req.progress_pct
+    ref = req.public_id or request_id
+    business_name = req.business_name or ""
 
-    # Mail first: the sentence the client reads depends on whether it went.
-    # Nothing about telling the team may keep the run from stopping.
-    try:
-        team_notified = mailer.notify_team_failure(req.public_id or request_id, req.business_name or "", stage, cause)
-    except Exception:
-        logger.exception("run %s: could not tell the team it failed", request_id)
-        team_notified = False
-    reason = client_reason(stage, team_notified)
-
-    req.status = "failed"
-    req.is_failed = True
-    req.is_generating = False
-    req.failure_json = json.dumps({
+    # 1. Stopped, and the facts on record, before anything slow. `emit` commits
+    # these fields along with the label.
+    record = {
         "stage": stage,
         "at": datetime.now(timezone.utc).isoformat(),
         "cause": cause,
-        "team_notified": team_notified,
-        "reason": reason,
-    })
-    db.commit()
-    emit(db, request_id, "failed", _FAILED_LABEL, progress_pct, detail=reason)
+        "team_notified": False,
+        "reason": client_reason(stage, False),
+    }
+    req.status = "failed"
+    req.is_failed = True
+    req.is_generating = False
+    req.failure_json = json.dumps(record)
+    emit(db, request_id, "failed", _FAILED_LABEL, req.progress_pct, detail=record["reason"])
+
+    # 2. Tell the team. Nothing about telling them may undo the stop above.
+    try:
+        team_notified = mailer.notify_team_failure(ref, business_name, stage, cause)
+    except Exception:
+        logger.exception("run %s: could not tell the team it failed", request_id)
+        team_notified = False
+
+    # 3. The client reads "we have been told" only if we were.
+    if team_notified:
+        record["team_notified"] = True
+        record["reason"] = client_reason(stage, True)
+        req = db.get(Request, request_id)
+        if req is not None:
+            req.failure_json = json.dumps(record)
+            emit(db, request_id, "failed", _FAILED_LABEL, req.progress_pct, detail=record["reason"])
     logger.error("run %s failed at %s (team notified: %s): %s", request_id, stage, team_notified, cause)
     return team_notified
 

@@ -3,9 +3,15 @@ messages that close the review loop: "your engagement awaits review"
 to the consultant, and "your engagement is ready" to the client.
 
 Plain SMTP over SSL (Hostinger mailbox), configured entirely by env.
-Fail-open and fire-and-forget: mail is a courtesy, never a dependency —
-a down mail server must not fail an approval or a run. Every send runs
-on a daemon thread so no request waits on SMTP.
+Fail-open: mail is a courtesy, never a dependency — a down mail server
+must not fail an approval or a run, and no send raises.
+
+There are two ways to send. `send_async` is fire-and-forget on a daemon
+thread, so no request waits on SMTP; the reviewer, go-ahead and released
+notices use it. `send_now` runs on the calling thread and says whether the
+mail went, which `notify_owner_ready` and the `notify_team_*` functions
+return. Each SMTP step (connect, login, send) can take up to ~20s, so call
+those from a background thread, or throttled, never per request.
 """
 
 import logging
