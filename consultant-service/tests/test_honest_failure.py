@@ -3433,3 +3433,113 @@ def test_an_empty_mail_setting_reads_as_unset(monkeypatch):
         assert config._env_or(name, default) == default
     monkeypatch.setenv("STAGE_REPLY_ATTEMPTS", "")
     assert config._env_int_within("STAGE_REPLY_ATTEMPTS", 2, 1, 3) == 2
+
+
+# -- a business name is cleaned before it stands in a subject line ----------
+
+
+@pytest.fixture
+def smtp(monkeypatch):
+    """The real `send_now`, against an SMTP server that accepts everything:
+    what reaches it is the message EmailMessage built, so a header it refuses
+    is a mail that never went."""
+    sent: list = []
+
+    class Server:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def login(self, user, password):
+            pass
+
+        def send_message(self, msg):
+            sent.append(msg)
+
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "pw")
+    monkeypatch.setattr(settings, "SMTP_USER", "consulting@example.com")
+    monkeypatch.setattr(mailer.smtplib, "SMTP_SSL", Server)
+    return sent
+
+
+_REAL_SEND_NOW = mailer.send_now  # before any test stubs it
+LONG_NAME = "Halo Reformer Studio and Wellness Collective of the Greater Northern Riverside District Partnership"
+NAMES = [
+    pytest.param("Halo Reformer\nStudio", "Halo Reformer Studio", id="newline"),
+    pytest.param("Halo\r\nReformer\tStudio", "Halo Reformer Studio", id="crlf and tab"),
+    pytest.param("  Halo\x00 Reformer Studio  ", "Halo Reformer Studio", id="control characters"),
+    pytest.param("", "an engagement", id="empty"),
+    pytest.param("\n\t ", "an engagement", id="only whitespace"),
+]
+
+
+def _clean(subject: str) -> bool:
+    return subject == subject.strip() and not any(not ch.isprintable() for ch in subject) and "  " not in subject
+
+
+@pytest.mark.parametrize("name, shown", NAMES)
+def test_subject_text_cleans_a_name_for_a_subject_line(name, shown):
+    assert mailer._subject_text(name) == shown
+
+
+def test_subject_text_cuts_a_long_name_at_a_word():
+    text = mailer._subject_text(LONG_NAME)
+    assert len(text) <= mailer.SUBJECT_TEXT_MAX and text.endswith("…")
+    assert LONG_NAME.startswith(text[:-1]) and LONG_NAME[len(text) - 1] == " "  # cut between words
+    assert mailer._subject_text("x" * 200).startswith("x" * 70)  # one long word is still cut
+
+
+@pytest.mark.parametrize("name, shown", NAMES + [pytest.param(LONG_NAME, mailer._subject_text(LONG_NAME), id="long")])
+def test_every_mail_with_a_business_name_in_its_subject_still_goes(smtp, monkeypatch, name, shown):
+    monkeypatch.setattr(settings, "REVIEW_TOKEN", "t")
+    sends = {
+        "failure": lambda: mailer.notify_team_failure("abc123", name, "blueprint", "boom"),
+        "stall": lambda: mailer.notify_team_stall("interview", name or "x", 2, "boom"),
+        "ready": lambda: mailer.notify_owner_ready("abc123", "owner@example.com", name),
+        "restart": lambda: mailer.notify_team_restart([("abc123", name)]),
+    }
+    for what, send in sends.items():
+        assert send() is True, what
+    # the fire-and-forget ones go on a thread: run them where the test can see
+    monkeypatch.setattr(mailer, "send_async", lambda to, subject, body: mailer.send_now(to, subject, body))
+    mailer.notify_team_go_ahead("abc123", name, "owner@example.com", {})
+    mailer.notify_owner_released("abc123", "owner@example.com", name, None)
+    mailer.notify_reviewer_pending("abc123", name)
+
+    subjects = [msg["Subject"] for msg in smtp]
+    assert len(subjects) == 7
+    for subject in subjects:
+        assert _clean(subject), subject
+    assert subjects[0] == f"Run failed: {shown} (blueprint)"
+    assert subjects[2] == f"{shown} — your answer and plans are ready"
+    assert subjects[4] == f"Go ahead — {shown}"
+    assert subjects[5] == f"{shown} — your engagement is ready"
+    assert subjects[6] == f"An engagement awaits your review — {shown}"
+
+
+def test_a_stall_with_no_business_name_names_none(outbox):
+    for name in (None, "", "\n"):
+        mailer.notify_team_stall("interview", name, 1, "boom")
+    assert [m[1] for m in outbox] == ["Stalled: interview"] * 3
+
+
+def test_a_run_whose_business_name_holds_a_newline_still_tells_the_team(pipeline_with_only, smtp, monkeypatch):
+    run = pipeline_with_only("analyzing")
+    db = SessionLocal()
+    try:
+        db.get(Request, run.request_id).business_name = "Halo Reformer\nStudio"
+        db.commit()
+    finally:
+        db.close()
+    # the real send_now, not the outbox stub the run's fixture installed
+    monkeypatch.setattr(mailer, "send_now", _REAL_SEND_NOW)
+    orchestrator.run(run.request_id)
+
+    record = json.loads(_read(run.request_id).failure_json)
+    assert record["team_notified"] is True
+    assert [m["Subject"] for m in smtp] == ["Run failed: Halo Reformer Studio (analyzing)"]

@@ -62,6 +62,25 @@ def send_async(to: str | None, subject: str, body: str) -> None:
     threading.Thread(target=_send, args=(to, subject, body), daemon=True).start()
 
 
+#: How much client text a subject line carries.
+SUBJECT_TEXT_MAX = 80
+
+
+def _subject_text(s: str | None, limit: int = SUBJECT_TEXT_MAX) -> str:
+    """Client text (a business name, which can come from a free-text answer) as
+    it may stand in a subject line. A newline there makes EmailMessage refuse
+    the whole mail, and the team would never hear of that client: every run of
+    whitespace or control characters becomes one space, the text is cut at a
+    word to `limit` characters, and nothing left reads as "an engagement"."""
+    text = " ".join("".join(ch if ch.isprintable() else " " for ch in str(s or "")).split())
+    if len(text) > limit:
+        cut = text[: limit - 1]
+        if text[limit - 1] != " " and " " in cut:
+            cut = cut.rsplit(" ", 1)[0]
+        text = cut.rstrip(" ,;:.-") + "…"
+    return text or "an engagement"
+
+
 def _run_url(ref: str | int) -> str:
     """A run's address. Slug refs land on /engagements/<slug> (the private
     spelling); numeric ids keep the legacy /demo/<id> spelling."""
@@ -73,7 +92,7 @@ def notify_reviewer_pending(ref: str | int, business_name: str) -> None:
     link = f"{_run_url(ref)}?review={settings.REVIEW_TOKEN}"
     send_async(
         settings.SMTP_USER,
-        f"An engagement awaits your review — {business_name}",
+        f"An engagement awaits your review — {_subject_text(business_name)}",
         (
             f"{business_name} finished generating and is waiting for your signature.\n\n"
             f"Review and release:\n{link}\n\n"
@@ -91,7 +110,7 @@ def enabled() -> bool:
 def notify_owner_ready(ref: str | int, owner_email: str | None, business_name: str) -> bool:
     return send_now(
         owner_email,
-        f"{business_name} — your answer and plans are ready",
+        f"{_subject_text(business_name)} — your answer and plans are ready",
         (
             f"The answer for {business_name} is ready, and so is every plan behind it: "
             f"the blueprint, the technical plan, the operations manual, the product screens "
@@ -112,7 +131,7 @@ def notify_team_go_ahead(ref: str | int, business_name: str, owner_email: str | 
     lines = "\n".join(f"- {k}: {v}" for k, v in (choices or {}).items()) or "- (no decisions answered)"
     send_async(
         settings.SMTP_USER,
-        f"Go ahead — {business_name}",
+        f"Go ahead — {_subject_text(business_name)}",
         (
             f"{owner_email or 'The owner'} asked us to build {business_name}.\n\n"
             f"The engagement:\n{_run_url(ref)}\n\n"
@@ -125,7 +144,7 @@ def notify_owner_released(ref: str | int, owner_email: str | None, business_name
     title = concept or business_name
     send_async(
         owner_email,
-        f"{title} — your engagement is ready",
+        f"{_subject_text(title)} — your engagement is ready",
         (
             f"Good news: your engagement for {business_name} has been personally reviewed "
             f"and released by your consultant.\n\n"
@@ -154,7 +173,7 @@ def notify_team_failure(ref: str | int, business_name: str, stage: str, cause: s
     caller learns whether the team really was told."""
     return send_now(
         settings.SMTP_USER,
-        f"Run failed: {business_name} ({stage})",
+        f"Run failed: {_subject_text(business_name)} ({_subject_text(stage)})",
         (
             f"The run for {business_name} stopped at the {stage} stage.\n\n"
             f"The run:\n{_run_url(ref)}\n\n"
@@ -175,7 +194,7 @@ def notify_team_restart(runs: list[tuple[str | int, str]]) -> bool:
     count = f"{len(runs)} run{'' if len(runs) == 1 else 's'}"
     return send_now(
         settings.SMTP_USER,
-        f"Service restarted: {count} stopped",
+        _subject_text(f"Service restarted: {count} stopped"),
         (
             f"The service restarted while {count} {'was' if len(runs) == 1 else 'were'} being written. "
             f"Each was stopped and its client told it did not finish.\n\n"
@@ -191,9 +210,10 @@ def notify_team_stall(kind: str, business_name: str | None, round: int | None, c
     only writes and sends it."""
     who = f" ({business_name})" if business_name else ""
     at_round = f"Round: {round}\n" if round is not None else ""
+    named = f" ({_subject_text(business_name)})" if business_name and business_name.strip() else ""
     return send_now(
         settings.SMTP_USER,
-        f"Stalled: {kind}{who}",
+        f"Stalled: {_subject_text(kind)}{named}",
         (
             f"The {kind} step stalled{who}.\n\n"
             f"{at_round}"
