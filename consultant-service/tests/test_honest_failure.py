@@ -2383,11 +2383,35 @@ def test_a_check_is_listed_once_however_often_the_bench_recorded_it():
     ]
 
 
-@pytest.mark.parametrize("release", [None, {}, {"reasons": None}, {"reasons": "x"}, {"reasons": [None, 5, "", "  "]}])
-def test_a_release_decision_with_no_usable_reasons_leaves_nothing_outstanding(release):
+@pytest.mark.parametrize("release", [
+    None, {}, [], "draft", {"reasons": None}, {"reasons": "x"}, {"reasons": []},
+    {"status": "final", "reasons": []}, {"status": "client_approved", "reasons": None},
+])
+def test_a_release_decision_with_no_reasons_that_is_not_a_draft_leaves_nothing_outstanding(release):
     from app.pipeline.method_note import method_note
 
     assert method_note(_method_row(), release)["not_verified"] == []
+
+
+@pytest.mark.parametrize("reasons", [[None], [5], [""], ["  "], [None, 5, "", "  "], [["a"], {"b": 1}]])
+def test_a_reason_that_is_blank_or_not_text_is_still_a_check_that_did_not_pass(reasons):
+    """A reason the gate gave stands for something that did not pass, whatever
+    shape it arrived in: dropping it would leave a page that lists nothing under
+    a cover that says DRAFT."""
+    from app.pipeline.method_note import method_note
+
+    assert method_note(_method_row(), {"status": "draft", "reasons": reasons})["not_verified"] == [
+        "One check did not pass."]
+
+
+@pytest.mark.parametrize("release", [
+    {"status": "draft"}, {"status": "draft", "reasons": None}, {"status": "draft", "reasons": []},
+    {"status": "draft", "reasons": "unreadable"},
+])
+def test_a_draft_never_lists_nothing_outstanding(release):
+    from app.pipeline.method_note import method_note
+
+    assert method_note(_method_row(), release)["not_verified"] == ["One check did not pass."]
 
 
 def test_the_method_page_no_longer_says_every_claim_was_checked_before_release():
@@ -2451,7 +2475,7 @@ REASON_KINDS = [
     ("3 open high finding(s) on the quality bench",
      "The quality review found problems that are still open."),
     ("client-unsafe artifacts: template token, literal Null, unresolved placeholder",
-     "Some text still contains placeholders or unfinished wording."),
+     "Some wording or figures in the documents are unfinished or need correcting."),
     ("2 paraphrased pilot-gate restatement(s)",
      "The pilot's go or no-go rule is worded differently in different places."),
     ("4 KPI/acceptance number(s) map to no registered claim",
@@ -2526,16 +2550,19 @@ def test_a_reason_of_no_known_kind_is_the_generic_sentence_never_the_raw_string(
     assert plain_reason(reason) == "One check did not pass."
 
 
-def test_every_reason_the_gate_can_give_has_its_own_sentence():
-    """The kinds are told by the wording the gate uses, so a reason it gains or
-    rewords would silently fall to the generic sentence. Read the strings the
-    gate really builds, from its own source, and hold the table to them in both
-    directions: no reason without a sentence, no sentence without a reason."""
-    import ast
-    import inspect
-    import textwrap
+_LIST_MARK = "\x00names\x00"
 
-    from app.pipeline import export_pdf, method_note
+
+def _reasons_in(source: str) -> tuple[list[str], list[str]]:
+    """(the reason strings `source` puts into a list called `reasons`, and every
+    place it touches that list in a form this reader does not understand).
+    Reads `reasons.append(x)`, `reasons.extend([...])`, `reasons += [...]` and
+    `reasons = [...]`, with strings and f-strings rendered (a number for each
+    `{...}`, `_LIST_MARK` for a joined list of names); `reasons += registry_reasons(...)`
+    is the other function's and is skipped. Anything else is returned as unread,
+    so a new way of adding a reason fails the test instead of passing unseen."""
+    import ast
+    import textwrap
 
     def text_of(node) -> str:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -2544,21 +2571,147 @@ def test_every_reason_the_gate_can_give_has_its_own_sentence():
             return "".join(v.value if isinstance(v, ast.Constant) else "7" for v in node.values)
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
             return text_of(node.left) + text_of(node.right)
-        return "pilot_queue, m3"  # the names the gate joins in with ", ".join(...)
+        return _LIST_MARK
 
-    built = []
-    for function in (export_pdf.release_status, export_pdf.registry_reasons):
-        for node in ast.walk(ast.parse(textwrap.dedent(inspect.getsource(function)))):
-            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "append"
-                    and isinstance(node.func.value, ast.Name) and node.func.value.id == "reasons"):
+    def literal_items(node):
+        return [text_of(e) for e in node.elts] if isinstance(node, (ast.List, ast.Tuple)) else None
+
+    def is_reasons(node) -> bool:
+        return isinstance(node, ast.Name) and node.id == "reasons"
+
+    built, unread = [], []
+    for node in ast.walk(ast.parse(textwrap.dedent(source))):
+        if isinstance(node, ast.Assign) and any(is_reasons(t) for t in node.targets):
+            items = literal_items(node.value)
+            if items is None:
+                unread.append(ast.unparse(node))
+            else:
+                built += items
+        elif isinstance(node, ast.AugAssign) and is_reasons(node.target):
+            items = literal_items(node.value)
+            if items is not None:
+                built += items
+            elif not (isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name)
+                      and node.value.func.id == "registry_reasons"):
+                unread.append(ast.unparse(node))
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and is_reasons(node.func.value):
+            items = literal_items(node.args[0]) if node.args else None
+            if node.func.attr == "append" and len(node.args) == 1:
                 built.append(text_of(node.args[0]))
+            elif node.func.attr == "extend" and items is not None:
+                built += items
+            else:
+                unread.append(ast.unparse(node))
+        elif isinstance(node, ast.Call) and any(is_reasons(arg) for arg in node.args):
+            unread.append(ast.unparse(node))
+    return built, unread
 
+
+def test_the_reader_of_the_gates_reasons_sees_every_way_of_adding_one():
+    built, unread = _reasons_in("""
+def gate(n, hits):
+    reasons = []
+    reasons.append("a")
+    reasons.append(f"{n} b")
+    reasons.append("c: " + ", ".join(hits))
+    reasons += ["d", f"{n} e"]
+    reasons.extend(["f"])
+    reasons += registry_reasons(req)
+    return {"reasons": reasons}
+""")
+    assert sorted(built) == sorted(["a", "7 b", f"c: {_LIST_MARK}", "d", "7 e", "f"]) and unread == []
+
+    built, unread = _reasons_in("""
+def gate(more):
+    reasons = ["x"]
+    reasons += more
+    reasons.extend(more)
+    reasons.insert(0, "y")
+    reasons = more
+    helper(reasons)
+""")
+    assert built == ["x"]
+    assert len(unread) == 5, unread
+
+
+def test_every_reason_the_gate_can_give_has_its_own_sentence():
+    """The kinds are told by the wording the gate uses, so a reason it gains or
+    rewords would silently fall to the generic sentence. Read the strings the
+    gate really builds, from its own source, and hold the table to them in both
+    directions: no reason without a sentence, no sentence without a reason."""
+    import inspect
+
+    from app.pipeline import export_pdf, method_note
+
+    built, unread = [], []
+    for function in (export_pdf.release_status, export_pdf.registry_reasons):
+        got, left = _reasons_in(inspect.getsource(function))
+        built += got
+        unread += left
+    assert unread == [], f"a way of adding a reason that this test cannot read: {unread}"
+
+    classes = ", ".join(dict.fromkeys(name for name, _ in export_pdf._GATE_ARTIFACTS))
+    built = [reason.replace(_LIST_MARK, classes if reason.startswith("client-unsafe artifacts") else "pilot_queue, m3")
+             for reason in built]
     assert len(built) == len(method_note._KINDS) == len(REASON_KINDS), built
     sentences = [method_note.plain_reason(reason) for reason in built]
     assert method_note.GENERIC_REASON not in sentences, [
         reason for reason, sentence in zip(built, sentences) if sentence == method_note.GENERIC_REASON]
     assert sorted(sentences) == sorted(sentence for _, sentence in method_note._KINDS)
     assert sorted(sentences) == sorted(sentence for _, sentence in REASON_KINDS)
+
+
+ARTIFACT_SENTENCE = "Some wording or figures in the documents are unfinished or need correcting."
+
+
+def test_the_artifact_sentence_is_true_of_every_class_the_gate_names():
+    """`client-unsafe artifacts` is nine classes, not one. Four are leftover
+    placeholders (a template token, Null, an unresolved placeholder, a gate
+    token); the others are an invented ROI figure, a currency sign on a count, a
+    month computed two ways, an approval label said twice and a working label in
+    the text. One sentence has to be true of all of them, and the class names
+    are ours."""
+    from app.pipeline import export_pdf, method_note
+    from app.pipeline.method_note import plain_reason
+
+    classes = list(dict.fromkeys(name for name, _ in export_pdf._GATE_ARTIFACTS))
+    assert sorted(classes) == sorted([
+        "template token", "literal Null", "unresolved placeholder", "unsubstituted gate token",
+        "invented ROI figure", "currency sign on a count", "mixed monthly identity",
+        "duplicate approval label", "internal identifier in client-facing text",
+    ])
+    # a class the gate adds reads as the generic sentence until it is read here
+    assert list(method_note._ARTIFACT_CLASSES) == classes
+    for name in classes:
+        sentence = plain_reason(f"client-unsafe artifacts: {name}")
+        assert sentence == ARTIFACT_SENTENCE, name
+        assert _client_safe(sentence) and name.lower() not in sentence.lower(), name
+    assert "placeholder" not in ARTIFACT_SENTENCE  # it is not only placeholders
+    assert plain_reason("client-unsafe artifacts: " + ", ".join(classes)) == ARTIFACT_SENTENCE
+    assert plain_reason("client-unsafe artifacts: invented ROI figure, template token") == ARTIFACT_SENTENCE
+
+
+@pytest.mark.parametrize("reason", [reason for reason, _ in REASON_KINDS
+                                    if not reason.startswith("internal identifiers")])
+def test_a_reason_reworded_after_its_matched_wording_is_no_longer_the_kind_it_was(reason):
+    from app.pipeline.method_note import plain_reason
+
+    assert plain_reason(reason + " and something added") == "One check did not pass."
+    assert plain_reason(reason + ".") == "One check did not pass."
+    assert plain_reason("also " + reason) == "One check did not pass."
+
+
+@pytest.mark.parametrize("reason", [
+    "internal identifiers in client-facing text", "internal identifiers in client-facing text:",
+    "internal identifiers in client-facing text (3): pilot_queue", "some internal identifiers in client-facing text: m3",
+    "client-unsafe artifacts: ", "client-unsafe artifacts: a class nobody listed",
+    "client-unsafe artifacts: template token, a class nobody listed", "client-unsafe artifacts: template token and more",
+    "client-unsafe artifacts (2): template token",
+])
+def test_the_kinds_that_end_in_a_list_still_need_the_rest_of_their_wording(reason):
+    from app.pipeline.method_note import plain_reason
+
+    assert plain_reason(reason) == "One check did not pass."
 
 
 def test_the_note_carries_plain_sentences_once_each_in_the_order_given():
@@ -2588,6 +2741,8 @@ def test_a_draft_whose_reasons_carry_real_ids_prints_none_of_them(monkeypatch):
         "2 KPI/acceptance number(s) map to no registered claim (CAP-01, m1)",
         "a reason from a future release: reg_claim_7",
     ]
+    # the last two are not the gate's wording as it stands: each reads as the
+    # generic sentence, once
     monkeypatch.setattr(export_pdf, "release_status", lambda req: {
         "status": "draft", "status_label": "DRAFT", "reasons": reasons, "client_approval": {}})
 
@@ -2597,8 +2752,7 @@ def test_a_draft_whose_reasons_carry_real_ids_prints_none_of_them(monkeypatch):
     end = next(i for i, text in enumerate(page) if text.startswith("Method rule"))
     assert page[start:end] == [
         "Some wording still uses working labels instead of the plain names of your system's parts.",
-        "Some text still contains placeholders or unfinished wording.",
-        "Some figures in the plans could not be tied back to a figure you gave us.",
+        ARTIFACT_SENTENCE,
         "One check did not pass.",
     ]
     everything = " ".join(page)
@@ -2608,17 +2762,25 @@ def test_a_draft_whose_reasons_carry_real_ids_prints_none_of_them(monkeypatch):
         assert _client_safe(text), text
 
 
-def test_a_blueprint_with_a_placeholder_in_it_is_told_to_the_client_as_placeholders():
+@pytest.mark.parametrize("blueprint, hit", [
+    ("owner: [TODO fill in]", "unresolved placeholder"),
+    ("The build returns 300% ROI in the first year.", "invented ROI figure"),
+    ("Expect $4,000 inquiries every month.", "currency sign on a count"),
+])
+def test_a_blueprint_the_gate_holds_for_unfinished_wording_or_a_figure_says_so_truthfully(blueprint, hit):
     """End to end through the real release gate: the reason it builds is the
-    team's wording; the page carries the client's."""
+    team's wording and names the class; the page carries the client's sentence,
+    which is true of a placeholder and of an invented figure alike."""
     from app.pipeline import export_pdf
 
-    row = _method_row(blueprint="owner: [TODO fill in]")
-    assert any(reason.startswith("client-unsafe artifacts") for reason in export_pdf.release_status(row)["reasons"])
+    row = _method_row(blueprint=blueprint)
+    reasons = export_pdf.release_status(row)["reasons"]
+    assert reasons == [f"client-unsafe artifacts: {hit}"]
 
     page = _method_page(row)
 
     start = page.index("Not verified") + 1
     end = next(i for i, text in enumerate(page) if text.startswith("Method rule"))
-    assert page[start:end] == ["Some text still contains placeholders or unfinished wording."]
-    assert "TODO" not in " ".join(page) and "artifact" not in " ".join(page).lower()
+    assert page[start:end] == [ARTIFACT_SENTENCE]
+    text = " ".join(page)
+    assert hit not in text and "artifact" not in text.lower() and "ROI" not in text and "TODO" not in text

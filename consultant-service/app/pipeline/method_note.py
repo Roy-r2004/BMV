@@ -24,64 +24,80 @@ HOW = ("Build My Version's analysis system produced this engagement from the fac
 INTEGRITY_RAN = "A consistency check ran across the whole document."
 GENERIC_REASON = "One check did not pass."
 
-#: (what a reason from `export_pdf.release_status` / `registry_reasons` starts
-#: with, the client's sentence for it), one row per kind of reason the gate can
-#: give. Never a count, a name of ours or an id.
+#: The classes of unfinished or unsupported content the release gate names in
+#: "client-unsafe artifacts: <classes>" (`export_pdf._GATE_ARTIFACTS`). They are
+#: placeholders and leftover template marks, but also a figure invented or
+#: mis-stated and a label repeated or left in our working form, so the sentence
+#: for them says "wording or figures", which is true of every one. A class the
+#: gate adds is not listed here and reads as the generic sentence until it is.
+_ARTIFACT_CLASSES = (
+    "template token", "literal Null", "unresolved placeholder", "duplicate approval label",
+    "invented ROI figure", "currency sign on a count", "internal identifier in client-facing text",
+    "unsubstituted gate token", "mixed monthly identity",
+)
+_ANY_ARTIFACT_CLASS = "(?:" + "|".join(re.escape(name) for name in _ARTIFACT_CLASSES) + ")"
+
+#: (the whole of a reason from `export_pdf.release_status` / `registry_reasons`,
+#: with its counts as `\d+` and its list of names as the one open part, the
+#: client's sentence for it), one row per kind of reason the gate can give.
+#: Matched in full, so a reason reworded anywhere is no longer the kind it was
+#: and reads as the generic sentence. Never a count, a name of ours or an id.
 _KINDS: tuple[tuple[re.Pattern, str], ...] = tuple((re.compile(pattern), sentence) for pattern, sentence in (
-    (r"the run did not complete$",
+    (r"the run did not complete",
      "This engagement had not finished being written."),
-    (r"no documents were produced$",
+    (r"no documents were produced",
      "No documents had been written for this engagement."),
-    (r"the quality bench never audited this run$",
+    (r"the quality bench never audited this run",
      "The quality review did not run on this engagement."),
-    (r"\d+ open high finding\(s\) on the quality bench$",
+    (r"\d+ open high finding\(s\) on the quality bench",
      "The quality review found problems that are still open."),
-    (r"client-unsafe artifacts: ",
-     "Some text still contains placeholders or unfinished wording."),
-    (r"\d+ paraphrased pilot-gate restatement",
+    (rf"client-unsafe artifacts: {_ANY_ARTIFACT_CLASS}(?:, {_ANY_ARTIFACT_CLASS})*",
+     "Some wording or figures in the documents are unfinished or need correcting."),
+    (r"\d+ paraphrased pilot-gate restatement\(s\)",
      "The pilot's go or no-go rule is worded differently in different places."),
-    (r"\d+ KPI/acceptance number",
+    (r"\d+ KPI/acceptance number\(s\) map to no registered claim",
      "Some figures in the plans could not be tied back to a figure you gave us."),
-    (r"internal identifiers in client-facing text",
+    (r"internal identifiers in client-facing text: .+",
      "Some wording still uses working labels instead of the plain names of your system's parts."),
-    (r"\d+ pilot-design restatement",
+    (r"\d+ pilot-design restatement\(s\) that are not the canonical randomized design",
      "The pilot is described with a design other than the one it is meant to use."),
-    (r"\d+ sentence\(s\) gate financial detail",
+    (r"\d+ sentence\(s\) gate financial detail on a phone-number match alone",
      "Some wording lets a phone number alone unlock financial detail."),
-    (r"\d+ API path",
+    (r"\d+ API path\(s\) rendered with spaces",
      "Some technical addresses are written with spaces in them."),
-    (r"\d+ pilot specification\(s\)/procedure\(s\) depend",
+    (r"\d+ pilot specification\(s\)/procedure\(s\) depend on AI logic or another module",
      "The pilot is specified to depend on other parts of the system that it should stand apart from."),
-    (r"\d+ contradiction\(s\) inside the pilot specification",
+    (r"\d+ contradiction\(s\) inside the pilot specification \(procedures and pilot module\)",
      "The pilot's procedures and its part of the system do not fully agree."),
-    (r"\d+ sentence\(s\) state a pilot attempt count",
+    (r"\d+ sentence\(s\) state a pilot attempt count different from the SOP's",
      "The number of attempts stated for the pilot differs between places."),
-    (r"\d+ list ordinal",
+    (r"\d+ list ordinal\(s\) labeled as thresholds",
      "Some numbers that only put a list in order are written as if they were limits."),
-    (r"\d+ unlabeled operating time",
+    (r"\d+ unlabeled operating time\(s\)/cadence\(s\) in the procedures",
      "Some operating times in the procedures are not marked as proposals."),
     (r"\d+ sentence\(s\) send a customer into the internal pilot queue",
      "Some wording points a customer to a work queue meant for your staff."),
-    (r"\d+ sentence\(s\) narrow the pilot population",
+    (r"\d+ sentence\(s\) narrow the pilot population below the gate's population",
      "Some wording narrows the pilot to fewer customers than the pilot rule covers."),
-    (r"\d+ monthly-identity violation",
+    (r"\d+ monthly-identity violation\(s\)",
      "Some monthly figures do not agree with the yearly figures they come from."),
-    (r"\d+ invented operational policy statement",
+    (r"\d+ invented operational policy statement\(s\)",
      "Some wording states an operating policy that you did not give us."),
-    (r"integrity layer has not run on the current content$",
+    (r"integrity layer has not run on the current content",
      "The consistency check has not run on the current version of this engagement."),
-    (r"integrity layer: \d+ finding",
+    (r"integrity layer: \d+ finding\(s\)",
      "The consistency check found inconsistencies that are still open."),
 ))
 
 
 def plain_reason(reason: str) -> str:
-    """One release-gate reason as the sentence the client reads. Matched by the
-    kind of reason; anything that matches no kind is `GENERIC_REASON`, so a new
-    or reworded reason can never put its raw text, a count or an id on a page."""
+    """One release-gate reason as the sentence the client reads. Matched in full
+    against the kinds above; anything that matches none (a reason reworded or
+    added, or one that is blank or not text) is `GENERIC_REASON`, so a reason can
+    never put its raw text, a count or an id on a page."""
     text = reason.strip() if isinstance(reason, str) else ""
     for pattern, sentence in _KINDS:
-        if pattern.match(text):
+        if pattern.fullmatch(text):
             return sentence
     return GENERIC_REASON
 
@@ -116,15 +132,23 @@ def _integrity_ran(req) -> bool:
 def method_note(req, release: dict) -> dict:
     """{"how", "checks_ran", "not_verified"} for one engagement. `release` is
     `export_pdf.release_status(req)`; each of its reasons is restated in plain
-    words (`plain_reason`), once each, in the order the gate gave them."""
+    words (`plain_reason`), once each, in the order the gate gave them. A draft
+    never lists nothing: if its reasons are missing or unusable the list is the
+    generic sentence."""
     checks_ran = _passed_checks(getattr(req, "qa_report_json", None))
     if _integrity_ran(req):
         checks_ran.append(INTEGRITY_RAN)
-    reasons = (release or {}).get("reasons")
+    release = release if isinstance(release, dict) else {}
+    reasons = release.get("reasons")
     not_verified: list[str] = []
     for reason in reasons if isinstance(reasons, list) else []:
-        if isinstance(reason, str) and reason.strip():
-            sentence = plain_reason(reason)
-            if sentence not in not_verified:
-                not_verified.append(sentence)
+        # a reason that is blank or not text still stands for something that did
+        # not pass: it is told as the generic sentence, never left out
+        sentence = plain_reason(reason)
+        if sentence not in not_verified:
+            not_verified.append(sentence)
+    if not not_verified and release.get("status") == "draft":
+        # a draft is a draft because something did not pass; the cover says so,
+        # so this page may not list nothing
+        not_verified.append(GENERIC_REASON)
     return {"how": HOW, "checks_ran": checks_ran, "not_verified": not_verified}
