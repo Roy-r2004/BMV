@@ -220,7 +220,7 @@ function DownloadButton({ refId, kind, className, children }: {
         setBusy(true);
         downloadStudioExport(refId, kind, new URLSearchParams(window.location.search).get('review'))
           .catch(() => {
-            window.alert('The download could not start — check your connection and try again.');
+            window.alert('The download could not start. Press the button again in a moment.');
           })
           .finally(() => setBusy(false));
       }}
@@ -1586,7 +1586,7 @@ export default function StudioPage() {
       setPhase('building');
       setAct('building');
     } catch {
-      setGateError('We could not start the build just now. Try again in a moment.');
+      setGateError('We could not save that just now. Your answer is still here; press the button again when you are ready.');
     } finally {
       setGateBusy(false);
     }
@@ -1603,7 +1603,7 @@ export default function StudioPage() {
       setPhase('diagnosing');
       setAct('building');
     } catch {
-      setGateError('We could not send that back just now. Try again in a moment.');
+      setGateError('We could not save that just now. Your answer is still here; press the button again when you are ready.');
     } finally {
       setGateBusy(false);
     }
@@ -2634,6 +2634,8 @@ export default function StudioPage() {
                   firstName={firstName}
                   pct={pct}
                   writing={false}
+                  documents={progress?.documents ?? []}
+                  mailPromise={Boolean(progress?.notify?.enabled)}
                   onStartPlans={() => void approveDecision()}
                   onRevise={(note) => void reviseDecision(note)}
                   busy={gateBusy}
@@ -2652,6 +2654,8 @@ export default function StudioPage() {
                     firstName={firstName}
                     pct={pct}
                     writing
+                    documents={progress?.documents ?? []}
+                    mailPromise={Boolean(progress?.notify?.enabled)}
                     onRevise={(note) => void reviseDecision(note)}
                     busy={gateBusy}
                     error={gateError}
@@ -2671,6 +2675,8 @@ export default function StudioPage() {
                   firstName={firstName}
                   pct={100}
                   writing
+                  documents={progress?.documents ?? []}
+                  mailPromise={Boolean(progress?.notify?.enabled)}
                   onOpenPlans={() => {
                     if (routeId != null) void showResult(routeId);
                   }}

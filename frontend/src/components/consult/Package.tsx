@@ -126,7 +126,7 @@ function Book({ cover, title, body, action, extra, meta }: {
       <div className={`cx-cover ${cover}`} aria-hidden="true" />
       <div className="min-w-0">
         <h3>{title}</h3>
-        <p>{failed ? 'The download could not start. Try again in a moment.' : body}</p>
+        <p>{failed ? 'The download could not start. Press the button again in a moment.' : body}</p>
         {action || extra || meta ? (
           <div className="meta">
             {action ? button(action) : null}

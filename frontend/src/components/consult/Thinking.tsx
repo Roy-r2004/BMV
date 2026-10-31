@@ -58,6 +58,7 @@ function Strike({ children, reduce }: { children: React.ReactNode; reduce: boole
 
 function Verdict({ h }: { h: BoardHypothesis }) {
   if (!h.verdict) return null;
+  if (h.notTested) return <span className="cx-chip cx-chip--amber">We couldn't run this test</span>;
   if (h.verdict === 'supported') return <span className="cx-chip cx-chip--green">Supported</span>;
   if (h.verdict === 'refuted') {
     return h.theirs

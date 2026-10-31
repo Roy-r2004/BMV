@@ -13,16 +13,6 @@ import { motion, useReducedMotion } from 'framer-motion';
 import type { StudioDecision } from '../../api/consultant';
 import { fmt } from '../../utils/week';
 
-/** Each document and the stretch of the run's progress it is written in. */
-const DOCS: { title: string; note: string; from: number; to: number }[] = [
-  { title: 'The blueprint', note: 'The decision, the case, every module', from: 42, to: 56 },
-  { title: 'The technical plan', note: 'For whoever builds it', from: 56, to: 60 },
-  { title: 'The operations manual', note: 'Who does what, every day', from: 60, to: 61 },
-  { title: 'The implementation roadmap', note: 'Who does what, week by week', from: 61, to: 62 },
-  { title: 'Your system, screen by screen', note: 'Every screen, drawn for you', from: 62, to: 100 },
-  { title: 'Your AI team', note: 'What each one decides alone', from: 42, to: 56 },
-];
-
 interface Pillar {
   key: string;
   text: string;
@@ -51,6 +41,8 @@ export default function Answer({
   firstName,
   pct,
   writing,
+  documents,
+  mailPromise,
   onOpenPlans,
   onRevise,
   onStartPlans,
@@ -61,6 +53,12 @@ export default function Answer({
   firstName: string | null;
   pct: number;
   writing: boolean;
+  /** The documents the run has written or is writing, as the server reports
+   *  them. The list is exactly this: nothing is shown ahead of the run. */
+  documents: { key: string; title: string; state: 'ready' | 'writing' }[];
+  /** True only when mail can actually be sent. The screen promises an email
+   *  only then. */
+  mailPromise: boolean;
   onOpenPlans?: () => void;
   onRevise: (note: string) => void;
   onStartPlans?: () => void;
@@ -112,11 +110,6 @@ export default function Answer({
 
   const legacy = !writing && (decision.status === 'awaiting_approval' || decision.status === 'advised');
   const ready = pct >= 100;
-  const docState = (from: number, to: number): 'queued' | 'busy' | 'ok' => {
-    if (pct >= to || (!writing && ready)) return 'ok';
-    if (writing && pct >= from) return 'busy';
-    return 'queued';
-  };
 
   const enter = (delay: number) =>
     reduce ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, delay } };
@@ -168,21 +161,23 @@ export default function Answer({
         <motion.aside className="cx-pane cx-writing" {...enter(0.15)} aria-live="polite">
           <h3>{legacy ? 'Your plans' : ready ? 'Your plans are ready' : 'Your plans are being written'}</h3>
           <p>Everything needed to build this, for you or for any team.</p>
-          <div className="cx-docs">
-            {DOCS.map((doc) => {
-              const st = legacy ? 'queued' : docState(doc.from, doc.to);
-              return (
-                <div key={doc.title} className={`cx-docline${st === 'busy' ? ' busy' : st === 'ok' ? ' ok' : ''}`}>
+          {documents.length ? (
+            <div className="cx-docs">
+              {documents.map((doc) => (
+                <div key={doc.key} className={`cx-docline${doc.state === 'writing' ? ' busy' : ' ok'}`}>
                   <span className="ic" aria-hidden="true" />
                   <div>
                     <b>{doc.title}</b>
-                    <small>{doc.note}</small>
                   </div>
-                  <span className="st">{legacy ? '' : st === 'ok' ? 'Ready' : st === 'busy' ? 'Writing' : 'Queued'}</span>
+                  <span className="st">{doc.state === 'writing' ? 'Writing' : 'Ready'}</span>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : legacy ? (
+            <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>We start writing them when you press the button.</p>
+          ) : !ready ? (
+            <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>Your plans start in a moment.</p>
+          ) : null}
           {legacy ? (
             <button type="button" className="cx-btn cx-btn--blue" onClick={onStartPlans} disabled={busy || !onStartPlans}>
               {busy ? 'Starting…' : 'Write my plans'}
@@ -194,7 +189,9 @@ export default function Answer({
           )}
           {!ready && !legacy ? (
             <p className="cx-faint" style={{ marginTop: 10, fontSize: 13, textAlign: 'center' }}>
-              You don't need to wait here. We'll email you when it's ready.
+              {mailPromise
+                ? "You don't need to wait here. We'll email you when it's ready."
+                : 'This page updates itself as each document is finished.'}
             </p>
           ) : null}
           <p className="cx-pushback">
@@ -212,14 +209,18 @@ export default function Answer({
               <h2 className="cx-h3">The explanations we tested</h2>
               <ul style={{ marginTop: 18, display: 'grid', gap: 18 }}>
                 <li>
-                  <span className="cx-chip cx-chip--green">Held up</span>
+                  {diag.leading.not_tested
+                    ? <span className="cx-chip cx-chip--amber">We couldn't run this test</span>
+                    : <span className="cx-chip cx-chip--green">Held up</span>}
                   <p style={{ marginTop: 8, fontWeight: 600 }}>{diag.leading.statement}</p>
                   {diag.leading.because ? <p className="cx-muted" style={{ marginTop: 4, fontSize: 15 }}>{diag.leading.because}</p> : null}
                 </li>
                 {diag.considered.map((c) => (
                   <li key={c.statement}>
                     <span className={`cx-chip ${c.verdict === 'refuted' ? 'cx-chip--dim' : 'cx-chip--amber'}`}>
-                      {c.verdict === 'refuted' ? 'Ruled out' : c.verdict === 'supported' ? 'Also supported' : "Couldn't check"}
+                      {c.not_tested
+                        ? "We couldn't run this test"
+                        : c.verdict === 'refuted' ? 'Ruled out' : c.verdict === 'supported' ? 'Also supported' : "Couldn't check"}
                     </span>
                     <p style={{ marginTop: 8 }}>{c.statement}</p>
                     {c.because ? <p className="cx-muted" style={{ marginTop: 4, fontSize: 15 }}>{c.because}</p> : null}
@@ -252,7 +253,9 @@ export default function Answer({
                 ))}
               </ul>
             ) : (
-              <p className="cx-muted" style={{ marginTop: 12 }}>Nothing listed. Confidence: {d.confidence ?? 'medium'}.</p>
+              <p className="cx-muted" style={{ marginTop: 12 }}>
+                Nothing listed.{d.confidence ? ` Confidence: ${d.confidence}.` : ''}
+              </p>
             )}
             {d.why_not_the_others ? (
               <>

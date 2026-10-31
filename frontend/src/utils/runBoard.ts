@@ -24,6 +24,9 @@ export interface BoardHypothesis {
   /** This is the explanation the client walked in with. */
   theirs?: boolean;
   verdict?: Verdict;
+  /** The test could not be run on our side. The verdict then reads
+   *  'untestable', but that is not a finding about the client's figures. */
+  notTested?: boolean;
   because?: string;
   cites: string[];
   leading: boolean;
@@ -97,6 +100,7 @@ export function derivePasses(steps: ThinkingStep[]): BoardPass[] {
         const h = cur.hypotheses.find((x) => x.text === s.text);
         if (h) {
           h.verdict = s.verdict;
+          h.notTested = Boolean(s.not_tested);
           h.because = s.because;
           h.cites = s.cites ?? [];
         }

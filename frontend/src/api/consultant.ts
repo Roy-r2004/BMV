@@ -347,6 +347,10 @@ export interface ThinkingStep {
   theirs?: boolean;
   /** verdict */
   verdict?: 'supported' | 'refuted' | 'untestable';
+  /** On a verdict whose test could not be run on our side. It then reads
+   *  'untestable' for lack of a better value, but it is not the same thing:
+   *  the client's figures were never put to it. */
+  not_tested?: boolean;
   because?: string;
   cites?: string[];
   /** testing — marks the one that leads */
@@ -1098,9 +1102,19 @@ export interface StudioDiagnosis {
     because: string | null;
     cites: StudioCitedClaim[];
     would_need: string | null;
+    /** The test could not be run on our side: its verdict reads "untestable"
+     *  for lack of a better value, and must not be worded as thin figures. */
+    not_tested?: boolean;
     from_owner: boolean | null;
   };
-  considered: { statement: string; area: string | null; verdict: string | null; because: string | null }[];
+  considered: {
+    statement: string;
+    area: string | null;
+    verdict: string | null;
+    because: string | null;
+    /** As on `leading`: the test never ran. */
+    not_tested?: boolean;
+  }[];
   /** 'survived' | 'killed' | 'unchallenged'. The third is not the first: a
    *  review that could not run has approved nothing. */
   status: string | null;
