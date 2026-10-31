@@ -8,6 +8,11 @@ vocabulary of `schema`. Everything is shaped and bounded on the way in; a
 screen the renderer cannot draw is retried once with the exact reasons, then
 dropped rather than shown broken.
 
+No fallback: when the call that plans the system fails, or the call that
+draws any screen of it, the stage stops the run (`StageFailed`) and saves
+nothing. Only the polish stays soft: a redraw that fails in the fit pass keeps
+the screen as it was drawn, and a frame that cannot be measured is left alone.
+
 Numbers: the screens carry sample data and say so on every frame, but any
 figure the client gave that a screen shows is theirs. Captions and the story
 are statements about the business, so they are checked like the answer's
@@ -33,6 +38,7 @@ from app.pipeline import answer as _answer
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
 from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline.failure import StageFailed
 from app.screens import browser, render, schema
 from app.templating import render as render_prompt
 
@@ -205,7 +211,10 @@ def _call(model: str, prompt: str, max_tokens: int) -> tuple[dict, dict | None]:
     return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage")
 
 
-def _plan(db: Session, request_id: int, inputs: dict) -> dict | None:
+def _plan(db: Session, request_id: int, inputs: dict) -> dict:
+    """The system's design, from the plan call. A call that fails, or two
+    replies that plan too little, raise `StageFailed("screens")`: with no plan
+    there are no screens to draw."""
     module_ids = {m["id"] for m in inputs["modules"]}
     base = dict(
         business_name=inputs["business_name"], description=inputs["description"], question=inputs["question"],
@@ -227,13 +236,13 @@ def _plan(db: Session, request_id: int, inputs: dict) -> dict | None:
             log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
                       purpose=f"screens_plan:{attempt}", success=False, error=str(exc)[:500])
             logger.warning("screens plan call failed: %s", str(exc)[:200])
-            return None
+            raise StageFailed("screens", exc) from exc
         plan, problems = schema.shape_plan(raw, module_ids or None)
         if plan:
             return plan
         feedback = "\n".join(f"- {p}" for p in problems)
         logger.info("screens plan attempt %d rejected: %s", attempt, feedback[:300])
-    return None
+    raise StageFailed("screens", f"no usable plan for the system: {feedback}")
 
 
 def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None,
@@ -337,34 +346,61 @@ def _save_pngs(db: Session, req: Request, system: dict) -> int:
     return len(pngs)
 
 
+def _ledger_draw(db: Session, request_id: int, logs: list[dict]) -> str | None:
+    """Put one screen's calls on the cost ledger, on the calling thread. Returns
+    the error of the first call that failed, or None when none did."""
+    failed = None
+    for entry in logs:
+        log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
+                  purpose=entry["purpose"], usage=entry.get("usage"), success=entry["success"],
+                  error=entry.get("error"))
+        if not entry["success"] and failed is None:
+            failed = entry.get("error") or f"{entry['purpose']} failed"
+    return failed
+
+
 def build(db: Session, request_id: int) -> int:
     """Design and draw the system. Returns how many screens were drawn; 0
-    means nothing was saved (the run degrades, it does not fail)."""
+    means nothing was saved because too few screens came out drawable.
+
+    Raises `StageFailed("screens")` when the plan call fails or comes back
+    unusable, or when the call that draws any screen fails: nothing is saved
+    then, and nothing stands in for the screens that were not drawn."""
     req = db.get(Request, request_id)
     if req is None:
         return 0
     inputs = _inputs(req)
     plan = _plan(db, request_id, inputs)
-    if plan is None:
-        return 0
 
     # The overview is drawn first and alone; every other screen is then drawn
     # against it, in parallel, so the whole system matches one standard that
     # belongs to this business.
     first, rest = plan["screens"][0], plan["screens"][1:]
+
+    def stop(failed: list) -> StageFailed:  # failed: (screen, error) for each screen whose call failed
+        screen, error = failed[0]
+        return StageFailed("screens", f"{len(failed)} of {len(plan['screens'])} screens could not be drawn; "
+                                      f"first, {screen['title']}: {error}")
+
     first_body, first_logs = _draw(inputs, plan, first)
-    results = [(first["id"], (first_body, first_logs))]
+    bodies, failed_calls = {}, []
+    error = _ledger_draw(db, request_id, first_logs)
+    if error is not None:
+        # nothing else is drawn, or paid for, against an overview that is not there
+        raise stop([(first, error)])
+    if first_body:
+        bodies[first["id"]] = first_body
     reference = first_body
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        results += list(pool.map(lambda s: (s["id"], _draw(inputs, plan, s, reference)), rest))
-    bodies = {}
-    for sid, (body, logs) in results:
-        for entry in logs:
-            log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                      purpose=entry["purpose"], usage=entry.get("usage"), success=entry["success"],
-                      error=entry.get("error"))
+        drawn = list(pool.map(lambda s: (s, _draw(inputs, plan, s, reference)), rest))
+    for screen, (body, logs) in drawn:
+        error = _ledger_draw(db, request_id, logs)
+        if error is not None:
+            failed_calls.append((screen, error))
         if body:
-            bodies[sid] = body
+            bodies[screen["id"]] = body
+    if failed_calls:
+        raise stop(failed_calls)
 
     # A screen that overfills the fixed frame is redrawn once, told by how
     # much; one that still overflows is kept (the frame clips the bottom)

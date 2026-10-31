@@ -9,9 +9,10 @@ each claim traceable to intake facts), THEN deep-spec each module with its
 own dedicated call — so the documents downstream are assembled from
 specifics that already exist as data, not improvised as sentences.
 
-Fails open like every text stage here: no decomposition means the
-blueprint falls back to its pre-decomposition quality, it never kills the
-request.
+There is no fallback. If the breakdown, or any one module's deep spec, cannot
+be made, the run stops (`StageFailed`): every volume after this is written
+from these modules, so a thinner breakdown would be a thinner package that
+looks whole.
 """
 
 import json
@@ -27,6 +28,7 @@ from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.pipeline import handoff
 from app.pipeline.analyze import _format_site_research
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 logger = logging.getLogger("consultant.decompose")
@@ -433,16 +435,34 @@ def _clamp_modules(modules: list) -> list:
     return cleaned[: settings.MAX_MODULES_PER_REQUEST]
 
 
+def _module_calls_failed(what: str, modules: list, results: list) -> StageFailed | None:
+    """The stop for module calls that failed, or None when every one worked.
+    `results` are the (value, usage, error) of `_spec_one` / `_tech_one` in
+    module order. Built here, on the calling thread, once the usage of every
+    call is on the ledger: a worker thread must never be the one to raise."""
+    failed = [(m, error) for m, (_, _, error) in zip(modules, results) if error is not None]
+    if not failed:
+        return None
+    first_module, first_error = failed[0]
+    return StageFailed(
+        "decomposing",
+        f"{len(failed)} of {len(modules)} module {what} calls failed; "
+        f"first, for {first_module.get('name')}: {first_error}",
+    )
+
+
 def decompose_business(
     db: Session, request_id: int, analysis: dict, consult_result: dict, plan_result: dict,
     feedback: list[str] | None = None,
-) -> dict | None:
+) -> dict:
     """Break the product into modules + business case, then deep-spec each
     module with its own call (in parallel — they are independent).
 
-    Returns {"modules": [...], "business_case": {...}} with each module
-    carrying its deep spec under "spec" (None when that one call failed),
-    or None when the decomposition call itself failed.
+    Returns {"modules": [...], "business_case": {...}, "registry": {...}} with
+    each module carrying its deep spec under "spec" and its engineering spec
+    under "tech". Raises `StageFailed("decomposing")` when the breakdown call
+    fails, when it names no modules, or when any module's spec or tech call
+    fails: there is nothing to carry on with.
     """
     req = db.get(Request, request_id)
     if req is None:
@@ -494,11 +514,11 @@ def decompose_business(
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="decompose",
             success=False, error=str(exc)[:500],
         )
-        return None
+        raise StageFailed("decomposing", exc) from exc
 
     if not modules:
         logger.warning("decomposition returned no usable modules: request=%s", request_id)
-        return None
+        raise StageFailed("decomposing", "the breakdown came back with no usable modules")
 
     # Deep-spec each module with its own dedicated call. The calls are pure
     # HTTP and independent, so they run in parallel — but the DB session is
@@ -536,7 +556,7 @@ def decompose_business(
                 settings.ANALYSIS_MODEL, [{"role": "user", "content": spec_prompt}], max_tokens=2000,
             )
             return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage"), None
-        except Exception as exc:  # one module's spec failing must not sink the rest
+        except Exception as exc:  # handed back, not raised: this runs on a worker thread
             return None, None, str(exc)[:500]
 
     with ThreadPoolExecutor(max_workers=min(4, len(modules))) as pool:
@@ -549,6 +569,11 @@ def decompose_business(
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="module_spec",
             usage=usage, success=error is None, error=error,
         )
+    # Before the engineering specs, which are written FROM these: a module
+    # without its spec would be given a blank one and the money spent anyway.
+    stop = _module_calls_failed("spec", modules, results)
+    if stop is not None:
+        raise stop
 
     # Second pass: the TECHNICAL anatomy of each module — data model, and
     # for AI-bearing modules the agent's brain/tools/memory/guardrails/
@@ -597,6 +622,9 @@ def decompose_business(
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="tech_spec",
             usage=usage, success=error is None, error=error,
         )
+    stop = _module_calls_failed("tech", modules, tech_results)
+    if stop is not None:
+        raise stop
 
     # The typed claim registry: client facts, verified derivations, the
     # canonical pilot gate, typed/labeled technical thresholds, registry-

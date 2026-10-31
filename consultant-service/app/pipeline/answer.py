@@ -15,8 +15,9 @@ What it checks, and why it can:
     so the page can show it.
 
 A model that invents "$32 at the studio down the road" is caught, because the
-owner never said 32. Fails open to None: the screen then shows the decision's
-own summary, which is what it showed before this stage existed.
+owner never said 32. If no answer can be made the run stops (`StageFailed`):
+the page that follows would otherwise show the decision's own summary, as if
+the stage had not been asked.
 """
 
 import json
@@ -30,6 +31,7 @@ from app.models import Request
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
 from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 logger = logging.getLogger("consultant.answer")
@@ -251,7 +253,11 @@ def _leading(req: Request) -> str:
 
 
 def write(db: Session, request_id: int, decision: dict) -> dict | None:
-    """Write, verify and persist the answer. Never raises."""
+    """Write, verify and persist the answer. Raises `StageFailed("answering")`
+    when its inputs cannot be read, when the model call fails, or when no
+    attempt gives an answer that checks out; an answer left from an earlier
+    diagnosis is cleared first, never kept in its place. Returns None only when
+    the request does not exist."""
     from app.pipeline import diagnose
 
     req = db.get(Request, request_id)
@@ -267,17 +273,20 @@ def write(db: Session, request_id: int, decision: dict) -> dict | None:
             central_problem=decision.get("central_problem") or "",
             summary=decision.get("consulting_summary") or "",
             why_not=decision.get("why_not_the_others") or "",
-            confidence=decision.get("confidence") or "medium",
+            confidence=decision.get("confidence"),
             unverified="; ".join(decision.get("unverified") or []) or "nothing listed",
             leading=_leading(req),
             claims=_claim_lines(claims),
         )
     except Exception as exc:
         logger.warning("answer could not be prepared: %s", str(exc)[:200])
-        return None
+        req.answer_json = None
+        db.commit()
+        raise StageFailed("answering", exc) from exc
 
     feedback = ""
     result = None
+    cause: str | BaseException = "no answer came back usable"
     for attempt in (1, 2):
         try:
             prompt = render("answer.j2", **base)
@@ -293,6 +302,7 @@ def write(db: Session, request_id: int, decision: dict) -> dict | None:
             log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
                       purpose=f"answer:{attempt}", success=False, error=str(exc)[:500])
             logger.warning("answer call failed: %s", str(exc)[:200])
+            cause = exc
             break
         candidate, problems = shape(raw, claims, texts)
         if candidate:
@@ -301,10 +311,13 @@ def write(db: Session, request_id: int, decision: dict) -> dict | None:
             break
         logger.info("answer attempt %d rejected in part: %s", attempt, "; ".join(problems)[:400])
         feedback = "\n".join(f"- {p}" for p in problems)
+        cause = "no usable answer: " + "; ".join(problems)
 
     req = db.get(Request, request_id)
     req.answer_json = json.dumps(result) if result else None
     db.commit()
+    if result is None:
+        raise StageFailed("answering", cause)
     return result
 
 

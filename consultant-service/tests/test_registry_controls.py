@@ -1189,6 +1189,7 @@ def test_pass6_classes_unpromised_components_auditor_arithmetic_and_current_stat
 
 def test_failed_regeneration_never_erases_an_existing_volume(client, monkeypatch):
     from app.pipeline import blueprint as bp
+    from app.pipeline.failure import StageFailed
 
     bc, mods, reg = _skeleton()
     db = SessionLocal()
@@ -1199,13 +1200,18 @@ def test_failed_regeneration_never_erases_an_existing_volume(client, monkeypatch
         raise RuntimeError("OpenRouter 402: Insufficient credits")
 
     monkeypatch.setattr(bp.provider, "chat", chat)
-    out = bp.write_blueprint(db, row.id, {}, {}, {"concept_name": "C", "roles": []},
-                             {"modules": mods, "business_case": bc, "registry": reg})
-    out2 = bp.write_technical_plan(db, row.id, {}, {"concept_name": "C", "roles": []},
-                                   {"modules": mods, "business_case": bc, "registry": reg})
+    # a failed call now stops the run instead of returning the old volume as if
+    # it were new; what is already on the row is still untouched
+    with pytest.raises(StageFailed) as blueprint_stop:
+        bp.write_blueprint(db, row.id, {}, {}, {"concept_name": "C", "roles": []},
+                           {"modules": mods, "business_case": bc, "registry": reg})
+    with pytest.raises(StageFailed) as technical_stop:
+        bp.write_technical_plan(db, row.id, {}, {"concept_name": "C", "roles": []},
+                                {"modules": mods, "business_case": bc, "registry": reg})
+    assert (blueprint_stop.value.stage, technical_stop.value.stage) == ("blueprint", "technical")
     db.refresh(row)
-    assert row.mvp_blueprint == "## The decision\nkept\n" == out
-    assert row.technical_plan == "## How your system works\nkept\n" == out2
+    assert row.mvp_blueprint == "## The decision\nkept\n"
+    assert row.technical_plan == "## How your system works\nkept\n"
     db.close()
 
 

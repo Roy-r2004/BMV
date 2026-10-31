@@ -8,8 +8,10 @@ make (or explicitly skip because an AI employee covers it), the partner to
 engage, the numbers to watch weekly once live.
 
 Generated from the same decomposition the documents were written from, as
-structured steps the result page renders natively. Fails open like every
-text stage: no playbook degrades the deliverable, never kills the request.
+structured steps the result page renders natively. No playbook is no
+deliverable: a call that fails, or a reply with no valid step in it, stops
+the run (`StageFailed`) rather than shipping a package that is missing the
+one document that says what to do.
 """
 
 import json
@@ -22,6 +24,7 @@ from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.pipeline import handoff
 from app.pipeline.analyze import _format_site_research
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 _VALID_PHASES = {"before", "during", "after"}
@@ -30,7 +33,7 @@ _VALID_WHO = {"you", "bmv", "partner"}
 
 def write_playbook(
     db: Session, request_id: int, plan_result: dict, decomposition: dict | None
-) -> dict | None:
+) -> dict:
     req = db.get(Request, request_id)
     if req is None:
         raise ValueError(f"Request {request_id} not found")
@@ -87,7 +90,7 @@ def write_playbook(
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="playbook",
             success=False, error=str(exc)[:500],
         )
-        return None
+        raise StageFailed("playbook", exc) from exc
 
     # The playbook restates the gate only as the canonical sentence, names
     # modules by their client-facing names, never by id.
@@ -134,7 +137,7 @@ def write_playbook(
                 humans.insert(0, {"role": _pg.PILOT_OPERATOR, "when": "from day one of the Phase-1 pilot",
                                   "why": "runs the rules-based pilot by hand: " + "; ".join(str(x).rstrip(".") for x in moved) + "."})
         result["people_plan"] = people
-    except Exception:  # the playbook stays fail-open
+    except Exception:  # tidying a playbook we have is not a reason to lose it
         pass
     req.playbook_json = json.dumps(result)
     db.commit()

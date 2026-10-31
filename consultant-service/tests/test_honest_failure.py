@@ -35,6 +35,17 @@ SECRET_CAUSE = "OpenRouter 503: sk-or-v1-SECRET"
 
 
 @pytest.fixture(autouse=True)
+def _no_live_provider(monkeypatch):
+    """Nothing in this file may reach the real provider: a test that needs a
+    model stubs it. `pytest.fail` is not an `Exception`, so a stage's own
+    `except Exception` cannot swallow a missing stub as a failed call."""
+    def refuse(*args, **kwargs):
+        pytest.fail("a test called the live provider; stub app.ai.provider.chat")
+
+    monkeypatch.setattr("app.ai.provider.chat", refuse)
+
+
+@pytest.fixture(autouse=True)
 def _fresh_stall_window():
     failure._last_stall_mail.clear()
     yield
@@ -378,7 +389,9 @@ HEALTHY_STAGES = {
     "consulting": ("app.pipeline.decide.decide", lambda *a, **k: {"consulting_summary": "Fill the quiet hours."}),
     "answering": ("app.pipeline.answer.write", _nothing),
     "planning": ("app.pipeline.plan.plan_integration", lambda *a, **k: {"concept_name": "Halo"}),
-    "decomposing": ("app.pipeline.decompose.decompose_business", lambda *a, **k: {"business_case": {}, "modules": []}),
+    # one module, so that the stage after it has something to shape
+    "decomposing": ("app.pipeline.decompose.decompose_business",
+                    lambda *a, **k: {"business_case": {}, "modules": [{"id": "booking", "name": "Booking", "purpose": "Book classes"}]}),
     "shaping": ("app.pipeline.extras.build_extras", _nothing),
     "blueprint": ("app.pipeline.blueprint.write_blueprint", _stub_blueprint),
     "technical": ("app.pipeline.blueprint.write_technical_plan", _nothing),
@@ -503,21 +516,6 @@ def test_a_failure_in_a_superseded_build_is_not_a_failure(pipeline_with_only, mo
     assert run.outbox == []
 
 
-def test_decomposition_that_returns_nothing_stops_the_run(pipeline_with_only, monkeypatch):
-    run = pipeline_with_only("decomposing")
-    later = []
-    monkeypatch.setattr("app.pipeline.decompose.decompose_business", lambda *a, **k: None)
-    monkeypatch.setattr("app.pipeline.extras.build_extras", lambda *a, **k: later.append("shaping"))
-
-    orchestrator.run(run.request_id)
-
-    row = _read(run.request_id)
-    assert row.status == "failed" and not row.is_generating
-    assert json.loads(row.failure_json)["stage"] == "decomposing"
-    assert later == []  # nothing was written on top of an empty breakdown
-    assert len(run.outbox) == 1
-
-
 def test_a_capacity_read_that_reports_an_error_stops_the_run(pipeline_with_only, monkeypatch):
     run = pipeline_with_only("capacity")
     monkeypatch.setattr("app.pipeline.capacity.read", lambda *a, **k: (None, None, "boom"))
@@ -538,6 +536,14 @@ STAGES_THAT_STOP_THE_RUN = [
     pytest.param("analyzing", "analyzing", id="analyzing"),
     pytest.param("consulting", "consulting", id="consulting"),
     pytest.param("planning", "planning", id="planning"),
+    pytest.param("decomposing", "decomposing", id="decomposing"),
+    pytest.param("shaping", "shaping", id="shaping"),
+    pytest.param("blueprint", "blueprint", id="blueprint"),
+    pytest.param("technical", "technical", id="technical"),
+    pytest.param("playbook", "playbook", id="playbook"),
+    pytest.param("roadmap", "roadmap", id="roadmap"),
+    pytest.param("answering", "answering", id="answering"),
+    pytest.param("screens", "screens", id="screens"),
 ]
 
 #: What the old fallbacks wrote for every business on earth. None of it may be
@@ -568,6 +574,13 @@ def test_a_stage_whose_provider_call_fails_stops_the_run_and_says_where(pipeline
     for column in (row.business_analysis_json, row.consulting_recommendations_json, row.roles_json):
         for canned in CANNED_ANSWERS:
             assert canned.lower() not in (column or "").lower(), f"{canned!r} was written to the row"
+
+
+def _provider_is_down(monkeypatch) -> None:
+    def provider_down(*args, **kwargs):
+        raise AiProviderError(SECRET_CAUSE)
+
+    monkeypatch.setattr("app.ai.provider.chat", provider_down)
 
 
 def _model_replies(monkeypatch, reply: dict) -> None:
@@ -684,6 +697,428 @@ def test_decide_keeps_a_confidence_the_model_stated(monkeypatch, stated):
     request_id = _generating_row()
 
     assert _decide(request_id)["confidence"] == stated
+
+
+# -- the document stages ---------------------------------------------------
+
+
+def _ledger(request_id: int) -> list[tuple[str, bool]]:
+    """What the cost ledger holds for a run: (purpose, success), oldest first."""
+    from app.models import AiUsageEvent
+
+    db = SessionLocal()
+    try:
+        rows = db.query(AiUsageEvent).filter(AiUsageEvent.request_id == request_id).order_by(AiUsageEvent.id)
+        return [(e.purpose, e.success) for e in rows]
+    finally:
+        db.close()
+
+
+def _provider_by_template(monkeypatch, stage_module, replies: dict) -> None:
+    """For a stage that renders several templates: the provider answers each
+    prompt from the template it was rendered from. A reply is the dict to
+    answer with, an exception to raise, or a function of the prompt that
+    returns either."""
+    rendered: dict[str, str] = {}
+    real_render = stage_module.render
+
+    def render_and_remember(name, **context):
+        text = real_render(name, **context)
+        rendered[text] = name
+        return text
+
+    def chat(model, messages, **kwargs):
+        prompt = messages[0]["content"]
+        reply = replies[rendered[prompt]]
+        if callable(reply):
+            reply = reply(prompt)
+        if isinstance(reply, BaseException):
+            raise reply
+        return {"choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}}
+
+    monkeypatch.setattr(stage_module, "render", render_and_remember)
+    monkeypatch.setattr("app.ai.provider.chat", chat)
+
+
+def _decompose(request_id: int) -> dict:
+    from app.pipeline import decompose
+
+    db = SessionLocal()
+    try:
+        return decompose.decompose_business(
+            db, request_id, {"business_model": "classes"}, {"consulting_summary": "Fill the quiet hours."},
+            {"concept_name": "Halo"})
+    finally:
+        db.close()
+
+
+TWO_MODULES = {"modules": [{"id": "m0", "name": "Module 0", "purpose": "Book classes"},
+                           {"id": "m1", "name": "Module 1", "purpose": "Take payment"}], "business_case": {}}
+
+
+def test_one_module_spec_failing_stops_decomposition(monkeypatch):
+    from app.pipeline import decompose
+
+    def spec(prompt):
+        return AiProviderError(SECRET_CAUSE) if "Name: Module 1\n" in prompt else {"features": []}
+
+    _provider_by_template(monkeypatch, decompose, {
+        "decompose.j2": TWO_MODULES, "module_spec.j2": spec, "tech_spec.j2": {"data_model": []}})
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _decompose(request_id)
+
+    assert stopped.value.stage == "decomposing" and SECRET_CAUSE in stopped.value.cause
+    assert "Module 1" in stopped.value.cause
+    # both calls are on the cost ledger, the failed one as failed; the
+    # engineering specs, which are written from these, were never paid for
+    assert _ledger(request_id) == [("decompose", True), ("module_spec", True), ("module_spec", False)]
+
+
+def test_one_module_tech_spec_failing_stops_decomposition(monkeypatch):
+    from app.pipeline import decompose
+
+    def tech(prompt):
+        return AiProviderError(SECRET_CAUSE) if "Name: Module 0\n" in prompt else {"data_model": []}
+
+    _provider_by_template(monkeypatch, decompose, {
+        "decompose.j2": TWO_MODULES, "module_spec.j2": {"features": []}, "tech_spec.j2": tech})
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _decompose(request_id)
+
+    assert stopped.value.stage == "decomposing" and "Module 0" in stopped.value.cause
+    assert sorted(_ledger(request_id)) == sorted([
+        ("decompose", True), ("module_spec", True), ("module_spec", True), ("tech_spec", True), ("tech_spec", False)])
+
+
+def test_a_failed_decomposition_call_is_on_the_ledger_and_stops_the_stage(monkeypatch):
+    from app.pipeline import decompose
+
+    _provider_by_template(monkeypatch, decompose, {"decompose.j2": AiProviderError(SECRET_CAUSE)})
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _decompose(request_id)
+
+    assert stopped.value.stage == "decomposing" and stopped.value.cause == SECRET_CAUSE
+    assert _ledger(request_id) == [("decompose", False)]
+
+
+def test_a_decomposition_with_no_modules_stops_the_run(pipeline_with_only, monkeypatch):
+    """The call worked and the reply is valid, but it breaks the business into
+    nothing; every volume after it is written from the breakdown."""
+    run = pipeline_with_only("decomposing")
+    later = []
+    _model_replies(monkeypatch, {"modules": [], "business_case": {}})
+    monkeypatch.setattr("app.pipeline.extras.build_extras", lambda *a, **k: later.append("shaping"))
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and not row.is_generating
+    assert json.loads(row.failure_json)["stage"] == "decomposing"
+    assert later == []  # nothing was written on top of an empty breakdown
+    assert len(run.outbox) == 1
+    assert row.modules_json is None
+
+
+SHAPING_LAYERS = {
+    "journey.j2": {"stages": [{"stage": "Find a class", "backstage_modules": []}]},
+    "governance.j2": {"scoreboard": [{"metric": "Fill rate"}], "risks": [{"risk": "No-shows"}]},
+    "organization.j2": {"roles": [{"role": "Owner"}]},
+    "checklists.j2": {"checklists": [{"name": "Opening", "items": ["Unlock"]}]},
+    "procedures.j2": {"procedures": [{"name": "Booking", "steps": [{"step": "Take the name"}]}]},
+}
+
+
+def _shape(request_id: int, **kwargs) -> None:
+    from app.pipeline import extras
+
+    db = SessionLocal()
+    try:
+        extras.build_extras(db, request_id, {"target_customer_profile": "", "pain_points": []},
+                            {"modules": TWO_MODULES["modules"][:1], "business_case": {}}, **kwargs)
+    finally:
+        db.close()
+
+
+def test_a_shaping_layer_that_fails_stops_the_run_after_its_usage_is_logged(monkeypatch):
+    from app.pipeline import extras
+
+    _provider_by_template(monkeypatch, extras, {
+        **SHAPING_LAYERS, "checklists.j2": AiProviderError(SECRET_CAUSE), "journey.j2": AiProviderError("journey boom")})
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _shape(request_id)
+
+    assert stopped.value.stage == "shaping"
+    assert "journey boom" in stopped.value.cause  # the first layer to fail, in the order they are asked
+    ledger = dict(_ledger(request_id))
+    assert ledger["journey"] is False and ledger["checklists"] is False
+    assert ledger["governance"] is True and ledger["procedures"] is True
+    # a failed run is not left with half its layers
+    row = _read(request_id)
+    assert row.journey_json is None and row.scoreboard_json is None and row.org_json is None
+
+
+def test_a_partial_rebuild_of_one_layer_that_fails_stops_the_run_too(monkeypatch):
+    from app.pipeline import extras
+
+    _provider_by_template(monkeypatch, extras, {**SHAPING_LAYERS, "journey.j2": AiProviderError(SECRET_CAUSE)})
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _shape(request_id, only={"journey"})
+
+    assert stopped.value.stage == "shaping" and SECRET_CAUSE in stopped.value.cause
+    assert _ledger(request_id) == [("journey", False)]
+
+
+def test_shaping_that_works_still_saves_every_layer(monkeypatch):
+    from app.pipeline import extras
+
+    _provider_by_template(monkeypatch, extras, SHAPING_LAYERS)
+    request_id = _generating_row()
+
+    _shape(request_id)
+
+    row = _read(request_id)
+    assert row.journey_json and row.scoreboard_json and row.org_json and row.checklists_json and row.procedures_json
+
+
+def _model_replies_text(monkeypatch, text: str) -> None:
+    body = {"choices": [{"message": {"content": text}}], "usage": {}}
+    monkeypatch.setattr("app.ai.provider.chat", lambda *args, **kwargs: body)
+
+
+def test_a_document_call_that_fails_is_a_stage_failure_with_its_ledger_row(monkeypatch):
+    from app.pipeline import blueprint
+
+    _provider_is_down(monkeypatch)
+    request_id = _generating_row()
+    db = SessionLocal()
+    try:
+        with pytest.raises(StageFailed) as stopped:
+            blueprint._markdown_call(db, request_id, "technical_plan", "write it", stage="technical")
+    finally:
+        db.close()
+
+    assert stopped.value.stage == "technical" and stopped.value.cause == SECRET_CAUSE
+    assert _ledger(request_id) == [("technical_plan", False)]
+
+
+def test_a_document_that_comes_back_empty_is_a_stage_failure(monkeypatch):
+    from app.pipeline import blueprint
+
+    _model_replies_text(monkeypatch, "   ")
+    request_id = _generating_row()
+    db = SessionLocal()
+    try:
+        with pytest.raises(StageFailed) as stopped:
+            blueprint._markdown_call(db, request_id, "blueprint", "write it", stage="blueprint")
+    finally:
+        db.close()
+
+    assert stopped.value.stage == "blueprint" and "empty" in stopped.value.cause
+
+
+def test_a_document_that_works_is_returned_with_its_fence_stripped(monkeypatch):
+    from app.pipeline import blueprint
+
+    _model_replies_text(monkeypatch, "```markdown\n## The decision\nGo.\n```")
+    request_id = _generating_row()
+    db = SessionLocal()
+    try:
+        assert blueprint._markdown_call(db, request_id, "blueprint", "write it", stage="blueprint") == "## The decision\nGo."
+    finally:
+        db.close()
+    assert _ledger(request_id) == [("blueprint", True)]
+
+
+def test_a_playbook_with_no_valid_steps_stops_the_run(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only("playbook")
+    _model_replies(monkeypatch, {"steps": [{"title": "Missing its phase and its owner"}]})
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and not row.is_generating
+    record = json.loads(row.failure_json)
+    assert record["stage"] == "playbook" and "no valid steps" in record["cause"]
+    assert row.playbook_json is None
+    assert len(run.outbox) == 1
+
+
+def _write_roadmap(request_id: int):
+    from app.pipeline import action_plan
+
+    db = SessionLocal()
+    try:
+        return action_plan.write(db, request_id)
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("breakdown", ["the model is down", "the inputs cannot be read", "no roadmap is usable"])
+def test_a_roadmap_that_cannot_be_written_saves_its_failed_state_and_raises(monkeypatch, breakdown):
+    from app.pipeline import action_plan
+
+    if breakdown == "the model is down":
+        _provider_is_down(monkeypatch)
+    elif breakdown == "the inputs cannot be read":
+        def unreadable(req):
+            raise ValueError("modules_json is not json")
+
+        monkeypatch.setattr(action_plan, "_modules", unreadable)
+    else:
+        _model_replies(monkeypatch, {"summary": "x", "phases": [], "decisions": []})
+    request_id = _generating_row(status="done", is_generating=False)
+
+    with pytest.raises(StageFailed) as stopped:
+        _write_roadmap(request_id)
+
+    assert stopped.value.stage == "roadmap"
+    # what the roadmap page reads: failed, with its retry, not "writing" for good
+    assert json.loads(_read(request_id).action_plan_json) == {"status": "failed"}
+    ledger = _ledger(request_id)
+    if breakdown == "the model is down":
+        assert ledger == [("roadmap:1", False)] and SECRET_CAUSE in stopped.value.cause
+    elif breakdown == "no roadmap is usable":
+        assert ledger == [("roadmap:1", True), ("roadmap:2", True)]
+    else:
+        assert ledger == [] and "modules_json" in stopped.value.cause
+
+
+def test_a_roadmap_written_outside_a_run_tells_the_team_and_keeps_the_failed_state(monkeypatch, outbox):
+    """The owner can ask for a roadmap again from the page; that thread is not
+    the orchestrator, so nothing else would tell the team it failed."""
+    from app.pipeline import action_plan
+
+    _provider_is_down(monkeypatch)
+    request_id = _generating_row(status="done", is_generating=False)
+
+    action_plan.write_in_background(request_id)  # a thread entry: it does not raise
+
+    row = _read(request_id)
+    assert json.loads(row.action_plan_json) == {"status": "failed"}
+    assert row.status == "done" and not row.is_failed  # the delivered package is still delivered
+    assert [m[1] for m in outbox] == ["Run failed: Halo Reformer Studio (roadmap)"]
+    assert SECRET_CAUSE in outbox[0][2] and row.public_id in outbox[0][2]
+
+
+def test_a_roadmap_thread_ends_cleanly_when_the_team_cannot_be_told(monkeypatch):
+    from app.pipeline import action_plan
+
+    def mail_layer_bug(*args, **kwargs):
+        raise RuntimeError("mail layer bug")
+
+    _provider_is_down(monkeypatch)
+    monkeypatch.setattr(mailer, "notify_team_failure", mail_layer_bug)
+    request_id = _generating_row(status="done", is_generating=False)
+
+    action_plan.write_in_background(request_id)
+
+    assert json.loads(_read(request_id).action_plan_json) == {"status": "failed"}
+
+
+def _write_answer(request_id: int, decision: dict | None = None) -> dict:
+    from app.pipeline import answer
+
+    db = SessionLocal()
+    try:
+        return answer.write(db, request_id, decision if decision is not None else {"consulting_summary": "Fill the quiet hours."})
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("breakdown", ["the model is down", "the inputs cannot be read", "no answer is usable"])
+def test_an_answer_that_cannot_be_written_stops_the_stage(monkeypatch, breakdown):
+    from app.pipeline import diagnose
+
+    if breakdown == "the model is down":
+        _provider_is_down(monkeypatch)
+    elif breakdown == "the inputs cannot be read":
+        def unreadable(req):
+            raise ValueError("evidence is not json")
+
+        monkeypatch.setattr(diagnose, "_evidence_lines", unreadable)
+    else:
+        _model_replies(monkeypatch, {"turn": "A reply with no headline"})
+    request_id = _generating_row(answer_json=json.dumps({"headline": "From the last diagnosis"}))
+
+    with pytest.raises(StageFailed) as stopped:
+        _write_answer(request_id)
+
+    assert stopped.value.stage == "answering"
+    # the last diagnosis's answer does not stand in for this one
+    assert _read(request_id).answer_json is None
+    ledger = _ledger(request_id)
+    if breakdown == "the model is down":
+        assert ledger == [("answer:1", False)] and SECRET_CAUSE in stopped.value.cause
+    elif breakdown == "no answer is usable":
+        assert ledger == [("answer:1", True), ("answer:2", True)] and "no headline" in stopped.value.cause
+    else:
+        assert ledger == [] and "evidence" in stopped.value.cause
+
+
+def test_an_answer_whose_retry_fails_keeps_the_candidate_it_has(monkeypatch):
+    """The answer failed only at the margin: attempt one gave a headline, with a
+    complaint about the move; attempt two could not be asked. That is an answer."""
+    replies = iter([{"headline": "You're full.", "turn": "Evenings.", "sub": "Six classes.", "move": {"label": "bogus"}},
+                    AiProviderError(SECRET_CAUSE)])
+
+    def chat(*args, **kwargs):
+        reply = next(replies)
+        if isinstance(reply, BaseException):
+            raise reply
+        return {"choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}}
+
+    monkeypatch.setattr("app.ai.provider.chat", chat)
+    request_id = _generating_row()
+
+    result = _write_answer(request_id)
+
+    assert result["headline"] == "You're full."
+    assert json.loads(_read(request_id).answer_json)["headline"] == "You're full."
+
+
+@pytest.mark.parametrize("said", [
+    pytest.param({}, id="nothing"),
+    pytest.param({"confidence": None}, id="null"),
+    pytest.param({"confidence": ""}, id="empty"),
+])
+def test_the_answer_prompt_states_no_confidence_nobody_stated(monkeypatch, said):
+    prompts = []
+
+    def chat(model, messages, **kwargs):
+        prompts.append(messages[0]["content"])
+        return {"choices": [{"message": {"content": json.dumps({"headline": "You're full."})}}], "usage": {}}
+
+    monkeypatch.setattr("app.ai.provider.chat", chat)
+    request_id = _generating_row()
+
+    _write_answer(request_id, {"consulting_summary": "Fill the quiet hours.", **said})
+
+    assert "Confidence" not in prompts[0] and "medium" not in prompts[0].lower()
+
+
+def test_the_answer_prompt_carries_a_confidence_the_model_stated(monkeypatch):
+    prompts = []
+
+    def chat(model, messages, **kwargs):
+        prompts.append(messages[0]["content"])
+        return {"choices": [{"message": {"content": json.dumps({"headline": "You're full."})}}], "usage": {}}
+
+    monkeypatch.setattr("app.ai.provider.chat", chat)
+    request_id = _generating_row()
+
+    _write_answer(request_id, {"consulting_summary": "Fill the quiet hours.", "confidence": "low"})
+
+    assert "Confidence: low" in prompts[0]
 
 
 @pytest.mark.parametrize("entry", ["run", "run_build"])

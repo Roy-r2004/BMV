@@ -10,7 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.database import Base, SessionLocal, engine
-from app.models import Request
+from app.models import AiUsageEvent, Request
+from app.pipeline.failure import StageFailed
 from app.screens import browser, generate, render, schema
 from main import app
 
@@ -115,6 +116,12 @@ def _fake_chat(monkeypatch, replies: dict):
     return calls
 
 
+def _ledger(db, request_id: int) -> list[tuple[str, bool]]:
+    """The cost ledger for a run, oldest first: (purpose, success)."""
+    rows = db.query(AiUsageEvent).filter(AiUsageEvent.request_id == request_id).order_by(AiUsageEvent.id)
+    return [(e.purpose, e.success) for e in rows]
+
+
 def _request(db) -> Request:
     req = Request(business_name="Halo Reformer Studio",
                   business_description="12 reformers. Six classes a day, six days a week. $22 a class. The 6pm and 7pm classes have a waiting list.",
@@ -207,16 +214,115 @@ def test_a_screen_that_overflows_the_frame_is_redrawn_once_with_the_reason(monke
     db.close()
 
 
-def test_a_failed_plan_call_saves_nothing_and_does_not_raise(monkeypatch):
+def test_a_failed_plan_call_stops_the_stage_and_saves_nothing(monkeypatch):
     def chat(model, messages, **kwargs):
-        raise RuntimeError("402")
+        raise RuntimeError("402 sk-or-v1-SECRET")
 
     monkeypatch.setattr(generate.provider, "chat", chat)
     db = SessionLocal()
     req = _request(db)
-    assert generate.build(db, req.id) == 0
+    with pytest.raises(StageFailed) as stopped:
+        generate.build(db, req.id)
+    assert stopped.value.stage == "screens" and "402" in stopped.value.cause
     db.refresh(req)
     assert req.screens_json is None
+    # the failed call is on the cost ledger
+    assert _ledger(db, req.id) == [("screens_plan:1", False)]
+    db.close()
+
+
+def test_a_plan_the_model_cannot_get_right_stops_the_stage(monkeypatch):
+    """The calls worked; both replies plan too few screens. No plan, no screens:
+    the stage does not carry on to draw nothing and report success."""
+    calls = _fake_chat(monkeypatch, {"plan": {"screens": [{"id": "a", "title": "A"}]}, "screen": {}})
+    db = SessionLocal()
+    req = _request(db)
+    with pytest.raises(StageFailed) as stopped:
+        generate.build(db, req.id)
+    assert stopped.value.stage == "screens" and "screens" in stopped.value.cause
+    assert len(calls) == 2  # asked again once, with the reasons
+    db.refresh(req)
+    assert req.screens_json is None
+    db.close()
+
+
+def _screen_reply_failing_for(ex: dict, failing_title: str | None, fail_from: int = 1):
+    """A screen reply that raises (as a down provider does) for one screen's
+    calls from its `fail_from`-th call on, and draws the rest from the example."""
+    seen = {}
+
+    def screen_reply(prompt):
+        title = prompt.split("Title: ")[1].split("\n")[0].strip()
+        seen[title] = seen.get(title, 0) + 1
+        if title == failing_title and seen[title] >= fail_from:
+            raise RuntimeError("503 sk-or-v1-SECRET")
+        s = next(x for x in ex.values() if x["title"] == title)
+        return {"rows": s["rows"]}
+
+    return screen_reply
+
+
+def test_a_screen_whose_call_fails_stops_the_stage_and_saves_nothing(monkeypatch):
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    _fake_chat(monkeypatch, {"plan": _plan_reply(), "screen": _screen_reply_failing_for(ex, "Schedule")})
+    monkeypatch.setattr(browser, "available", lambda: False)
+    db = SessionLocal()
+    req = _request(db)
+    with pytest.raises(StageFailed) as stopped:
+        generate.build(db, req.id)
+    assert stopped.value.stage == "screens" and "503" in stopped.value.cause
+    db.refresh(req)
+    assert req.screens_json is None
+    # every call made is on the ledger, the failed one as failed
+    ledger = _ledger(db, req.id)
+    assert ("screen:schedule:1", False) in ledger
+    assert sum(1 for _, ok in ledger if ok) == 1 + 5 and sum(1 for _, ok in ledger if not ok) == 1
+    db.close()
+
+
+def test_when_the_first_screen_cannot_be_drawn_the_rest_are_not_paid_for(monkeypatch):
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    calls = _fake_chat(monkeypatch, {"plan": _plan_reply(), "screen": _screen_reply_failing_for(ex, "Today")})
+    monkeypatch.setattr(browser, "available", lambda: False)
+    db = SessionLocal()
+    req = _request(db)
+    with pytest.raises(StageFailed):
+        generate.build(db, req.id)
+    assert len(calls) == 2  # the plan and the overview, no more
+    assert _ledger(db, req.id) == [("screens_plan:1", True), ("screen:today:1", False)]
+    db.close()
+
+
+def test_a_failed_redraw_keeps_the_screen_as_it_was_drawn(monkeypatch):
+    """Fitting a screen to its frame is polish on a screen that exists: when the
+    redraw call fails the screen stays as drawn, and the stage still succeeds."""
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    _fake_chat(monkeypatch, {"plan": _plan_reply(), "screen": _screen_reply_failing_for(ex, "Schedule", fail_from=2)})
+    monkeypatch.setattr(browser, "available", lambda: True)
+    monkeypatch.setattr(browser, "measure_overflow", lambda html, ids: {"schedule": 120})
+    monkeypatch.setattr(browser, "render_pngs", lambda html, ids, out_dir, scale=2: {})
+    db = SessionLocal()
+    req = _request(db)
+    assert generate.build(db, req.id) == 6
+    db.refresh(req)
+    assert "schedule" in [s["id"] for s in generate.load(req)["screens"]]
+    assert ("screen-fit:schedule:1", False) in _ledger(db, req.id)
+    db.close()
+
+
+def test_a_frame_that_cannot_be_measured_leaves_the_screens_as_drawn(monkeypatch):
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    _fake_chat(monkeypatch, {"plan": _plan_reply(), "screen": _screen_reply_failing_for(ex, None)})
+
+    def cannot_measure(html, ids):
+        raise RuntimeError("browser crashed")
+
+    monkeypatch.setattr(browser, "available", lambda: True)
+    monkeypatch.setattr(browser, "measure_overflow", cannot_measure)
+    monkeypatch.setattr(browser, "render_pngs", lambda html, ids, out_dir, scale=2: {})
+    db = SessionLocal()
+    req = _request(db)
+    assert generate.build(db, req.id) == 6
     db.close()
 
 

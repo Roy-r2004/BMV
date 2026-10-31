@@ -14,9 +14,10 @@ real consulting deliverable carries beyond the documents themselves:
 They run in parallel — pure HTTP, independent — under the same thread
 rules decompose.py learned the hard way: request fields are snapshotted
 to plain strings BEFORE any thread starts, and usage is ledgered
-afterwards on the request thread. Each call fails open alone: a missing
-journey never costs the client their scoreboard, and nothing here can
-kill the request.
+afterwards on the request thread. Every call is paid for and ledgered
+whether or not another one failed; but if any layer failed the run stops
+(`StageFailed`): a package with no journey, or no scoreboard, would read as
+if that was all we found.
 """
 
 import json
@@ -32,6 +33,7 @@ from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.pipeline import handoff
 from app.pipeline.decompose import _format_owner_numbers
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 logger = logging.getLogger("consultant.extras")
@@ -296,8 +298,8 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     modules = (decomposition or {}).get("modules") or []
     business_case = (decomposition or {}).get("business_case") or {}
     if not modules:
-        # Nothing to shape from — the documents' own fallback path is
-        # already carrying this request.
+        # Nothing to shape from. (A run never gets here: a decomposition with
+        # no modules has already stopped it.)
         return
 
     module_ids = {m.get("id") for m in modules if isinstance(m, dict) and m.get("id")}
@@ -523,7 +525,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         name, fn = item
         try:
             return name, fn(), None
-        except Exception as exc:  # each layer fails open alone
+        except Exception as exc:  # handed back, not raised: this runs on a worker thread
             return name, None, str(exc)[:500]
 
     results = []
@@ -540,7 +542,14 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             usage=(result or {}).get("usage"), success=error is None, error=error,
         )
         if error is not None:
-            logger.warning("extras layer %s failed open: request=%s error=%s", name, request_id, error)
+            logger.warning("extras layer %s failed: request=%s error=%s", name, request_id, error)
+
+    # After every layer's usage is on the ledger, and before anything is saved:
+    # a run that stops here keeps none of its layers, not some of them.
+    errored = [(name, error) for name, _, error in results if error is not None]
+    if errored:
+        name, error = errored[0]
+        raise StageFailed("shaping", f"{len(errored)} of {len(results)} layers failed; first, {name}: {error}")
 
     by_name = {name: (result or {}).get("payload") for name, result, _ in results}
     # Merge the per-module SOP calls into one library, module order kept.

@@ -3,9 +3,11 @@ and the Technical Implementation Plan — the written half of the paid
 deliverable (the images are the visual half).
 
 Both are raw Markdown (no JSON envelope — long documents survive better
-without escaping), and both fail OPEN: a missing document degrades the
-deliverable, it doesn't kill the request. The frontend only marks the
-Blueprint/Technical sections ready when the field is non-null.
+without escaping). Neither has a fallback: a document whose call fails or
+comes back empty stops the run (`StageFailed`), because a package without
+its blueprint or its technical plan is not the package that was promised. The
+frontend only marks the Blueprint/Technical sections ready when the field is
+non-null.
 
 Both are written FROM the typed claim registry and validated AGAINST it
 after generation: the canonical pilot-gate sentence replaces the
@@ -24,10 +26,15 @@ from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, log_usage
 from app.pipeline import handoff
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 
-def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str, *, max_tokens: int = 4000) -> str | None:
+def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str, *, stage: str,
+                   max_tokens: int = 4000) -> str:
+    """One document, as Markdown. `purpose` is the ledger's name for the call,
+    `stage` the stage a failure is reported against; a call that fails, or a
+    reply with nothing in it, raises `StageFailed(stage)`."""
     try:
         body = provider.chat(
             settings.ANALYSIS_MODEL,
@@ -42,14 +49,16 @@ def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str, *, m
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose=purpose,
             usage=body.get("usage"), success=True,
         )
-        return content or None
     except Exception as exc:
         log_usage(
             db, request_id,
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose=purpose,
             success=False, error=str(exc)[:500],
         )
-        return None
+        raise StageFailed(stage, exc) from exc
+    if not content:
+        raise StageFailed(stage, "the model returned an empty document")
+    return content
 
 
 def _prompt_modules(modules: list) -> list:
@@ -357,7 +366,7 @@ def write_blueprint(
     )
     # Four front-matter sections joined the document (engagement scope,
     # current state, opportunity) — give it room to finish them all.
-    content = _markdown_call(db, request_id, "blueprint", prompt, max_tokens=6000)
+    content = _markdown_call(db, request_id, "blueprint", prompt, stage="blueprint", max_tokens=6000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="blueprint")
     # a failed (re)generation never erases an existing volume
@@ -401,7 +410,7 @@ def write_technical_plan(
     )
     # Per-module anatomy (data model, agent brain/tools/guardrails, APIs)
     # makes this the longest document — give it the budget to finish.
-    content = _markdown_call(db, request_id, "technical_plan", prompt, max_tokens=8000)
+    content = _markdown_call(db, request_id, "technical_plan", prompt, stage="technical", max_tokens=8000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="technical")
     if report.get("rendered") and registry:

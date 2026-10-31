@@ -29,12 +29,9 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
     feedback = None
     issues = []
     for attempt in range(1, PREFLIGHT_ATTEMPTS + 1):
+        # No skeleton at all is a StageFailed out of decompose_business. (A
+        # skeleton with defects is another matter, handled after the loop.)
         decomposition = decompose.decompose_business(db, request_id, *args, feedback=feedback, **kwargs)
-        # Nothing at all is not a skeleton to carry on with: every volume after
-        # this is written from it. (A skeleton with defects is another matter,
-        # handled after the loop.)
-        if not decomposition:
-            raise StageFailed("decomposing", "the breakdown returned nothing usable")
         issues = _structural_preflight(
             decomposition.get("business_case") or {},
             decomposition.get("modules") or [],
@@ -44,10 +41,9 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
         if not issues:
             return decomposition
         feedback = [f"{i['where']}: {i['issue']} Fix: {i['fix']}" for i in issues]
-    # Out of attempts. Every other stage in this pipeline fails OPEN — a bad
-    # call degrades the package instead of killing it — and the preflight was
-    # the one place that did not, so requests 15, 16, 17 and 18 each cost real
-    # money and delivered nothing at all.
+    # Out of attempts. A skeleton that exists but still has defects is not a
+    # failed call: stopping here is what made requests 15, 16, 17 and 18 each
+    # cost real money and deliver nothing at all.
     #
     # Carry on with the best skeleton we have. The same findings are recomputed
     # downstream by the integrity layer and the release gate, which refuse
@@ -380,7 +376,8 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
 
     # The roadmap: the phases we carry out and the few decisions only the
     # owner can make. Written after the playbook so it can lean on the
-    # modules the decomposition settled. Fails open to {"status": "failed"}.
+    # modules the decomposition settled. A roadmap that cannot be written saves
+    # {"status": "failed"} and stops the run.
     current()
     emit(db, request_id, "roadmap", "Writing your implementation roadmap...", 61)
     action_plan.write(db, request_id)
@@ -416,11 +413,10 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     current()
     req = db.get(Request, request_id)
     # A run with neither written volume produced no deliverable, whatever else
-    # survived. Every document stage fails OPEN so one bad call degrades the
-    # package instead of killing it — but when the whole spine fails (run 58
-    # lost DNS mid-flight and lost analyze, consult, plan, decompose, blueprint
-    # and technical_plan) the request still reported "done" over an empty
-    # record. A status has to be backed by the thing it claims.
+    # survived. A document stage that fails now stops the run before it gets
+    # here, but run 58 lost DNS mid-flight and lost the whole spine, yet still
+    # reported "done" over an empty record. A status has to be backed by the
+    # thing it claims, whatever the stages above did.
     if not (req.mvp_blueprint or req.technical_plan):
         req.status = "failed"
         req.is_failed = True

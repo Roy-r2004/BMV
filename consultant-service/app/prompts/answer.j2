@@ -8,7 +8,9 @@ Kind of fix: {{ kind }}
 The cause: {{ central_problem }}
 What we told them: {{ summary }}
 Why not the other kinds of fix: {{ why_not }}
+{% if confidence %}
 Confidence: {{ confidence }}
+{% endif %}
 Still unverified: {{ unverified }}
 
 THE DIAGNOSIS THAT HELD

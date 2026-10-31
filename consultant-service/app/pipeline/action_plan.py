@@ -22,6 +22,7 @@ import re
 
 from sqlalchemy.orm import Session
 
+from app import mailer
 from app.ai import provider
 from app.config import settings
 from app.database import SessionLocal
@@ -30,6 +31,7 @@ from app.pipeline import answer as _answer
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 logger = logging.getLogger("consultant.roadmap")
@@ -119,7 +121,14 @@ def _save(db: Session, request_id: int, plan: dict) -> None:
 
 
 def write(db: Session, request_id: int) -> dict | None:
-    """Write, verify and persist the roadmap. Never raises."""
+    """Write, verify and persist the roadmap.
+
+    When it cannot be written (the inputs cannot be read, the model call fails,
+    or no attempt gives a roadmap that checks out) the failed state is saved
+    first, so the page shows a roadmap that failed and offers the retry, and
+    then `StageFailed("roadmap")` is raised. Inside a run that stops the run;
+    a caller outside one (`write_in_background`) has to tell the team itself.
+    Returns None only when the request does not exist."""
     from app.pipeline import diagnose
 
     req = db.get(Request, request_id)
@@ -152,9 +161,10 @@ def write(db: Session, request_id: int) -> dict | None:
     except Exception as exc:
         logger.warning("roadmap could not be prepared: %s", str(exc)[:200])
         _save(db, request_id, {"status": FAILED})
-        return None
+        raise StageFailed("roadmap", exc) from exc
 
     feedback, plan = "", None
+    cause: str | BaseException = "no roadmap came back usable"
     for attempt in (1, 2):
         try:
             prompt = render("roadmap.j2", **base)
@@ -170,6 +180,7 @@ def write(db: Session, request_id: int) -> dict | None:
             log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
                       purpose=f"roadmap:{attempt}", success=False, error=str(exc)[:500])
             logger.warning("roadmap call failed: %s", str(exc)[:200])
+            cause = exc
             break
         candidate, problems = shape(raw, allowed, figures.given_hours(texts))
         if candidate:
@@ -178,22 +189,43 @@ def write(db: Session, request_id: int) -> dict | None:
             break
         logger.info("roadmap attempt %d rejected in part: %s", attempt, "; ".join(problems)[:400])
         feedback = "\n".join(f"- {p}" for p in problems)
+        cause = "no usable roadmap: " + "; ".join(problems)
 
     _save(db, request_id, plan or {"status": FAILED})
+    if plan is None:
+        raise StageFailed("roadmap", cause)
     return plan
 
 
+def _tell_the_team_it_failed(db: Session, request_id: int, cause: str) -> None:
+    """For a roadmap written outside a run, where nothing else would: the
+    orchestrator tells the team about the ones inside. Never raises."""
+    try:
+        db.rollback()  # whatever raised may have left the session unusable
+        req = db.get(Request, request_id)
+        ref = (req.public_id if req is not None else None) or request_id
+        mailer.notify_team_failure(ref, (req.business_name if req is not None else "") or "", "roadmap", cause)
+    except Exception:
+        logger.exception("could not tell the team the roadmap failed")
+
+
 def write_in_background(request_id: int) -> None:
-    """Thread entry: its own session, like every other pipeline thread."""
+    """Thread entry: its own session, like every other pipeline thread. Not the
+    orchestrator, so a roadmap that fails here is reported here: the saved
+    failed state is what the owner sees (and can retry from), and the team is
+    told. Nothing in it may raise out of the thread."""
     db = SessionLocal()
     try:
         write(db, request_id)
-    except Exception:
+    except StageFailed as exc:
+        _tell_the_team_it_failed(db, request_id, exc.cause)  # write() has saved the failed state
+    except Exception as exc:
         logger.exception("roadmap thread failed")
         try:
             _save(db, request_id, {"status": FAILED})
         except Exception:
             pass
+        _tell_the_team_it_failed(db, request_id, str(exc) or type(exc).__name__)
     finally:
         db.close()
 

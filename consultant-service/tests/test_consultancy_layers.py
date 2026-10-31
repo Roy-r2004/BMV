@@ -192,16 +192,23 @@ def test_extras_persist_and_validate(monkeypatch, client):
     db.close()
 
 
-def test_one_layer_failing_never_sinks_the_others(monkeypatch, client):
+def test_one_layer_failing_stops_the_stage_rather_than_saving_the_others(monkeypatch, client):
+    """A journey, scoreboard and procedures that came back while another layer
+    did not would be a package that reads as complete and is not: the stage
+    stops the run, and keeps none of the layers."""
+    from app.pipeline.failure import StageFailed
+
     db = SessionLocal()
     row = _seed(db)
     monkeypatch.setattr(extras.provider, "chat", _chat_router(None, GOOD_GOV, None, None))
-    extras.build_extras(db, row.id, {}, {"modules": MODULES, "business_case": {}})
+    with pytest.raises(StageFailed) as stopped:
+        extras.build_extras(db, row.id, {}, {"modules": MODULES, "business_case": {}})
+    assert stopped.value.stage == "shaping"
     db.refresh(row)
     assert row.journey_json is None
     assert row.procedures_json is None
     assert row.org_json is None
-    assert json.loads(row.scoreboard_json)[0]["metric"] == "no-shows"
+    assert row.scoreboard_json is None
     db.close()
 
 
