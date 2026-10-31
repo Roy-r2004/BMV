@@ -9,6 +9,7 @@ to the team and to the record, never to the screen.
 
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from types import SimpleNamespace
@@ -2261,7 +2262,7 @@ def test_no_other_route_hands_a_failed_runs_raw_detail_to_a_reader(client, path)
 
 HOW = ("Build My Version's analysis system produced this engagement from the facts you gave us "
        "and the files you sent.")
-INTEGRITY_LINE = "The integrity layer ran on this content."
+INTEGRITY_LINE = "A consistency check ran across the whole document."
 BENCH_CHECKS = [
     {"label": "Every figure traces to a client input", "passed": True, "note": "n"},
     {"label": "Assumptions explicit and conservative", "passed": False, "note": "n"},
@@ -2272,7 +2273,8 @@ HIGH_FINDING = {"severity": "high", "where": "w", "issue": "an invented figure",
 FORBIDDEN_ON_THE_METHOD_PAGE = ("reviewed", "human", "not confident", "ai-generated", "confidence", "unsure")
 
 
-def _method_row(findings=(), integrity=True, checks=BENCH_CHECKS, **fields) -> Request:
+def _method_row(findings=(), integrity=True, checks=BENCH_CHECKS, blueprint="## The decision\nA fine plan.",
+                **fields) -> Request:
     """A finished engagement, held in memory: the facts the client gave, a
     blueprint, the quality bench's report and (unless `integrity` is False) a
     current integrity report. The release gate decides draft or final from
@@ -2284,7 +2286,7 @@ def _method_row(findings=(), integrity=True, checks=BENCH_CHECKS, **fields) -> R
         email="test@example.com", status="done", is_generating=False, is_failed=False,
         revenue_today="Class passes and a monthly membership", main_problem="Evening classes sit half empty",
         ops_numbers_json=json.dumps([{"question": "Evening class size?", "answer": "5 of 12 places"}]),
-        mvp_blueprint="## The decision\nA fine plan.",
+        mvp_blueprint=blueprint,
         qa_report_json=json.dumps({"checks": list(checks), "findings": list(findings)}),
         **fields,
     )
@@ -2313,8 +2315,9 @@ def test_method_note_for_a_draft_lists_what_was_not_verified():
 
     assert set(note) == {"how", "checks_ran", "not_verified"}
     assert note["how"] == HOW
-    assert note["not_verified"] == release["reasons"]
-    assert any("open high finding" in reason for reason in note["not_verified"])
+    # the gate's reason is for the team; the client reads it restated
+    assert release["reasons"] == ["1 open high finding(s) on the quality bench"]
+    assert note["not_verified"] == ["The quality review found problems that are still open."]
     # only the checks that passed are claimed, each in the bench's own words
     assert note["checks_ran"] == [
         "Every figure traces to a client input", "All canonical sections present", INTEGRITY_LINE,
@@ -2351,7 +2354,7 @@ def test_the_integrity_layer_is_claimed_only_when_it_ran_on_this_content():
     note = method_note(row, release)
 
     assert INTEGRITY_LINE not in note["checks_ran"]
-    assert any("integrity layer" in reason for reason in note["not_verified"])
+    assert note["not_verified"] == ["The consistency check has not run on the current version of this engagement."]
 
 
 @pytest.mark.parametrize("qa", [
@@ -2406,7 +2409,8 @@ def test_the_method_page_no_longer_says_every_claim_was_checked_before_release()
     assert "Assumptions explicit and conservative" not in page
     assert INTEGRITY_LINE in page
     assert "Not verified" in page
-    assert any("open high finding" in t for t in page)
+    assert "The quality review found problems that are still open." in page
+    assert not any("open high finding" in t or "quality bench" in t for t in page)
     # the rest of the page is as it was
     assert "Facts you supplied" in page and "Sources" in page
 
@@ -2425,3 +2429,196 @@ def test_the_method_page_has_no_review_or_confidence_language(draft):
     for text in _method_page(row):
         for word in FORBIDDEN_ON_THE_METHOD_PAGE:
             assert word not in text.lower(), f"{word!r} in {text!r}"
+
+
+# -- what the client reads of a release reason: the kind, never the string --
+
+# Names of our own machinery, and anything shaped like an id, that no client
+# surface may carry.
+FORBIDDEN_CLIENT_WORDS = ("bench", "registry", "integrity", "artifact", "identifier", "token", "null")
+ID_LIKE = re.compile(r"\b[a-z]+_[a-z0-9_]+\b|\b[a-z]{1,3}\d+\b|\b[A-Z]{2,}-\d+\b", re.IGNORECASE)
+
+#: Every kind of reason the release gate gives (`release_status` and
+#: `registry_reasons`), one real-looking example each, and the one sentence the
+#: client reads for it.
+REASON_KINDS = [
+    ("the run did not complete",
+     "This engagement had not finished being written."),
+    ("no documents were produced",
+     "No documents had been written for this engagement."),
+    ("the quality bench never audited this run",
+     "The quality review did not run on this engagement."),
+    ("3 open high finding(s) on the quality bench",
+     "The quality review found problems that are still open."),
+    ("client-unsafe artifacts: template token, literal Null, unresolved placeholder",
+     "Some text still contains placeholders or unfinished wording."),
+    ("2 paraphrased pilot-gate restatement(s)",
+     "The pilot's go or no-go rule is worded differently in different places."),
+    ("4 KPI/acceptance number(s) map to no registered claim",
+     "Some figures in the plans could not be tied back to a figure you gave us."),
+    ("internal identifiers in client-facing text: pilot_queue, m3, CAP-01",
+     "Some wording still uses working labels instead of the plain names of your system's parts."),
+    ("1 pilot-design restatement(s) that are not the canonical randomized design",
+     "The pilot is described with a design other than the one it is meant to use."),
+    ("2 sentence(s) gate financial detail on a phone-number match alone",
+     "Some wording lets a phone number alone unlock financial detail."),
+    ("5 API path(s) rendered with spaces",
+     "Some technical addresses are written with spaces in them."),
+    ("1 pilot specification(s)/procedure(s) depend on AI logic or another module",
+     "The pilot is specified to depend on other parts of the system that it should stand apart from."),
+    ("3 contradiction(s) inside the pilot specification (procedures and pilot module)",
+     "The pilot's procedures and its part of the system do not fully agree."),
+    ("2 sentence(s) state a pilot attempt count different from the SOP's",
+     "The number of attempts stated for the pilot differs between places."),
+    ("6 list ordinal(s) labeled as thresholds",
+     "Some numbers that only put a list in order are written as if they were limits."),
+    ("2 unlabeled operating time(s)/cadence(s) in the procedures",
+     "Some operating times in the procedures are not marked as proposals."),
+    ("1 sentence(s) send a customer into the internal pilot queue",
+     "Some wording points a customer to a work queue meant for your staff."),
+    ("2 sentence(s) narrow the pilot population below the gate's population",
+     "Some wording narrows the pilot to fewer customers than the pilot rule covers."),
+    ("3 monthly-identity violation(s)",
+     "Some monthly figures do not agree with the yearly figures they come from."),
+    ("1 invented operational policy statement(s)",
+     "Some wording states an operating policy that you did not give us."),
+    ("integrity layer has not run on the current content",
+     "The consistency check has not run on the current version of this engagement."),
+    ("integrity layer: 2 finding(s)",
+     "The consistency check found inconsistencies that are still open."),
+]
+
+
+def _client_safe(text: str) -> bool:
+    lowered = text.lower()
+    return not any(word in lowered for word in FORBIDDEN_CLIENT_WORDS) and not ID_LIKE.search(text)
+
+
+@pytest.mark.parametrize("reason, sentence", REASON_KINDS)
+def test_each_kind_of_release_reason_is_restated_in_one_plain_sentence(reason, sentence):
+    from app.pipeline.method_note import plain_reason
+
+    assert plain_reason(reason) == sentence
+    assert _client_safe(sentence), sentence
+    # whatever the count or the names inside the reason, the sentence is the same
+    assert plain_reason(f"  {reason}  ") == sentence
+
+
+def test_the_kinds_are_told_apart_by_their_wording_not_their_numbers():
+    from app.pipeline.method_note import plain_reason
+
+    assert plain_reason("1 open high finding(s) on the quality bench") == plain_reason(
+        "12 open high finding(s) on the quality bench")
+    assert plain_reason("client-unsafe artifacts: literal Null") == plain_reason(
+        "client-unsafe artifacts: template token, unresolved placeholder")
+    assert plain_reason("integrity layer: 1 finding(s)") != plain_reason(
+        "integrity layer has not run on the current content")
+
+
+@pytest.mark.parametrize("reason", [
+    "", "   ", "something nobody wrote a sentence for", "7 new kind(s) of problem in pilot_queue",
+    "the quality bench audited this run twice", "Open high finding(s) on the quality bench",
+    "x open high finding(s) on the quality bench", "client-unsafe", "integrity layer", None, 5, ["a"],
+])
+def test_a_reason_of_no_known_kind_is_the_generic_sentence_never_the_raw_string(reason):
+    from app.pipeline.method_note import plain_reason
+
+    assert plain_reason(reason) == "One check did not pass."
+
+
+def test_every_reason_the_gate_can_give_has_its_own_sentence():
+    """The kinds are told by the wording the gate uses, so a reason it gains or
+    rewords would silently fall to the generic sentence. Read the strings the
+    gate really builds, from its own source, and hold the table to them in both
+    directions: no reason without a sentence, no sentence without a reason."""
+    import ast
+    import inspect
+    import textwrap
+
+    from app.pipeline import export_pdf, method_note
+
+    def text_of(node) -> str:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return "".join(v.value if isinstance(v, ast.Constant) else "7" for v in node.values)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return text_of(node.left) + text_of(node.right)
+        return "pilot_queue, m3"  # the names the gate joins in with ", ".join(...)
+
+    built = []
+    for function in (export_pdf.release_status, export_pdf.registry_reasons):
+        for node in ast.walk(ast.parse(textwrap.dedent(inspect.getsource(function)))):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "append"
+                    and isinstance(node.func.value, ast.Name) and node.func.value.id == "reasons"):
+                built.append(text_of(node.args[0]))
+
+    assert len(built) == len(method_note._KINDS) == len(REASON_KINDS), built
+    sentences = [method_note.plain_reason(reason) for reason in built]
+    assert method_note.GENERIC_REASON not in sentences, [
+        reason for reason, sentence in zip(built, sentences) if sentence == method_note.GENERIC_REASON]
+    assert sorted(sentences) == sorted(sentence for _, sentence in method_note._KINDS)
+    assert sorted(sentences) == sorted(sentence for _, sentence in REASON_KINDS)
+
+
+def test_the_note_carries_plain_sentences_once_each_in_the_order_given():
+    from app.pipeline.method_note import method_note
+
+    release = {"reasons": [
+        "something nobody wrote a sentence for",
+        "2 KPI/acceptance number(s) map to no registered claim",
+        "another thing nobody wrote a sentence for",
+        "9 KPI/acceptance number(s) map to no registered claim",
+        "the quality bench never audited this run",
+    ]}
+
+    assert method_note(_method_row(), release)["not_verified"] == [
+        "One check did not pass.",
+        "Some figures in the plans could not be tied back to a figure you gave us.",
+        "The quality review did not run on this engagement.",
+    ]
+
+
+def test_a_draft_whose_reasons_carry_real_ids_prints_none_of_them(monkeypatch):
+    from app.pipeline import export_pdf
+
+    reasons = [
+        "internal identifiers in client-facing text: pilot_queue, m3",
+        "client-unsafe artifacts: template token, literal Null",
+        "2 KPI/acceptance number(s) map to no registered claim (CAP-01, m1)",
+        "a reason from a future release: reg_claim_7",
+    ]
+    monkeypatch.setattr(export_pdf, "release_status", lambda req: {
+        "status": "draft", "status_label": "DRAFT", "reasons": reasons, "client_approval": {}})
+
+    page = _method_page(_method_row())
+
+    start = page.index("Not verified") + 1
+    end = next(i for i, text in enumerate(page) if text.startswith("Method rule"))
+    assert page[start:end] == [
+        "Some wording still uses working labels instead of the plain names of your system's parts.",
+        "Some text still contains placeholders or unfinished wording.",
+        "Some figures in the plans could not be tied back to a figure you gave us.",
+        "One check did not pass.",
+    ]
+    everything = " ".join(page)
+    for leaked in ("pilot_queue", "m3", "m1", "CAP-01", "reg_claim_7", "template token", "literal Null"):
+        assert not re.search(rf"(?<![\w-]){re.escape(leaked)}(?![\w-])", everything), leaked
+    for text in page[start:end]:
+        assert _client_safe(text), text
+
+
+def test_a_blueprint_with_a_placeholder_in_it_is_told_to_the_client_as_placeholders():
+    """End to end through the real release gate: the reason it builds is the
+    team's wording; the page carries the client's."""
+    from app.pipeline import export_pdf
+
+    row = _method_row(blueprint="owner: [TODO fill in]")
+    assert any(reason.startswith("client-unsafe artifacts") for reason in export_pdf.release_status(row)["reasons"])
+
+    page = _method_page(row)
+
+    start = page.index("Not verified") + 1
+    end = next(i for i, text in enumerate(page) if text.startswith("Method rule"))
+    assert page[start:end] == ["Some text still contains placeholders or unfinished wording."]
+    assert "TODO" not in " ".join(page) and "artifact" not in " ".join(page).lower()
