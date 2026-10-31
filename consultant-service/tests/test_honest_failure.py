@@ -2273,6 +2273,8 @@ BENCH_CHECKS = [
     {"label": "All canonical sections present", "passed": True, "note": "n"},
 ]
 HIGH_FINDING = {"severity": "high", "where": "w", "issue": "an invented figure", "fix": "f"}
+FIGURES_CHECKED = "Every figure was compared with the figures you gave us."
+SECTIONS_PRESENT = "Every section the documents should contain was present."
 # Words that would turn a record of method into a disclaimer or a review claim.
 FORBIDDEN_ON_THE_METHOD_PAGE = ("reviewed", "human", "not confident", "ai-generated", "confidence", "unsure")
 
@@ -2322,10 +2324,8 @@ def test_method_note_for_a_draft_lists_what_was_not_verified():
     # the gate's reason is for the team; the client reads it restated
     assert release["reasons"] == ["1 open high finding(s) on the quality bench"]
     assert note["not_verified"] == ["The quality review found problems that are still open."]
-    # only the checks that passed are claimed, each in the bench's own words
-    assert note["checks_ran"] == [
-        "Every figure traces to a client input", "All canonical sections present", INTEGRITY_LINE,
-    ]
+    # only the checks that passed are claimed, each as our own fixed sentence
+    assert note["checks_ran"] == [FIGURES_CHECKED, SECTIONS_PRESENT, INTEGRITY_LINE]
     # the note is a copy: changing it cannot change the release decision
     note["not_verified"].append("x")
     assert "x" not in release["reasons"]
@@ -2343,9 +2343,7 @@ def test_method_note_for_a_final_run_lists_the_checks_and_nothing_outstanding():
 
     assert note["how"] == HOW
     assert note["not_verified"] == []
-    assert note["checks_ran"] == [
-        "Every figure traces to a client input", "All canonical sections present", INTEGRITY_LINE,
-    ]
+    assert note["checks_ran"] == [FIGURES_CHECKED, SECTIONS_PRESENT, INTEGRITY_LINE]
 
 
 def test_the_integrity_layer_is_claimed_only_when_it_ran_on_this_content():
@@ -2382,9 +2380,7 @@ def test_a_check_is_listed_once_however_often_the_bench_recorded_it():
 
     row = _method_row(integrity=False, checks=[BENCH_CHECKS[0], BENCH_CHECKS[0], BENCH_CHECKS[2]])
 
-    assert method_note(row, {})["checks_ran"] == [
-        "Every figure traces to a client input", "All canonical sections present",
-    ]
+    assert method_note(row, {})["checks_ran"] == [FIGURES_CHECKED, SECTIONS_PRESENT]
 
 
 @pytest.mark.parametrize("release", [
@@ -2431,9 +2427,9 @@ def test_the_method_page_no_longer_says_every_claim_was_checked_before_release()
     # the rule about how a figure may appear is still there, less its last claim
     rule = next(t for t in page if t.startswith("Method rule"))
     assert "30-day operating month" in rule and "plain arithmetic" in rule
-    # what ran, and what did not, in the bench's own words
+    # what ran, as our sentences, never the bench's labels; and what did not
     assert "Checks that ran" in page
-    assert "Every figure traces to a client input" in page
+    assert FIGURES_CHECKED in page and "Every figure traces to a client input" not in page
     assert "Assumptions explicit and conservative" not in page
     assert INTEGRITY_LINE in page
     assert "Not verified" in page
@@ -3309,3 +3305,67 @@ def test_a_restart_mail_that_blows_up_leaves_the_runs_stopped(monkeypatch):
 def test_notify_team_restart_sends_nothing_for_no_runs(outbox):
     assert mailer.notify_team_restart([]) is False
     assert outbox == []
+
+
+# -- the checks that ran: our sentences, never the label a model wrote ------
+
+
+def _labels_the_auditors_are_asked_for() -> list[str]:
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    labels = []
+    for name in ("qa_numbers.j2", "qa_completeness.j2"):
+        with open(os.path.join(here, "app", "prompts", name), encoding="utf-8") as fh:
+            labels += re.findall(r'"label":\s*"([^"]+)"', fh.read())
+    return labels
+
+
+def test_every_check_the_auditors_are_asked_to_record_has_a_sentence():
+    """A label added to an audit prompt, and not here, would silently drop off
+    the page: the two lists are held together."""
+    from app.pipeline.method_note import _CHECK_SENTENCES, _check_key
+
+    labels = _labels_the_auditors_are_asked_for()
+    assert len(labels) == 7
+    assert {_check_key(label) for label in labels} == set(_CHECK_SENTENCES)
+
+
+@pytest.mark.parametrize("label", [
+    "Every figure traces to a client input", "Attributions present on computed figures",
+    "Assumptions explicit and conservative", "No internal contradictions between figures",
+    "All canonical sections present", "Documents consistent with the structured layers",
+    "Scope obeys the engagement register",
+])
+def test_a_known_check_is_told_as_its_sentence_and_its_label_is_never_printed(label):
+    from app.pipeline.method_note import _CHECK_SENTENCES, _check_key, method_note
+
+    for written in (label, label.upper(), "  " + label.replace(" ", "\n  ") + " "):
+        row = _method_row(integrity=False, checks=[{"label": written, "passed": True, "note": "n"}])
+        assert method_note(row, {})["checks_ran"] == [_CHECK_SENTENCES[_check_key(label)]]
+
+    page = _method_page(_method_row(checks=[{"label": label, "passed": True, "note": "n"}]))
+    assert _CHECK_SENTENCES[_check_key(label)] in page
+    assert not any(label.lower() in text.lower() for text in page), label
+
+
+@pytest.mark.parametrize("label", [
+    "Pricing matches the market", "Every figure traces to a client input, mostly",
+    "Scope obeys the engagement register (partly)", "The model is confident in these numbers",
+])
+def test_a_check_label_the_model_made_up_is_not_printed(label):
+    from app.pipeline.method_note import method_note
+
+    checks = [{"label": label, "passed": True, "note": "n"}, BENCH_CHECKS[2]]
+    row = _method_row(checks=checks)
+
+    assert method_note(row, {})["checks_ran"] == [SECTIONS_PRESENT, INTEGRITY_LINE]
+    page = " ".join(_method_page(row))
+    assert label not in page and SECTIONS_PRESENT in page
+
+
+def test_the_check_sentences_carry_no_review_or_confidence_language():
+    from app.pipeline.method_note import _CHECK_SENTENCES
+
+    for sentence in _CHECK_SENTENCES.values():
+        assert sentence.endswith(".")
+        for word in FORBIDDEN_ON_THE_METHOD_PAGE + ("AI", "model", "pipeline", "try again"):
+            assert not re.search(rf"{re.escape(word)}", sentence, re.IGNORECASE), (word, sentence)

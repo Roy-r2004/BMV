@@ -7,6 +7,11 @@ recorded it as passed, a consistency check is listed because its report is
 current for this content, and what was not verified comes from the release
 gate's own list of open reasons.
 
+The quality bench's checks are labelled by the model that ran them, so a label
+is never printed. A label the bench's two auditors are asked to write is told
+as a fixed sentence of what was checked (`_CHECK_SENTENCES`); any other label
+is left out.
+
 The gate writes those reasons for the team: they carry counts, internal names
 and the names of our own checks. The client reads none of that. Each reason is
 restated by its KIND in one plain sentence (`plain_reason`), and a reason of a
@@ -102,23 +107,51 @@ def plain_reason(reason: str) -> str:
     return GENERIC_REASON
 
 
+#: The checks the quality bench's two auditors are asked to record, by the label
+#: each is told to write (prompts/qa_numbers.j2 and qa_completeness.j2; the
+#: bench keeps the label as written, cut to 120 characters), and what the client
+#: reads for each that passed. Keys are the label with its whitespace collapsed,
+#: in lower case. A label not listed here is the model's own and is dropped.
+_CHECK_SENTENCES: dict[str, str] = {
+    "every figure traces to a client input":
+        "Every figure was compared with the figures you gave us.",
+    "attributions present on computed figures":
+        "Every figure we calculated says where it came from.",
+    "assumptions explicit and conservative":
+        "Every assumption is stated as an assumption, and kept cautious.",
+    "no internal contradictions between figures":
+        "The figures were checked against each other, and none contradicts another.",
+    "all canonical sections present":
+        "Every section the documents should contain was present.",
+    "documents consistent with the structured layers":
+        "The documents agree with the plans they were written from.",
+    "scope obeys the engagement register":
+        "The documents keep to the scope agreed with you.",
+}
+
+
+def _check_key(label: str) -> str:
+    return " ".join(label.split()).lower()
+
+
 def _passed_checks(raw) -> list[str]:
-    """The label of every check the quality bench recorded as passed, in the
-    order it recorded them and once each. A report that cannot be read, or an
-    entry that is not a labelled pass, claims nothing."""
+    """The sentence for every known check the quality bench recorded as passed,
+    in the order it recorded them and once each. A report that cannot be read,
+    an entry that is not a pass, and a label we do not know claim nothing."""
     try:
         report = json.loads(raw) if raw else None
     except (TypeError, ValueError):
         return []
     checks = report.get("checks") if isinstance(report, dict) else None
-    labels: list[str] = []
+    sentences: list[str] = []
     for check in checks if isinstance(checks, list) else []:
         if not isinstance(check, dict) or check.get("passed") is not True:
             continue
         label = check.get("label")
-        if isinstance(label, str) and label.strip() and label.strip() not in labels:
-            labels.append(label.strip())
-    return labels
+        sentence = _CHECK_SENTENCES.get(_check_key(label)) if isinstance(label, str) else None
+        if sentence and sentence not in sentences:
+            sentences.append(sentence)
+    return sentences
 
 
 def _integrity_ran(req) -> bool:
