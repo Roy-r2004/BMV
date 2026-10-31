@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,28 +63,30 @@ def on_startup() -> None:
     engine_startup()
 
 
-def _fail_stranded_requests() -> None:
-    """Generation runs on a daemon thread — a process restart (including
-    uvicorn dev reloads) kills it silently, stranding requests at
-    is_generating=true forever. Sweep them into a clean failed state at
-    startup so the frontend shows a retryable failure instead of an
-    eternal spinner (found in review)."""
+def _fail_stranded_requests() -> threading.Thread | None:
+    """Generation runs on a daemon thread — a process restart (a deploy, a
+    crash, a uvicorn dev reload) kills it silently, stranding requests at
+    is_generating=true forever. Each is stopped the way any failed run is: a
+    failure record, the client's plain sentence, and one mail to the team for
+    the whole sweep. The mail goes on a thread of its own, returned for a
+    caller that must wait, so startup never waits on SMTP. Never raises: a
+    sweep that breaks must not keep the service from starting."""
     from app.database import SessionLocal
-    from app.models import Request
+    from app.pipeline import failure
 
     db = SessionLocal()
     try:
-        stranded = db.query(Request).filter(Request.is_generating.is_(True)).all()
-        for req in stranded:
-            req.status = "failed"
-            req.is_failed = True
-            req.is_generating = False
-            req.stage = "failed"
-            req.stage_label = "Generation was interrupted by a service restart"
-        if stranded:
-            db.commit()
+        stranded = failure.fail_interrupted_runs(db)
+    except Exception:
+        logging.getLogger("consultant.startup").exception("could not stop the runs a restart left generating")
+        return None
     finally:
         db.close()
+    if not stranded:
+        return None
+    thread = threading.Thread(target=failure.tell_team_of_restart, args=(stranded,), daemon=True)
+    thread.start()
+    return thread
 
 
 @app.get("/health")

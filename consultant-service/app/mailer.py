@@ -165,6 +165,26 @@ def notify_team_failure(ref: str | int, business_name: str, stage: str, cause: s
     )
 
 
+def notify_team_restart(runs: list[tuple[str | int, str]]) -> bool:
+    """The service restarted with runs in flight, and they were stopped. One
+    mail for the whole sweep, however many there were: (ref, business name)
+    for each. Never raises."""
+    if not runs:
+        return False
+    lines = "\n".join(f"- {name or '(no name yet)'}: {_run_url(ref)}" for ref, name in runs)
+    count = f"{len(runs)} run{'' if len(runs) == 1 else 's'}"
+    return send_now(
+        settings.SMTP_USER,
+        f"Service restarted: {count} stopped",
+        (
+            f"The service restarted while {count} {'was' if len(runs) == 1 else 'were'} being written. "
+            f"Each was stopped and its client told it did not finish.\n\n"
+            f"Time: {_now_utc()}\n\n"
+            f"The runs:\n{lines}\n"
+        ),
+    )
+
+
 def notify_team_stall(kind: str, business_name: str | None, round: int | None, cause: str) -> bool:
     """A step the client is waiting on could not be answered (an interview
     round, say). One mail per kind per window is the caller's business; this

@@ -140,6 +140,94 @@ def fail_run(db: Session, request_id: int, stage: str, cause: str) -> bool:
     return team_notified
 
 
+#: What the client reads of a run a restart stopped. A restart is ours, and the
+#: work it stopped is the whole engagement, not one stage.
+RESTART_REASON = "Our service restarted while your engagement was being written."
+RESTART_CAUSE = "the service restarted while the run was in flight"
+
+
+def _restart_reason(team_notified: bool) -> str:
+    return RESTART_REASON + (" We have been told and are looking into it." if team_notified else "")
+
+
+def fail_interrupted_runs(db: Session) -> list[int]:
+    """Stop every run a restart left generating, and record why. Returns their
+    ids, for `tell_team_of_restart`.
+
+    A run lives on a daemon thread, so a restart (a deploy, a crash, a dev
+    reload) kills it silently and leaves it "generating" for good. This is the
+    first phase of `fail_run` for each of them: stopped, the facts on record,
+    and wording that claims nobody was told, all committed before anything
+    slow."""
+    stranded = db.query(Request).filter(Request.is_generating.is_(True)).all()
+    ids = []
+    for req in stranded:
+        record = {
+            "stage": req.stage or "",
+            "at": datetime.now(timezone.utc).isoformat(),
+            "cause": RESTART_CAUSE,
+            "team_notified": False,
+            "reason": _restart_reason(False),
+        }
+        req.status = "failed"
+        req.is_failed = True
+        req.is_generating = False
+        req.failure_json = json.dumps(record)
+        req.stage = "failed"
+        req.stage_label = _FAILED_LABEL
+        req.progress_detail = record["reason"]
+        ids.append(req.id)
+    if ids:
+        db.commit()
+        logger.error("a restart stopped %d run(s): %s", len(ids), ids)
+    return ids
+
+
+def tell_team_of_restart(request_ids: list[int]) -> bool:
+    """Phases two and three of the restart sweep: ONE mail to the team for the
+    whole sweep, then, only if it went, the client's notice upgraded to say so
+    on each run still stopped by it. Opens its own session, because it runs on
+    a thread of its own so that startup never waits on SMTP. Never raises."""
+    if not request_ids:
+        return False
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        rows = [db.get(Request, rid) for rid in request_ids]
+        rows = [r for r in rows if r is not None]
+        records = {r.id: r.failure_json for r in rows}
+        runs = [(r.public_id or r.id, r.business_name or "") for r in rows]
+        try:
+            team_notified = mailer.notify_team_restart(runs)
+        except Exception:
+            logger.exception("could not tell the team which runs a restart stopped")
+            team_notified = False
+        if not team_notified:
+            return False
+        for rid, before in records.items():
+            try:
+                req = db.get(Request, rid, populate_existing=True)
+                # a run the client has started again since belongs to the new run
+                if req is None or req.status != "failed" or req.failure_json != before:
+                    continue
+                record = json.loads(before)
+                record["team_notified"] = True
+                record["reason"] = _restart_reason(True)
+                req.failure_json = json.dumps(record)
+                req.progress_detail = record["reason"]
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("run %s: the team was told of the restart, but the notice was not upgraded", rid)
+        return True
+    except Exception:
+        logger.exception("the restart sweep could not finish telling the team")
+        return False
+    finally:
+        db.close()
+
+
 # One mail per kind of stall per window: a provider outage stalls every
 # interview round of every client at once. Each kind maps to (when its window
 # opened, whether the mail that opened it went). Guarded because the endpoints

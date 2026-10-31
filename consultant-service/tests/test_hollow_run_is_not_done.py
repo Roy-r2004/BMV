@@ -12,14 +12,17 @@ from app.pipeline import orchestrator
 
 
 def test_the_completion_gate_requires_a_written_volume():
-    """The guard sits before the success write, not after it."""
+    """The guard sits before the success write, not after it, and fails the run
+    through `fail_run`, the one place that records why and tells the team."""
     src = inspect.getsource(orchestrator)
     assert "if not (req.mvp_blueprint or req.technical_plan):" in src, \
         "the hollow-run guard is gone — a run with no volumes could report done again"
     guard = src.index("if not (req.mvp_blueprint or req.technical_plan):")
     done = src.index('req.status = "done"', guard)
-    failed = src.index('req.status = "failed"', guard)
+    failed = src.index('fail_run(db, request_id, "blueprint", "no blueprint and no technical plan were produced")', guard)
     assert failed < done, "the guard must fail the run BEFORE the success status is written"
+    # nothing between the guard and its fail_run: the guard's body IS the call
+    assert src[guard:failed].count("\n") <= 2
 
 
 def test_a_run_with_neither_volume_is_failed(monkeypatch):

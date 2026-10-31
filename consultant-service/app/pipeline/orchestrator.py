@@ -442,12 +442,8 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     # reported "done" over an empty record. A status has to be backed by the
     # thing it claims, whatever the stages above did.
     if not (req.mvp_blueprint or req.technical_plan):
-        req.status = "failed"
-        req.is_failed = True
-        req.is_generating = False
-        db.commit()
-        emit(db, request_id, "failed",
-             "No blueprint and no technical plan were produced — nothing to deliver", 70)
+        # Stopped like any failed run: on record, in plain words, and the team told.
+        fail_run(db, request_id, "blueprint", "no blueprint and no technical plan were produced")
         return
 
     req.status = "done"

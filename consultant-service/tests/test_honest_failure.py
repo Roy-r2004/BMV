@@ -3197,3 +3197,115 @@ def test_a_provider_that_is_down_is_asked_once_per_call(pipeline_with_only, monk
     # every call is on the ledger once, as failed, and none was asked twice
     assert len(asked) == len(ledger) and not any(ok for _, ok in ledger)
     assert len({purpose for purpose, _ in ledger}) == len(ledger), ledger
+
+
+# -- a run with no volume, and the runs a restart stops: the same machinery --
+
+
+def test_a_run_with_no_volume_fails_through_fail_run_and_tells_the_team_once(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only(None)
+    monkeypatch.setattr("app.pipeline.blueprint.write_blueprint", _nothing)  # writes no volume
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and row.is_failed and not row.is_generating
+    record = json.loads(row.failure_json)
+    assert record["stage"] == "blueprint" and record["cause"] == "no blueprint and no technical plan were produced"
+    assert row.progress_detail == client_reason("blueprint", True)
+    assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (blueprint)"]
+
+
+RESTARTED = "Our service restarted while your engagement was being written."
+
+
+def _no_run_in_flight() -> None:
+    """Rows left generating by earlier tests are not this test's runs."""
+    db = SessionLocal()
+    try:
+        db.query(Request).filter(Request.is_generating.is_(True)).update({"is_generating": False})
+        db.commit()
+    finally:
+        db.close()
+
+
+def _restart():
+    """What startup does with the runs a restart left generating; waits for the
+    mail thread so the test can read what it did."""
+    import main
+
+    thread = main._fail_stranded_requests()
+    if thread is not None:
+        thread.join(timeout=10)
+        assert not thread.is_alive()
+    return thread
+
+
+@pytest.mark.parametrize("count", [0, 1, 3])
+def test_a_restart_stops_every_run_in_flight_and_sends_one_mail_for_all_of_them(client, outbox, count):
+    _no_run_in_flight()
+    ids = [_generating_row() for _ in range(count)]
+    finished = _generating_row(is_generating=False, status="done", stage="done")
+
+    _restart()
+
+    for request_id in ids:
+        row = _read(request_id)
+        assert row.status == "failed" and row.is_failed and not row.is_generating and row.stage == "failed"
+        record = json.loads(row.failure_json)
+        assert record["stage"] == "blueprint" and record["team_notified"] is True
+        assert record["reason"] == RESTARTED + " We have been told and are looking into it."
+        assert row.progress_detail == record["reason"] and row.stage_label == failure._FAILED_LABEL
+        assert _progress(client, request_id)["failure"] == {"reason": record["reason"], "team_notified": True}
+    assert len(outbox) == (1 if count else 0)
+    if count:
+        to, subject, body = outbox[0]
+        assert to == settings.SMTP_USER
+        assert subject == f"Service restarted: {count} run{'' if count == 1 else 's'} stopped"
+        for request_id in ids:
+            assert mailer._run_url(_read(request_id).public_id) in body
+    assert _read(finished).status == "done" and not _read(finished).is_failed
+
+
+def test_a_restart_whose_mail_cannot_go_does_not_say_the_team_was_told(monkeypatch):
+    monkeypatch.setattr(mailer, "send_now", lambda to, subject, body: False)
+    _no_run_in_flight()
+    request_id = _generating_row()
+
+    _restart()
+
+    row = _read(request_id)
+    record = json.loads(row.failure_json)
+    assert row.status == "failed" and record["team_notified"] is False
+    assert record["reason"] == RESTARTED and row.progress_detail == RESTARTED
+    for word in FORBIDDEN:
+        assert word not in record["reason"]
+
+
+def test_a_restart_sweep_that_breaks_never_stops_the_service_starting(monkeypatch):
+    import main
+
+    def broken(db):
+        raise RuntimeError("database locked")
+
+    monkeypatch.setattr(failure, "fail_interrupted_runs", broken)
+    assert main._fail_stranded_requests() is None
+
+
+def test_a_restart_mail_that_blows_up_leaves_the_runs_stopped(monkeypatch):
+    def explode(runs):
+        raise RuntimeError("mail layer bug")
+
+    monkeypatch.setattr(mailer, "notify_team_restart", explode)
+    _no_run_in_flight()
+    request_id = _generating_row()
+
+    _restart()
+
+    row = _read(request_id)
+    assert row.status == "failed" and json.loads(row.failure_json)["team_notified"] is False
+
+
+def test_notify_team_restart_sends_nothing_for_no_runs(outbox):
+    assert mailer.notify_team_restart([]) is False
+    assert outbox == []
