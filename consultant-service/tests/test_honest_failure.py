@@ -575,6 +575,82 @@ def _model_replies(monkeypatch, reply: dict) -> None:
     monkeypatch.setattr("app.ai.provider.chat", lambda *args, **kwargs: body)
 
 
+def _plan(request_id: int) -> dict:
+    from app.pipeline import plan
+
+    db = SessionLocal()
+    try:
+        return plan.plan_integration(db, request_id, {"consulting_summary": "Fill the quiet hours."})
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("roles", [
+    pytest.param([], id="an empty list"),
+    pytest.param(None, id="null"),
+    pytest.param("customer_view", id="a string"),
+    pytest.param([None, "owner", {}], id="entries that are not roles"),
+])
+def test_a_plan_that_answers_with_no_roles_stops_the_run(pipeline_with_only, monkeypatch, roles):
+    """The call worked and the reply is valid JSON, but it plans nothing. The
+    old code filled in two generic roles (one a "front-desk AI") and a colour
+    taken from a hash of the business name, and the client's screens were drawn
+    from them. A plan with no roles is no plan."""
+    run = pipeline_with_only("planning")
+    _model_replies(monkeypatch, {
+        "concept_name": "Halo",
+        "roles": roles,
+        "visual_theme": {"primary_color": "#112233", "secondary_color": "#445566",
+                         "background_color": "#ffffff", "style": "calm", "mood": "warm"},
+    })
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and row.is_failed and not row.is_generating
+    record = json.loads(row.failure_json)
+    assert record["stage"] == "planning" and record["cause"] == "the plan returned no roles"
+    assert row.progress_detail == client_reason("planning", True)
+    assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (planning)"]
+    # nothing was written for the screens to be drawn from
+    assert row.roles_json is None and row.visual_theme_json is None and row.concept_name is None
+
+
+def test_a_plan_with_more_roles_than_the_cap_is_cut_to_the_cap(monkeypatch):
+    cap = settings.MAX_ROLES_PER_REQUEST
+    _model_replies(monkeypatch, {
+        "concept_name": "Halo",
+        "roles": [{"id": f"role_{i}", "label": f"Role {i}"} for i in range(cap + 2)],
+        "visual_theme": {"primary_color": "#112233"},
+    })
+    request_id = _generating_row()
+
+    result = _plan(request_id)
+
+    assert [r["id"] for r in result["roles"]] == [f"role_{i}" for i in range(cap)]
+    assert len(json.loads(_read(request_id).roles_json)) == cap
+
+
+def test_a_plan_without_brand_colours_is_not_given_a_guessed_one(monkeypatch):
+    """`phase2_bridge.palette` tells the build "our brand colour is ..." from
+    this row, and says it never guesses a hex. A colour made from a hash of the
+    business name would be exactly that guess, so a missing colour stays missing."""
+    from app.pipeline import phase2_bridge
+
+    _model_replies(monkeypatch, {
+        "concept_name": "Halo",
+        "roles": [{"id": "customer_view", "label": "Customer View"}],
+        "visual_theme": {"style": "calm"},
+    })
+    request_id = _generating_row()
+
+    _plan(request_id)
+
+    row = _read(request_id)
+    assert json.loads(row.visual_theme_json) == {"style": "calm"}
+    assert phase2_bridge.palette(row) == {}
+
+
 def _decide(request_id: int) -> dict:
     from app.pipeline import decide
 

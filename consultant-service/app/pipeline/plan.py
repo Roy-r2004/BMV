@@ -1,4 +1,3 @@
-import hashlib
 import json
 
 from sqlalchemy.orm import Session
@@ -11,47 +10,19 @@ from app.pipeline import handoff
 from app.pipeline.failure import StageFailed
 from app.templating import render
 
-_DEFAULT_ROLES = [
-    {
-        "id": "customer_view",
-        "label": "Customer View",
-        "description": "What a customer sees when they visit — the front-desk AI greeting and helping them.",
-        "features_shown": [],
-    },
-    {
-        "id": "owner_dashboard",
-        "label": "Owner / AI Employee Dashboard",
-        "description": "What the business owner sees — today's activity, what the AI handled, and results.",
-        "features_shown": [],
-    },
-]
-
-
-def _fallback_palette(seed: str) -> dict:
-    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
-    return {
-        "primary_color": "#" + digest[0:6],
-        "secondary_color": "#" + digest[6:12],
-        "background_color": "#" + digest[12:18],
-        "style": "modern, professional",
-        "mood": "trustworthy, warm",
-    }
-
-
 def _normalize(result: dict, req: Request) -> dict:
     # Trust the model's own judgement on how many roles this business needs —
-    # only step in if it returned nothing, or blew past the cost/sanity cap.
-    roles = result.get("roles") or []
-    if not roles:
-        roles = _DEFAULT_ROLES
-    elif len(roles) > settings.MAX_ROLES_PER_REQUEST:
-        roles = roles[: settings.MAX_ROLES_PER_REQUEST]
-    result["roles"] = roles
+    # only step in if it blew past the cost/sanity cap. Roles the model did not
+    # give are not made up here: `plan_integration` stops the run on none.
+    roles = result.get("roles")
+    roles = [r for r in roles if isinstance(r, dict) and r] if isinstance(roles, list) else []
+    result["roles"] = roles[: settings.MAX_ROLES_PER_REQUEST]
 
-    theme = result.get("visual_theme") or {}
-    for key, value in _fallback_palette(req.business_name or str(req.id)).items():
-        theme.setdefault(key, value)
-    result["visual_theme"] = theme
+    # A colour the model did not give is left out, not derived from a hash of
+    # the business name: `phase2_bridge.palette` tells the build "our brand
+    # colour is ..." from this, and is written never to guess a hex.
+    theme = result.get("visual_theme")
+    result["visual_theme"] = theme if isinstance(theme, dict) else {}
 
     if not result.get("concept_name"):
         result["concept_name"] = req.business_name or "Your AI-Powered Business"
@@ -97,6 +68,11 @@ def plan_integration(db: Session, request_id: int, consult_result: dict) -> dict
         # No plan was made. Generic roles and a colour derived from a hash of
         # the name would be drawn into every screen as this client's own.
         raise StageFailed("planning", exc) from exc
+
+    # The call worked (and is logged as such) but planned nothing: the same
+    # canned roles would stand in for it, so it stops the run just the same.
+    if not result["roles"]:
+        raise StageFailed("planning", "the plan returned no roles")
 
     req.concept_name = result.get("concept_name")
     req.visual_theme_json = json.dumps(result.get("visual_theme"))
