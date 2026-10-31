@@ -15,7 +15,9 @@ It keeps `consulting_summary`, `recommended_ai_employees` and
 `recommended_features` in its output, unchanged in name and meaning, because
 stages 7-19 read them. Nothing downstream knows this stage replaced `consult`.
 
-Fails open to `consult` itself, which is what the pipeline did before.
+If the decision cannot be made the run stops (`StageFailed`). It no longer
+falls back to `consult`: that answer was the same front desk and analyst for
+every business, written as though it were this client's finding.
 """
 
 import json
@@ -28,6 +30,7 @@ from app.config import settings
 from app.models import Request
 from app.pipeline import consult
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 logger = logging.getLogger("consultant.decide")
@@ -80,10 +83,8 @@ def decide(db: Session, request_id: int, analysis: dict) -> dict:
     except Exception as exc:
         log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
                   purpose="decide", success=False, error=str(exc)[:500])
-        logger.warning("decision could not be made, falling back to consult: %s", str(exc)[:200])
-        # `consult` writes its own result to the row and returns it. The
-        # engagement then behaves exactly as it did before this stage existed.
-        return consult.consult(db, request_id, analysis)
+        logger.warning("decision could not be made: %s", str(exc)[:200])
+        raise StageFailed("consulting", exc) from exc
 
     kind = result.get("intervention_kind")
     if kind not in KINDS:
@@ -97,7 +98,8 @@ def decide(db: Session, request_id: int, analysis: dict) -> dict:
     result.setdefault("recommended_ai_employees", [])
     result.setdefault("recommended_features", [])
     if result.get("confidence") not in ("high", "medium", "low"):
-        result["confidence"] = "medium"
+        # Not "medium": a middle nobody stated reads as a judgement weighed.
+        result.pop("confidence", None)
     result["unverified"] = [str(u)[:300] for u in (result.get("unverified") or [])
                             if isinstance(u, str) and u.strip()]
 

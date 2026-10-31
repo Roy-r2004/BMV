@@ -535,7 +535,15 @@ def test_a_capacity_read_that_reports_an_error_stops_the_run(pipeline_with_only,
 #: the rows for the stages it converts.
 STAGES_THAT_STOP_THE_RUN = [
     pytest.param("capacity", "capacity", id="capacity"),
+    pytest.param("analyzing", "analyzing", id="analyzing"),
+    pytest.param("consulting", "consulting", id="consulting"),
+    pytest.param("planning", "planning", id="planning"),
 ]
+
+#: What the old fallbacks wrote for every business on earth. None of it may be
+#: on the row of a run whose stage failed: it would read, to the client, as our
+#: finding about their business.
+CANNED_ANSWERS = ("front-desk", "Front-Desk AI", "AI Analyst", "Missed inquiries")
 
 
 @pytest.mark.parametrize("real, failed_stage", STAGES_THAT_STOP_THE_RUN)
@@ -556,6 +564,50 @@ def test_a_stage_whose_provider_call_fails_stops_the_run_and_says_where(pipeline
         assert "SECRET" not in shown
         for word in FORBIDDEN:
             assert word not in shown
+    # and no canned answer stands in for the work that was not done
+    for column in (row.business_analysis_json, row.consulting_recommendations_json, row.roles_json):
+        for canned in CANNED_ANSWERS:
+            assert canned.lower() not in (column or "").lower(), f"{canned!r} was written to the row"
+
+
+def _model_replies(monkeypatch, reply: dict) -> None:
+    body = {"choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}}
+    monkeypatch.setattr("app.ai.provider.chat", lambda *args, **kwargs: body)
+
+
+def _decide(request_id: int) -> dict:
+    from app.pipeline import decide
+
+    db = SessionLocal()
+    try:
+        return decide.decide(db, request_id, {"business_model": "classes"})
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("said", [
+    pytest.param({}, id="nothing"),
+    pytest.param({"confidence": None}, id="null"),
+    pytest.param({"confidence": "certain"}, id="a word that is not high, medium or low"),
+])
+def test_decide_does_not_default_a_confidence(monkeypatch, said):
+    """A confidence nobody stated is not "medium": a made-up middle reads as the
+    model having weighed it. The key is dropped; whoever shows it shows nothing."""
+    _model_replies(monkeypatch, {"intervention_kind": "software", "consulting_summary": "Fill the quiet hours.", **said})
+    request_id = _generating_row()
+
+    result = _decide(request_id)
+
+    assert result.get("confidence") is None
+    assert "confidence" not in json.loads(_read(request_id).consulting_recommendations_json)
+
+
+@pytest.mark.parametrize("stated", ["high", "medium", "low"])
+def test_decide_keeps_a_confidence_the_model_stated(monkeypatch, stated):
+    _model_replies(monkeypatch, {"intervention_kind": "software", "confidence": stated})
+    request_id = _generating_row()
+
+    assert _decide(request_id)["confidence"] == stated
 
 
 @pytest.mark.parametrize("entry", ["run", "run_build"])

@@ -6,16 +6,8 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline.failure import StageFailed
 from app.templating import render
-
-
-def _fallback(req: Request) -> dict:
-    return {
-        "business_model": "Unknown",
-        "target_customer_profile": req.target_customers or "General local customers",
-        "pain_points": ["Missed inquiries outside business hours", "Manual scheduling / order-taking"],
-        "growth_opportunity": "An AI front-desk employee that responds instantly and never misses an inquiry.",
-    }
 
 
 def _format_site_research(req: Request) -> str:
@@ -74,12 +66,14 @@ def analyze_business(db: Session, request_id: int) -> dict:
             usage=body.get("usage"), success=True,
         )
     except Exception as exc:
-        result = _fallback(req)
         log_usage(
             db, request_id,
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="analyze",
             success=False, error=str(exc)[:500],
         )
+        # No analysis was made, and nothing written in its place: every later
+        # stage would build on a finding about a business nobody looked at.
+        raise StageFailed("analyzing", exc) from exc
 
     req.business_analysis_json = json.dumps(result)
     db.commit()

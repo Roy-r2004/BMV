@@ -8,6 +8,7 @@ from app.config import settings
 from app.models import Request
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.pipeline import handoff
+from app.pipeline.failure import StageFailed
 from app.templating import render
 
 _DEFAULT_ROLES = [
@@ -34,14 +35,6 @@ def _fallback_palette(seed: str) -> dict:
         "background_color": "#" + digest[12:18],
         "style": "modern, professional",
         "mood": "trustworthy, warm",
-    }
-
-
-def _fallback(req: Request) -> dict:
-    return {
-        "concept_name": req.business_name or "Your AI-Powered Business",
-        "roles": _DEFAULT_ROLES,
-        "visual_theme": _fallback_palette(req.business_name or str(req.id)),
     }
 
 
@@ -96,12 +89,14 @@ def plan_integration(db: Session, request_id: int, consult_result: dict) -> dict
             usage=body.get("usage"), success=True,
         )
     except Exception as exc:
-        result = _fallback(req)
         log_usage(
             db, request_id,
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="plan",
             success=False, error=str(exc)[:500],
         )
+        # No plan was made. Generic roles and a colour derived from a hash of
+        # the name would be drawn into every screen as this client's own.
+        raise StageFailed("planning", exc) from exc
 
     req.concept_name = result.get("concept_name")
     req.visual_theme_json = json.dumps(result.get("visual_theme"))
