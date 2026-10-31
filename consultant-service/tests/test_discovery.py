@@ -1,10 +1,9 @@
-"""Pins for the discovery step — tailored questions in, owner numbers out.
+"""Pins for the discovery step — questions in, owner numbers out.
 
-Three rules worth pinning: the questions endpoint NEVER fails closed (a
-broken model call serves the stage-appropriate fallback), the intake
-stores only well-formed Q&A pairs (client JSON is untrusted), and the
-decompose prompt actually carries the numbers with the compute-only-from-
-these rules — the whole feature is that contract.
+Two rules worth pinning: the intake stores only well-formed Q&A pairs (client
+JSON is untrusted), and the decompose prompt actually carries the numbers with
+the compute-only-from-these rules — the whole feature is that contract. How the
+interview behaves when our model call fails is pinned in test_honest_failure.
 """
 
 import json
@@ -47,37 +46,10 @@ def _intake_form(**overrides):
     return form
 
 
-# ── /api/discovery/questions ─────────────────────────────────────────────
+# ── the questions a round may put to the client ──────────────────────────
 
 
-def test_model_failure_serves_operating_fallback(client, monkeypatch):
-    from app.routers import discovery
-
-    monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
-    r = client.post("/api/discovery/questions", data={
-        "business_name": "Beacon", "business_description": "a clinic", "operating_stage": "operating",
-    })
-    assert r.status_code == 200
-    body = r.json()
-    assert body["source"] == "fallback"
-    assert len(body["questions"]) >= 3
-    assert all(q["label"] and q["why"] for q in body["questions"])
-
-
-def test_opening_stage_gets_plan_flavored_fallback(client, monkeypatch):
-    from app.routers import discovery
-
-    monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
-    r = client.post("/api/discovery/questions", data={
-        "business_name": "New Bistro", "business_description": "a restaurant we are opening", "operating_stage": "opening",
-    })
-    ids = {q["id"] for q in r.json()["questions"]}
-    # Plan questions, not history questions — an unopened business has no volumes.
-    assert "planned-price" in ids
-    assert "monthly-volume" not in ids
-
-
-def test_ai_questions_pass_through_and_clamp(client, monkeypatch):
+def test_sanitize_keeps_well_formed_questions_and_clamps():
     from app.config import settings
     from app.routers import discovery
 
@@ -85,28 +57,9 @@ def test_ai_questions_pass_through_and_clamp(client, monkeypatch):
         {"id": f"q-{i}", "label": f"Question {i}?", "placeholder": "e.g. 5", "why": "because"}
         for i in range(12)
     ]
-    monkeypatch.setattr(
-        discovery.provider, "chat",
-        lambda *a, **k: {"choices": [{"message": {"content": json.dumps({"questions": many})}}], "usage": {}},
-    )
-    body = client.post("/api/discovery/questions", data={
-        "business_name": "Beacon", "business_description": "a clinic",
-    }).json()
-    assert body["source"] == "ai"
-    assert len(body["questions"]) == settings.MAX_DISCOVERY_QUESTIONS
-
-
-def test_too_few_ai_questions_fall_back(client, monkeypatch):
-    from app.routers import discovery
-
-    monkeypatch.setattr(
-        discovery.provider, "chat",
-        lambda *a, **k: {"choices": [{"message": {"content": json.dumps({"questions": [{"id": "one", "label": "Only one?"}]})}}], "usage": {}},
-    )
-    body = client.post("/api/discovery/questions", data={
-        "business_name": "Beacon", "business_description": "a clinic",
-    }).json()
-    assert body["source"] == "fallback"
+    got = discovery._sanitize(["junk", {"id": "blank", "label": "  "}, *many])
+    assert [q["id"] for q in got] == [f"q-{i}" for i in range(settings.MAX_DISCOVERY_QUESTIONS)]
+    assert got[0] == {"id": "q-0", "label": "Question 0?", "placeholder": "e.g. 5", "why": "because"}
 
 
 # ── intake persistence ───────────────────────────────────────────────────
@@ -310,7 +263,7 @@ def test_scope_always_asks_for_the_two_facts_the_engagement_launches_on():
         got = discovery.shape_scope(raw, PROBLEM)
         fields = {f["field"] for f in got["facts"]}
         assert {"business_name", "business_description"} <= fields
-        assert discovery.FACTS_MIN <= len(got["facts"]) <= discovery.FACTS_MAX
+        assert len(got["facts"]) <= discovery.FACTS_MAX
 
 
 def test_scope_bounds_a_runaway_fact_list():

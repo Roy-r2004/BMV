@@ -1,12 +1,14 @@
-"""Discovery questions — the intake step that makes the numbers honest.
+"""Discovery — the intake step that makes the numbers honest.
 
-One cheap fast-model call reads the brief and writes the 3-6 questions a
-consultant would open with, tailored to THIS business and its stage
-(operating vs. not-yet-launched). The answers flow into the decomposition
-stage, which is only allowed to compute with numbers the owner gave.
+`/scope` agrees the question with the client and writes the list of facts we
+need; `/interview` then asks, round by round, for what is still missing. The
+answers flow into the decomposition stage, which is only allowed to compute
+with numbers the owner gave.
 
-Fails open: any failure returns a generic-but-sane fallback set for the
-stage, marked source="fallback" — the intake never blocks on this call.
+When a model call fails, or comes back with nothing to show, there is no
+stand-in. Stock questions would be a guess at their business, and an interview
+that ended because a round failed would tell them "that's everything we need".
+Both endpoints answer 503 in plain words instead, and tell the team.
 """
 
 import json
@@ -21,6 +23,7 @@ from app import auth_client
 from app.ai import provider
 from app.config import settings
 from app.database import get_db
+from app.pipeline import failure
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.templating import render
 
@@ -30,88 +33,30 @@ router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 
 _ALLOWED_ENGAGEMENT_TYPES = {"full", "capability"}
 
-# The stage-generic sets used when the tailoring call fails. Deliberately
-# phrased to fit any business; the AI's whole job is to beat these.
-_FALLBACK_OPERATING = [
-    {
-        "id": "admin-hours",
-        "label": "How many hours a week go to repetitive admin?",
-        "placeholder": "e.g. 12 hours on bookings, follow-ups, paperwork",
-        "why": "Time is the first cost your system removes — this sizes it.",
-    },
-    {
-        "id": "avg-value",
-        "label": "What is one sale, visit or job worth on average?",
-        "placeholder": "e.g. $85",
-        "why": "Lets every recovered hour and missed sale be valued at your own prices.",
-    },
-    {
-        "id": "monthly-volume",
-        "label": "How many customers, orders or jobs in a typical month?",
-        "placeholder": "e.g. 340",
-        "why": "Sets the scale every other number multiplies against.",
-    },
-    {
-        "id": "loss-rate",
-        "label": "What share of bookings or leads never turn into money?",
-        "placeholder": "e.g. about 20% no-show or go quiet",
-        "why": "Recovered losses are usually the fastest payback — this sizes them.",
-    },
-]
+#: What the client reads when a step stalls: the work we were doing, and what
+#: of theirs is still on the page. Neither names a model, a stage or an error.
+_STALL_COPY = {
+    "scope": ("writing the questions we need to ask you", "What you wrote is still on this page."),
+    "interview": ("preparing your next question", "Your answers so far are still on this page."),
+}
 
-_FALLBACK_CAPABILITY = [
-    {
-        "id": "problem-frequency",
-        "label": "How often does this problem happen — per day or per week?",
-        "placeholder": "e.g. 15 times a week",
-        "why": "Frequency times cost is the size of the problem.",
-    },
-    {
-        "id": "hours-lost",
-        "label": "How many hours a week does dealing with it take?",
-        "placeholder": "e.g. 6 hours",
-        "why": "The time this capability hands back, in your own hours.",
-    },
-    {
-        "id": "value-lost",
-        "label": "What does one missed or mishandled case cost you?",
-        "placeholder": "e.g. a $120 booking",
-        "why": "Puts your own price on every failure the fix prevents.",
-    },
-    {
-        "id": "current-tooling",
-        "label": "What do you spend monthly on tools for this today, if anything?",
-        "placeholder": "e.g. $50/month",
-        "why": "The honest baseline any new tool must beat.",
-    },
-]
 
-_FALLBACK_OPENING = [
-    {
-        "id": "planned-price",
-        "label": "What do you plan to charge for one sale, visit or job?",
-        "placeholder": "e.g. $30",
-        "why": "Anchors every capacity and payback calculation in your own pricing.",
-    },
-    {
-        "id": "planned-capacity",
-        "label": "How many customers or orders are you built to handle per week at launch?",
-        "placeholder": "e.g. 200",
-        "why": "Your target capacity is what the system has to keep full.",
-    },
-    {
-        "id": "planned-hires",
-        "label": "How many people do you plan to hire for phones, bookings or admin?",
-        "placeholder": "e.g. 1 part-time",
-        "why": "Every role the system covers is a hire you can delay.",
-    },
-    {
-        "id": "launch-budget",
-        "label": "What is your launch budget for tools and software?",
-        "placeholder": "e.g. $5,000",
-        "why": "Keeps every recommendation inside what you actually planned to spend.",
-    },
-]
+def _stalled(kind: str, *, business: str | None, round: int | None, cause: BaseException | str) -> HTTPException:
+    """The 503 for a step that could not be answered, once the team has been
+    told. "We have been told" is in it only if the team was: the mail may be
+    throttled behind one that went (true), or not sendable at all (not true).
+    A mail that goes wrong cannot make this a 500."""
+    try:
+        told = failure.report_stall(kind, business=business, round=round, cause=str(cause) or type(cause).__name__)
+    except Exception:
+        logger.exception("could not tell the team that the %s stalled", kind)
+        told = False
+    work, kept = _STALL_COPY[kind]
+    sentences = [f"Our side stalled while we were {work}."]
+    if told:
+        sentences.append("We have been told.")
+    sentences.append(kept)
+    return HTTPException(status_code=503, detail=" ".join(sentences))
 
 
 def _sanitize(questions: list) -> list[dict]:
@@ -132,58 +77,6 @@ def _sanitize(questions: list) -> list[dict]:
             }
         )
     return cleaned[: settings.MAX_DISCOVERY_QUESTIONS]
-
-
-@router.post("/questions")
-def discovery_questions(
-    business_name: str = Form(...),
-    business_description: str = Form(...),
-    industry: str | None = Form(None),
-    operating_stage: str | None = Form(None),
-    engagement_type: str | None = Form(None),
-    authorization: str | None = Header(None),
-    db: Session = Depends(get_db),
-):
-    if auth_client.resolve_user(authorization) is None:
-        raise HTTPException(status_code=401, detail="Sign in to start your engagement")
-    operating = operating_stage != "opening"
-    if engagement_type == "capability":
-        fallback = _FALLBACK_CAPABILITY
-    else:
-        fallback = _FALLBACK_OPERATING if operating else _FALLBACK_OPENING
-
-    try:
-        prompt = render(
-            "discovery.j2",
-            business_name=business_name,
-            business_description=business_description,
-            industry=industry or "unspecified",
-            operating=operating,
-            capability=engagement_type == "capability",
-            min_questions=settings.MIN_DISCOVERY_QUESTIONS,
-            max_questions=settings.MAX_DISCOVERY_QUESTIONS,
-        )
-        body = provider.chat(
-            settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1200,
-        )
-        questions = _sanitize(extract_json_from_text(body["choices"][0]["message"]["content"]).get("questions") or [])
-        # No request exists yet — the call is still ledgered, unattributed.
-        log_usage(
-            db, None,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="discovery",
-            usage=body.get("usage"), success=True,
-        )
-        if len(questions) < settings.MIN_DISCOVERY_QUESTIONS:
-            return {"questions": fallback, "source": "fallback"}
-        return {"questions": questions, "source": "ai"}
-    except Exception as exc:
-        log_usage(
-            db, None,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="discovery",
-            success=False, error=str(exc)[:500],
-        )
-        logger.warning("discovery tailoring failed, serving fallback: %s", exc)
-        return {"questions": fallback, "source": "fallback"}
 
 
 #: Intake fields the conversation can fill, and how to ask for each. The
@@ -221,39 +114,17 @@ FACTS_MIN, FACTS_MAX = 10, 30
 FACTS_ADDED_PER_ROUND = 4
 FACT_STATUSES = ("need", "got", "estimate", "file")
 
+# The two facts the engagement cannot launch without (REQUIRED_FIELDS), worded
+# for the stage. They are the only facts we write ourselves: every other fact
+# on the list is the model's, from what this client said.
 _FALLBACK_FACTS = {
     "operating": [
         ("business_name", "The business", "Name", "business_name"),
         ("what_you_do", "The business", "What you do, and how big", "business_description"),
-        ("customers", "Customers", "Who your customers are", "target_customers"),
-        ("find_you", "Customers", "How customers find you", ""),
-        ("volume", "Customers", "Customers or jobs a week", ""),
-        ("price", "Money", "What you charge", ""),
-        ("revenue", "Money", "How you make money", "revenue_today"),
-        ("costs", "Money", "Monthly running costs", ""),
-        ("capacity", "Capacity", "Most you can handle a week", ""),
-        ("used", "Capacity", "How much of that is used", ""),
-        ("tools", "How you run today", "Tools you run it on", ""),
-        ("people", "How you run today", "Who does what", ""),
-        ("success", "Goals and limits", "What success looks like", "desired_outcome"),
-        ("timeline", "Goals and limits", "When you need it", ""),
-        ("fixed", "Goals and limits", "What won't change", ""),
     ],
     "opening": [
         ("business_name", "The business", "Name", "business_name"),
         ("what_you_do", "The business", "What it will do, and how big", "business_description"),
-        ("customers", "Customers", "Who it is for", "target_customers"),
-        ("find_you", "Customers", "How they will find you", ""),
-        ("where", "The business", "Where it will be", ""),
-        ("price", "Money", "What you plan to charge", ""),
-        ("revenue", "Money", "How it will make money", "revenue_today"),
-        ("budget", "Money", "Budget to open", ""),
-        ("costs", "Money", "Expected monthly costs", ""),
-        ("capacity", "Capacity", "Most it could handle a week", ""),
-        ("people", "Capacity", "Who will run it", ""),
-        ("launch", "Goals and limits", "When you want to open", ""),
-        ("success", "Goals and limits", "What success looks like", "desired_outcome"),
-        ("fixed", "Goals and limits", "What won't change", ""),
     ],
 }
 
@@ -263,6 +134,7 @@ def _slug(text: str) -> str:
 
 
 def fallback_facts(stage: str | None) -> list[dict]:
+    """The two facts the engagement cannot launch without, as open entries."""
     rows = _FALLBACK_FACTS["opening" if stage == "opening" else "operating"]
     return [{"key": k, "group": g, "label": lbl, "field": f, "status": "need", "value": ""}
             for k, g, lbl, f in rows]
@@ -286,9 +158,9 @@ def _fact_value(value, quote, texts: list[str]) -> str:
 def shape_scope(raw: dict, main_problem: str) -> dict:
     """The brief and its fact list, bounded and checked. Pure.
 
-    Anything missing is filled from a generic list rather than left thin: an
-    interview with nothing to ask for would end before it started. The two
-    facts the engagement cannot launch without are always on it.
+    The list is what the model wrote and nothing else: a reply with few facts
+    gives few, and is not topped up from a generic list. The two facts the
+    engagement cannot launch without are always on it.
     """
     raw = raw if isinstance(raw, dict) else {}
 
@@ -330,20 +202,11 @@ def shape_scope(raw: dict, main_problem: str) -> dict:
 
     # The engagement cannot launch without these two, so they are on the list
     # whatever the model wrote — first, where a person would expect them.
-    for base in reversed(fallback_facts(stage)[:2]):
+    for base in reversed(fallback_facts(stage)):
         if base["field"] not in seen_fields:
             key = base["key"] if base["key"] not in seen_keys else f"{base['key']}_1"
             facts.insert(0, {**base, "key": key})
             seen_keys.add(key)
-            seen_fields.add(base["field"])
-    for base in fallback_facts(stage):
-        if len(facts) >= FACTS_MIN:
-            break
-        if base["key"] in seen_keys or (base["field"] and base["field"] in seen_fields):
-            continue
-        facts.append(base)
-        seen_keys.add(base["key"])
-        if base["field"]:
             seen_fields.add(base["field"])
 
     return {
@@ -353,7 +216,8 @@ def shape_scope(raw: dict, main_problem: str) -> dict:
         "out_scope": out_scope,
         "facts": facts[:FACTS_MAX],
         "inferred": {"operating_stage": stage, "engagement_type": kind},
-        "source": "ai" if question and raw.get("facts") else "fallback",
+        # The page still reads this. A brief is the model's or there is none.
+        "source": "ai",
     }
 
 
@@ -367,16 +231,15 @@ def scope(
     """The brief: the question we will answer, and the list of facts we need.
 
     Shown to them before the first question, the way a serious engagement
-    agrees its problem statement before any analysis. Fails open to a generic
-    fact list and an empty question, which the page states plainly rather
-    than inventing one.
+    agrees its problem statement before any analysis. When the call fails, the
+    reply cannot be read, or it holds neither a question nor a fact, there is
+    no brief to show: 503, with the team told. No generic list stands in.
     """
     if auth_client.resolve_user(authorization) is None:
         raise HTTPException(status_code=401, detail="Sign in to start your engagement")
     problem = (main_problem or "").strip()[:2000]
     if len(problem) < 10:
         raise HTTPException(status_code=422, detail="Tell us what you're trying to work out first")
-    raw: dict = {}
     try:
         prompt = render("scope.j2", main_problem=problem, site_url=(site_url or "").strip()[:200],
                         facts_min=FACTS_MIN, facts_max=FACTS_MAX, fields=FILLABLE)
@@ -388,8 +251,15 @@ def scope(
     except Exception as exc:
         log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose="scope", success=False, error=str(exc)[:500])
-        logger.warning("scope failed open: %s", str(exc)[:200])
-    return shape_scope(raw, problem)
+        logger.warning("scope stalled: %s", str(exc)[:200])
+        raise _stalled("scope", business=None, round=None, cause=exc) from exc
+    brief = shape_scope(raw, problem)
+    if not brief["question"] and len(brief["facts"]) <= len(REQUIRED_FIELDS):
+        # No question, and nothing on the list but the two facts we always add:
+        # the model read the problem and gave us nothing.
+        logger.warning("scope stalled: the reply held no question and no facts")
+        raise _stalled("scope", business=None, round=None, cause="the reply held no question and no facts")
+    return brief
 
 
 @router.post("/read-file")
@@ -577,20 +447,18 @@ def interview(
     demand or capacity.
 
     `done` is authoritative and the client stops on it. It goes true when the
-    model says it has enough, when the round cap is reached, or when a round
-    produced nothing usable — a failed call must END the interview rather
-    than leave the client stuck on a step that will not advance. Round 1
-    falls back to the static set, so the worst case is the behaviour that
-    existed before this endpoint.
+    model says it has enough, when the round cap is reached, or when a later
+    round has nothing left worth asking.
+
+    A round that FAILS is not "nothing left to ask": a failed call, a reply
+    that cannot be read, or a first round with no usable question is a 503,
+    and the team is told. The client is neither handed stock questions nor
+    told that is everything we need, and their answers stay on their page.
     """
     if auth_client.resolve_user(authorization) is None:
         raise HTTPException(status_code=401, detail="Sign in to start your engagement")
 
     operating = operating_stage != "opening"
-    if engagement_type == "capability":
-        fallback = _FALLBACK_CAPABILITY
-    else:
-        fallback = _FALLBACK_OPERATING if operating else _FALLBACK_OPENING
 
     round = max(1, min(int(round or 1), settings.INTERVIEW_MAX_ROUNDS))
     answered = _format_numbers(ops_numbers)
@@ -641,10 +509,11 @@ def interview(
            "estimate": "THEY DON'T KNOW — we will estimate it; do not ask again"}.get(f["status"], "STILL NEEDED")
         for f in fact_list)
 
+    business = filled.get("business_name") or business_name or None
     try:
         prompt = render(
             "interview.j2",
-            business_name=filled.get("business_name") or business_name or "",
+            business_name=business or "",
             business_description=filled.get("business_description") or business_description or "",
             industry=filled.get("industry") or industry or "unspecified",
             stage="not launched yet — this is a plan" if not operating else "already operating",
@@ -671,10 +540,8 @@ def interview(
     except Exception as exc:
         log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose=f"interview:{round}", success=False, error=str(exc)[:500])
-        logger.warning("interview round %s failed: %s", round, exc)
-        if round == 1:
-            return {"questions": fallback, "done": True, "source": "fallback", "because": ""}
-        return {"questions": [], "done": True, "source": "fallback", "because": ""}
+        logger.warning("interview round %s stalled: %s", round, exc)
+        raise _stalled("interview", business=business, round=round, cause=exc) from exc
 
     # Belt and braces behind the prompt: an id or a wording already put to
     # them cannot come back, whatever the model returns.
@@ -691,7 +558,9 @@ def interview(
     if round == 1 and not questions:
         # Nothing to ask before anything has been asked is not a consultant
         # who has enough — it is a call that produced nothing.
-        return {"questions": fallback, "done": True, "source": "fallback", "because": ""}
+        logger.warning("interview round 1 stalled: no usable question in the reply")
+        raise _stalled("interview", business=business, round=round,
+                       cause="round 1 came back with no usable question")
 
     # Which intake field each question fills, where it fills one. Anything
     # not in FILLABLE is dropped rather than trusted — a `field` we do not

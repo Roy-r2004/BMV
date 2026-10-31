@@ -352,6 +352,56 @@ def test_stall_is_throttled(monkeypatch, outbox):
     assert len(outbox) == 3
 
 
+def test_report_stall_says_the_team_is_told_while_the_window_holds_a_mail_that_went(monkeypatch, outbox):
+    """`stall` says whether THIS call sent a mail. A client's sentence needs the
+    other question: does the team know? Inside the window the answer is yes,
+    because the mail that opened it went."""
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(failure.time, "monotonic", lambda: clock["now"])
+
+    assert failure.report_stall("interview", business="Halo", round=3, cause="503") is True
+    clock["now"] += settings.STALL_MAIL_WINDOW_SECONDS - 1
+    assert failure.report_stall("interview", business="Halo", round=4, cause="503") is True
+    assert len(outbox) == 1
+
+
+def test_report_stall_does_not_say_the_team_is_told_when_the_mail_did_not_go(monkeypatch):
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(failure.time, "monotonic", lambda: clock["now"])
+    attempts = []
+
+    def mail(to, subject, body):
+        attempts.append(subject)
+        return len(attempts) > 1  # the server is down for the first attempt only
+
+    monkeypatch.setattr(mailer, "send_now", mail)
+
+    assert failure.report_stall("interview", business=None, round=1, cause="503") is False
+    # inside the window nobody retries, and nobody is told: the answer stays no
+    clock["now"] += settings.STALL_MAIL_WINDOW_SECONDS - 1
+    assert failure.report_stall("interview", business=None, round=2, cause="503") is False
+    assert len(attempts) == 1
+    # the next window tries again, and this time the team is told
+    clock["now"] += 2
+    assert failure.report_stall("interview", business=None, round=3, cause="503") is True
+    assert len(attempts) == 2
+
+
+def test_report_stall_does_not_claim_a_mail_that_is_still_in_flight(monkeypatch):
+    """The window opens when the mail is tried, not when it lands. A request
+    that arrives while the first is still on the wire cannot know the outcome."""
+    during: list[bool] = []
+
+    def slow_mail(to, subject, body):
+        during.append(failure.report_stall("interview", business=None, round=2, cause="503"))
+        return True
+
+    monkeypatch.setattr(mailer, "send_now", slow_mail)
+
+    assert failure.report_stall("interview", business=None, round=1, cause="503") is True
+    assert during == [False]
+
+
 # -- the orchestrator ------------------------------------------------------
 
 
@@ -1509,3 +1559,310 @@ def test_a_ready_email_nobody_expected_alerts_nobody(pipeline_with_only, monkeyp
 
     assert _read(run.request_id).status == "done"
     assert run.outbox == []
+
+
+# -- the interview ---------------------------------------------------------
+#
+# When our model call fails, the client is told so. They are never handed stock
+# questions in its place, and never told "that's everything we need" because a
+# round failed.
+
+PROBLEM = "My pilates studio is full at 6pm and half empty at noon, and I do not know why."
+INTERVIEW_STALLED = ("Our side stalled while we were preparing your next question. "
+                     "We have been told. Your answers so far are still on this page.")
+INTERVIEW_STALLED_UNTOLD = ("Our side stalled while we were preparing your next question. "
+                            "Your answers so far are still on this page.")
+SCOPE_STALLED = ("Our side stalled while we were writing the questions we need to ask you. "
+                 "We have been told. What you wrote is still on this page.")
+SCOPE_STALLED_UNTOLD = ("Our side stalled while we were writing the questions we need to ask you. "
+                        "What you wrote is still on this page.")
+
+TWO_QUESTIONS = {
+    "questions": [
+        {"id": "name", "label": "What is the studio called, and what do you do?",
+         "placeholder": "e.g. Halo Reformer Studio", "why": "We cannot size a business we cannot name.",
+         "field": "business_name"},
+        {"id": "classes", "label": "How many classes do you run in a week?",
+         "placeholder": "e.g. 36", "why": "It sets the scale everything else multiplies against."},
+    ],
+    "enough": False,
+}
+
+
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+
+    from main import app
+
+    Base.metadata.create_all(bind=engine)
+    return TestClient(app)
+
+
+def _scope(client):
+    return client.post("/api/discovery/scope", data={"main_problem": PROBLEM})
+
+
+def _interview(client, **form):
+    return client.post("/api/discovery/interview", data={"main_problem": PROBLEM, **form})
+
+
+def _unattributed_ledger(purpose: str) -> list[bool]:
+    """The ledger rows for a call made before any run exists: success, oldest first."""
+    from app.models import AiUsageEvent
+
+    db = SessionLocal()
+    try:
+        rows = (db.query(AiUsageEvent)
+                .filter(AiUsageEvent.request_id.is_(None), AiUsageEvent.purpose == purpose)
+                .order_by(AiUsageEvent.id))
+        return [e.success for e in rows]
+    finally:
+        db.close()
+
+
+def test_scope_failure_is_a_503_and_mails_the_team_once(client, monkeypatch, outbox):
+    _provider_is_down(monkeypatch)
+    before = _unattributed_ledger("scope")
+
+    first = _scope(client)
+    second = _scope(client)
+
+    for response in (first, second):
+        assert response.status_code == 503
+        assert response.json() == {"detail": SCOPE_STALLED}
+        assert "sk-or" not in response.text  # the cause is the team's, not the screen's
+    assert _unattributed_ledger("scope")[len(before):] == [False, False]
+    assert len(outbox) == 1
+    to, subject, body = outbox[0]
+    assert to == settings.SMTP_USER and subject == "Stalled: scope"
+    assert SECRET_CAUSE in body
+
+
+@pytest.mark.parametrize("text", [
+    pytest.param("I am sorry, I cannot do that.", id="no json at all"),
+    pytest.param('{"question": "Should we raise', id="cut off mid-object"),
+])
+def test_a_scope_reply_that_cannot_be_read_is_a_stall(client, monkeypatch, outbox, text):
+    _model_replies_text(monkeypatch, text)
+
+    response = _scope(client)
+
+    assert response.status_code == 503 and response.json() == {"detail": SCOPE_STALLED}
+    assert [m[1] for m in outbox] == ["Stalled: scope"]
+
+
+@pytest.mark.parametrize("reply", [
+    pytest.param({}, id="an empty object"),
+    pytest.param({"question": "", "facts": []}, id="no question and no facts"),
+    pytest.param({"question": "too short", "facts": "not a list"}, id="junk"),
+])
+def test_a_scope_reply_with_nothing_in_it_is_a_stall(client, monkeypatch, outbox, reply):
+    _model_replies(monkeypatch, reply)
+
+    response = _scope(client)
+
+    assert response.status_code == 503 and response.json() == {"detail": SCOPE_STALLED}
+    assert [m[1] for m in outbox] == ["Stalled: scope"]
+
+
+def test_a_scope_reply_with_few_facts_simply_has_few_facts(client, monkeypatch, outbox):
+    _model_replies(monkeypatch, {
+        "question": "Should the studio raise its evening prices?",
+        "facts": [{"key": "price", "label": "What you charge", "group": "Money"},
+                  {"key": "volume", "label": "Classes a week", "group": "Customers"}],
+    })
+
+    response = _scope(client)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "ai"
+    assert body["question"] == "Should the studio raise its evening prices?"
+    assert [f["key"] for f in body["facts"]] == ["business_name", "what_you_do", "price", "volume"]
+    assert outbox == []
+
+
+def test_interview_round_failure_is_a_503(client, monkeypatch, outbox):
+    _provider_is_down(monkeypatch)
+    before = _unattributed_ledger("interview:2")
+
+    response = _interview(client, business_name="Halo Reformer Studio", round="2",
+                          ops_numbers=json.dumps([{"id": "name", "question": "What is it called?", "answer": "Halo"}]))
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": INTERVIEW_STALLED}  # not done, not "that's everything we need"
+    assert "sk-or" not in response.text
+    assert _unattributed_ledger("interview:2")[len(before):] == [False]
+    assert len(outbox) == 1
+    to, subject, body = outbox[0]
+    assert to == settings.SMTP_USER and subject == "Stalled: interview (Halo Reformer Studio)"
+    assert "Round: 2" in body and SECRET_CAUSE in body
+
+
+def test_a_failed_first_round_is_not_answered_with_stock_questions(client, monkeypatch, outbox):
+    _provider_is_down(monkeypatch)
+
+    response = _interview(client)  # round 1, and the business has no name yet
+
+    assert response.status_code == 503 and response.json() == {"detail": INTERVIEW_STALLED}
+    assert [m[1] for m in outbox] == ["Stalled: interview"]  # no business to name
+    assert "Round: 1" in outbox[0][2]
+
+
+def test_an_interview_reply_that_cannot_be_read_is_a_stall(client, monkeypatch, outbox):
+    _model_replies_text(monkeypatch, "I would ask about prices, I think.")
+
+    response = _interview(client, round="3")
+
+    assert response.status_code == 503 and response.json() == {"detail": INTERVIEW_STALLED}
+    assert "Round: 3" in outbox[0][2]
+
+
+@pytest.mark.parametrize("reply", [
+    pytest.param({"questions": []}, id="no questions"),
+    pytest.param({}, id="an empty object"),
+    pytest.param({"questions": [{"id": "a", "label": "   "}, "junk"]}, id="nothing usable"),
+])
+def test_an_empty_first_round_is_a_stall_not_stock_questions(client, monkeypatch, outbox, reply):
+    """Nothing to ask before anything has been asked is not a consultant who has
+    enough. It is a call that produced nothing."""
+    _model_replies(monkeypatch, reply)
+
+    response = _interview(client)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": INTERVIEW_STALLED}
+    assert [m[1] for m in outbox] == ["Stalled: interview"]
+    assert "Round: 1" in outbox[0][2]
+
+
+def test_a_later_round_with_nothing_left_to_ask_still_ends_the_interview(client, monkeypatch, outbox):
+    """Not a failure: the model read their answers and had nothing more worth
+    asking. Only a round that FAILS is a stall."""
+    _model_replies(monkeypatch, {"questions": [], "enough": True})
+
+    response = _interview(client, round="4", business_name="Halo", business_description="A pilates studio",
+                          known=json.dumps({"business_name": "Halo", "business_description": "A pilates studio"}))
+
+    assert response.status_code == 200
+    assert response.json()["done"] is True
+    assert outbox == []
+
+
+def test_a_successful_round_is_unchanged(client, monkeypatch, outbox):
+    _model_replies(monkeypatch, TWO_QUESTIONS)
+
+    response = _interview(client)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "ai" and body["done"] is False
+    assert [q["id"] for q in body["questions"]] == ["name", "classes"]
+    assert body["questions"][0]["field"] == "business_name" and body["questions"][1]["field"] == ""
+    assert body["questions"][0]["why"] == "We cannot size a business we cannot name."
+    assert body["still_needed"] == ["business_name", "business_description"]
+    assert outbox == []
+
+
+def test_repeated_interview_stalls_send_one_mail(client, monkeypatch, outbox):
+    """A provider outage stalls every round of every client at once. Each of
+    them is told so, and the team gets one mail."""
+    _provider_is_down(monkeypatch)
+
+    first = _interview(client, business_name="Halo", round="2")
+    second = _interview(client, business_name="Another Studio", round="5")
+
+    assert first.status_code == second.status_code == 503
+    # the second client's sentence is still true: the team was told of this outage
+    assert first.json() == second.json() == {"detail": INTERVIEW_STALLED}
+    assert [m[1] for m in outbox] == ["Stalled: interview (Halo)"]
+
+
+def test_the_scope_and_the_interview_have_a_window_each(client, monkeypatch, outbox):
+    _provider_is_down(monkeypatch)
+
+    _scope(client)
+    _interview(client)
+    _scope(client)
+    _interview(client, round="2")
+
+    assert [m[1] for m in outbox] == ["Stalled: scope", "Stalled: interview"]
+
+
+def test_a_stall_does_not_claim_the_team_was_told_when_mail_is_unconfigured(client, monkeypatch):
+    """The real `send_now`, with no mail password: nothing goes out, so nothing
+    may say it did. This holds for the follower inside the window too, because
+    the mail that opened it never went."""
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "")
+    _provider_is_down(monkeypatch)
+
+    scope_first, scope_again = _scope(client), _scope(client)
+    interview_first, interview_again = _interview(client, round="2"), _interview(client, round="3")
+
+    for response in (scope_first, scope_again):
+        assert response.status_code == 503 and response.json() == {"detail": SCOPE_STALLED_UNTOLD}
+    for response in (interview_first, interview_again):
+        assert response.status_code == 503 and response.json() == {"detail": INTERVIEW_STALLED_UNTOLD}
+        assert "been told" not in response.json()["detail"]
+
+
+def test_a_stall_whose_mail_blows_up_is_still_a_503(client, monkeypatch):
+    def broken(*args, **kwargs):
+        raise RuntimeError("smtp went away")
+
+    monkeypatch.setattr(mailer, "send_now", broken)
+    _provider_is_down(monkeypatch)
+
+    response = _interview(client)
+
+    assert response.status_code == 503 and response.json() == {"detail": INTERVIEW_STALLED_UNTOLD}
+
+
+def test_questions_endpoint_is_gone(client, monkeypatch):
+    """`/questions` served three stock sets whenever its model call failed or
+    came back thin. Nothing calls it; it is not there to be called."""
+    from app.routers import discovery
+
+    def must_not_be_called(*args, **kwargs):
+        raise AssertionError("the model was called")
+
+    monkeypatch.setattr("app.ai.provider.chat", must_not_be_called)
+
+    response = client.post("/api/discovery/questions", data={
+        "business_name": "Beacon", "business_description": "a clinic",
+    })
+
+    assert response.status_code == 404
+    for name in ("_FALLBACK_OPERATING", "_FALLBACK_OPENING", "_FALLBACK_CAPABILITY", "discovery_questions"):
+        assert not hasattr(discovery, name), name
+
+
+def test_shape_scope_pads_only_the_two_required_facts():
+    from app.routers import discovery
+
+    required = ["business_name", "business_description"]
+    for raw in ({}, "junk", {"facts": "x"}):
+        got = discovery.shape_scope(raw, PROBLEM)
+        assert [f["field"] for f in got["facts"]] == required
+        assert all(f["status"] == "need" and f["value"] == "" for f in got["facts"])
+
+    # what the model wrote stays, behind the two the engagement cannot launch without
+    got = discovery.shape_scope({"facts": [{"key": "price", "label": "What you charge"}]}, PROBLEM)
+    assert [f["key"] for f in got["facts"]] == ["business_name", "what_you_do", "price"]
+
+    # a model that already asks for both adds nothing and loses nothing
+    own = {"facts": [{"key": "called", "label": "Name", "field": "business_name"},
+                     {"key": "does", "label": "What you do", "field": "business_description"}]}
+    assert [f["key"] for f in discovery.shape_scope(own, PROBLEM)["facts"]] == ["called", "does"]
+
+    # an unlaunched business is asked in the future tense
+    opening = discovery.shape_scope({"operating_stage": "opening"}, PROBLEM)["facts"]
+    assert [f["label"] for f in opening] == ["Name", "What it will do, and how big"]
+
+
+def test_shape_scope_never_says_fallback():
+    from app.routers import discovery
+
+    for raw in ({}, "junk", {"question": "Should the studio raise its evening prices?", "facts": [{"label": "Price"}]}):
+        assert discovery.shape_scope(raw, PROBLEM)["source"] == "ai"

@@ -348,19 +348,6 @@ def test_intake_persists_engagement_type(client, monkeypatch):
     db.close()
 
 
-def test_discovery_capability_fallback(client, monkeypatch):
-    from app.routers import discovery
-
-    monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
-    body = client.post("/api/discovery/questions", data={
-        "business_name": "Beacon", "business_description": "a clinic",
-        "operating_stage": "operating", "engagement_type": "capability",
-    }).json()
-    ids = {q["id"] for q in body["questions"]}
-    assert "problem-frequency" in ids
-    assert "monthly-volume" not in ids
-
-
 def test_blueprint_pdf_carries_all_layers(client, tmp_path, monkeypatch):
     from app.config import settings as cfg
 
@@ -603,8 +590,11 @@ def test_anonymous_cannot_start_an_engagement(client, monkeypatch):
         "email": "x@example.com",
     })
     assert r.status_code == 401
-    assert client.post("/api/discovery/questions", data={
-        "business_name": "B", "business_description": "d",
+    assert client.post("/api/discovery/scope", data={
+        "main_problem": "My studio is full at 6pm and empty at noon.",
+    }).status_code == 401
+    assert client.post("/api/discovery/interview", data={
+        "main_problem": "My studio is full at 6pm and empty at noon.",
     }).status_code == 401
     assert client.post("/api/discovery/brief", data={
         "business_name": "B", "business_description": "d",

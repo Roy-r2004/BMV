@@ -141,21 +141,42 @@ def fail_run(db: Session, request_id: int, stage: str, cause: str) -> bool:
 
 
 # One mail per kind of stall per window: a provider outage stalls every
-# interview round of every client at once. Guarded because the endpoints that
-# call `stall` run on a thread pool.
-_last_stall_mail: dict[str, float] = {}
+# interview round of every client at once. Each kind maps to (when its window
+# opened, whether the mail that opened it went). Guarded because the endpoints
+# that call `stall` run on a thread pool.
+_last_stall_mail: dict[str, tuple[float, bool]] = {}
 _stall_lock = threading.Lock()
+
+
+def _stall(kind: str, business: str | None, round: int | None, cause: str) -> tuple[bool, bool]:
+    """(this call sent a mail, the team has been told of this outage)."""
+    now = time.monotonic()
+    with _stall_lock:
+        window = _last_stall_mail.get(kind)
+        if window is not None and now - window[0] < settings.STALL_MAIL_WINDOW_SECONDS:
+            return False, window[1]
+        # The window opens when we try, not when the mail lands: a mail server
+        # that is down must not make every round wait on a 20s timeout. Until
+        # the mail lands nobody can say the team was told.
+        _last_stall_mail[kind] = (now, False)
+    sent = mailer.notify_team_stall(kind, business, round, str(cause))
+    with _stall_lock:
+        if _last_stall_mail.get(kind) == (now, False):
+            _last_stall_mail[kind] = (now, sent)
+    return sent, sent
 
 
 def stall(kind: str, *, business: str | None, round: int | None, cause: str) -> bool:
     """Tell the team a step a client is waiting on has stalled, at most once per
     `kind` per `STALL_MAIL_WINDOW_SECONDS`. Returns whether a mail went out."""
-    now = time.monotonic()
-    with _stall_lock:
-        last = _last_stall_mail.get(kind)
-        if last is not None and now - last < settings.STALL_MAIL_WINDOW_SECONDS:
-            return False
-        # The window opens when we try, not when the mail lands: a mail server
-        # that is down must not make every round wait on a 20s timeout.
-        _last_stall_mail[kind] = now
-    return mailer.notify_team_stall(kind, business, round, str(cause))
+    return _stall(kind, business, round, cause)[0]
+
+
+def report_stall(kind: str, *, business: str | None, round: int | None, cause: str) -> bool:
+    """`stall`, answering the question a client's sentence is written from: has
+    the team been told of this outage? True when this call sent the mail, and
+    also when it was throttled behind a mail that went. False when the mail
+    could not be sent (mail unconfigured, server down), when the mail that
+    opened the window is still on the wire, and so for every follower inside a
+    window whose mail never went: the next window tries again."""
+    return _stall(kind, business, round, cause)[1]
