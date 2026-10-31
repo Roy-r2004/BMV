@@ -374,7 +374,8 @@ HEALTHY_STAGES = {
     "researching": ("app.pipeline.research.research_business", _nothing),
     "analyzing": ("app.pipeline.analyze.analyze_business", lambda *a, **k: {"growth_opportunity": "more classes"}),
     "capacity": ("app.pipeline.capacity.read", lambda *a, **k: (None, None, None)),
-    "diagnosing": ("app.pipeline.diagnose.diagnose", _nothing),
+    # a diagnosis that holds nothing: the stage either returns one or stops the run
+    "diagnosing": ("app.pipeline.diagnose.diagnose", lambda *a, **k: {"hypotheses": [], "leading": None}),
     "consulting": ("app.pipeline.decide.decide", lambda *a, **k: {"consulting_summary": "Fill the quiet hours."}),
     "answering": ("app.pipeline.answer.write", _nothing),
     "planning": ("app.pipeline.plan.plan_integration", lambda *a, **k: {"concept_name": "Halo"}),
@@ -533,6 +534,7 @@ STAGES_THAT_STOP_THE_RUN = [
     pytest.param("roadmap", "roadmap", id="roadmap"),
     pytest.param("answering", "answering", id="answering"),
     pytest.param("screens", "screens", id="screens"),
+    pytest.param("diagnosing", "diagnosing", id="diagnosing"),
 ]
 
 #: What the old fallbacks wrote for every business on earth. None of it may be
@@ -1133,6 +1135,279 @@ def test_the_thread_ends_cleanly_when_recording_the_failure_fails_too(pipeline_w
         getattr(orchestrator, entry)(run.request_id)  # does not raise
 
     assert any("could not record" in r.getMessage() for r in caplog.records)
+
+
+# -- the diagnosis -----------------------------------------------------------
+
+
+EXPLANATIONS = ("Evenings are full", "Mornings are empty", "Prices are too low")
+
+
+def _explanations(*statements: str) -> dict:
+    """What the diagnostician answers: one explanation per statement."""
+    return {"hypotheses": [
+        {"id": f"H{i}", "statement": statement, "area": "capacity", "software_can_fix": True,
+         "would_support": "a full week", "would_refute": "an empty week", "cites": [], "from_owner": False}
+        for i, statement in enumerate(statements, start=1)]}
+
+
+def _diagnose(request_id: int) -> dict:
+    from app.pipeline import diagnose
+
+    db = SessionLocal()
+    try:
+        return diagnose.diagnose(db, request_id, {"business_model": "classes"})
+    finally:
+        db.close()
+
+
+def _earlier_diagnosis() -> str:
+    return json.dumps({"leading": "H1", "hypotheses": [
+        {"id": "H1", "statement": "From the last diagnosis", "test": {"verdict": "supported"}}]})
+
+
+def test_a_diagnosis_call_that_fails_stops_the_stage_with_its_ledger_row(monkeypatch):
+    from app.pipeline import diagnose
+
+    _provider_by_template(monkeypatch, diagnose, {"diagnose.j2": AiProviderError(SECRET_CAUSE)})
+    request_id = _generating_row(diagnosis_json=_earlier_diagnosis())
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing" and stopped.value.cause == SECRET_CAUSE
+    assert _ledger(request_id) == [("diagnose:1", False)]
+    # the last diagnosis does not stand in for this one
+    assert _read(request_id).diagnosis_json is None
+
+
+def test_a_diagnosis_that_is_not_json_is_a_failed_call(monkeypatch):
+    _model_replies_text(monkeypatch, "I could not settle on an explanation.")
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing" and "No JSON object found" in stopped.value.cause
+    assert _ledger(request_id) == [("diagnose:1", False)]
+
+
+@pytest.mark.parametrize("reply", [
+    pytest.param({"hypotheses": []}, id="none"),
+    pytest.param(_explanations("Only one"), id="one"),
+    pytest.param({"hypotheses": ["a string", {"statement": "  "}, {"area": "capacity"}]}, id="entries that are not explanations"),
+    pytest.param({"turn": "no hypotheses at all"}, id="no hypotheses key"),
+])
+def test_a_diagnosis_with_fewer_than_two_usable_explanations_stops_the_stage(monkeypatch, reply):
+    """One explanation is an opinion, not a diagnosis, and the analysis it used
+    to fall back to is not a replacement for the work that was asked for."""
+    from app.pipeline import diagnose
+
+    _provider_by_template(monkeypatch, diagnose, {"diagnose.j2": reply})
+    request_id = _generating_row(diagnosis_json=_earlier_diagnosis())
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing"
+    assert "usable explanation" in stopped.value.cause and "needs 2" in stopped.value.cause
+    assert _ledger(request_id) == [("diagnose:1", True)]  # the call worked; its answer did not
+    assert _read(request_id).diagnosis_json is None
+
+
+def test_a_second_look_that_cannot_be_made_stops_the_stage(monkeypatch):
+    """Both reviewers killed the first reading, so it is not what the client is
+    owed. Thinking again was the way out of that; if it cannot be done, the
+    refuted reading does not ship in its place."""
+    from app.pipeline import diagnose
+
+    asked = []
+
+    def diagnostician(prompt):
+        asked.append(prompt)
+        return _explanations(*EXPLANATIONS) if len(asked) == 1 else AiProviderError(SECRET_CAUSE)
+
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": diagnostician,
+        "test_hypothesis.j2": {"verdict": "supported", "because": "The evenings are full.", "cites": []},
+        "challenge.j2": {"kills": True, "because": "The owner said so.", "weakness": "Only the owner's word"}})
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing" and stopped.value.cause == SECRET_CAUSE
+    assert _ledger(request_id) == [
+        ("diagnose:1", True), *[("test_hypothesis", True)] * 3,
+        ("challenge:alternative", True), ("challenge:confirmation", True), ("diagnose:2", False)]
+    assert _read(request_id).diagnosis_json is None
+
+
+def test_every_hypothesis_test_crashing_stops_the_run(pipeline_with_only, monkeypatch):
+    """Nothing was tested against their figures, so there is nothing to attack
+    and nothing to conclude. Passing the explanations on untested would present
+    a list of guesses as a diagnosis."""
+    from app.pipeline import diagnose
+
+    run = pipeline_with_only("diagnosing")
+    later = []
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": _explanations(*EXPLANATIONS), "test_hypothesis.j2": AiProviderError(SECRET_CAUSE)})
+    monkeypatch.setattr("app.pipeline.decide.decide", lambda *a, **k: later.append("consulting"))
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and row.is_failed and not row.is_generating
+    record = json.loads(row.failure_json)
+    assert record["stage"] == "diagnosing"
+    assert "none of the 3 explanations could be tested" in record["cause"] and SECRET_CAUSE in record["cause"]
+    assert row.progress_detail == client_reason("diagnosing", True)
+    assert later == [] and row.diagnosis_json is None
+    # every test is on the ledger as failed, and the reviewers were never paid for
+    assert _ledger(run.request_id) == [("diagnose:1", True), *[("test_hypothesis", False)] * 3]
+    assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (diagnosing)"]
+
+
+def _one_test_crashes(monkeypatch) -> int:
+    """A diagnosis in which the test of "Mornings are empty" crashes on our
+    side and the rest run. Returns the row it was made for."""
+    from app.pipeline import diagnose
+
+    def hypothesis_test(prompt):
+        if "Mornings are empty" in prompt:
+            return AiProviderError(SECRET_CAUSE)
+        return {"verdict": "supported", "because": "The evenings are full.", "cites": []}
+
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": _explanations(*EXPLANATIONS), "test_hypothesis.j2": hypothesis_test,
+        "challenge.j2": {"kills": False, "because": "It held.", "weakness": ""}})
+    return _generating_row()
+
+
+def test_one_crashed_test_is_marked_not_tested_and_the_diagnosis_continues(monkeypatch):
+    request_id = _one_test_crashes(monkeypatch)
+
+    result = _diagnose(request_id)
+
+    tests = {h["statement"]: h["test"] for h in result["hypotheses"]}
+    crashed = tests["Mornings are empty"]
+    assert crashed["not_tested"] is True
+    assert crashed["verdict"] == "untestable" and crashed["because"] == "" and crashed["cites"] == []
+    for statement in ("Evenings are full", "Prices are too low"):
+        assert not tests[statement].get("not_tested") and tests[statement]["verdict"] == "supported"
+    # a test that never ran does not lead over two that did, and the reviewers still ran
+    leading = next(h for h in result["hypotheses"] if h["id"] == result["leading"])
+    assert leading["statement"] == "Evenings are full"
+    assert result["status"] == "survived"
+    # the crash is on the ledger as failed, with its cause
+    from app.models import AiUsageEvent
+
+    db = SessionLocal()
+    try:
+        failed = db.query(AiUsageEvent).filter(
+            AiUsageEvent.request_id == request_id, AiUsageEvent.success.is_(False)).all()
+        assert [(e.purpose, e.error) for e in failed] == [("test_hypothesis", SECRET_CAUSE)]
+    finally:
+        db.close()
+
+
+def test_not_tested_reaches_the_narrated_trail(monkeypatch):
+    from app.routers import requests as requests_router
+
+    request_id = _one_test_crashes(monkeypatch)
+
+    _diagnose(request_id)
+
+    verdicts = [(t["text"], t["not_tested"]) for t in requests_router._thinking(_read(request_id))
+                if t["kind"] == "verdict"]
+    assert verdicts == [("Evenings are full", False), ("Mornings are empty", True), ("Prices are too low", False)]
+    for line in requests_router._thinking(_read(request_id)):
+        assert "SECRET" not in json.dumps(line)  # the provider's words stay off the client's screen
+
+
+def test_a_hypothesis_that_was_never_tested_ranks_between_refuted_and_inconclusive():
+    from app.pipeline.diagnose import _rank
+
+    inconclusive = {"from_owner": False, "test": {"verdict": "untestable"}}
+    never_tested = {"from_owner": False, "test": {"verdict": "untestable", "not_tested": True}}
+    refuted = {"from_owner": False, "test": {"verdict": "refuted"}}
+    assert _rank(refuted) < _rank(never_tested) < _rank(inconclusive)
+
+
+def test_the_decision_payload_carries_not_tested():
+    from app.routers.requests import _diagnosis_payload
+
+    def hypothesis(i, **test):
+        return {"id": f"H{i}", "statement": f"Explanation {i}", "area": "capacity", "software_can_fix": True,
+                "test": {"verdict": "untestable", "because": "", "cites": [], "would_need": "", **test}}
+
+    diagnosis = {"leading": "H1", "status": "survived", "weaknesses": [], "challenges": [], "evidence": [],
+                 "hypotheses": [hypothesis(1, not_tested=True), hypothesis(2),
+                                hypothesis(3, not_tested=True)]}
+
+    payload = _diagnosis_payload(SimpleNamespace(diagnosis_json=json.dumps(diagnosis)))
+
+    assert payload["leading"]["not_tested"] is True
+    assert [c["not_tested"] for c in payload["considered"]] == [False, True]
+
+
+def _diagnosis_with_a_test_that_never_ran(**hypothesis) -> str:
+    return json.dumps({"leading": "H1", "status": "survived", "hypotheses": [
+        {"id": "H1", "statement": "Evenings are full",
+         "test": {"verdict": "supported", "because": "Six full evenings a week.", "cites": []}},
+        {"id": "H2", "statement": "Prices are too low", **hypothesis,
+         "test": {"verdict": "untestable", "because": "", "cites": [], "would_need": "", "not_tested": True}}]})
+
+
+def test_the_prompt_text_says_not_tested_not_untestable():
+    from app.pipeline import consult
+
+    # as a set-aside explanation
+    text = consult._format_diagnosis(SimpleNamespace(diagnosis_json=_diagnosis_with_a_test_that_never_ran()))
+    assert "Prices are too low (not tested: the test could not be run on our side)" in text
+    assert "untestable" not in text
+
+    # as the leading one: said outright, and not passed off as a test that ran
+    diagnosis = json.loads(_diagnosis_with_a_test_that_never_ran())
+    diagnosis["leading"] = "H2"
+    text = consult._format_diagnosis(SimpleNamespace(diagnosis_json=json.dumps(diagnosis)))
+    assert "The cause: Prices are too low" in text
+    assert "This was not tested: the test could not be run on our side." in text
+    assert "untestable" not in text and "Tested against their numbers" not in text and "Still unverified" not in text
+
+
+def test_a_test_that_ran_and_was_inconclusive_still_reads_untestable():
+    from app.pipeline import consult
+
+    diagnosis = json.loads(_diagnosis_with_a_test_that_never_ran())
+    diagnosis["hypotheses"][1]["test"] = {"verdict": "untestable", "because": "", "cites": [], "would_need": ""}
+
+    text = consult._format_diagnosis(SimpleNamespace(diagnosis_json=json.dumps(diagnosis)))
+
+    assert "Prices are too low (untestable)" in text and "not tested" not in text
+
+
+def test_the_build_is_not_told_the_owners_explanation_was_unverifiable_when_it_was_never_tested():
+    from app.pipeline import handoff
+
+    text = handoff.for_build(SimpleNamespace(
+        diagnosis_json=_diagnosis_with_a_test_that_never_ran(from_owner=True),
+        consulting_recommendations_json=None))
+
+    assert "The client's own explanation (Prices are too low) was not tested: the test could not be run on our side." in text
+    assert "not verifiable" not in text
+
+
+def test_the_answer_is_not_told_a_leading_explanation_was_untestable_when_it_was_never_tested():
+    from app.pipeline import answer
+
+    diagnosis = json.loads(_diagnosis_with_a_test_that_never_ran())
+    diagnosis["leading"] = "H2"
+
+    leading = answer._leading(SimpleNamespace(diagnosis_json=json.dumps(diagnosis)))
+
+    assert leading == "Prices are too low — not tested: the test could not be run on our side"
 
 
 # -- the last thing a run does: emailing the client -------------------------

@@ -88,8 +88,10 @@ class Request(Base):
     thinking_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The diagnosis stage: competing hypotheses, each with the verdict its
     # test returned, which one leads, and what the two skeptics did to it.
-    # Null when no diagnosis could be made — the run then falls back to
-    # `business_analysis_json`, which is what the pipeline had before.
+    # Null until a diagnosis has been made, and cleared when one could not be:
+    # that run stops (StageFailed "diagnosing") rather than falling back to
+    # `business_analysis_json`. A hypothesis's test carries `not_tested` when the
+    # test crashed on our side.
     diagnosis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Their capacity, drawn from their own answers (app/pipeline/capacity.py):
     # a weekly grid of slots or one pool, with the arithmetic done in code and

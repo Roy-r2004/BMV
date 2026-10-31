@@ -31,6 +31,7 @@ from app.models import Request
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
 from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline.consult import NOT_TESTED
 from app.pipeline.failure import StageFailed
 from app.templating import render
 
@@ -249,6 +250,8 @@ def _leading(req: Request) -> str:
     if not lead:
         return "none"
     test = lead.get("test") or {}
+    if test.get("not_tested"):
+        return f"{lead.get('statement')} — {NOT_TESTED}"
     return f"{lead.get('statement')} — {test.get('verdict', 'untested')}: {test.get('because', '')}"
 
 

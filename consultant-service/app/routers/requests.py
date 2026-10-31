@@ -525,6 +525,10 @@ def _diagnosis_payload(req: Request) -> dict | None:
             "because": (leading.get("test") or {}).get("because"),
             "cites": cited((leading.get("test") or {}).get("cites")),
             "would_need": (leading.get("test") or {}).get("would_need"),
+            # True when the test could not be run on our side. Its verdict then
+            # reads "untestable" for lack of a better value, and the screen must
+            # not say their figures were too thin to decide.
+            "not_tested": bool((leading.get("test") or {}).get("not_tested")),
             # The owner's own stated problem, handed back. Shown so they can
             # see when we agreed with them and when we did not.
             "from_owner": leading.get("from_owner"),
@@ -532,7 +536,8 @@ def _diagnosis_payload(req: Request) -> dict | None:
         "considered": [
             {"statement": h.get("statement"), "area": h.get("area"),
              "verdict": (h.get("test") or {}).get("verdict"),
-             "because": (h.get("test") or {}).get("because")}
+             "because": (h.get("test") or {}).get("because"),
+             "not_tested": bool((h.get("test") or {}).get("not_tested"))}
             for h in hypotheses if h.get("id") != d.get("leading")
         ],
         "status": d.get("status"),

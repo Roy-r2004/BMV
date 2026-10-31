@@ -21,6 +21,8 @@ it also says how to write about that honestly.
 """
 import json
 
+from app.pipeline.consult import NOT_TESTED
+
 # What each kind of intervention means, in words the documents can reuse.
 _PLAIN = {
     "software": "software",
@@ -125,9 +127,11 @@ def for_build(req) -> str:
         out += [f"  - {_short(h.get('statement'), 180)}" for h in ruled_out[:MAX_LIST]]
     theirs = next((h for h in hyps if h.get("from_owner")), None)
     if theirs and theirs not in ruled_out:
-        verdict = (theirs.get("test") or {}).get("verdict")
-        out.append(f"The client's own explanation ({_short(theirs.get('statement'), 160)}) was "
-                   f"{_VERDICT_PLAIN.get(verdict, 'not tested')}.")
+        test = theirs.get("test") or {}
+        # A test we could not run is not a finding that their figures were too thin.
+        found = (NOT_TESTED if test.get("not_tested")
+                 else _VERDICT_PLAIN.get(test.get("verdict"), "not tested"))
+        out.append(f"The client's own explanation ({_short(theirs.get('statement'), 160)}) was {found}.")
 
     unverified = list(dict.fromkeys(
         [str(u) for u in decision.get("unverified") or []] + [str(w) for w in (diag or {}).get("weaknesses") or []]))

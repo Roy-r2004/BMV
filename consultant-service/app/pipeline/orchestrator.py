@@ -231,14 +231,14 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
     _read_capacity(db, request_id)
 
     # Several explanations, tested against their own figures, then attacked.
-    # Fails open to `analysis_result` alone: a diagnosis that could not be
-    # made must not stop the engagement, and the brief says which it got.
+    # One that cannot be made raises StageFailed and stops the run: the
+    # recommendation is written to answer it, and `analysis_result` alone is
+    # not a stand-in.
     emit(db, request_id, "diagnosing", "Working out what's actually wrong...", 16)
     diagnosis_result = diagnose.diagnose(db, request_id, analysis_result)
     diagnose.persist(db, request_id, diagnosis_result)
-    if diagnosis_result:
-        emit(db, request_id, "challenging", "Testing that conclusion against the alternatives...", 22,
-             detail=_leading_statement(diagnosis_result))
+    emit(db, request_id, "challenging", "Testing that conclusion against the alternatives...", 22,
+         detail=_leading_statement(diagnosis_result))
 
     emit(
         db, request_id, "consulting", "Working out what would actually help...", 25,

@@ -9,6 +9,17 @@ import json
 
 from app.models import Request
 
+#: What a test that crashed on our side is called wherever the diagnosis is put
+#: into words for a model. Never "untestable": that is a verdict, the finding
+#: that their figures could not settle it.
+NOT_TESTED = "not tested: the test could not be run on our side"
+
+
+def _verdict_in_words(test: dict) -> str:
+    if test.get("not_tested"):
+        return NOT_TESTED
+    return test.get("verdict", "untested")
+
 
 def _format_diagnosis(req: Request) -> str:
     """The diagnosis as the lines the recommendation has to answer.
@@ -28,7 +39,12 @@ def _format_diagnosis(req: Request) -> str:
         return ""
     test = leading.get("test") or {}
     lines = [f"The cause: {leading['statement']}"]
-    if test.get("because"):
+    if test.get("not_tested"):
+        # A crash on our side, not a finding about their figures: it must not
+        # reach the recommendation as "untestable", which says the figures were
+        # too thin to decide.
+        lines.append(f"This was {NOT_TESTED}.")
+    elif test.get("because"):
         verdict = test.get("verdict", "untestable")
         cites = ", ".join(test.get("cites") or [])
         lines.append(f"Tested against their numbers — {verdict}: {test['because']}"
@@ -47,6 +63,6 @@ def _format_diagnosis(req: Request) -> str:
     rejected = [h for h in d.get("hypotheses") or [] if h.get("id") != d.get("leading")]
     if rejected:
         lines.append("Explanations considered and set aside: "
-                     + "; ".join(f"{h['statement']} ({(h.get('test') or {}).get('verdict', 'untested')})"
+                     + "; ".join(f"{h['statement']} ({_verdict_in_words(h.get('test') or {})})"
                                  for h in rejected))
     return "\n".join(lines)

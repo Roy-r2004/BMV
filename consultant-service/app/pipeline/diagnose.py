@@ -10,9 +10,13 @@ client actually gave, and then the survivor handed to two skeptics whose brief
 is to kill it. What reaches the client is what survived, carrying its own
 weaknesses rather than hiding them.
 
-Everything here fails open. A diagnosis that dies falls back to `analyze`'s
-output, which is what the pipeline did before this stage existed — one bad
-model call degrades the consultation, it does not end the engagement.
+A diagnosis that cannot be made stops the run (`StageFailed("diagnosing")`):
+a failed model call, an answer with too few usable explanations, or a round
+in which not one explanation could be tested. The recommendation is written to
+answer this stage's finding, and `analyze`'s single story is not a stand-in
+for it. What may fall short is only what is reported as having fallen short:
+one test that crashed on our side stays in the diagnosis marked `not_tested`,
+and a skeptic that never ran is recorded as such.
 """
 
 import json
@@ -28,6 +32,7 @@ from app.pipeline._shared import (
     briefing_corrections, build_engagement_register, extract_json_from_text, log_usage,
 )
 from app.pipeline import evidence
+from app.pipeline.failure import StageFailed
 from app.pipeline.registry import client_fact_claims
 from app.templating import render
 
@@ -170,23 +175,41 @@ def _rank(h: dict) -> tuple:
     wordier. A live run showed the cost: every verdict came back untestable,
     the owner's own belief led on citation count alone, and the confirmation
     reviewer then killed it for being the owner's own belief.
+
+    A test that never ran (`not_tested`, a crash on our side) sits between
+    untestable and refuted: nothing ruled it out, but nobody looked, so it does
+    not lead over an explanation that was looked at and could not be settled.
     """
     order = {"supported": 2, "untestable": 1, "refuted": 0}
     test = h.get("test") or {}
-    rank = order.get(test.get("verdict"), 0)
+    rank = 0.5 if test.get("not_tested") else order.get(test.get("verdict"), 0)
     evidence = len(test.get("cites") or []) if test.get("verdict") == "supported" else 0
     return (rank, not h.get("from_owner"), evidence)
 
 
-def diagnose(db: Session, request_id: int, analysis: dict) -> dict | None:
-    """Returns the diagnosis, or None when it could not be made.
+def _stopped(db: Session, request_id: int, cause: str | BaseException) -> StageFailed:
+    """The stop for a diagnosis that could not be made, for the caller to raise
+    from its own thread once every call it paid for is on the ledger.
+
+    The diagnosis an earlier pass left on the row is cleared first: it was made
+    for a different reading of the business and must not stand in for this one.
+    """
+    persist(db, request_id, None)
+    return StageFailed("diagnosing", cause)
+
+
+def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
+    """Returns the diagnosis. Raises `StageFailed("diagnosing")` when it could
+    not be made: the model call failed or came back unreadable, fewer than
+    `MIN_HYPOTHESES` explanations were usable, or none could be tested.
 
     Up to two passes. When both skeptics kill the leading explanation, their
     objections go back to the diagnostician and it thinks again — a killed
     conclusion that reaches the client anyway is the same failure as never
     having challenged it, and the first real run did exactly that: two
     reviewers refuted the leading hypothesis and the recommendation opened by
-    asserting it.
+    asserting it. So a second pass that cannot be made stops the run too: the
+    reading it was meant to replace was refuted.
 
     The second pass is final. If it is killed too, that is reported honestly
     rather than retried until something survives — a hypothesis that only
@@ -236,15 +259,18 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict | None:
             log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
                       purpose=f"diagnose:{attempt}", success=False, error=str(exc)[:500])
             logger.warning("diagnosis could not be formed: %s", str(exc)[:200])
-            return None
+            raise _stopped(db, request_id, exc) from exc
 
         hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids)
         if len(hypotheses) < MIN_HYPOTHESES:
-            # One explanation is not a diagnosis, it is an opinion. Better to
-            # fall back to `analyze` — which is honestly presented as an
-            # opinion — than to dress a single guess up as a tested conclusion.
+            # One explanation is not a diagnosis, it is an opinion, and
+            # dressing a single guess up as a tested conclusion is the thing
+            # this stage exists to prevent.
             logger.warning("only %d usable hypotheses; not a diagnosis", len(hypotheses))
-            return None
+            raise _stopped(
+                db, request_id,
+                f"the model gave {len(hypotheses)} usable explanation{'' if len(hypotheses) == 1 else 's'}, "
+                f"and a diagnosis needs {MIN_HYPOTHESES}")
 
         # `retry` is a field, not a sentence the screen has to recognise. The
         # header used to carry "— thinking again, the first reading was
@@ -314,7 +340,17 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
         log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose="test_hypothesis", usage=usage, success=error is None, error=error)
         say(VERDICT, h["statement"], verdict=result["verdict"],
-            because=result["because"], cites=result["cites"])
+            because=result["because"], cites=result["cites"],
+            not_tested=bool(result.get("not_tested")))
+
+    # Raised here, from the calling thread and after every call is on the
+    # ledger. One crash is kept and reported; all of them leave nothing to
+    # attack and nothing to conclude from, and a list of untested guesses is
+    # not a diagnosis.
+    crashed = [error for _, _, error in tested if error is not None]
+    if len(crashed) == len(hypotheses):
+        raise _stopped(db, request_id,
+                       f"none of the {len(hypotheses)} explanations could be tested: {crashed[0]}")
 
     leading = max(hypotheses, key=_rank)
     rejected = [h for h in hypotheses if h["id"] != leading["id"]]
