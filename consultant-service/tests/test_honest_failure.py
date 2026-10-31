@@ -2159,3 +2159,173 @@ def test_no_other_route_hands_a_failed_runs_raw_detail_to_a_reader(client, path)
 
     assert response.status_code == 200, path
     assert "SECRET" not in response.text and "Traceback" not in response.text, path
+
+
+# -- the method page: how the work was done, and what was not verified -----
+
+HOW = ("Build My Version's analysis system produced this engagement from the facts you gave us "
+       "and the files you sent.")
+INTEGRITY_LINE = "The integrity layer ran on this content."
+BENCH_CHECKS = [
+    {"label": "Every figure traces to a client input", "passed": True, "note": "n"},
+    {"label": "Assumptions explicit and conservative", "passed": False, "note": "n"},
+    {"label": "All canonical sections present", "passed": True, "note": "n"},
+]
+HIGH_FINDING = {"severity": "high", "where": "w", "issue": "an invented figure", "fix": "f"}
+# Words that would turn a record of method into a disclaimer or a review claim.
+FORBIDDEN_ON_THE_METHOD_PAGE = ("reviewed", "human", "not confident", "ai-generated", "confidence", "unsure")
+
+
+def _method_row(findings=(), integrity=True, checks=BENCH_CHECKS, **fields) -> Request:
+    """A finished engagement, held in memory: the facts the client gave, a
+    blueprint, the quality bench's report and (unless `integrity` is False) a
+    current integrity report. The release gate decides draft or final from
+    these alone, as it does for a real row."""
+    from tests._integrity_stub import stamp_clean
+
+    row = Request(
+        business_name="Halo Reformer Studio", business_description="A pilates studio.",
+        email="test@example.com", status="done", is_generating=False, is_failed=False,
+        revenue_today="Class passes and a monthly membership", main_problem="Evening classes sit half empty",
+        ops_numbers_json=json.dumps([{"question": "Evening class size?", "answer": "5 of 12 places"}]),
+        mvp_blueprint="## The decision\nA fine plan.",
+        qa_report_json=json.dumps({"checks": list(checks), "findings": list(findings)}),
+        **fields,
+    )
+    if integrity:
+        stamp_clean(row)
+    return row
+
+
+def _method_page(row: Request) -> list[str]:
+    """The text of every flowable the Evidence & method page puts on the page."""
+    from app.pipeline import export_pdf
+
+    flows = export_pdf._evidence_flowables(row, {}, [])
+    return [f.getPlainText() for f in flows if hasattr(f, "getPlainText")]
+
+
+def test_method_note_for_a_draft_lists_what_was_not_verified():
+    from app.pipeline import export_pdf
+    from app.pipeline.method_note import method_note
+
+    row = _method_row(findings=[HIGH_FINDING])
+    release = export_pdf.release_status(row)
+    assert release["status"] == "draft" and release["reasons"]
+
+    note = method_note(row, release)
+
+    assert set(note) == {"how", "checks_ran", "not_verified"}
+    assert note["how"] == HOW
+    assert note["not_verified"] == release["reasons"]
+    assert any("open high finding" in reason for reason in note["not_verified"])
+    # only the checks that passed are claimed, each in the bench's own words
+    assert note["checks_ran"] == [
+        "Every figure traces to a client input", "All canonical sections present", INTEGRITY_LINE,
+    ]
+    # the note is a copy: changing it cannot change the release decision
+    note["not_verified"].append("x")
+    assert "x" not in release["reasons"]
+
+
+def test_method_note_for_a_final_run_lists_the_checks_and_nothing_outstanding():
+    from app.pipeline import export_pdf
+    from app.pipeline.method_note import method_note
+
+    row = _method_row(checks=[BENCH_CHECKS[0], BENCH_CHECKS[2]])
+    release = export_pdf.release_status(row)
+    assert release["status"] == "final"
+
+    note = method_note(row, release)
+
+    assert note["how"] == HOW
+    assert note["not_verified"] == []
+    assert note["checks_ran"] == [
+        "Every figure traces to a client input", "All canonical sections present", INTEGRITY_LINE,
+    ]
+
+
+def test_the_integrity_layer_is_claimed_only_when_it_ran_on_this_content():
+    from app.pipeline import export_pdf
+    from app.pipeline.method_note import method_note
+
+    row = _method_row(integrity=False)
+    release = export_pdf.release_status(row)
+
+    note = method_note(row, release)
+
+    assert INTEGRITY_LINE not in note["checks_ran"]
+    assert any("integrity layer" in reason for reason in note["not_verified"])
+
+
+@pytest.mark.parametrize("qa", [
+    None, "", "not json", "[]", "null", '"text"', "{}", '{"checks": null}', '{"checks": "x"}',
+    '{"checks": [null, 5, "x", {}, {"passed": true}, {"label": "", "passed": true}, {"label": 7, "passed": true}]}',
+    '{"checks": [{"label": "No pass flag"}, {"label": "Said no", "passed": "false"}, {"label": "Zero", "passed": 0}]}',
+])
+def test_a_quality_report_that_cannot_be_read_claims_no_checks(qa):
+    from app.pipeline.method_note import method_note
+
+    row = _method_row(integrity=False)
+    row.qa_report_json = qa
+
+    note = method_note(row, {"reasons": []})
+
+    assert note["checks_ran"] == []
+
+
+def test_a_check_is_listed_once_however_often_the_bench_recorded_it():
+    from app.pipeline.method_note import method_note
+
+    row = _method_row(integrity=False, checks=[BENCH_CHECKS[0], BENCH_CHECKS[0], BENCH_CHECKS[2]])
+
+    assert method_note(row, {})["checks_ran"] == [
+        "Every figure traces to a client input", "All canonical sections present",
+    ]
+
+
+@pytest.mark.parametrize("release", [None, {}, {"reasons": None}, {"reasons": "x"}, {"reasons": [None, 5, "", "  "]}])
+def test_a_release_decision_with_no_usable_reasons_leaves_nothing_outstanding(release):
+    from app.pipeline.method_note import method_note
+
+    assert method_note(_method_row(), release)["not_verified"] == []
+
+
+def test_the_method_page_no_longer_says_every_claim_was_checked_before_release():
+    row = _method_row(findings=[HIGH_FINDING])
+
+    page = _method_page(row)
+
+    assert page
+    for text in page:
+        assert "was checked against" not in text and "before release" not in text, text
+        assert "structured decomposition" not in text, text
+    assert HOW in page
+    # the rule about how a figure may appear is still there, less its last claim
+    rule = next(t for t in page if t.startswith("Method rule"))
+    assert "30-day operating month" in rule and "plain arithmetic" in rule
+    # what ran, and what did not, in the bench's own words
+    assert "Checks that ran" in page
+    assert "Every figure traces to a client input" in page
+    assert "Assumptions explicit and conservative" not in page
+    assert INTEGRITY_LINE in page
+    assert "Not verified" in page
+    assert any("open high finding" in t for t in page)
+    # the rest of the page is as it was
+    assert "Facts you supplied" in page and "Sources" in page
+
+
+def test_the_method_page_names_nothing_outstanding_for_a_final_run():
+    page = _method_page(_method_row())
+
+    assert HOW in page and "Checks that ran" in page
+    assert "Not verified" not in page
+
+
+@pytest.mark.parametrize("draft", [True, False])
+def test_the_method_page_has_no_review_or_confidence_language(draft):
+    row = _method_row(findings=[HIGH_FINDING] if draft else [])
+
+    for text in _method_page(row):
+        for word in FORBIDDEN_ON_THE_METHOD_PAGE:
+            assert word not in text.lower(), f"{word!r} in {text!r}"

@@ -1245,9 +1245,6 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
         sources.append(f"Your own site — {sr['source_url']} (facts extracted and weighed in the analysis)")
     if corrections:
         sources.append("Your corrections from the pre-launch briefing chat (quoted below)")
-    sources.append(
-        "BuildMyVersion's structured decomposition — each numerical claim checked against "
-        "the inputs above and the calculations shown in this report")
     for s in sources:
         flows.append(Paragraph(_rich(s), _S["bullet"], bulletText="•"))
 
@@ -1304,14 +1301,29 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
                 + _rich(text) + " — shown as a proposal; not operational until approved.",
                 _S["bullet"], bulletText="•"))
 
+    # How the work was done and what was and was not verified, read from this
+    # run's own records (the same release decision the cover stamp comes from).
+    from app.pipeline.method_note import method_note
+
+    note = method_note(req, release_status(req))
+    flows.append(Paragraph("How this was done", _S["h2toc"]))
+    flows.append(Paragraph(_rich(note["how"]), _S["body"]))
+    if note["checks_ran"]:
+        flows.append(Paragraph("Checks that ran", _S["h2toc"]))
+        for line in note["checks_ran"]:
+            flows.append(Paragraph(_rich(line), _S["bullet"], bulletText="•"))
+    if note["not_verified"]:
+        flows.append(Paragraph("Not verified", _S["h2toc"]))
+        for line in note["not_verified"]:
+            flows.append(Paragraph(_rich(line), _S["bullet"], bulletText="•"))
+
     flows.append(Paragraph(
         "Method rule this engagement was produced under: a figure may appear only when it is one "
         "of your inputs above, plain arithmetic on them with the computation shown, or a registered "
         "proposal of ours (a threshold, target or duration) carrying the label "
         "'(proposed — client approval required)'; scenario fractions are explicitly labeled "
         "assumptions; everything else is stated as a mechanism, never a number. Monthly figures use "
-        "a 30-day operating month (annual ÷ 365 × 30). Each numerical claim was checked against the "
-        "client inputs quoted above and the calculations shown in this report before release.", _S["meta"]))
+        "a 30-day operating month (annual ÷ 365 × 30).", _S["meta"]))
     return flows
 
 
