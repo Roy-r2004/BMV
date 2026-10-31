@@ -3368,4 +3368,4 @@ def test_the_check_sentences_carry_no_review_or_confidence_language():
     for sentence in _CHECK_SENTENCES.values():
         assert sentence.endswith(".")
         for word in FORBIDDEN_ON_THE_METHOD_PAGE + ("AI", "model", "pipeline", "try again"):
-            assert not re.search(rf"{re.escape(word)}", sentence, re.IGNORECASE), (word, sentence)
+            assert not re.search(rf"\b{re.escape(word)}\b", sentence, re.IGNORECASE), (word, sentence)
