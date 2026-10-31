@@ -46,10 +46,12 @@ _DOCUMENTS = (
 
 def documents_for(req) -> list[dict]:
     """`[{"key", "title", "state"}]` for the documents that exist or are being
-    written, in reading order. A document that exists is `ready` even while its
-    own stage is current: the run is then rewriting it, and what is there is
-    still true. The AI team is not written by a stage of its own; it is listed,
-    ready, when the decision recommended any."""
+    written, in reading order. It reflects the columns as they stand: a document
+    whose column is filled is `ready`, even while its own stage is current (the
+    run is then rewriting it). That is not a claim that it answers the latest
+    diagnosis: a restarted diagnosis keeps the documents of the earlier one
+    until each is rewritten. The AI team is not written by a stage of its own;
+    it is listed, ready, when the decision recommended any."""
     stage = getattr(req, "stage", None)
     out = []
     for key, title, exists, writing_stage in _DOCUMENTS:
