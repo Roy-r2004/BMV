@@ -11,8 +11,9 @@ is to kill it. What reaches the client is what survived, carrying its own
 weaknesses rather than hiding them.
 
 A diagnosis that cannot be made stops the run (`StageFailed("diagnosing")`):
-a failed model call, an answer with too few usable explanations, or a round
-in which not one explanation could be tested. The recommendation is written to
+a failed model call, an answer with too few usable explanations, a round in
+which not one explanation could be tested, or one in which the only
+explanation left standing is one whose test never ran. The recommendation is written to
 answer this stage's finding, and `analyze`'s single story is not a stand-in
 for it. What may fall short is only what is reported as having fallen short:
 one test that crashed on our side stays in the diagnosis marked `not_tested`,
@@ -366,6 +367,13 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
                        f"none of the {len(hypotheses)} explanations could be tested: {crashed[0]}")
 
     leading = max(hypotheses, key=_rank)
+    if (leading.get("test") or {}).get("not_tested"):
+        # Every explanation that was tested was refuted, and the one left is
+        # one nobody could test. Leading with it would hand every document
+        # writer an untested guess as the established cause. Stopped here,
+        # from the calling thread, with every test already on the ledger and
+        # before any reviewer is paid to attack it.
+        raise _stopped(db, request_id, "the leading explanation could not be tested")
     rejected = [h for h in hypotheses if h["id"] != leading["id"]]
     say(TESTING, leading["statement"], leading=True)
 

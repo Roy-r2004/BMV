@@ -3543,3 +3543,66 @@ def test_a_run_whose_business_name_holds_a_newline_still_tells_the_team(pipeline
     record = json.loads(_read(run.request_id).failure_json)
     assert record["team_notified"] is True
     assert [m["Subject"] for m in smtp] == ["Run failed: Halo Reformer Studio (analyzing)"]
+
+
+# -- an explanation nobody could test never leads ---------------------------
+
+
+def _every_tested_explanation_refuted(monkeypatch, crashes: str = "Mornings are empty") -> None:
+    """A diagnosis in which the test of `crashes` never runs and every other
+    test refutes its explanation."""
+    from app.pipeline import diagnose
+
+    def hypothesis_test(prompt):
+        if crashes in prompt:
+            return AiProviderError(SECRET_CAUSE)
+        return {"verdict": "refuted", "because": "Their figures say otherwise.", "cites": []}
+
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": _explanations(*EXPLANATIONS), "test_hypothesis.j2": hypothesis_test,
+        "challenge.j2": {"kills": False, "because": "It held.", "weakness": ""}})
+
+
+def test_an_untested_explanation_left_standing_alone_stops_the_diagnosis(monkeypatch):
+    _every_tested_explanation_refuted(monkeypatch)
+    request_id = _generating_row(diagnosis_json=_earlier_diagnosis())
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing"
+    assert stopped.value.cause == "the leading explanation could not be tested"
+    # every test is on the ledger; no reviewer was paid to attack a guess
+    assert sorted(_ledger(request_id)) == sorted([
+        ("diagnose:1", True), ("test_hypothesis", False), ("test_hypothesis", True), ("test_hypothesis", True)])
+    # and the diagnosis of the round before does not stand in for this one
+    assert _read(request_id).diagnosis_json is None
+
+
+def test_a_run_whose_only_standing_explanation_was_never_tested_fails_at_diagnosing(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only("diagnosing")
+    _every_tested_explanation_refuted(monkeypatch)
+    later = []
+    monkeypatch.setattr("app.pipeline.decide.decide", lambda *a, **k: later.append("consulting"))
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and json.loads(row.failure_json)["stage"] == "diagnosing"
+    assert row.progress_detail == client_reason("diagnosing", True)
+    assert later == [] and row.diagnosis_json is None
+    assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (diagnosing)"]
+
+
+def test_an_untested_explanation_that_does_not_lead_is_kept_as_it_was(monkeypatch):
+    """One supported explanation leads; the untested one stays in the diagnosis,
+    marked as never tested, and the diagnosis carries on."""
+    request_id = _one_test_crashes(monkeypatch)
+
+    result = _diagnose(request_id)
+
+    leading = next(h for h in result["hypotheses"] if h["id"] == result["leading"])
+    assert not leading["test"].get("not_tested")
+    untested = [h for h in result["hypotheses"] if h["test"].get("not_tested")]
+    assert [h["statement"] for h in untested] == ["Mornings are empty"]
+    assert result["status"] == "survived"
