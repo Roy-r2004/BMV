@@ -2119,6 +2119,24 @@ def test_a_run_the_client_pushes_back_on_sheds_the_record_of_its_last_failure(cl
     assert _progress(client, request_id)["failure"] is None
 
 
+@pytest.mark.parametrize("stage, status", [("failed", "new"), ("technical", "failed"), ("failed", "failed")])
+def test_a_row_failed_by_its_stage_or_status_alone_does_not_leak_its_raw_detail(client, stage, status):
+    """`is_failed` is the flag `fail_run` sets, but a row from before it can say
+    it failed in its `stage` or its `status` alone (the column also reads NULL
+    on a database that grew it later). Its label and detail are the raw
+    exception either way, and the page must not be handed them."""
+    request_id = _generating_row(
+        status=status, stage=stage, is_generating=False, is_failed=False,
+        stage_label="Generation failed: Traceback SECRET", progress_detail="Traceback SECRET",
+    )
+
+    body = _progress(client, request_id)
+
+    assert body["label"] == "Our side failed and the run stopped."
+    assert body["detail"] is None and body["failure"] is None
+    assert "SECRET" not in json.dumps(body) and "Traceback" not in json.dumps(body)
+
+
 def test_a_run_that_fails_for_real_is_read_back_in_plain_words(client, outbox):
     request_id = _generating_row(stage="technical", mvp_blueprint="# Blueprint")
     assert _fail(request_id, "technical") is True

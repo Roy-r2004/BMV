@@ -432,7 +432,9 @@ def get_progress(request_ref: str, review_token: str | None = None,
     req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
     failure = _failure(req)
-    if req.is_failed:
+    # `is_failed` is the flag `fail_run` sets, but a run from before it can say
+    # it failed in its stage or its status alone (and the flag can read NULL).
+    if bool(req.is_failed) or req.stage == "failed" or req.status == "failed":
         # A stopped run is described by the sentence written for the client,
         # never by the row's own label and detail: a run from before that
         # sentence existed holds the raw exception there.
