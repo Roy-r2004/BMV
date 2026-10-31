@@ -502,10 +502,15 @@ def _reopen(db: Session, req: Request) -> int:
     """Send the run back to the start of its diagnosis, if it is still in the
     state the caller saw (1 if it was, else 0; two callers cannot both claim
     it). The run is no longer stopped, so the record of why it was goes too:
-    left behind, it would be read as the reason for whatever stops the run next."""
+    left behind, it would be read as the reason for whatever stops the run next.
+    So do the stage and the words that went with it: until the new thread's
+    first emit the row would still say `failed`, with the old run's label and
+    detail (the raw exception, on a run from before the failure record) beside
+    a live run. It restarts as a new run does, queued."""
     return db.query(Request).filter(
         Request.id == req.id, Request.status == req.status,
     ).update({"status": "new", "is_generating": True, "is_failed": False, "failure_json": None,
+              "stage": "queued", "stage_label": "Queued", "progress_detail": None,
               "phase_started_at": datetime.utcnow()},
              synchronize_session=False)
 

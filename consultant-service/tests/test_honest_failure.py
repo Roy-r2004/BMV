@@ -2137,6 +2137,44 @@ def test_a_row_failed_by_its_stage_or_status_alone_does_not_leak_its_raw_detail(
     assert "SECRET" not in json.dumps(body) and "Traceback" not in json.dumps(body)
 
 
+def test_a_run_started_again_does_not_carry_the_raw_words_of_its_last_failure(client, monkeypatch):
+    """Between the restart and the new thread's first emit nothing has written a
+    label yet. A legacy failed row's own label and detail are the raw exception,
+    and its stage reads `failed` to the page, so the restart puts a queued run's
+    words in all three."""
+    monkeypatch.setattr(orchestrator, "run", lambda request_id: None)
+    request_id = _failed_row(None, stage_label="Generation failed: Traceback SECRET",
+                             progress_detail="Traceback SECRET")
+
+    response = client.post(f"/api/requests/{request_id}/decision/revise",
+                           data={"note": "You misread our evening classes."})
+
+    assert response.status_code == 200 and response.json()["started"] is True
+    row = _read(request_id)
+    assert (row.stage, row.stage_label, row.progress_detail) == ("queued", "Queued", None)
+    body = _progress(client, request_id)
+    assert body["stage"] == "queued" and body["label"] == "Queued" and body["detail"] is None
+    assert body["is_failed"] is False and body["is_generating"] is True
+    assert "SECRET" not in json.dumps(body) and "Traceback" not in json.dumps(body)
+
+
+def test_reopening_a_run_leaves_it_in_the_state_a_new_one_starts_in():
+    from app.routers.requests import _reopen
+
+    request_id = _failed_row(None, stage_label="Generation failed: Traceback SECRET",
+                             progress_detail="Traceback SECRET", progress_pct=61)
+    db = SessionLocal()
+    try:
+        assert _reopen(db, db.get(Request, request_id)) == 1
+        db.commit()
+    finally:
+        db.close()
+
+    row = _read(request_id)
+    assert (row.status, row.is_generating, row.is_failed, row.failure_json) == ("new", True, False, None)
+    assert (row.stage, row.stage_label, row.progress_detail) == ("queued", "Queued", None)
+
+
 def test_a_run_that_fails_for_real_is_read_back_in_plain_words(client, outbox):
     request_id = _generating_row(stage="technical", mvp_blueprint="# Blueprint")
     assert _fail(request_id, "technical") is True
