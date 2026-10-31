@@ -76,7 +76,6 @@ class Settings:
     # nobody signs reads generated. Empty = omitted entirely.
     ENGAGEMENT_LEAD: str = _env_or("ENGAGEMENT_LEAD", "")
     REVIEW_TOKEN: str = _env_or("REVIEW_TOKEN", "")
-    MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))
     MAX_DISCOVERY_QUESTIONS: int = int(_env_or("MAX_DISCOVERY_QUESTIONS", "6"))
     # The fact-finding interview. It works through the brief's fact list and
     # ends when nothing on it is still needed — so the rounds cap is a safety

@@ -411,9 +411,9 @@ def _repeats(key: str, seen: set[str]) -> bool:
 
 @router.post("/interview")
 def interview(
-    # Optional, unlike `/questions`: the front door asks what is going wrong
-    # and nothing else, so on the first round the business does not have a
-    # name yet. Finding that out is this endpoint's job.
+    # Optional: the front door asks what is going wrong and nothing else, so on
+    # the first round the business does not have a name yet. Finding that out
+    # is this endpoint's job.
     business_name: str | None = Form(None),
     business_description: str | None = Form(None),
     industry: str | None = Form(None),
