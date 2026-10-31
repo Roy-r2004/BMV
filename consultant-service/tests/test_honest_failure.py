@@ -596,6 +596,44 @@ def test_an_undelivered_ready_email_alerts_the_team(pipeline_with_only, monkeypa
     assert "was not delivered" in run.outbox[0][2]
 
 
+def test_the_run_already_reads_done_while_the_mail_is_in_flight(pipeline_with_only, monkeypatch):
+    """Each mail can take a long time. The row must read finished the whole
+    while, and nothing may write "Done" over it afterwards: a client who pushes
+    back in that window has restarted the row, and it is theirs."""
+    run = pipeline_with_only(None)
+    monkeypatch.setattr(mailer, "enabled", lambda: True)
+    seen = []
+
+    def mail_that_looks_at_the_row(to, subject, body):
+        row = _read(run.request_id)  # a fresh session: only what has been committed
+        seen.append((subject, row.status, row.stage, row.progress_pct))
+        return subject.startswith("Run failed")  # the client's mail fails, the team's goes
+
+    monkeypatch.setattr(mailer, "send_now", mail_that_looks_at_the_row)
+
+    orchestrator.run(run.request_id)
+
+    assert [s[0] for s in seen] == ["Halo Reformer Studio — your answer and plans are ready",
+                                    "Run failed: Halo Reformer Studio (email)"]
+    assert [s[1:] for s in seen] == [("done", "done", 100)] * 2
+
+
+@pytest.mark.parametrize("raised_stage", ["screens", "quality"])
+def test_a_stage_failed_from_the_screens_stage_keeps_its_own_words(pipeline_with_only, monkeypatch, raised_stage):
+    """Wrapping is for bare exceptions; a StageFailed already says what failed."""
+    run = pipeline_with_only("screens")
+
+    def build(db, request_id):
+        raise StageFailed(raised_stage, "boom")
+
+    monkeypatch.setattr("app.screens.generate.build", build)
+
+    orchestrator.run(run.request_id)
+
+    record = json.loads(_read(run.request_id).failure_json)
+    assert record["stage"] == raised_stage and record["cause"] == "boom"
+
+
 @pytest.mark.parametrize("delivered, configured", [(True, True), (False, False)])
 def test_a_ready_email_nobody_expected_alerts_nobody(pipeline_with_only, monkeypatch, delivered, configured):
     """Delivered: nothing to report. Mail not set up: the building screen never

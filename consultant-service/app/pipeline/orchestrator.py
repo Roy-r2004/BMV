@@ -408,6 +408,8 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
 
     try:
         screens_drawn = screens_stage.build(db, request_id)
+    except StageFailed:
+        raise  # already says what failed, in its own words
     except Exception as exc:
         raise StageFailed("screens", exc) from exc
 
@@ -439,17 +441,23 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
         req.review_status = "pending"
         mailer.notify_reviewer_pending(req.public_id or request_id, req.business_name or "")
     db.commit()
+    ref, business_name = req.public_id or request_id, req.business_name or ""
+    owner = req.owner_email or req.email
+    held_for_review = _settings.REVIEW_MODE == "gate" and req.review_status == "pending"
+    # Finished is finished from the moment the status commits, so the progress
+    # says so BEFORE the mail below, which is slow (each SMTP step can take
+    # ~20s). A "Done" written after it could land on a row the client has since
+    # pushed back on and restarted.
+    emit(db, request_id, "done", "Done", 100, detail=f"{screens_drawn} screens drawn")
     # The building screen tells them they can close the page and we will
     # write when it is ready. A gated run is released later, and THAT sends
     # the mail — telling them now would send them to a page that holds it.
-    if not (_settings.REVIEW_MODE == "gate" and req.review_status == "pending"):
-        delivered = mailer.notify_owner_ready(req.public_id or request_id, req.owner_email or req.email,
-                                              req.business_name or "")
+    if not held_for_review:
+        delivered = mailer.notify_owner_ready(ref, owner, business_name)
         # The package exists, so the run stays done; but the client was told to
         # expect this mail, so the team must know it did not arrive. (With mail
         # unconfigured the building screen promised nothing.)
         if not delivered and mailer.enabled():
             logger.error("run %s is done but the ready email to the client was not delivered", request_id)
-            mailer.notify_team_failure(req.public_id or request_id, req.business_name or "", "email",
+            mailer.notify_team_failure(ref, business_name, "email",
                                        "the ready email to the client was not delivered")
-    emit(db, request_id, "done", "Done", 100, detail=f"{screens_drawn} screens drawn")
