@@ -369,11 +369,9 @@ def write_blueprint(
     content = _markdown_call(db, request_id, "blueprint", prompt, stage="blueprint", max_tokens=6000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
                                       registry=registry, kind="blueprint")
-    # a failed (re)generation never erases an existing volume
-    if content:
-        req.mvp_blueprint = content
-        db.commit()
-    return content or req.mvp_blueprint
+    req.mvp_blueprint = content
+    db.commit()
+    return content
 
 
 def write_technical_plan(
@@ -418,8 +416,6 @@ def write_technical_plan(
             [{"source": "technical", **r} for r in report["rendered"]])
         registry["errors"] = _reg.validate_registry(registry)
         req.registry_json = json.dumps(registry)
-    # a failed (re)generation never erases an existing volume
-    if content:
-        req.technical_plan = content
+    req.technical_plan = content
     db.commit()
-    return content or req.technical_plan
+    return content

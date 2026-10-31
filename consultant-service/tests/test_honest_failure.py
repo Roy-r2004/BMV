@@ -971,6 +971,46 @@ def test_a_document_that_comes_back_empty_is_a_stage_failure(monkeypatch):
     assert stopped.value.stage == "blueprint" and "empty" in stopped.value.cause
 
 
+def test_a_volume_already_written_is_kept_when_its_rewrite_comes_back_empty(monkeypatch):
+    """The writers save whatever `_markdown_call` returns, with no guard of
+    their own: an empty reply must have stopped the run before that line."""
+    from app.pipeline import blueprint
+
+    kept = {"mvp_blueprint": "## The decision\nkept\n", "technical_plan": "## How it works\nkept\n"}
+    plan = {"concept_name": "C", "roles": []}
+    _model_replies_text(monkeypatch, "   ")
+    request_id = _generating_row(**kept)
+    db = SessionLocal()
+    try:
+        with pytest.raises(StageFailed) as blueprint_stop:
+            blueprint.write_blueprint(db, request_id, {}, {}, plan)
+        with pytest.raises(StageFailed) as technical_stop:
+            blueprint.write_technical_plan(db, request_id, {}, plan)
+    finally:
+        db.close()
+
+    assert (blueprint_stop.value.stage, technical_stop.value.stage) == ("blueprint", "technical")
+    row = _read(request_id)
+    assert (row.mvp_blueprint, row.technical_plan) == (kept["mvp_blueprint"], kept["technical_plan"])
+
+
+def test_a_volume_that_is_rewritten_replaces_the_one_before_and_is_returned(monkeypatch):
+    from app.pipeline import blueprint
+
+    plan = {"concept_name": "C", "roles": []}
+    _model_replies_text(monkeypatch, "## The decision\nnew\n")
+    request_id = _generating_row(mvp_blueprint="## The decision\nold\n", technical_plan="## How it works\nold\n")
+    db = SessionLocal()
+    try:
+        assert blueprint.write_blueprint(db, request_id, {}, {}, plan) == "## The decision\nnew"
+        assert blueprint.write_technical_plan(db, request_id, {}, plan) == "## The decision\nnew"
+    finally:
+        db.close()
+
+    row = _read(request_id)
+    assert row.mvp_blueprint == "## The decision\nnew" and row.technical_plan == "## The decision\nnew"
+
+
 def test_a_document_that_works_is_returned_with_its_fence_stripped(monkeypatch):
     from app.pipeline import blueprint
 
