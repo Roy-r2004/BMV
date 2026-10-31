@@ -82,12 +82,17 @@ export interface OpsNumber {
  *
  *  `ours` is our side failing: the service's own 503, carrying the plain
  *  sentence it wrote for the client, or another 5xx, where the sentence is ours
- *  to supply. `connection` is no answer at all (offline, dropped, timed out),
- *  which is not something we can describe in more detail than that. */
-export class StalledError extends Error {
-  kind: 'ours' | 'connection';
+ *  to supply. `slow` is our own wait running out before the answer came: the
+ *  service can take longer than this page waits when the model behind it hangs,
+ *  so it blames nobody and claims nobody was told. `connection` is no answer at
+ *  all and no timeout (offline, dropped), which is not something we can
+ *  describe in more detail than that. Each is offered Continue. */
+export type StallKind = 'ours' | 'slow' | 'connection';
 
-  constructor(kind: 'ours' | 'connection', message: string) {
+export class StalledError extends Error {
+  kind: StallKind;
+
+  constructor(kind: StallKind, message: string) {
     super(message);
     this.name = 'StalledError';
     this.kind = kind;
@@ -95,7 +100,11 @@ export class StalledError extends Error {
 }
 
 export const STALLED_OURS = 'Our side stalled and the interview paused. Your answers so far are still on this page.';
+export const STALLED_SLOW = 'The answer is taking longer than it should. Your answers so far are still on this page.';
 const STALLED_CONNECTION = 'Your connection dropped. Continue when it is back.';
+
+/** axios's codes for its own timeout running out. */
+const TIMED_OUT = new Set(['ECONNABORTED', 'ETIMEDOUT']);
 
 /** The stall a failed discovery call amounts to, or null when it is not one.
  *
@@ -103,8 +112,10 @@ const STALLED_CONNECTION = 'Your connection dropped. Continue when it is back.';
  *    it wrote one, else STALLED_OURS;
  *  - any other 5xx (a 500, a proxy's 502 or 504): `ours` with STALLED_OURS. The
  *    body of those is a framework's or a proxy's, not words for the client;
- *  - no response at all (offline, dropped, or axios's own timeout, code
- *    ECONNABORTED / ETIMEDOUT): `connection`;
+ *  - axios's own timeout (code ECONNABORTED / ETIMEDOUT), with no response:
+ *    `slow`, with STALLED_SLOW. The service may still be waiting on the model,
+ *    which is ours to answer for, not the client's connection;
+ *  - no response at all and no timeout (offline, dropped): `connection`;
  *  - a StalledError already: itself.
  *
  *  A 4xx (a 401, a 422) is null: retrying the same request cannot help, so it is
@@ -118,7 +129,9 @@ export function asStalled(error: unknown): StalledError | null {
     return new StalledError('ours', typeof detail === 'string' && detail.trim() ? detail : STALLED_OURS);
   }
   if (status !== undefined && status >= 500) return new StalledError('ours', STALLED_OURS);
-  return error.response ? null : new StalledError('connection', STALLED_CONNECTION);
+  if (error.response) return null;
+  if (error.code !== undefined && TIMED_OUT.has(error.code)) return new StalledError('slow', STALLED_SLOW);
+  return new StalledError('connection', STALLED_CONNECTION);
 }
 
 function stalledOrThrow(error: unknown): never {
