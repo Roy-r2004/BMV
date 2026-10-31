@@ -5,13 +5,16 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app import mailer
 from app.config import settings
 from app.database import SessionLocal
 from app.models import Request
 from app.pipeline import action_plan, analyze, answer, blueprint, capacity, consult, decide, decompose, diagnose, extras, plan, playbook, qa_experts, research
+from app.pipeline.failure import StageFailed, fail_run
 from app.pipeline.structural import engagement_subjects as _subjects_of
 from app.pipeline.structural import preflight as _structural_preflight
 
+logger = logging.getLogger("consultant.orchestrator")
 
 PREFLIGHT_ATTEMPTS = 3
 
@@ -27,16 +30,19 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
     issues = []
     for attempt in range(1, PREFLIGHT_ATTEMPTS + 1):
         decomposition = decompose.decompose_business(db, request_id, *args, feedback=feedback, **kwargs)
-        issues = _structural_preflight(
-            (decomposition or {}).get("business_case") or {},
-            (decomposition or {}).get("modules") or [],
-            (decomposition or {}).get("registry"),
-            _engagement_subjects(db, request_id),
-        ) if decomposition else []
-        if decomposition and not issues:
-            return decomposition
+        # Nothing at all is not a skeleton to carry on with: every volume after
+        # this is written from it. (A skeleton with defects is another matter,
+        # handled after the loop.)
         if not decomposition:
-            return None
+            raise StageFailed("decomposing", "the breakdown returned nothing usable")
+        issues = _structural_preflight(
+            decomposition.get("business_case") or {},
+            decomposition.get("modules") or [],
+            decomposition.get("registry"),
+            _engagement_subjects(db, request_id),
+        )
+        if not issues:
+            return decomposition
         feedback = [f"{i['where']}: {i['issue']} Fix: {i['fix']}" for i in issues]
     # Out of attempts. Every other stage in this pipeline fails OPEN — a bad
     # call degrades the package instead of killing it — and the preflight was
@@ -101,25 +107,30 @@ def _leading_statement(diagnosis: dict) -> str | None:
                  if h.get("id") == diagnosis.get("leading")), None)
 
 
-def _fail(db: Session, request_id: int, exc: Exception) -> None:
-    # The exception may have come from a commit — the session is then in
-    # a failed state and every statement below would re-raise, leaving
-    # the request stuck at is_generating=true forever (found in review).
-    db.rollback()
-    req = db.get(Request, request_id)
-    if req is not None:
-        req.status = "failed"
-        req.is_failed = True
-        req.is_generating = False
-        db.commit()
-    emit(
-        db,
-        request_id,
-        "failed",
-        f"Generation failed: {exc}",
-        req.progress_pct if req else 0,
-        detail=str(exc)[:300],
-    )
+def _stage_running(db: Session, request_id: int) -> str:
+    """The stage the row says the run is at: where a bare exception belongs.
+
+    The exception may have come from a commit — the session is then in a
+    failed state and every statement after it would re-raise (found in
+    review), so it is rolled back first. If the row cannot be read at all
+    there is no stage to name, and the failure is recorded without one."""
+    try:
+        db.rollback()
+        row = db.get(Request, request_id)
+        return (row.stage or "") if row is not None else ""
+    except Exception:
+        return ""
+
+
+def _fail(db: Session, request_id: int, stage: str, cause: str) -> None:
+    """End a run that raised, through the one place that knows how.
+
+    This is the last thing a background thread does: an error out of it would
+    be lost with the thread, so it is logged here and goes no further."""
+    try:
+        fail_run(db, request_id, stage, cause)
+    except Exception:
+        logger.exception("run %s: could not record that it failed at %r", request_id, stage)
 
 
 class _Superseded(Exception):
@@ -158,8 +169,10 @@ def run(request_id: int) -> None:
         _run_diagnosis(db, request_id)
     except _Superseded:
         return
+    except StageFailed as exc:
+        _fail(db, request_id, exc.stage, exc.cause)
     except Exception as exc:
-        _fail(db, request_id, exc)
+        _fail(db, request_id, _stage_running(db, request_id), str(exc) or type(exc).__name__)
     finally:
         db.close()
 
@@ -176,8 +189,10 @@ def run_build(request_id: int) -> None:
         _run_build(db, request_id)
     except _Superseded:
         return
+    except StageFailed as exc:
+        _fail(db, request_id, exc.stage, exc.cause)
     except Exception as exc:
-        _fail(db, request_id, exc)
+        _fail(db, request_id, _stage_running(db, request_id), str(exc) or type(exc).__name__)
     finally:
         db.close()
 
@@ -215,7 +230,8 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
     analysis_result = analyze.analyze_business(db, request_id)
 
     # Their week, drawn from their answers. Before the diagnosis on purpose:
-    # its totals become figures a hypothesis can cite. Fails open to nothing.
+    # its totals become figures a hypothesis can cite. A week the owner gave
+    # no figures for is simply no picture; a read that errored stops the run.
     _read_capacity(db, request_id)
 
     # Several explanations, tested against their own figures, then attacked.
@@ -273,6 +289,8 @@ def _read_capacity(db: Session, request_id: int) -> None:
     if usage is not None or error is not None:
         log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose="capacity", usage=usage, success=error is None, error=error)
+    if error is not None:
+        raise StageFailed("capacity", error)
     req = db.get(Request, request_id)
     req.capacity_json = json.dumps(picture) if picture else None
     db.commit()
@@ -382,8 +400,8 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     # The system, screen by screen: designed once (product, navigation, one
     # cast of sample people), then every screen drawn from its brief in the
     # renderer's own block vocabulary. HTML, not pictures: the site shows it
-    # live and the proposal prints it. Fails open — a package without its
-    # screens is still a package, and the page says the screens are missing.
+    # live and the proposal prints it. An exception from it stops the run, like
+    # any other stage: nothing stands in for screens we did not draw.
     current()
     emit(db, request_id, "screens", "Drawing your system, screen by screen...", 66)
     from app.screens import generate as screens_stage
@@ -391,8 +409,7 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     try:
         screens_drawn = screens_stage.build(db, request_id)
     except Exception as exc:
-        logging.getLogger("consultant.orchestrator").warning("screens stage failed open: %s", str(exc)[:200])
-        screens_drawn = 0
+        raise StageFailed("screens", exc) from exc
 
     current()
     req = db.get(Request, request_id)
@@ -418,8 +435,6 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     # the reviewer's approval before the client sees it.
     from app.config import settings as _settings
 
-    from app import mailer
-
     if _settings.REVIEW_MODE in ("on", "gate") and _settings.REVIEW_TOKEN:
         req.review_status = "pending"
         mailer.notify_reviewer_pending(req.public_id or request_id, req.business_name or "")
@@ -428,6 +443,13 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     # write when it is ready. A gated run is released later, and THAT sends
     # the mail — telling them now would send them to a page that holds it.
     if not (_settings.REVIEW_MODE == "gate" and req.review_status == "pending"):
-        mailer.notify_owner_ready(req.public_id or request_id, req.owner_email or req.email,
-                                  req.business_name or "")
+        delivered = mailer.notify_owner_ready(req.public_id or request_id, req.owner_email or req.email,
+                                              req.business_name or "")
+        # The package exists, so the run stays done; but the client was told to
+        # expect this mail, so the team must know it did not arrive. (With mail
+        # unconfigured the building screen promised nothing.)
+        if not delivered and mailer.enabled():
+            logger.error("run %s is done but the ready email to the client was not delivered", request_id)
+            mailer.notify_team_failure(req.public_id or request_id, req.business_name or "", "email",
+                                       "the ready email to the client was not delivered")
     emit(db, request_id, "done", "Done", 100, detail=f"{screens_drawn} screens drawn")

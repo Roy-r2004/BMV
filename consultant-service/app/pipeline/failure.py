@@ -120,14 +120,22 @@ def fail_run(db: Session, request_id: int, stage: str, cause: str) -> bool:
         logger.exception("run %s: could not tell the team it failed", request_id)
         team_notified = False
 
-    # 3. The client reads "we have been told" only if we were.
+    # 3. The client reads "we have been told" only if we were. The mail was
+    # slow, so the client may have pushed back and restarted the run meanwhile:
+    # the row then belongs to the new run, and this failure's wording is not
+    # written over it. Whatever goes wrong here, the answer below is still true
+    # and still returned.
     if team_notified:
-        record["team_notified"] = True
-        record["reason"] = client_reason(stage, True)
-        req = db.get(Request, request_id)
-        if req is not None:
-            req.failure_json = json.dumps(record)
-            emit(db, request_id, "failed", _FAILED_LABEL, req.progress_pct, detail=record["reason"])
+        try:
+            req = db.get(Request, request_id, populate_existing=True)
+            if req is not None and req.status == "failed":
+                record["team_notified"] = True
+                record["reason"] = client_reason(stage, True)
+                req.failure_json = json.dumps(record)
+                emit(db, request_id, "failed", _FAILED_LABEL, req.progress_pct, detail=record["reason"])
+        except Exception:
+            db.rollback()
+            logger.exception("run %s: the team was told, but we could not upgrade the client's notice to say so", request_id)
     logger.error("run %s failed at %s (team notified: %s): %s", request_id, stage, team_notified, cause)
     return team_notified
 

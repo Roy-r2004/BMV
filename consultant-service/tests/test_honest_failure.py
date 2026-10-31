@@ -11,16 +11,18 @@ import json
 import os
 import sys
 from datetime import datetime
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
 from app import mailer
+from app.ai.provider import AiProviderError
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import Request
-from app.pipeline import failure
+from app.pipeline import failure, orchestrator
 from app.pipeline.failure import STAGE_WORK, StageFailed, client_reason, fail_run, stall
 
 REQUIRED_STAGES = [
@@ -234,6 +236,61 @@ def test_the_run_is_already_stopped_while_the_slow_mail_is_in_flight(monkeypatch
     assert row.status == "failed" and not row.is_generating
 
 
+def test_a_run_restarted_while_the_mail_was_in_flight_is_left_alone(monkeypatch):
+    """The mail takes seconds, and a failed run can be pushed back on and
+    restarted in that window. The live row then belongs to the new run: the old
+    failure must not write its wording over it."""
+    request_id = _generating_row()
+
+    def mail_while_the_client_restarts_the_run(to, subject, body):
+        db = SessionLocal()
+        try:
+            row = db.get(Request, request_id)
+            row.status, row.is_failed, row.is_generating = "new", False, True
+            row.stage, row.stage_label = "researching", "Reading your business..."
+            row.progress_detail, row.failure_json = None, None
+            db.commit()
+        finally:
+            db.close()
+        return True
+
+    monkeypatch.setattr(mailer, "send_now", mail_while_the_client_restarts_the_run)
+
+    assert _fail(request_id) is True  # the team was told; that stays true
+
+    row = _read(request_id)
+    assert row.status == "new" and row.is_generating and not row.is_failed
+    assert row.stage == "researching" and row.stage_label == "Reading your business..."
+    assert row.progress_detail is None and row.failure_json is None
+
+
+def test_a_database_error_after_the_mail_cannot_lose_the_answer(monkeypatch, outbox, caplog):
+    """Once the team has been told, nothing about upgrading the wording may
+    raise out of `fail_run` or change what it reports."""
+    real_emit = failure.emit
+    calls = []
+
+    def emit_that_fails_the_second_time(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError("database is locked")
+        return real_emit(*args, **kwargs)
+
+    monkeypatch.setattr(failure, "emit", emit_that_fails_the_second_time)
+    request_id = _generating_row()
+
+    with caplog.at_level("ERROR", logger="consultant.failure"):
+        assert _fail(request_id) is True
+
+    assert len(outbox) == 1
+    row = _read(request_id)
+    assert row.status == "failed" and row.is_failed and not row.is_generating
+    # the stop from the first phase stands, claiming nobody was told
+    assert row.progress_detail == client_reason("blueprint", False)
+    assert json.loads(row.failure_json)["team_notified"] is False
+    assert any("could not upgrade" in r.getMessage() for r in caplog.records)
+
+
 def test_fail_run_stops_the_run_even_if_telling_the_team_blows_up(monkeypatch):
     def explode(*args, **kwargs):
         raise RuntimeError("mail layer bug")
@@ -293,3 +350,261 @@ def test_stall_is_throttled(monkeypatch, outbox):
     clock["now"] += 2
     assert stall("interview", business="Halo", round=5, cause="503") is True
     assert len(outbox) == 3
+
+
+# -- the orchestrator ------------------------------------------------------
+
+
+def _stub_blueprint(db, request_id, *args, **kwargs):
+    """The one stub with a side effect: a run only ends "done" when a volume
+    was written, so the stub writes one."""
+    req = db.get(Request, request_id)
+    req.mvp_blueprint = "## The decision\nA stub blueprint."
+    db.commit()
+
+
+def _nothing(*args, **kwargs):
+    return None
+
+
+#: Every stage entry point the orchestrator calls, in the order it calls them:
+#: stage name -> (what to patch, a stub returning the least the next stage
+#: needs). `integrity` has no stage of its own: it runs under the "quality" label.
+HEALTHY_STAGES = {
+    "researching": ("app.pipeline.research.research_business", _nothing),
+    "analyzing": ("app.pipeline.analyze.analyze_business", lambda *a, **k: {"growth_opportunity": "more classes"}),
+    "capacity": ("app.pipeline.capacity.read", lambda *a, **k: (None, None, None)),
+    "diagnosing": ("app.pipeline.diagnose.diagnose", _nothing),
+    "consulting": ("app.pipeline.decide.decide", lambda *a, **k: {"consulting_summary": "Fill the quiet hours."}),
+    "answering": ("app.pipeline.answer.write", _nothing),
+    "planning": ("app.pipeline.plan.plan_integration", lambda *a, **k: {"concept_name": "Halo"}),
+    "decomposing": ("app.pipeline.decompose.decompose_business", lambda *a, **k: {"business_case": {}, "modules": []}),
+    "shaping": ("app.pipeline.extras.build_extras", _nothing),
+    "blueprint": ("app.pipeline.blueprint.write_blueprint", _stub_blueprint),
+    "technical": ("app.pipeline.blueprint.write_technical_plan", _nothing),
+    "playbook": ("app.pipeline.playbook.write_playbook", _nothing),
+    "roadmap": ("app.pipeline.action_plan.write", _nothing),
+    "quality": ("app.pipeline.qa_experts.review_quality", _nothing),
+    "integrity": ("app.pipeline.integrity.enforce", _nothing),
+    "screens": ("app.screens.generate.build", lambda *a, **k: 0),
+}
+
+
+@pytest.fixture
+def pipeline_with_only(monkeypatch, outbox):
+    """A factory: `pipeline_with_only("analyzing")` makes a run whose every
+    stage is a healthy stub except that one, which is left real, and whose
+    provider is down. `None` leaves every stage a stub: a run that works.
+
+    Returns the new row's id and the emails the run tried to send. A test that
+    needs a stage to do something particular patches it again on top."""
+
+    def make(real: str | None) -> SimpleNamespace:
+        assert real is None or real in HEALTHY_STAGES, f"no stage called {real!r}"
+        for stage, (target, stub) in HEALTHY_STAGES.items():
+            if stage != real:
+                monkeypatch.setattr(target, stub)
+
+        def provider_down(*args, **kwargs):
+            raise AiProviderError(SECRET_CAUSE)
+
+        monkeypatch.setattr("app.ai.provider.chat", provider_down)
+        # a run that is held for a reviewer sends different mail
+        monkeypatch.setattr(settings, "REVIEW_MODE", "off")
+        monkeypatch.setattr(settings, "REVIEW_TOKEN", "")
+        return SimpleNamespace(request_id=_generating_row(status="new", stage="new"), outbox=outbox)
+
+    return make
+
+
+def _pushed_back(request_id: int) -> None:
+    """What a client pushing back does to the row: a new diagnosis, a new token."""
+    db = SessionLocal()
+    try:
+        row = db.get(Request, request_id)
+        row.status, row.phase_started_at = "new", datetime(2026, 9, 26, 10, 5, 0)
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_a_stage_that_raises_stage_failed_stops_the_run(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only("analyzing")
+
+    def analyze(db, request_id):
+        raise StageFailed("analyzing", "boom")
+
+    monkeypatch.setattr("app.pipeline.analyze.analyze_business", analyze)
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and row.is_failed and not row.is_generating
+    record = json.loads(row.failure_json)
+    assert record["stage"] == "analyzing" and record["cause"] == "boom"
+    assert row.progress_detail == client_reason("analyzing", True)
+    assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (analyzing)"]
+
+
+@pytest.mark.parametrize("entry", ["run", "run_build"])
+def test_a_bare_exception_is_attributed_to_the_stage_that_was_running(pipeline_with_only, monkeypatch, entry):
+    run = pipeline_with_only("blueprint")
+
+    def write_blueprint(db, request_id, *args, **kwargs):
+        raise RuntimeError("db locked")
+
+    monkeypatch.setattr("app.pipeline.blueprint.write_blueprint", write_blueprint)
+
+    getattr(orchestrator, entry)(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and not row.is_generating
+    record = json.loads(row.failure_json)
+    assert record["stage"] == "blueprint" and record["cause"] == "db locked"
+    assert len(run.outbox) == 1
+
+
+def test_a_bare_exception_from_a_session_the_failure_broke_is_still_attributed(pipeline_with_only, monkeypatch):
+    """A failed flush leaves the session unusable until it is rolled back;
+    reading the running stage must not trip on that. (Only the diagnosis half
+    meets this: the build half rolls back before it re-raises.)"""
+    run = pipeline_with_only("analyzing")
+    taken = _read(run.request_id).public_id
+
+    def analyze_business(db, request_id):
+        db.add(Request(business_name="Twin", business_description="x", email="t@example.com", public_id=taken))
+        db.flush()  # public_id is unique
+
+    monkeypatch.setattr("app.pipeline.analyze.analyze_business", analyze_business)
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and not row.is_generating
+    assert json.loads(row.failure_json)["stage"] == "analyzing"
+
+
+def test_a_failure_in_a_superseded_build_is_not_a_failure(pipeline_with_only, monkeypatch):
+    """The client pushed back while the plans were being written; the failure
+    belongs to a run nobody is waiting on, so nobody is told about it."""
+    run = pipeline_with_only("planning")
+
+    def plan_integration(db, request_id, consult_result):
+        _pushed_back(request_id)
+        raise StageFailed("planning", "boom")
+
+    monkeypatch.setattr("app.pipeline.plan.plan_integration", plan_integration)
+
+    orchestrator.run_build(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "new" and not row.is_failed
+    assert row.failure_json is None
+    assert run.outbox == []
+
+
+def test_decomposition_that_returns_nothing_stops_the_run(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only("decomposing")
+    later = []
+    monkeypatch.setattr("app.pipeline.decompose.decompose_business", lambda *a, **k: None)
+    monkeypatch.setattr("app.pipeline.extras.build_extras", lambda *a, **k: later.append("shaping"))
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and not row.is_generating
+    assert json.loads(row.failure_json)["stage"] == "decomposing"
+    assert later == []  # nothing was written on top of an empty breakdown
+    assert len(run.outbox) == 1
+
+
+def test_a_capacity_read_that_reports_an_error_stops_the_run(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only("capacity")
+    monkeypatch.setattr("app.pipeline.capacity.read", lambda *a, **k: (None, None, "boom"))
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed"
+    record = json.loads(row.failure_json)
+    assert record["stage"] == "capacity" and record["cause"] == "boom"
+
+
+#: One row per stage that must stop the run when its provider call fails: the
+#: stage left real, and the stage the failure must name. Each later task adds
+#: the rows for the stages it converts.
+STAGES_THAT_STOP_THE_RUN = [
+    pytest.param("capacity", "capacity", id="capacity"),
+]
+
+
+@pytest.mark.parametrize("real, failed_stage", STAGES_THAT_STOP_THE_RUN)
+def test_a_stage_whose_provider_call_fails_stops_the_run_and_says_where(pipeline_with_only, real, failed_stage):
+    run = pipeline_with_only(real)
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and row.is_failed and not row.is_generating
+    assert json.loads(row.failure_json)["stage"] == failed_stage
+    assert row.progress_detail == client_reason(failed_stage, True)
+    assert len(run.outbox) == 1
+    assert run.outbox[0][1] == f"Run failed: Halo Reformer Studio ({failed_stage})"
+    # the provider's own words reach the team, never a screen
+    assert "SECRET" not in run.outbox[0][1]
+    for shown in (row.stage_label, row.progress_detail):
+        assert "SECRET" not in shown
+        for word in FORBIDDEN:
+            assert word not in shown
+
+
+@pytest.mark.parametrize("entry", ["run", "run_build"])
+def test_the_thread_ends_cleanly_when_recording_the_failure_fails_too(pipeline_with_only, monkeypatch, caplog, entry):
+    """Both are entry points of a background thread: an error out of them is
+    lost with the thread, so it is logged and the thread ends."""
+    run = pipeline_with_only("blueprint")
+
+    def write_blueprint(db, request_id, *args, **kwargs):
+        raise RuntimeError("db locked")
+
+    def fail_run_that_cannot_commit(*args, **kwargs):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr("app.pipeline.blueprint.write_blueprint", write_blueprint)
+    monkeypatch.setattr(orchestrator, "fail_run", fail_run_that_cannot_commit)
+
+    with caplog.at_level("ERROR", logger="consultant.orchestrator"):
+        getattr(orchestrator, entry)(run.request_id)  # does not raise
+
+    assert any("could not record" in r.getMessage() for r in caplog.records)
+
+
+# -- the last thing a run does: emailing the client -------------------------
+
+
+def test_an_undelivered_ready_email_alerts_the_team(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only(None)
+    monkeypatch.setattr(mailer, "enabled", lambda: True)
+    monkeypatch.setattr(mailer, "notify_owner_ready", lambda *args, **kwargs: False)
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "done" and not row.is_failed and not row.is_generating  # the package exists
+    assert row.stage == "done"
+    assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (email)"]
+    assert "was not delivered" in run.outbox[0][2]
+
+
+@pytest.mark.parametrize("delivered, configured", [(True, True), (False, False)])
+def test_a_ready_email_nobody_expected_alerts_nobody(pipeline_with_only, monkeypatch, delivered, configured):
+    """Delivered: nothing to report. Mail not set up: the building screen never
+    promised an email, so none is owed."""
+    run = pipeline_with_only(None)
+    monkeypatch.setattr(mailer, "enabled", lambda: configured)
+    monkeypatch.setattr(mailer, "notify_owner_ready", lambda *args, **kwargs: delivered)
+
+    orchestrator.run(run.request_id)
+
+    assert _read(run.request_id).status == "done"
+    assert run.outbox == []
