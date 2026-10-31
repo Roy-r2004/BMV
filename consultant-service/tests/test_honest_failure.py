@@ -35,17 +35,6 @@ SECRET_CAUSE = "OpenRouter 503: sk-or-v1-SECRET"
 
 
 @pytest.fixture(autouse=True)
-def _no_live_provider(monkeypatch):
-    """Nothing in this file may reach the real provider: a test that needs a
-    model stubs it. `pytest.fail` is not an `Exception`, so a stage's own
-    `except Exception` cannot swallow a missing stub as a failed call."""
-    def refuse(*args, **kwargs):
-        pytest.fail("a test called the live provider; stub app.ai.provider.chat")
-
-    monkeypatch.setattr("app.ai.provider.chat", refuse)
-
-
-@pytest.fixture(autouse=True)
 def _fresh_stall_window():
     failure._last_stall_mail.clear()
     yield
@@ -560,7 +549,11 @@ def test_a_stage_whose_provider_call_fails_stops_the_run_and_says_where(pipeline
 
     row = _read(run.request_id)
     assert row.status == "failed" and row.is_failed and not row.is_generating
-    assert json.loads(row.failure_json)["stage"] == failed_stage
+    record = json.loads(row.failure_json)
+    assert record["stage"] == failed_stage
+    # the provider's error is what stopped it: a row cannot pass by crashing on
+    # its own inputs, which would name the same stage with a different cause
+    assert "SECRET" in record["cause"]
     assert row.progress_detail == client_reason(failed_stage, True)
     assert len(run.outbox) == 1
     assert run.outbox[0][1] == f"Run failed: Halo Reformer Studio ({failed_stage})"

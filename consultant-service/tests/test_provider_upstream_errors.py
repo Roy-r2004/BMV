@@ -59,6 +59,15 @@ class _Resp:
         return self._body
 
 
+def test_the_suite_refuses_a_live_call_to_the_provider():
+    """The guard in conftest.py: a test that forgot to stub the model fails,
+    loudly and not as a failed call a stage could swallow, instead of making a
+    paid call. (The key is set so the call gets as far as the network.)"""
+    with patch.object(provider.settings, "OPENROUTER_API_KEY", "k"):
+        with pytest.raises(pytest.fail.Exception, match="live provider"):
+            provider.chat("google/gemini-2.5-flash", [{"role": "user", "content": "hi"}])
+
+
 def test_truncated_upstream_error_is_not_a_success():
     with patch.object(provider.httpx, "post", return_value=_Resp(RATE_LIMITED_BODY)), \
          patch.object(provider.settings, "OPENROUTER_API_KEY", "k"), \

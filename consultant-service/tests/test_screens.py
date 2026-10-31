@@ -239,8 +239,12 @@ def test_a_plan_the_model_cannot_get_right_stops_the_stage(monkeypatch):
     req = _request(db)
     with pytest.raises(StageFailed) as stopped:
         generate.build(db, req.id)
-    assert stopped.value.stage == "screens" and "screens" in stopped.value.cause
+    # the cause is what was wrong with the plan, not just the stage's name
+    _, problems = schema.shape_plan({"screens": [{"id": "a", "title": "A"}]})
+    assert stopped.value.stage == "screens"
+    assert stopped.value.cause.startswith("no usable plan for the system:") and problems[0] in stopped.value.cause
     assert len(calls) == 2  # asked again once, with the reasons
+    assert _ledger(db, req.id) == [("screens_plan:1", True), ("screens_plan:2", True)]
     db.refresh(req)
     assert req.screens_json is None
     db.close()
@@ -290,6 +294,54 @@ def test_when_the_first_screen_cannot_be_drawn_the_rest_are_not_paid_for(monkeyp
         generate.build(db, req.id)
     assert len(calls) == 2  # the plan and the overview, no more
     assert _ledger(db, req.id) == [("screens_plan:1", True), ("screen:today:1", False)]
+    db.close()
+
+
+def _screen_reply_undrawable_for(ex: dict, undrawable: set):
+    """A screen reply that is valid JSON but nothing the renderer can draw, for
+    the named screens (no call fails), and a real drawing for the rest."""
+    def screen_reply(prompt):
+        title = prompt.split("Title: ")[1].split("\n")[0].strip()
+        if title in undrawable:
+            return {"rows": [[{"kind": "nothing"}]]}
+        s = next(x for x in ex.values() if x["title"] == title)
+        return {"rows": s["rows"]}
+
+    return screen_reply
+
+
+@pytest.mark.parametrize("undrawable_count, drawn", [(6, 0), (3, 3)])
+def test_too_few_drawable_screens_stop_the_stage_and_save_nothing(monkeypatch, undrawable_count, drawn):
+    """No call failed: the model answered every one, and its answers could not
+    be drawn. Fewer than the minimum is not a system, and the run does not go on
+    to call it finished."""
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    titles = [s["title"] for s in _plan_reply()["screens"]]
+    calls = _fake_chat(monkeypatch, {
+        "plan": _plan_reply(), "screen": _screen_reply_undrawable_for(ex, set(titles[6 - undrawable_count:]))})
+    monkeypatch.setattr(browser, "available", lambda: False)
+    db = SessionLocal()
+    req = _request(db)
+    with pytest.raises(StageFailed) as stopped:
+        generate.build(db, req.id)
+    assert stopped.value.stage == "screens" and stopped.value.cause == f"only {drawn} screens could be drawn"
+    db.refresh(req)
+    assert req.screens_json is None
+    # every call that was made is on the ledger, none of them failed
+    ledger = _ledger(db, req.id)
+    assert len(ledger) == len(calls) and all(ok for _, ok in ledger)
+    db.close()
+
+
+def test_exactly_the_minimum_number_of_screens_is_a_system(monkeypatch):
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    titles = [s["title"] for s in _plan_reply()["screens"]]
+    _fake_chat(monkeypatch, {
+        "plan": _plan_reply(), "screen": _screen_reply_undrawable_for(ex, set(titles[schema.SCREENS_MIN:]))})
+    monkeypatch.setattr(browser, "available", lambda: False)
+    db = SessionLocal()
+    req = _request(db)
+    assert generate.build(db, req.id) == schema.SCREENS_MIN
     db.close()
 
 

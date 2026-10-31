@@ -9,8 +9,9 @@ screen the renderer cannot draw is retried once with the exact reasons, then
 dropped rather than shown broken.
 
 No fallback: when the call that plans the system fails, or the call that
-draws any screen of it, the stage stops the run (`StageFailed`) and saves
-nothing. Only the polish stays soft: a redraw that fails in the fit pass keeps
+draws any screen of it, or fewer than `schema.SCREENS_MIN` screens come out
+drawable, the stage stops the run (`StageFailed`) and saves nothing. Only the
+polish stays soft: a redraw that fails in the fit pass keeps
 the screen as it was drawn, and a frame that cannot be measured is left alone.
 
 Numbers: the screens carry sample data and say so on every frame, but any
@@ -360,12 +361,13 @@ def _ledger_draw(db: Session, request_id: int, logs: list[dict]) -> str | None:
 
 
 def build(db: Session, request_id: int) -> int:
-    """Design and draw the system. Returns how many screens were drawn; 0
-    means nothing was saved because too few screens came out drawable.
+    """Design and draw the system. Returns how many screens were drawn (at
+    least `schema.SCREENS_MIN`; 0 only if the request does not exist).
 
     Raises `StageFailed("screens")` when the plan call fails or comes back
-    unusable, or when the call that draws any screen fails: nothing is saved
-    then, and nothing stands in for the screens that were not drawn."""
+    unusable, when the call that draws any screen fails, or when fewer than
+    `schema.SCREENS_MIN` screens come out drawable: nothing is saved then, and
+    nothing stands in for the screens that were not drawn."""
     req = db.get(Request, request_id)
     if req is None:
         return 0
@@ -412,8 +414,8 @@ def build(db: Session, request_id: int) -> int:
     plan["story"] = _check_story(plan.get("story") or {}, inputs["allowed"], inputs["hours"])
     system = schema.assemble(plan, bodies)
     if len(system["screens"]) < schema.SCREENS_MIN:
-        logger.warning("only %d screens drawn for request %s; not saving", len(system["screens"]), request_id)
-        return 0
+        # Every call is already on the ledger. Too few screens is no system.
+        raise StageFailed("screens", f"only {len(system['screens'])} screens could be drawn")
 
     system["version"] = PROMPT_VERSION
     req = db.get(Request, request_id)

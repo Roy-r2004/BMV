@@ -24,3 +24,27 @@ def _signed_in(monkeypatch):
         auth_client, "resolve_user",
         lambda authorization: {"email": "test@example.com", "name": "Test"},
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_live_provider(monkeypatch):
+    """No test reaches OpenRouter. A test that needs a model stubs
+    `provider.chat` (or, to exercise `chat` itself, `provider.httpx.post`) and
+    that replaces this; one that forgets fails here instead of making a paid
+    call. `pytest.fail` is not an `Exception`, so a stage's own
+    `except Exception` cannot swallow the missing stub as a failed call.
+
+    The guard sits on the HTTP post, not on `chat`, so the tests that run the
+    real `chat` against a fake response keep working. Other URLs pass through."""
+    import httpx
+
+    from app.ai import provider
+
+    real_post = httpx.post
+
+    def post(url, *args, **kwargs):
+        if str(url) == provider.CHAT_URL:
+            pytest.fail("a test called the live provider; stub app.ai.provider.chat")
+        return real_post(url, *args, **kwargs)
+
+    monkeypatch.setattr(httpx, "post", post)
