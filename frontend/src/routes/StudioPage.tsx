@@ -3,6 +3,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   asStalled,
+  STALLED_OURS,
   fetchScope,
   getStudioPlan,
   readInterviewFile,
@@ -1402,6 +1403,11 @@ export default function StudioPage() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
+  // The failed act is two different things. A run that failed (the default)
+  // is over, and the way on is a new engagement. A load error is a run that is
+  // fine but could not be read just now: the way on is to reload, and starting
+  // over would abandon it.
+  const [loadError, setLoadError] = useState(false);
   const [decision, setDecision] = useState<StudioDecision | null>(null);
   const [gateBusy, setGateBusy] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
@@ -1535,6 +1541,7 @@ export default function StudioPage() {
         setAct('private');
       } else {
         setFailureDetail('Your screens were generated, but the studio could not load them just now. Refreshing this page usually brings them back.');
+        setLoadError(true);
         setAct('failed');
       }
     }
@@ -1560,6 +1567,7 @@ export default function StudioPage() {
         // The run is intact and still waiting — only the read failed. Say so
         // rather than reporting a failure that did not happen.
         setFailureDetail('Your diagnosis is ready, but the studio could not load it just now. Refreshing this page usually brings it back.');
+        setLoadError(true);
         setAct('failed');
       }
     }
@@ -1634,6 +1642,7 @@ export default function StudioPage() {
         // Only the reason written for the client. `detail` is the live stage
         // note and can name a stage or an exception; it is not for this page.
         setFailureDetail(p.failure?.reason ?? null);
+        setLoadError(false);
         setAct('failed');
         return;
       }
@@ -1713,6 +1722,7 @@ export default function StudioPage() {
           setAct('private');
         } else {
           setFailureDetail('The studio is not reachable right now. Your run is safe — this page will show it as soon as the connection is back.');
+          setLoadError(true);
           setAct('failed');
         }
       });
@@ -1963,12 +1973,37 @@ export default function StudioPage() {
     });
   };
 
+  // How many briefs or rounds are being asked for right now. A count kept by
+  // the calls themselves rather than read from discoveryLoading/scopeLoading:
+  // those only change on the next render, so a second Continue in the same
+  // moment as the first would still see "not busy".
+  const inFlight = useRef(0);
+
+  /** A brief or a round that could not be got. A stall keeps the interview where
+   *  it is: Continue runs `retry`, and does nothing while a call is in flight.
+   *  A 401 is the session ending, which a Continue cannot mend, so it goes to
+   *  sign-in as the front door does. Any other refusal is a request our side got
+   *  wrong, and reads as our stall. None of them may end the interview. */
+  const failDiscovery = useCallback((err: unknown, retry: () => void) => {
+    if (isUnauthorized(err)) {
+      navigate('/login', { state: { from: '/demo' } });
+      return;
+    }
+    setStalled({
+      message: asStalled(err)?.message ?? STALLED_OURS,
+      onContinue: () => {
+        if (inFlight.current === 0) retry();
+      },
+    });
+  }, [navigate]);
+
   /** One round of the interview, over the fact list. Round 1 fires the moment
    *  the brief is written; later rounds once the round before is answered. */
   const askRound = useCallback(async (n: number, factList?: Fact[]) => {
     if (form.main_problem.trim().length < 15) return;
     setStalled(null);
     setDiscoveryLoading(true);
+    inFlight.current += 1;
     try {
       const r = await fetchInterviewRound({
         business_name: form.business_name.trim() || undefined,
@@ -2005,11 +2040,9 @@ export default function StudioPage() {
       // interview would tell them we have everything when we do not. The
       // page stays as it is and says what happened; Continue asks this same
       // round again, through the ref so it reads the answers as they are then.
-      setStalled({
-        message: asStalled(err).message,
-        onContinue: () => void askRoundRef.current(n, factList),
-      });
+      failDiscovery(err, () => void askRoundRef.current(n, factList));
     } finally {
+      inFlight.current -= 1;
       setDiscoveryLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2034,6 +2067,7 @@ export default function StudioPage() {
     setLastHeard(null);
     setScope(null);
     setScopeLoading(true);
+    inFlight.current += 1;
     roundAsked.current = 1;
     fetchScope(problem, form.site_url.trim() || undefined)
       .then((sc) => {
@@ -2052,16 +2086,16 @@ export default function StudioPage() {
         // empty list would be the stock interview again. Say what happened;
         // Continue starts the brief over, from the problem as it is then.
         if (discoveryKey.current !== problem) return;
-        setStalled({
-          message: asStalled(err).message,
-          onContinue: () => {
-            discoveryKey.current = null;
-            startBriefRef.current();
-          },
+        failDiscovery(err, () => {
+          discoveryKey.current = null;
+          startBriefRef.current();
         });
       })
-      .finally(() => setScopeLoading(false));
-  }, [form.main_problem, form.site_url, askRound]);
+      .finally(() => {
+        inFlight.current -= 1;
+        setScopeLoading(false);
+      });
+  }, [form.main_problem, form.site_url, askRound, failDiscovery]);
   const startBriefRef = useRef(startBrief);
   startBriefRef.current = startBrief;
 
@@ -2094,7 +2128,10 @@ export default function StudioPage() {
   // A file read mid-interview: the questions on screen may be answered by it,
   // so they are set aside and the next round is asked with the file in hand.
   useEffect(() => {
-    if (fileReadTick === 0 || discoveryLoading || interviewDone) return;
+    // Not while stalled: the figures are kept in fileFacts and the next
+    // attempt, Continue, reads them. A round started from here would be a second
+    // request behind the client's back, and clear the stall they are looking at.
+    if (fileReadTick === 0 || discoveryLoading || interviewDone || stalled) return;
     const pending = rounds.flatMap((r) => r.questions).filter((q) => !committed.includes(q.id)).map((q) => q.id);
     if (pending.length) setCommitted((prev) => [...prev, ...pending]);
     const next = rounds.length + 1;
@@ -2281,6 +2318,7 @@ export default function StudioPage() {
     setProgress(null);
     setStartedAt(null);
     setFailureDetail(null);
+    setLoadError(false);
     setErrors({});
     setStep(0);
     setAct('intake');
@@ -3050,16 +3088,31 @@ export default function StudioPage() {
             {act === 'failed' && (
               <motion.section key="failed" {...fade} transition={{ duration: 0.45 }}>
                 <div className="max-w-xl mx-auto studio-panel p-8 text-center">
-                  <p className="studio-kicker mb-4">We could not finish this one</p>
-                  <h1 className="studio-display text-3xl font-bold text-navy">
-                    That run didn't make it
-                  </h1>
-                  <p className="mt-4 text-slate-600">
-                    {failureDetail || 'Our side failed and the run stopped.'}
-                  </p>
-                  <button type="button" className="studio-cta mt-8 sm:max-w-xs" onClick={startOver}>
-                    Start a new engagement
-                  </button>
+                  {loadError ? (
+                    <>
+                      <p className="studio-kicker mb-4">We could not load this</p>
+                      <h1 className="studio-display text-3xl font-bold text-navy">
+                        We could not load your engagement
+                      </h1>
+                      <p className="mt-4 text-slate-600">{failureDetail}</p>
+                      <button type="button" className="studio-cta mt-8 sm:max-w-xs" onClick={() => window.location.reload()}>
+                        Reload
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="studio-kicker mb-4">We could not finish this one</p>
+                      <h1 className="studio-display text-3xl font-bold text-navy">
+                        That run didn't make it
+                      </h1>
+                      <p className="mt-4 text-slate-600">
+                        {failureDetail || 'Our side failed and the run stopped.'}
+                      </p>
+                      <button type="button" className="studio-cta mt-8 sm:max-w-xs" onClick={startOver}>
+                        Start a new engagement
+                      </button>
+                    </>
+                  )}
                 </div>
               </motion.section>
             )}

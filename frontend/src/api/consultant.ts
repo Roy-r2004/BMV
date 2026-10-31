@@ -80,10 +80,10 @@ export interface OpsNumber {
  *  offers Continue, which asks again — it never fills the gap with stock
  *  questions or calls the interview finished.
  *
- *  `ours` is the service answering 503: our side failed, and `message` is the
- *  plain sentence it wrote for the client. `connection` is no answer at all
- *  (offline, dropped, timed out), which is not something we can describe in
- *  more detail than that. */
+ *  `ours` is our side failing: the service's own 503, carrying the plain
+ *  sentence it wrote for the client, or another 5xx, where the sentence is ours
+ *  to supply. `connection` is no answer at all (offline, dropped, timed out),
+ *  which is not something we can describe in more detail than that. */
 export class StalledError extends Error {
   kind: 'ours' | 'connection';
 
@@ -94,32 +94,35 @@ export class StalledError extends Error {
   }
 }
 
-const STALLED_OURS = 'Our side stalled and the interview paused. Your answers so far are still on this page.';
+export const STALLED_OURS = 'Our side stalled and the interview paused. Your answers so far are still on this page.';
 const STALLED_CONNECTION = 'Your connection dropped. Continue when it is back.';
 
-/** The stall a failed discovery call amounts to, or null when it is not one (a
- *  401, a 422): those are handled as before, not offered a Continue. */
-function stallOf(error: unknown): StalledError | null {
+/** The stall a failed discovery call amounts to, or null when it is not one.
+ *
+ *  - an HTTP 503: `ours`, with the service's own sentence (`data.detail`) when
+ *    it wrote one, else STALLED_OURS;
+ *  - any other 5xx (a 500, a proxy's 502 or 504): `ours` with STALLED_OURS. The
+ *    body of those is a framework's or a proxy's, not words for the client;
+ *  - no response at all (offline, dropped, or axios's own timeout, code
+ *    ECONNABORTED / ETIMEDOUT): `connection`;
+ *  - a StalledError already: itself.
+ *
+ *  A 4xx (a 401, a 422) is null: retrying the same request cannot help, so it is
+ *  not offered a Continue, and nothing that is not an HTTP failure is one. */
+export function asStalled(error: unknown): StalledError | null {
   if (error instanceof StalledError) return error;
   if (!axios.isAxiosError(error)) return null;
-  if (error.response?.status === 503) {
-    const detail: unknown = error.response.data?.detail;
+  const status = error.response?.status;
+  if (status === 503) {
+    const detail: unknown = error.response?.data?.detail;
     return new StalledError('ours', typeof detail === 'string' && detail.trim() ? detail : STALLED_OURS);
   }
-  // No response covers an offline browser, a dropped connection and axios's
-  // own timeout (code ECONNABORTED / ETIMEDOUT): none of them reached us.
+  if (status !== undefined && status >= 500) return new StalledError('ours', STALLED_OURS);
   return error.response ? null : new StalledError('connection', STALLED_CONNECTION);
 }
 
 function stalledOrThrow(error: unknown): never {
-  throw stallOf(error) ?? error;
-}
-
-/** Whatever went wrong with a discovery call, as the stall the client is shown.
- *  An error that is not one of the two named stalls still ends nothing: the
- *  interview stays where it is and Continue asks again. */
-export function asStalled(error: unknown): StalledError {
-  return stallOf(error) ?? new StalledError('connection', STALLED_CONNECTION);
+  throw asStalled(error) ?? error;
 }
 
 /** One tailored discovery question, written by the fast model from the

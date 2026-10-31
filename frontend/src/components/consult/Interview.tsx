@@ -173,20 +173,22 @@ export default function Interview({
 
   const dropZone = (
     <div
-      className={`cx-drop${dragging ? ' drag' : ''}`}
+      className={`cx-drop${dragging ? ' drag' : ''}${stalled ? ' off' : ''}`}
       onDragOver={(e) => {
+        // Always prevented, or the browser opens a dropped file in this tab.
         e.preventDefault();
-        setDragging(true);
+        if (!stalled) setDragging(true);
       }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => {
         e.preventDefault();
         setDragging(false);
         const list = Array.from(e.dataTransfer.files ?? []);
-        if (list.length) onAddFiles(list);
+        // A file read starts a round; none may start behind a stall.
+        if (list.length && !stalled) onAddFiles(list);
       }}
     >
-      <button type="button" onClick={() => fileRef.current?.click()} disabled={fileBusy}>
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={fileBusy || Boolean(stalled)}>
         {fileBusy ? (
           <>Reading your file<span className="cx-typing"><i /><i /><i /></span></>
         ) : (
@@ -237,7 +239,7 @@ export default function Interview({
                 <p className="cx-ask-meta"><span>Question {asked + 1}</span></p>
                 <p className="cx-stalled-msg">{stalled.message}</p>
                 <div className="cx-row">
-                  <button type="button" className="cx-btn cx-btn--blue" onClick={stalled.onContinue}>Continue</button>
+                  <button type="button" className="cx-btn cx-btn--blue" onClick={stalled.onContinue} autoFocus>Continue</button>
                 </div>
               </motion.div>
             ) : done ? (

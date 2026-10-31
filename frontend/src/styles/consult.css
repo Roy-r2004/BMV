@@ -320,6 +320,7 @@
 .cx-drop { margin-top: auto; padding-top: 22px; }
 .cx-drop button { width: 100%; padding: 14px; border: 1.5px dashed #b6c9f2; border-radius: 14px; color: var(--cx-txt2); font: 400 14px var(--cx-body); background: rgba(238, 244, 255, 0.6); cursor: pointer; }
 .cx-drop button:hover:not(:disabled), .cx-drop.drag button { border-color: var(--cx-blue); color: var(--cx-blue); }
+.cx-drop.off button { opacity: 0.55; cursor: default; }
 .cx-drop small { display: block; margin-top: 8px; font-size: 12.5px; color: var(--cx-txt3); text-align: center; }
 .cx-drop .cx-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; justify-content: center; }
 .cx-sum { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
