@@ -1183,13 +1183,14 @@ def test_a_diagnosis_call_that_fails_stops_the_stage_with_its_ledger_row(monkeyp
 
 def test_a_diagnosis_that_is_not_json_is_a_failed_call(monkeypatch):
     _model_replies_text(monkeypatch, "I could not settle on an explanation.")
-    request_id = _generating_row()
+    request_id = _generating_row(diagnosis_json=_earlier_diagnosis())
 
     with pytest.raises(StageFailed) as stopped:
         _diagnose(request_id)
 
     assert stopped.value.stage == "diagnosing" and "No JSON object found" in stopped.value.cause
     assert _ledger(request_id) == [("diagnose:1", False)]
+    assert _read(request_id).diagnosis_json is None
 
 
 @pytest.mark.parametrize("reply", [
@@ -1231,7 +1232,7 @@ def test_a_second_look_that_cannot_be_made_stops_the_stage(monkeypatch):
         "diagnose.j2": diagnostician,
         "test_hypothesis.j2": {"verdict": "supported", "because": "The evenings are full.", "cites": []},
         "challenge.j2": {"kills": True, "because": "The owner said so.", "weakness": "Only the owner's word"}})
-    request_id = _generating_row()
+    request_id = _generating_row(diagnosis_json=_earlier_diagnosis())
 
     with pytest.raises(StageFailed) as stopped:
         _diagnose(request_id)
@@ -1254,6 +1255,13 @@ def test_every_hypothesis_test_crashing_stops_the_run(pipeline_with_only, monkey
     _provider_by_template(monkeypatch, diagnose, {
         "diagnose.j2": _explanations(*EXPLANATIONS), "test_hypothesis.j2": AiProviderError(SECRET_CAUSE)})
     monkeypatch.setattr("app.pipeline.decide.decide", lambda *a, **k: later.append("consulting"))
+    # a pushed-back run: the row still holds the diagnosis of the round before
+    db = SessionLocal()
+    try:
+        db.get(Request, run.request_id).diagnosis_json = _earlier_diagnosis()
+        db.commit()
+    finally:
+        db.close()
 
     orchestrator.run(run.request_id)
 
@@ -1267,6 +1275,30 @@ def test_every_hypothesis_test_crashing_stops_the_run(pipeline_with_only, monkey
     # every test is on the ledger as failed, and the reviewers were never paid for
     assert _ledger(run.request_id) == [("diagnose:1", True), *[("test_hypothesis", False)] * 3]
     assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (diagnosing)"]
+
+
+def test_tests_that_all_honestly_come_back_untestable_do_not_stop_the_run(monkeypatch):
+    """The opposite of a crash: every test ran, and the figures could not settle
+    any explanation. That is a real answer, and a live run once produced exactly
+    this. Reading it as a failure would end engagements that did their work."""
+    from app.pipeline import diagnose
+
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": _explanations(*EXPLANATIONS),
+        "test_hypothesis.j2": {"verdict": "untestable", "because": "Nothing they gave bears on it.",
+                               "cites": [], "would_need": "Their booking export"},
+        "challenge.j2": {"kills": False, "because": "It held.", "weakness": ""}})
+    request_id = _generating_row()
+
+    result = _diagnose(request_id)
+
+    assert len(result["hypotheses"]) == 3
+    for h in result["hypotheses"]:
+        assert h["test"]["verdict"] == "untestable" and not h["test"].get("not_tested")
+    assert result["status"] == "survived"
+    assert _ledger(request_id) == [
+        ("diagnose:1", True), *[("test_hypothesis", True)] * 3,
+        ("challenge:alternative", True), ("challenge:confirmation", True)]
 
 
 def _one_test_crashes(monkeypatch) -> int:
