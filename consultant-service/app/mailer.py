@@ -11,6 +11,7 @@ on a daemon thread so no request waits on SMTP.
 import logging
 import smtplib
 import threading
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
 
@@ -22,7 +23,13 @@ logger = logging.getLogger("consultant.mailer")
 def _configured() -> bool:
     return bool(settings.SMTP_PASSWORD and settings.SMTP_USER)
 
-def _send(to: str, subject: str, body: str) -> None:
+def send_now(to: str | None, subject: str, body: str) -> bool:
+    """Send on the calling thread and say whether it went. For the one place a
+    caller must know the answer — a run that stopped tells the client "we have
+    been told" only if this returned True. Never raises: False when there is no
+    one to send to, mail is unconfigured, or the server refused."""
+    if not to or not _configured():
+        return False
     try:
         msg = EmailMessage()
         msg["From"] = formataddr(("Build My Version", settings.SMTP_USER))
@@ -33,8 +40,14 @@ def _send(to: str, subject: str, body: str) -> None:
             smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             smtp.send_message(msg)
         logger.info("mail sent: %s -> %s", subject, to)
+        return True
     except Exception as exc:
         logger.warning("mail failed open (%s -> %s): %s", subject, to, str(exc)[:200])
+        return False
+
+
+def _send(to: str, subject: str, body: str) -> None:
+    send_now(to, subject, body)
 
 
 def send_async(to: str | None, subject: str, body: str) -> None:
@@ -69,8 +82,8 @@ def enabled() -> bool:
     return _configured()
 
 
-def notify_owner_ready(ref: str | int, owner_email: str | None, business_name: str) -> None:
-    send_async(
+def notify_owner_ready(ref: str | int, owner_email: str | None, business_name: str) -> bool:
+    return send_now(
         owner_email,
         f"{business_name} — your answer and plans are ready",
         (
@@ -116,5 +129,49 @@ def notify_owner_released(ref: str | int, owner_email: str | None, business_name
             f"the Operations Manual, and the downloads — the three-volume PDF set and the deck.\n\n"
             f"Questions, corrections, or ready to talk about building it? Just reply to this email.\n\n"
             f"— Build My Version · buildmyversion.com\n"
+        ),
+    )
+
+
+# The cause of a failure can be a provider error, with URLs or key fragments in
+# it. It belongs in the team's inbox and the run's record, so it is cut to a
+# length a person reads, and it never goes in a subject line.
+CAUSE_MAX = 500
+
+
+def _now_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def notify_team_failure(ref: str | int, business_name: str, stage: str, cause: str) -> bool:
+    """A run stopped because our side broke. Sent on the calling thread so the
+    caller learns whether the team really was told."""
+    return send_now(
+        settings.SMTP_USER,
+        f"Run failed: {business_name} ({stage})",
+        (
+            f"The run for {business_name} stopped at the {stage} stage.\n\n"
+            f"The run:\n{_run_url(ref)}\n\n"
+            f"Stage: {stage}\n"
+            f"Time: {_now_utc()}\n\n"
+            f"Cause:\n{cause[:CAUSE_MAX]}\n"
+        ),
+    )
+
+
+def notify_team_stall(kind: str, business_name: str | None, round: int | None, cause: str) -> bool:
+    """A step the client is waiting on could not be answered (an interview
+    round, say). One mail per kind per window is the caller's business; this
+    only writes and sends it."""
+    who = f" ({business_name})" if business_name else ""
+    at_round = f"Round: {round}\n" if round is not None else ""
+    return send_now(
+        settings.SMTP_USER,
+        f"Stalled: {kind}{who}",
+        (
+            f"The {kind} step stalled{who}.\n\n"
+            f"{at_round}"
+            f"Time: {_now_utc()}\n\n"
+            f"Cause:\n{cause[:CAUSE_MAX]}\n"
         ),
     )

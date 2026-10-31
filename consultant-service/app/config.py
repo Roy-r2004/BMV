@@ -66,6 +66,10 @@ class Settings:
     SMTP_PORT: int = int(_env_or("SMTP_PORT", "465"))
     SMTP_USER: str = _env_or("SMTP_USER", "consulting@buildmyversion.com")
     SMTP_PASSWORD: str = _env_or("SMTP_PASSWORD", "")
+    # A provider outage stalls every interview round for every client at once.
+    # The team gets one email per kind of stall per this many seconds, not one
+    # per round.
+    STALL_MAIL_WINDOW_SECONDS: int = int(_env_or("STALL_MAIL_WINDOW_SECONDS", "300"))
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
     # Managing Consultant"). A document a person signs reads senior; one

@@ -70,6 +70,10 @@ class Request(Base):
     stage_label: Mapped[str] = mapped_column(String(200), default="Queued")
     progress_pct: Mapped[int] = mapped_column(Integer, default=0)
     progress_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The facts of a failed run, written once by app/pipeline/failure.py:
+    # {stage, at, cause, team_notified, reason}. `cause` is the raw error and
+    # is for the team only; `reason` is the sentence the client reads.
+    failure_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     business_analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Figures read out of files the client uploaded, each verified against the
