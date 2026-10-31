@@ -76,6 +76,7 @@ function Card({ h, n, testing, reduce, delay }: {
   delay: number;
 }) {
   const out = h.verdict === 'refuted';
+  const holdsUp = h.verdict === 'supported';
   return (
     <motion.article
       className={`cx-card cx-hyp${h.leading ? ' lead' : ''}${out ? ' out' : ''}`}
@@ -85,14 +86,17 @@ function Card({ h, n, testing, reduce, delay }: {
     >
       {h.leading ? (
         <>
-          <Circle reduce={reduce} />
+          {/* Circled and called the best only when its own test supported it. A
+              leader that did not hold up, or whose test never ran, keeps the
+              leader's tint and number but is not praised. */}
+          {holdsUp ? <Circle reduce={reduce} /> : null}
           <motion.span
             className="cx-note-tag cx-hand"
             initial={reduce ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
           >
-            holds up best
+            {holdsUp ? 'holds up best' : out ? "leads, but doesn't hold up" : 'leads, not confirmed'}
           </motion.span>
         </>
       ) : null}

@@ -126,7 +126,7 @@ function Book({ cover, title, body, action, extra, meta }: {
       <div className={`cx-cover ${cover}`} aria-hidden="true" />
       <div className="min-w-0">
         <h3>{title}</h3>
-        <p>{failed ? 'The download could not start. Press the button again in a moment.' : body}</p>
+        <p>{failed ? 'We could not start the download. Press the button again when you are ready.' : body}</p>
         {action || extra || meta ? (
           <div className="meta">
             {action ? button(action) : null}
@@ -212,7 +212,7 @@ export default function Package({
     try {
       await onGoAhead();
     } catch {
-      setGoError("That didn't go through. Try again in a moment.");
+      setGoError('We could not send your go-ahead just now. Your choices are still on this page; press the button again when you are ready.');
     } finally {
       setGoing(false);
     }
@@ -347,7 +347,7 @@ export default function Package({
               <p style={{ fontSize: 15 }}>We couldn't write the roadmap just now. Everything else is ready.</p>
               {onRetryRoadmap && !readOnly ? (
                 <button type="button" className="cx-btn cx-btn--blue cx-btn--sm" style={{ marginTop: 14 }} onClick={onRetryRoadmap}>
-                  Try again
+                  Write it again
                 </button>
               ) : null}
             </div>

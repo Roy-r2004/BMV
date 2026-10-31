@@ -253,7 +253,7 @@ export default function SystemViewer({
     try {
       await onDownloadPdf();
     } catch {
-      setPdfError('The PDF could not be prepared just now. Try again in a moment.');
+      setPdfError('We could not prepare the PDF just now. The screens on this page are unaffected; press the button again when you are ready.');
     } finally {
       setPdfBusy(false);
     }

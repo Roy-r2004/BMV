@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
-import type { StudioDecision } from '../../api/consultant';
+import type { StudioDecision, StudioDiagnosis } from '../../api/consultant';
 import { fmt } from '../../utils/week';
 
 interface Pillar {
@@ -36,6 +36,16 @@ function Modal({ children, onClose, label }: { children: React.ReactNode; onClos
   );
 }
 
+/** What the leading explanation's own test found. It is the one we went with,
+ *  not necessarily one that held up: the chip says which. */
+function LeadingChip({ leading }: { leading: StudioDiagnosis['leading'] }) {
+  if (leading.not_tested) return <span className="cx-chip cx-chip--amber">We couldn't run this test</span>;
+  if (leading.verdict === 'supported') return <span className="cx-chip cx-chip--green">Held up</span>;
+  if (leading.verdict === 'refuted') return <span className="cx-chip cx-chip--amber">Didn't hold up</span>;
+  if (leading.verdict === 'untestable') return <span className="cx-chip cx-chip--amber">Couldn't be checked</span>;
+  return null;
+}
+
 export default function Answer({
   decision,
   firstName,
@@ -48,6 +58,7 @@ export default function Answer({
   onStartPlans,
   busy,
   error,
+  reviseError,
 }: {
   decision: StudioDecision;
   firstName: string | null;
@@ -60,10 +71,15 @@ export default function Answer({
    *  only then. */
   mailPromise: boolean;
   onOpenPlans?: () => void;
-  onRevise: (note: string) => void;
+  /** Resolves true once the note was accepted. The dialog stays open, with the
+   *  note in it, until then, so a note that could not be sent is not lost. */
+  onRevise: (note: string) => Promise<boolean>;
   onStartPlans?: () => void;
   busy: boolean;
+  /** Why starting the plans failed. Shown under the button. */
   error: string | null;
+  /** Why sending the note failed. Shown in the dialog, beside the note. */
+  reviseError: string | null;
 }) {
   const reduce = useReducedMotion();
   const [revising, setRevising] = useState(false);
@@ -161,7 +177,11 @@ export default function Answer({
         <motion.aside className="cx-pane cx-writing" {...enter(0.15)} aria-live="polite">
           <h3>{legacy ? 'Your plans' : ready ? 'Your plans are ready' : 'Your plans are being written'}</h3>
           <p>Everything needed to build this, for you or for any team.</p>
-          {documents.length ? (
+          {legacy ? (
+            // At the gate nothing has been written, whatever the server lists
+            // (the AI team is known before the gate, and is not a plan).
+            <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>We start writing them when you press the button.</p>
+          ) : documents.length ? (
             <div className="cx-docs">
               {documents.map((doc) => (
                 <div key={doc.key} className={`cx-docline${doc.state === 'writing' ? ' busy' : ' ok'}`}>
@@ -173,8 +193,6 @@ export default function Answer({
                 </div>
               ))}
             </div>
-          ) : legacy ? (
-            <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>We start writing them when you press the button.</p>
           ) : !ready ? (
             <p className="cx-faint" style={{ marginTop: 16, fontSize: 14 }}>Your plans start in a moment.</p>
           ) : null}
@@ -209,9 +227,7 @@ export default function Answer({
               <h2 className="cx-h3">The explanations we tested</h2>
               <ul style={{ marginTop: 18, display: 'grid', gap: 18 }}>
                 <li>
-                  {diag.leading.not_tested
-                    ? <span className="cx-chip cx-chip--amber">We couldn't run this test</span>
-                    : <span className="cx-chip cx-chip--green">Held up</span>}
+                  <LeadingChip leading={diag.leading} />
                   <p style={{ marginTop: 8, fontWeight: 600 }}>{diag.leading.statement}</p>
                   {diag.leading.because ? <p className="cx-muted" style={{ marginTop: 4, fontSize: 15 }}>{diag.leading.because}</p> : null}
                 </li>
@@ -253,9 +269,7 @@ export default function Answer({
                 ))}
               </ul>
             ) : (
-              <p className="cx-muted" style={{ marginTop: 12 }}>
-                Nothing listed.{d.confidence ? ` Confidence: ${d.confidence}.` : ''}
-              </p>
+              <p className="cx-muted" style={{ marginTop: 12 }}>Nothing listed.</p>
             )}
             {d.why_not_the_others ? (
               <>
@@ -289,14 +303,14 @@ export default function Answer({
               type="button"
               className="cx-btn cx-btn--blue"
               disabled={busy || note.trim().length < 10}
-              onClick={() => {
-                onRevise(note.trim());
-                setRevising(false);
+              onClick={async () => {
+                if (await onRevise(note.trim())) setRevising(false);
               }}
             >
               Send
             </button>
           </div>
+          {reviseError ? <p className="cx-error" role="alert" style={{ marginTop: 12, textAlign: 'right' }}>{reviseError}</p> : null}
         </Modal>
       ) : null}
     </section>

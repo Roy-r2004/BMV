@@ -220,7 +220,7 @@ function DownloadButton({ refId, kind, className, children }: {
         setBusy(true);
         downloadStudioExport(refId, kind, new URLSearchParams(window.location.search).get('review'))
           .catch(() => {
-            window.alert('The download could not start. Press the button again in a moment.');
+            window.alert('We could not start the download. Press the button again when you are ready.');
           })
           .finally(() => setBusy(false));
       }}
@@ -1357,7 +1357,7 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
         </a>
         <p className="studio-hint">
           Goes straight to consulting@buildmyversion.com — we reply with the exact quote. Or just
-          reply to the email you gave us; we already have the blueprint.
+          write to us from the address you gave us; we already have the blueprint.
         </p>
       </div>
 
@@ -1411,6 +1411,9 @@ export default function StudioPage() {
   const [decision, setDecision] = useState<StudioDecision | null>(null);
   const [gateBusy, setGateBusy] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
+  // Kept apart from gateError: it belongs in the push-back dialog, beside the
+  // note that could not be sent.
+  const [reviseError, setReviseError] = useState<string | null>(null);
   // Which half of the run this is. The diagnosis stops at the gate and the
   // build only starts when the client presses it, so the running screen has
   // to say which one it is showing — the server's `status` says so too, but
@@ -1555,6 +1558,7 @@ export default function StudioPage() {
     try {
       setDecision(await getStudioDecision(id));
       setGateError(null);
+      setReviseError(null);
       setAct('decision');
     } catch (err) {
       if (isUnauthorized(err)) {
@@ -1586,24 +1590,28 @@ export default function StudioPage() {
       setPhase('building');
       setAct('building');
     } catch {
-      setGateError('We could not save that just now. Your answer is still here; press the button again when you are ready.');
+      setGateError('We could not start your plans just now. Your answer is still here; press the button again when you are ready.');
     } finally {
       setGateBusy(false);
     }
   }, [routeId]);
 
-  const reviseDecision = useCallback(async (note: string) => {
-    if (routeId == null) return;
+  /** True when the note went through. The dialog holding it stays open until
+   *  then, so a failure costs the client nothing they typed. */
+  const reviseDecision = useCallback(async (note: string): Promise<boolean> => {
+    if (routeId == null) return false;
     setGateBusy(true);
-    setGateError(null);
+    setReviseError(null);
     try {
       await reviseStudioDecision(routeId, note);
       setDecision(null);
       setStartedAt(Date.now());
       setPhase('diagnosing');
       setAct('building');
+      return true;
     } catch {
-      setGateError('We could not save that just now. Your answer is still here; press the button again when you are ready.');
+      setReviseError('We could not send your note just now. It is kept; send it again when you are ready.');
+      return false;
     } finally {
       setGateBusy(false);
     }
@@ -2275,7 +2283,7 @@ export default function StudioPage() {
     } catch (err) {
       setSubmitError(
         isAtCapacity(err)
-          ? 'The studio is rendering at full capacity right now — give it a few minutes and try again.'
+          ? 'The studio is rendering at full capacity right now — give it a few minutes, then press the button again.'
           : 'We could not start your engagement. Nothing you entered is lost; press the button again when you are ready.',
       );
     } finally {
@@ -2637,9 +2645,10 @@ export default function StudioPage() {
                   documents={progress?.documents ?? []}
                   mailPromise={Boolean(progress?.notify?.enabled)}
                   onStartPlans={() => void approveDecision()}
-                  onRevise={(note) => void reviseDecision(note)}
+                  onRevise={reviseDecision}
                   busy={gateBusy}
                   error={gateError}
+                  reviseError={reviseError}
                 />
               </motion.div>
             )}
@@ -2656,9 +2665,10 @@ export default function StudioPage() {
                     writing
                     documents={progress?.documents ?? []}
                     mailPromise={Boolean(progress?.notify?.enabled)}
-                    onRevise={(note) => void reviseDecision(note)}
+                    onRevise={reviseDecision}
                     busy={gateBusy}
                     error={gateError}
+                    reviseError={reviseError}
                   />
                 ) : (
                   <p className="cx-lead pt-[12vh]">
@@ -2680,9 +2690,10 @@ export default function StudioPage() {
                   onOpenPlans={() => {
                     if (routeId != null) void showResult(routeId);
                   }}
-                  onRevise={(note) => void reviseDecision(note)}
+                  onRevise={reviseDecision}
                   busy={gateBusy}
                   error={gateError}
+                  reviseError={reviseError}
                 />
               </motion.div>
             )}
