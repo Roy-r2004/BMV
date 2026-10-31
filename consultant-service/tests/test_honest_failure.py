@@ -1866,3 +1866,296 @@ def test_shape_scope_never_says_fallback():
 
     for raw in ({}, "junk", {"question": "Should the studio raise its evening prices?", "facts": [{"label": "Price"}]}):
         assert discovery.shape_scope(raw, PROBLEM)["source"] == "ai"
+
+
+# -- what /progress tells the client ---------------------------------------
+
+RAW_DETAIL = "Generation failed: Traceback (most recent call last): OpenRouter 503 sk-or-v1-SECRET"
+DOCUMENT_TITLES = {
+    "blueprint": "The blueprint", "technical": "The technical plan", "operations": "The operations manual",
+    "roadmap": "The implementation roadmap", "system": "Your system, screen by screen", "ai_team": "Your AI team",
+}
+
+
+ONE_PHASE = {"when": "Weeks 1 to 2", "title": "Set up", "do": "We wire it", "by": "us", "you": ""}
+
+
+def _roadmap(status: str = "ready", phases=(ONE_PHASE,)) -> str:
+    return json.dumps({"status": status, "phases": list(phases), "decisions": []})
+
+
+def _employees(*titles: str) -> str:
+    return json.dumps({"recommended_ai_employees": [{"title": t, "why": "w"} for t in titles]})
+
+
+def _failed_row(record=None, **fields) -> int:
+    """A run `fail_run` stopped: the legacy fields hold raw text, and `record`
+    (the contents of `failure_json`, or None for a legacy row) the facts."""
+    return _generating_row(
+        status="failed", is_generating=False, is_failed=True, stage="failed",
+        stage_label=fields.pop("stage_label", RAW_DETAIL), progress_detail=fields.pop("progress_detail", RAW_DETAIL),
+        failure_json=None if record is None else (record if isinstance(record, str) else json.dumps(record)),
+        **fields,
+    )
+
+
+def _record(**over) -> dict:
+    return {"stage": "technical", "at": "2026-10-31T10:00:00+00:00", "cause": SECRET_CAUSE,
+            "team_notified": True, "reason": client_reason("technical", True), **over}
+
+
+def _progress(client, request_id: int) -> dict:
+    response = client.get(f"/api/requests/{request_id}/progress")
+    assert response.status_code == 200
+    return response.json()
+
+
+def _docs(**fields) -> list[tuple[str, str]]:
+    from app import produced
+
+    return [(d["key"], d["state"]) for d in produced.documents_for(Request(**fields))]
+
+
+def test_documents_follow_what_exists():
+    from app import produced
+
+    got = produced.documents_for(Request(mvp_blueprint="# The blueprint", stage="technical"))
+
+    assert got == [
+        {"key": "blueprint", "title": "The blueprint", "state": "ready"},
+        {"key": "technical", "title": "The technical plan", "state": "writing"},
+    ]
+
+
+def test_documents_come_in_the_order_the_client_reads_them():
+    from app import produced
+
+    row = Request(
+        mvp_blueprint="b", technical_plan="t", playbook_json='{"quick_wins": []}', action_plan_json=_roadmap(),
+        screens_json='{"screens": []}', consulting_recommendations_json=_employees("Front desk"), stage="done",
+    )
+
+    got = produced.documents_for(row)
+
+    assert [d["key"] for d in got] == ["blueprint", "technical", "operations", "roadmap", "system", "ai_team"]
+    assert {d["key"]: d["title"] for d in got} == DOCUMENT_TITLES
+    assert all(d["state"] == "ready" for d in got)
+
+
+@pytest.mark.parametrize("stage, key", [
+    ("blueprint", "blueprint"), ("technical", "technical"), ("playbook", "operations"),
+    ("roadmap", "roadmap"), ("screens", "system"),
+])
+def test_the_document_being_written_is_the_one_the_run_is_on(stage, key):
+    assert _docs(stage=stage) == [(key, "writing")]
+
+
+def test_a_stage_that_writes_no_document_marks_none_as_writing():
+    for stage in ("queued", "researching", "diagnosing", "answer_ready", "planning", "quality", "done", "failed"):
+        assert _docs(stage=stage) == [], stage
+
+
+def test_a_document_that_exists_is_ready_even_while_its_stage_is_current():
+    assert _docs(stage="blueprint", mvp_blueprint="b") == [("blueprint", "ready")]
+
+
+@pytest.mark.parametrize("raw", [
+    None, "", "not json", "[]", "{}", '{"recommended_ai_employees": []}', '{"recommended_ai_employees": "x"}',
+    '{"recommended_ai_employees": null}', '{"recommended_features": ["a"]}', "[1, 2]", "null", "7",
+])
+def test_no_ai_team_row_when_no_agents(raw):
+    assert _docs(consulting_recommendations_json=raw, stage="done") == []
+
+
+def test_an_ai_team_row_when_there_are_agents():
+    assert _docs(consulting_recommendations_json=_employees("Front desk", "Rota planner"), stage="researching") == [
+        ("ai_team", "ready"),
+    ]
+
+
+@pytest.mark.parametrize("plan, stage, want", [
+    (_roadmap(), "done", [("roadmap", "ready")]),
+    (_roadmap("writing"), "done", []),
+    (_roadmap("failed"), "done", []),
+    (_roadmap(phases=()), "done", []),
+    (json.dumps({"status": "ready"}), "done", []),
+    (json.dumps({"status": "ready", "phases": "x"}), "done", []),
+    ("not json", "done", []),
+    ("[]", "done", []),
+    ("null", "done", []),
+    (None, "done", []),
+    (_roadmap("writing"), "roadmap", [("roadmap", "writing")]),
+    (None, "roadmap", [("roadmap", "writing")]),
+    ("not json", "roadmap", [("roadmap", "writing")]),
+])
+def test_a_roadmap_is_ready_only_when_it_has_phases_and_is_not_being_written(plan, stage, want):
+    assert _docs(action_plan_json=plan, stage=stage) == want
+
+
+def test_documents_for_reads_the_row_alone():
+    """A pure function of the row: it needs nothing else of it, and a missing
+    column is an absent document, not an error."""
+    from app import produced
+
+    assert produced.documents_for(SimpleNamespace()) == []
+    assert produced.documents_for(SimpleNamespace(mvp_blueprint="b", stage="technical")) == [
+        {"key": "blueprint", "title": "The blueprint", "state": "ready"},
+        {"key": "technical", "title": "The technical plan", "state": "writing"},
+    ]
+
+
+def test_documents_for_survives_the_columns_it_parses_holding_junk():
+    assert _docs(action_plan_json="{", consulting_recommendations_json="{", stage="done") == []
+
+
+def test_progress_tells_the_client_which_documents_exist(client):
+    request_id = _generating_row(stage="technical", mvp_blueprint="# Blueprint")
+
+    body = _progress(client, request_id)
+
+    assert body["documents"] == [
+        {"key": "blueprint", "title": "The blueprint", "state": "ready"},
+        {"key": "technical", "title": "The technical plan", "state": "writing"},
+    ]
+    assert body["failure"] is None
+
+
+def test_a_failed_run_still_lists_the_documents_it_wrote(client):
+    request_id = _failed_row(_record(), mvp_blueprint="# Blueprint")
+
+    assert _progress(client, request_id)["documents"] == [
+        {"key": "blueprint", "title": "The blueprint", "state": "ready"},
+    ]
+
+
+def test_progress_failure_reads_from_the_runs_own_record(client):
+    request_id = _failed_row(_record(team_notified=True))
+
+    body = _progress(client, request_id)
+
+    reason = client_reason("technical", True)
+    assert body["failure"] == {"reason": reason, "team_notified": True}
+    assert body["label"] == reason and body["detail"] == reason
+    assert body["is_failed"] is True
+
+
+def test_progress_failure_says_so_when_the_team_was_not_told(client):
+    reason = client_reason("technical", False)
+    request_id = _failed_row(_record(team_notified=False, reason=reason))
+
+    body = _progress(client, request_id)
+
+    assert body["failure"] == {"reason": reason, "team_notified": False}
+    assert "We have been told" not in json.dumps(body)
+
+
+def test_progress_failure_carries_only_the_client_reason(client):
+    request_id = _failed_row(_record(cause="the key was sk-or-v1-SECRET"))
+
+    body = _progress(client, request_id)
+
+    assert set(body["failure"]) == {"reason", "team_notified"}
+    assert "SECRET" not in json.dumps(body)
+    assert "sk-or" not in json.dumps(body)
+
+
+def test_a_legacy_failed_row_does_not_leak_its_raw_detail(client):
+    request_id = _failed_row(None, stage_label="Generation failed: Traceback (most recent call last) SECRET")
+
+    body = _progress(client, request_id)
+
+    assert body["label"] == "Our side failed and the run stopped."
+    assert body["detail"] is None
+    assert body["failure"] is None
+    assert body["is_failed"] is True
+    assert "SECRET" not in json.dumps(body) and "Traceback" not in json.dumps(body)
+
+
+@pytest.mark.parametrize("record", [
+    "not json", "[]", "null", '"text"', "{}", '{"cause": "SECRET"}', '{"reason": ""}', '{"reason": "   "}',
+    '{"reason": 5, "cause": "SECRET"}', '{"reason": null}',
+])
+def test_a_failed_row_whose_record_cannot_be_used_reads_as_a_legacy_one(client, record):
+    request_id = _failed_row(record)
+
+    body = _progress(client, request_id)
+
+    assert body["label"] == "Our side failed and the run stopped." and body["detail"] is None
+    assert body["failure"] is None
+    assert "SECRET" not in json.dumps(body) and "Traceback" not in json.dumps(body)
+
+
+def test_team_notified_is_true_only_when_the_record_says_true(client):
+    for value in ("yes", 1, None, "true"):
+        request_id = _failed_row(_record(team_notified=value))
+        assert _progress(client, request_id)["failure"]["team_notified"] is False, value
+
+
+def test_a_run_that_is_not_failed_reads_as_it_always_did(client):
+    request_id = _generating_row(stage="technical", stage_label="Writing your technical plan...",
+                                 progress_detail="Concept named: Halo", failure_json=json.dumps(_record()))
+
+    body = _progress(client, request_id)
+
+    # a failure left on the row by an earlier attempt is not this run's
+    assert body["label"] == "Writing your technical plan..." and body["detail"] == "Concept named: Halo"
+    assert body["failure"] is None and body["is_failed"] is False
+    assert "SECRET" not in json.dumps(body)
+
+
+def test_a_run_the_client_pushes_back_on_sheds_the_record_of_its_last_failure(client, monkeypatch):
+    """The record belongs to the failure. A run that has started again is not
+    stopped, and if it is stopped later by something that writes no record (a
+    restart of the service), the old stage's words must not be read as its own."""
+    monkeypatch.setattr(orchestrator, "run", lambda request_id: None)
+    request_id = _failed_row(_record())
+
+    response = client.post(f"/api/requests/{request_id}/decision/revise",
+                           data={"note": "You misread our evening classes."})
+
+    assert response.status_code == 200 and response.json()["started"] is True
+    row = _read(request_id)
+    assert row.failure_json is None and not row.is_failed and row.is_generating
+    assert _progress(client, request_id)["failure"] is None
+
+
+def test_a_run_that_fails_for_real_is_read_back_in_plain_words(client, outbox):
+    request_id = _generating_row(stage="technical", mvp_blueprint="# Blueprint")
+    assert _fail(request_id, "technical") is True
+
+    body = _progress(client, request_id)
+
+    reason = client_reason("technical", True)
+    assert body["failure"] == {"reason": reason, "team_notified": True}
+    assert body["label"] == reason and body["detail"] == reason
+    assert body["is_generating"] is False and body["is_failed"] is True
+    assert body["documents"] == [{"key": "blueprint", "title": "The blueprint", "state": "ready"}]
+    assert "SECRET" not in json.dumps(body)
+
+
+def test_a_run_that_fails_before_any_mail_can_go_is_read_back_without_the_claim(client, monkeypatch):
+    monkeypatch.setattr(mailer, "send_now", lambda *args: False)
+    request_id = _generating_row(stage="technical")
+    assert _fail(request_id, "technical") is False
+
+    body = _progress(client, request_id)
+
+    assert body["failure"] == {"reason": client_reason("technical", False), "team_notified": False}
+    assert "SECRET" not in json.dumps(body)
+
+
+@pytest.mark.parametrize("path", [
+    "/api/requests/mine", "/api/requests/{id}/preview", "/api/requests/{id}/decision", "/api/requests/{id}/plan",
+    "/api/requests/{id}/admin", "/api/shared/{token}",
+])
+def test_no_other_route_hands_a_failed_runs_raw_detail_to_a_reader(client, path):
+    """`/progress` is the one route that ever carried `stage_label` and
+    `progress_detail`. The rest of what a client, a reviewer or a partner can
+    open about a run says only its `status`; this pins that it stays so."""
+    token = "partnertoken" + os.urandom(4).hex()
+    request_id = _failed_row(_record(cause="SECRET"), share_token=token, review_status="approved")
+
+    response = client.get(path.format(id=request_id, token=token))
+
+    assert response.status_code == 200, path
+    assert "SECRET" not in response.text and "Traceback" not in response.text, path

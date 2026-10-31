@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Uploa
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app import auth_client, mailer
+from app import auth_client, mailer, produced
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
@@ -28,6 +28,8 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 _ALLOWED_STAGES = {"operating", "opening"}
 _ALLOWED_ENGAGEMENTS = {"full", "capability"}
 MAX_LAUNCH_FILES = 3
+# What /progress says of a stopped run that has no record of why it stopped.
+_FAILED_WITHOUT_RECORD = "Our side failed and the run stopped."
 
 
 def _showcase_ids() -> set[int]:
@@ -429,6 +431,15 @@ def get_progress(request_ref: str, review_token: str | None = None,
                  authorization: str | None = Header(None), db: Session = Depends(get_db)):
     req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
+    failure = _failure(req)
+    if req.is_failed:
+        # A stopped run is described by the sentence written for the client,
+        # never by the row's own label and detail: a run from before that
+        # sentence existed holds the raw exception there.
+        reason = failure["reason"] if failure else None
+        label, detail = reason or _FAILED_WITHOUT_RECORD, reason
+    else:
+        label, detail = req.stage_label, req.progress_detail
     return {
         "review_status": req.review_status,
         # The gate is not visible in `is_generating` alone: an engagement
@@ -446,11 +457,17 @@ def get_progress(request_ref: str, review_token: str | None = None,
         # for instead of falling back to "your business".
         "business_name": req.business_name,
         "stage": req.stage,
-        "label": req.stage_label,
+        "label": label,
         "pct": req.progress_pct,
-        "detail": req.progress_detail,
+        "detail": detail,
         "is_generating": req.is_generating,
         "is_failed": req.is_failed,
+        # Why the run stopped, in the words the client reads, and whether the
+        # team was in fact told. Null while the run is not stopped. The cause
+        # stays in `failure_json`: it can carry a provider URL or a key fragment.
+        "failure": failure,
+        # Which documents exist so far, so a stopped run shows what it did write.
+        "documents": produced.documents_for(req),
         "updated_at": req.updated_at.isoformat() if req.updated_at else None,
         # How long this run has been going, computed HERE rather than from a
         # timestamp the browser has to interpret. created_at is a naive
@@ -477,6 +494,37 @@ def _require_owner(req: Request, authorization: str | None) -> None:
         raise HTTPException(status_code=401, detail="Sign in to answer your engagement")
     if not req.owner_email or user["email"].lower() != req.owner_email.lower():
         raise HTTPException(status_code=403, detail="This engagement belongs to another account")
+
+
+def _reopen(db: Session, req: Request) -> int:
+    """Send the run back to the start of its diagnosis, if it is still in the
+    state the caller saw (1 if it was, else 0; two callers cannot both claim
+    it). The run is no longer stopped, so the record of why it was goes too:
+    left behind, it would be read as the reason for whatever stops the run next."""
+    return db.query(Request).filter(
+        Request.id == req.id, Request.status == req.status,
+    ).update({"status": "new", "is_generating": True, "is_failed": False, "failure_json": None,
+              "phase_started_at": datetime.utcnow()},
+             synchronize_session=False)
+
+
+def _failure(req: Request) -> dict | None:
+    """`{"reason", "team_notified"}` for a run that has stopped, read from the
+    record `fail_run` wrote; None for a run that has not, and for a stopped run
+    whose record is missing or unusable (one from before the record existed).
+    It is read only while the run is stopped, so a record that outlived a restart
+    is never read as the new run's. Only these two fields leave the record: the
+    rest is for the team."""
+    if not req.is_failed:
+        return None
+    try:
+        record = json.loads(req.failure_json) if req.failure_json else None
+    except (TypeError, ValueError):
+        return None
+    reason = record.get("reason") if isinstance(record, dict) else None
+    if not isinstance(reason, str) or not reason.strip():
+        return None
+    return {"reason": reason, "team_notified": record.get("team_notified") is True}
 
 
 def _thinking(req: Request) -> list[dict]:
@@ -703,11 +751,7 @@ async def add_evidence(request_ref: str, file: UploadFile = File(...),
     # own pushback uses — one path that re-opens an engagement, not two.
     started = False
     if req.status in (orchestrator.AWAITING_APPROVAL, orchestrator.ADVISED, "failed"):
-        claimed = db.query(Request).filter(
-            Request.id == req.id, Request.status == req.status,
-        ).update({"status": "new", "is_generating": True, "is_failed": False,
-                  "phase_started_at": datetime.utcnow()},
-                 synchronize_session=False)
+        claimed = _reopen(db, req)
         db.commit()
         if claimed:
             threading.Thread(target=orchestrator.run, args=(req.id,), daemon=True).start()
@@ -857,12 +901,7 @@ def revise_decision(request_ref: str, note: str = Form(...),
                           orchestrator.BUILDING):
         raise HTTPException(status_code=409, detail="This engagement has no decision waiting")
 
-    claimed = db.query(Request).filter(
-        Request.id == req.id,
-        Request.status == req.status,
-    ).update({"status": "new", "is_generating": True, "is_failed": False,
-              "phase_started_at": datetime.utcnow()},
-             synchronize_session=False)
+    claimed = _reopen(db, req)
     if not claimed:
         db.commit()
         db.refresh(req)
