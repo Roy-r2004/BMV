@@ -1,10 +1,17 @@
 import json
+import logging
 import re
 from datetime import datetime
+from typing import Callable, TypeVar
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import AiUsageEvent, Request
+
+logger = logging.getLogger("consultant.pipeline")
+
+T = TypeVar("T")
 
 
 CORRECTIONS_MARKER = "Corrections and additions from the briefing chat:"
@@ -201,3 +208,70 @@ def log_usage(
     )
     db.add(event)
     db.commit()
+
+
+#: (usage, error) for one model call; error is None for the call that worked.
+Record = Callable[[dict | None, str | None], None]
+
+
+def ask_until_usable(ask: Callable[[], dict], use: Callable[[dict], T], record: Record) -> T:
+    """One model call whose reply the stage must be able to use, asked up to
+    `settings.STAGE_REPLY_ATTEMPTS` times in all.
+
+    `ask()` makes the call and returns the provider's body. Whatever it raises
+    goes straight up, unretried: the provider has already retried its own
+    transient failures, and one that refuses should stop the stage fast.
+
+    `use(body)` turns the body into what the stage needs and raises when the
+    reply cannot be used: not JSON, JSON cut off mid-object, the wrong shape,
+    nothing in it. Only that is asked again: it is an occasional fault of one
+    reply, and a paid run should not end on the first one.
+
+    `record(usage, error)` is told of every call (error None for the one that
+    worked), so each attempt is on the cost ledger. It is a callback because a
+    worker thread may not touch the session: there it collects the calls, and
+    the calling thread ledgers them after the pool joins.
+
+    Returns what `use` returned. After the last unusable reply, raises what
+    `use` raised."""
+    attempts = settings.STAGE_REPLY_ATTEMPTS
+    for attempt in range(1, attempts + 1):
+        try:
+            body = ask()
+        except Exception as exc:
+            record(None, str(exc)[:500])
+            raise
+        try:
+            value = use(body)
+        except Exception as exc:
+            usage = body.get("usage") if isinstance(body, dict) else None
+            record(usage, str(exc)[:500])
+            if attempt == attempts:
+                raise
+            logger.warning("unusable reply, asking again (%d of %d): %s", attempt, attempts, str(exc)[:200])
+            continue
+        record(body.get("usage") if isinstance(body, dict) else None, None)
+        return value
+    raise AssertionError("unreachable: STAGE_REPLY_ATTEMPTS is at least 1")
+
+
+def ledger(db: Session, request_id: int | None, *, model: str, purpose: str,
+           screen: str | None = None) -> Record:
+    """A `record` for `ask_until_usable` on the session's own thread: each call
+    goes on the cost ledger as it happens."""
+
+    def record(usage: dict | None, error: str | None) -> None:
+        log_usage(db, request_id, provider="openrouter", model=model, purpose=purpose,
+                  usage=usage, success=error is None, error=error, screen=screen)
+
+    return record
+
+
+def reply_text(body: dict) -> str:
+    """The text of a chat reply."""
+    return body["choices"][0]["message"]["content"]
+
+
+def reply_json(body: dict) -> dict:
+    """The JSON object in a chat reply; raises when there is none."""
+    return extract_json_from_text(reply_text(body))

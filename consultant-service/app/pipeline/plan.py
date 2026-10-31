@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline import handoff
 from app.pipeline.failure import StageFailed
 from app.templating import render
@@ -26,6 +26,15 @@ def _normalize(result: dict, req: Request) -> dict:
 
     if not result.get("concept_name"):
         result["concept_name"] = req.business_name or "Your AI-Powered Business"
+    return result
+
+
+def _planned(result: dict, req: Request) -> dict:
+    """The plan, or a ValueError when it plans nothing: a reply with no roles
+    is not a plan, and the same canned roles would stand in for it."""
+    result = _normalize(result, req)
+    if not result["roles"]:
+        raise ValueError("the plan returned no roles")
     return result
 
 
@@ -51,28 +60,15 @@ def plan_integration(db: Session, request_id: int, consult_result: dict) -> dict
             min_roles=settings.MIN_ROLES_PER_REQUEST,
             max_roles=settings.MAX_ROLES_PER_REQUEST,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}])
-        content = body["choices"][0]["message"]["content"]
-        result = _normalize(extract_json_from_text(content), req)
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="plan",
-            usage=body.get("usage"), success=True,
+        result = ask_until_usable(
+            lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}]),
+            lambda body: _planned(reply_json(body), req),
+            ledger(db, request_id, model=settings.ANALYSIS_MODEL, purpose="plan"),
         )
     except Exception as exc:
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="plan",
-            success=False, error=str(exc)[:500],
-        )
         # No plan was made. Generic roles and a colour derived from a hash of
         # the name would be drawn into every screen as this client's own.
         raise StageFailed("planning", exc) from exc
-
-    # The call worked (and is logged as such) but planned nothing: the same
-    # canned roles would stand in for it, so it stops the run just the same.
-    if not result["roles"]:
-        raise StageFailed("planning", "the plan returned no roles")
 
     req.concept_name = result.get("concept_name")
     req.visual_theme_json = json.dumps(result.get("visual_theme"))

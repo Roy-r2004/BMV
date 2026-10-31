@@ -38,7 +38,7 @@ from app.models import GeneratedImage, Request
 from app.pipeline import answer as _answer
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
-from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline._shared import ask_until_usable, ledger, log_usage, reply_json
 from app.pipeline.failure import StageFailed
 from app.screens import browser, render, schema
 from app.templating import render as render_prompt
@@ -207,9 +207,13 @@ def _check_story(story: dict, allowed: set[float], hours: set[int]) -> dict:
     return out
 
 
-def _call(model: str, prompt: str, max_tokens: int) -> tuple[dict, dict | None]:
-    body = provider.chat(model, [{"role": "user", "content": prompt}], max_tokens=max_tokens)
-    return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage")
+def _call(model: str, prompt: str, max_tokens: int, record) -> dict:
+    """The reply's JSON. A reply that is not JSON is asked for again (up to
+    `STAGE_REPLY_ATTEMPTS` in all), each call told to `record`; a provider
+    failure is not."""
+    return ask_until_usable(
+        lambda: provider.chat(model, [{"role": "user", "content": prompt}], max_tokens=max_tokens),
+        reply_json, record)
 
 
 def _plan(db: Session, request_id: int, inputs: dict) -> dict:
@@ -230,12 +234,9 @@ def _plan(db: Session, request_id: int, inputs: dict) -> dict:
         if feedback:
             prompt += "\n\nYOUR LAST ATTEMPT WAS REJECTED FOR THESE REASONS — fix exactly these:\n" + feedback
         try:
-            raw, usage = _call(settings.REASONING_MODEL, prompt, PLAN_TOKENS)
-            log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                      purpose=f"screens_plan:{attempt}", usage=usage, success=True)
+            raw = _call(settings.REASONING_MODEL, prompt, PLAN_TOKENS,
+                        ledger(db, request_id, model=settings.REASONING_MODEL, purpose=f"screens_plan:{attempt}"))
         except Exception as exc:
-            log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                      purpose=f"screens_plan:{attempt}", success=False, error=str(exc)[:500])
             logger.warning("screens plan call failed: %s", str(exc)[:200])
             raise StageFailed("screens", exc) from exc
         plan, problems = schema.shape_plan(raw, module_ids or None)
@@ -276,11 +277,14 @@ def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None,
             prompt += "\n\nYOUR LAST DRAWING OF THIS SCREEN DID NOT FIT THE FRAME:\n" + note
         if feedback:
             prompt += "\n\nYOUR LAST ATTEMPT WAS REJECTED FOR THESE REASONS — fix exactly these:\n" + feedback
+        purpose = f"screen:{screen['id']}:{attempt}"
         try:
-            raw, usage = _call(settings.REASONING_MODEL, prompt, SCREEN_TOKENS)
-            logs.append({"purpose": f"screen:{screen['id']}:{attempt}", "usage": usage, "success": True})
+            # A reply that is not JSON is asked for again inside `_call`; this
+            # loop's second attempt is for a drawing that came back wrong.
+            raw = _call(settings.REASONING_MODEL, prompt, SCREEN_TOKENS,
+                        lambda usage, error, purpose=purpose: logs.append(
+                            {"purpose": purpose, "usage": usage, "success": error is None, "error": error}))
         except Exception as exc:
-            logs.append({"purpose": f"screen:{screen['id']}:{attempt}", "success": False, "error": str(exc)[:500]})
             logger.warning("screen %s call failed: %s", screen["id"], str(exc)[:200])
             return None, logs
         body, problems = schema.shape_body(raw)
@@ -349,15 +353,17 @@ def _save_pngs(db: Session, req: Request, system: dict) -> int:
 
 def _ledger_draw(db: Session, request_id: int, logs: list[dict]) -> str | None:
     """Put one screen's calls on the cost ledger, on the calling thread. Returns
-    the error of the first call that failed, or None when none did."""
-    failed = None
+    the error the drawing ended on, or None when its last call worked: a reply
+    that could not be read and was then asked for again is on the ledger as
+    failed, but it is not what the screen ended on."""
     for entry in logs:
         log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
                   purpose=entry["purpose"], usage=entry.get("usage"), success=entry["success"],
                   error=entry.get("error"))
-        if not entry["success"] and failed is None:
-            failed = entry.get("error") or f"{entry['purpose']} failed"
-    return failed
+    last = logs[-1] if logs else None
+    if last is None or last["success"]:
+        return None
+    return last.get("error") or f"{last['purpose']} failed"
 
 
 def build(db: Session, request_id: int) -> int:

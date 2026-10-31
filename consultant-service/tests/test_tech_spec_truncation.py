@@ -28,7 +28,9 @@ def test_a_truncated_spec_is_retried_before_it_is_parsed():
     assert 'choice.get("finish_reason") != "length"' in src, \
         "truncation must be detected from finish_reason"
     loop = src.index("for budget in TECH_SPEC_BUDGETS:")
-    parse = src.index("extract_json_from_text(choice", loop)
+    # the loop is the call; the reply it settles on is parsed after it, by the
+    # helper that asks again for a reply that still cannot be read
+    parse = src.index("ask_until_usable(ask, reply_json", loop)
     brk = src.index("break", loop)
     assert brk < parse, "the loop must finish before the content is parsed"
 

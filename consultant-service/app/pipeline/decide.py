@@ -29,7 +29,7 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline import consult
-from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline.failure import StageFailed
 from app.templating import render
 
@@ -75,14 +75,13 @@ def decide(db: Session, request_id: int, analysis: dict) -> dict:
                 req.business_description,
             ),
         )
-        body = provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}],
-                             max_tokens=DECIDE_TOKENS)
-        result = extract_json_from_text(body["choices"][0]["message"]["content"])
-        log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                  purpose="decide", usage=body.get("usage"), success=True)
+        result = ask_until_usable(
+            lambda: provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}],
+                                  max_tokens=DECIDE_TOKENS),
+            reply_json,
+            ledger(db, request_id, model=settings.REASONING_MODEL, purpose="decide"),
+        )
     except Exception as exc:
-        log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                  purpose="decide", success=False, error=str(exc)[:500])
         logger.warning("decision could not be made: %s", str(exc)[:200])
         raise StageFailed("consulting", exc) from exc
 

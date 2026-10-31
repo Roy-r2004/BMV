@@ -31,7 +31,7 @@ import math
 from app.ai import provider
 from app.config import settings
 from app.pipeline import figures
-from app.pipeline._shared import extract_json_from_text
+from app.pipeline._shared import ask_until_usable, reply_json
 from app.templating import render
 
 logger = logging.getLogger("consultant.capacity")
@@ -284,24 +284,37 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
     }
 
 
-def read(texts: list[str], stage: str = "operating") -> tuple[dict | None, dict | None, str | None]:
-    """One model call and the verification. Returns (picture, usage, error).
+def read(texts: list[str], stage: str = "operating",
+         earlier: list | None = None) -> tuple[dict | None, dict | None, str | None]:
+    """One model call and the verification. Returns (picture, usage, error) of
+    the last call made.
 
-    Never raises and never touches a database: it is called from the
-    interview (before any engagement exists) as well as from the pipeline.
+    A reply that is not JSON is asked for again (`STAGE_REPLY_ATTEMPTS` in
+    all). Each call before the last is appended to `earlier`, as (usage,
+    error), for the caller to ledger: this never raises and never touches a
+    database, because it is called from the interview (before any engagement
+    exists) as well as from the pipeline.
     """
     if not texts:
         return None, None, None
+    calls: list = []
     try:
         prompt = render("capacity.j2", owner_words="\n".join(f"- {t}" for t in texts),
                         stage=stage)
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
-                             max_tokens=CAPACITY_TOKENS)
-        raw = extract_json_from_text(body["choices"][0]["message"]["content"])
-        return shape(raw, texts), body.get("usage"), None
+        raw = ask_until_usable(
+            lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
+                                  max_tokens=CAPACITY_TOKENS),
+            reply_json,
+            lambda usage, error: calls.append((usage, error)),
+        )
+        picture, error = shape(raw, texts), None
     except Exception as exc:
         logger.warning("capacity could not be read: %s", str(exc)[:200])
-        return None, None, str(exc)[:500]
+        picture, error = None, str(exc)[:500]
+    if earlier is not None:
+        earlier.extend(calls[:-1])
+    usage = calls[-1][0] if calls else None
+    return picture, usage, error
 
 
 def as_claims(picture: dict | None) -> list[dict]:

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline import handoff
 from app.pipeline.analyze import _format_site_research
 from app.pipeline.failure import StageFailed
@@ -29,6 +29,26 @@ from app.templating import render
 
 _VALID_PHASES = {"before", "during", "after"}
 _VALID_WHO = {"you", "bmv", "partner"}
+
+
+def _playbook(body: dict) -> dict:
+    """The playbook out of its reply; raises when no step in it is valid."""
+    result = reply_json(body)
+    steps = [
+        s for s in (result.get("steps") or [])
+        if isinstance(s, dict) and s.get("title")
+        and s.get("phase") in _VALID_PHASES and s.get("who") in _VALID_WHO
+    ]
+    if not steps:
+        raise ValueError("playbook had no valid steps")
+    result["steps"] = steps
+    # Quick wins are garnish on the playbook, never a reason to fail it.
+    result["quick_wins"] = [
+        w for w in (result.get("quick_wins") or [])
+        if isinstance(w, dict) and w.get("title")
+    ][:6]
+    result.setdefault("people_plan", {})
+    return result
 
 
 def write_playbook(
@@ -62,34 +82,12 @@ def write_playbook(
             diagnosis=handoff.for_build(req),
             ),
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=4000)
-        content = body["choices"][0]["message"]["content"]
-        result = extract_json_from_text(content)
-        steps = [
-            s for s in (result.get("steps") or [])
-            if isinstance(s, dict) and s.get("title")
-            and s.get("phase") in _VALID_PHASES and s.get("who") in _VALID_WHO
-        ]
-        if not steps:
-            raise ValueError("playbook had no valid steps")
-        result["steps"] = steps
-        # Quick wins are garnish on the playbook, never a reason to fail it.
-        result["quick_wins"] = [
-            w for w in (result.get("quick_wins") or [])
-            if isinstance(w, dict) and w.get("title")
-        ][:6]
-        result.setdefault("people_plan", {})
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="playbook",
-            usage=body.get("usage"), success=True,
+        result = ask_until_usable(
+            lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=4000),
+            _playbook,
+            ledger(db, request_id, model=settings.ANALYSIS_MODEL, purpose="playbook"),
         )
     except Exception as exc:
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="playbook",
-            success=False, error=str(exc)[:500],
-        )
         raise StageFailed("playbook", exc) from exc
 
     # The playbook restates the gate only as the canonical sentence, names

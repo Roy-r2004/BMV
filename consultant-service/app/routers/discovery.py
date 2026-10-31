@@ -732,7 +732,8 @@ def casefile(
     stage = "not launched yet — this is a plan" if operating_stage == "opening" else "already operating"
     with ThreadPoolExecutor(max_workers=2) as pool:
         fig_future = pool.submit(read_figures)
-        cap_future = pool.submit(capacity.read, list(sources.values()), stage)
+        cap_earlier: list = []
+        cap_future = pool.submit(capacity.read, list(sources.values()), stage, cap_earlier)
         try:
             raw, usage = fig_future.result()
             log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
@@ -743,6 +744,9 @@ def casefile(
             logger.warning("casefile failed open: %s", str(exc)[:200])
             raw = {}
         picture, cap_usage, cap_error = cap_future.result()
+    for unread_usage, unread_error in cap_earlier:  # replies that could not be read
+        log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose="casefile:capacity", usage=unread_usage, success=False, error=unread_error)
     if cap_usage is not None or cap_error is not None:
         log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose="casefile:capacity", usage=cap_usage, success=cap_error is None, error=cap_error)

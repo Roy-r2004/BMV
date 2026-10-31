@@ -29,7 +29,8 @@ from app.ai import provider
 from app.config import settings
 from app.models import Request
 from app.pipeline._shared import (
-    briefing_corrections, build_engagement_register, extract_json_from_text, log_usage,
+    ask_until_usable, briefing_corrections, build_engagement_register, extract_json_from_text, ledger,
+    log_usage, reply_json,
 )
 from app.pipeline import evidence
 from app.pipeline.failure import StageFailed
@@ -124,13 +125,32 @@ def _call(prompt: str, model: str, max_tokens: int) -> tuple[dict, dict | None]:
     return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage")
 
 
-def _ask(db: Session, request_id: int, purpose: str, prompt: str, model: str,
-         max_tokens: int) -> dict:
-    """The single-threaded form: call and log in one step."""
-    result, usage = _call(prompt, model, max_tokens)
-    log_usage(db, request_id, provider="openrouter", model=model, purpose=purpose,
-              usage=usage, success=True)
-    return result
+def _ask(prompt: str, model: str, max_tokens: int, use, record):
+    """One call whose reply must be usable, asked again when it is not (see
+    `ask_until_usable`). Touches no session itself: `record` is told of each
+    call, so it can run on a worker thread."""
+    return ask_until_usable(
+        lambda: provider.chat(model, [{"role": "user", "content": prompt}], max_tokens=max_tokens),
+        lambda body: use(reply_json(body)),
+        record,
+    )
+
+
+def _enough_explanations(known_ids: set[str]):
+    """The `use` for the diagnostician's reply: its usable explanations, or a
+    ValueError when there are fewer than `MIN_HYPOTHESES`. One explanation is
+    not a diagnosis, it is an opinion, and dressing a single guess up as a
+    tested conclusion is the thing this stage exists to prevent."""
+
+    def use(raw: dict) -> list[dict]:
+        hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids)
+        if len(hypotheses) < MIN_HYPOTHESES:
+            raise ValueError(
+                f"the model gave {len(hypotheses)} usable explanation{'' if len(hypotheses) == 1 else 's'}, "
+                f"and a diagnosis needs {MIN_HYPOTHESES}")
+        return hypotheses
+
+    return use
 
 
 def _sanitize_hypotheses(raw: list, known_ids: set[str]) -> list[dict]:
@@ -245,7 +265,7 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
     objections = ""
     for attempt in (1, 2):
         try:
-            raw = _ask(db, request_id, f"diagnose:{attempt}", render(
+            hypotheses = _ask(render(
                 "diagnose.j2",
                 target_customers=target_customers,
                 main_problem=main_problem,
@@ -254,23 +274,12 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
                 corrections=corrections,
                 objections=objections,
                 **context,
-            ), settings.REASONING_MODEL, DIAGNOSE_TOKENS)
+            ), settings.REASONING_MODEL, DIAGNOSE_TOKENS, _enough_explanations(known_ids),
+                ledger(db, request_id, model=settings.REASONING_MODEL, purpose=f"diagnose:{attempt}"))
         except Exception as exc:
-            log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                      purpose=f"diagnose:{attempt}", success=False, error=str(exc)[:500])
+            # a failed call, or replies too thin to be a diagnosis every time
             logger.warning("diagnosis could not be formed: %s", str(exc)[:200])
             raise _stopped(db, request_id, exc) from exc
-
-        hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids)
-        if len(hypotheses) < MIN_HYPOTHESES:
-            # One explanation is not a diagnosis, it is an opinion, and
-            # dressing a single guess up as a tested conclusion is the thing
-            # this stage exists to prevent.
-            logger.warning("only %d usable hypotheses; not a diagnosis", len(hypotheses))
-            raise _stopped(
-                db, request_id,
-                f"the model gave {len(hypotheses)} usable explanation{'' if len(hypotheses) == 1 else 's'}, "
-                f"and a diagnosis needs {MIN_HYPOTHESES}")
 
         # `retry` is a field, not a sentence the screen has to recognise. The
         # header used to carry "— thinking again, the first reading was
@@ -314,31 +323,35 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
 
     # Tested in parallel: each is a separate question about the same evidence,
     # and nothing one test concludes should reach another.
-    def test(h: dict) -> tuple[dict, dict | None, str | None]:
+    def test(h: dict) -> tuple[dict, list, str | None]:
+        """(the test, its calls as (usage, error), the error that left it untested)."""
+        calls: list = []
         try:
-            r, usage = _call(render(
+            r = _ask(render(
                 "test_hypothesis.j2", statement=h["statement"],
                 would_support=h["would_support"], would_refute=h["would_refute"], **context,
-            ), settings.ANALYSIS_MODEL, TEST_TOKENS)
+            ), settings.ANALYSIS_MODEL, TEST_TOKENS, lambda raw: raw,
+                lambda usage, error: calls.append((usage, error)))
             verdict = r.get("verdict") if r.get("verdict") in ("supported", "refuted", "untestable") else "untestable"
             return ({"verdict": verdict,
                      "because": str(r.get("because") or "")[:400],
                      "cites": [c for c in (r.get("cites") or []) if isinstance(c, str) and c in known_ids],
-                     "would_need": str(r.get("would_need") or "")[:300]}, usage, None)
+                     "would_need": str(r.get("would_need") or "")[:300]}, calls, None)
         except Exception as exc:
             logger.warning("hypothesis %s could not be tested: %s", h["id"], str(exc)[:160])
             # Untested is not the same as untestable, and must not be shown as
             # though a test had been run and come back inconclusive.
             return ({"verdict": "untestable", "because": "", "cites": [], "would_need": "",
-                     "not_tested": True}, None, str(exc)[:500])
+                     "not_tested": True}, calls, str(exc)[:500])
 
     say(TESTING, f"Testing all {len(hypotheses)} against their own figures")
     with ThreadPoolExecutor(max_workers=MAX_HYPOTHESES) as pool:
         tested = list(pool.map(test, hypotheses))
-    for h, (result, usage, error) in zip(hypotheses, tested):
+    for h, (result, calls, error) in zip(hypotheses, tested):
         h["test"] = result
-        log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
-                  purpose="test_hypothesis", usage=usage, success=error is None, error=error)
+        for usage, call_error in calls or [(None, error)]:
+            log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                      purpose="test_hypothesis", usage=usage, success=call_error is None, error=call_error)
         say(VERDICT, h["statement"], verdict=result["verdict"],
             because=result["because"], cites=result["cites"],
             not_tested=bool(result.get("not_tested")))

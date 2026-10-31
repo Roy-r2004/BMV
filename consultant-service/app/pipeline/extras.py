@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline._shared import ask_until_usable, build_engagement_register, log_usage, reply_json
 from app.pipeline import handoff
 from app.pipeline.decompose import _format_owner_numbers
 from app.pipeline.failure import StageFailed
@@ -340,7 +340,15 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     registry = (decomposition or {}).get("registry") or _registry.registry_for(req) or {}
     gate_sentence = registry.get("pilot_gate_sentence") or ""
 
-    def _pilot() -> dict | None:
+    def _ask(prompt: str, max_tokens: int, use, record) -> dict:
+        return ask_until_usable(
+            lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
+                                  max_tokens=max_tokens),
+            lambda body: use(reply_json(body)),
+            record,
+        )
+
+    def _pilot(record) -> dict:
         prompt = render(
             "pilot_sop.j2",
             business_name=biz_name,
@@ -350,30 +358,32 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             modules=slim,
             engagement_register=register,
         )
+
+        def use(result: dict) -> dict:
+            procs = []
+            for p in result.get("procedures") or []:
+                if not (isinstance(p, dict) and p.get("name")):
+                    continue
+                # a manual pilot has no AI actors, whatever the model says
+                steps = [s for s in (p.get("steps") or [])
+                         if isinstance(s, dict) and s.get("step")
+                         and str(s.get("actor") or "").strip().lower() != "ai"]
+                if not steps:
+                    continue
+                p["steps"] = steps[:8]
+                p["exceptions"] = [e for e in (p.get("exceptions") or []) if isinstance(e, dict) and e.get("when")][:3]
+                p["phase"] = "pilot"
+                p["module"] = "The pilot"
+                procs.append(p)
+            if not procs:
+                raise ValueError("no valid pilot procedures")
+            return {"procedures": procs[:4]}
+
         # four procedures x eight steps x exceptions ran past 2600 tokens twice
         # (runs 47 and 49: JSON cut mid-object at ~10.8k characters)
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=4200)
-        result = extract_json_from_text(body["choices"][0]["message"]["content"])
-        procs = []
-        for p in result.get("procedures") or []:
-            if not (isinstance(p, dict) and p.get("name")):
-                continue
-            # a manual pilot has no AI actors, whatever the model says
-            steps = [s for s in (p.get("steps") or [])
-                     if isinstance(s, dict) and s.get("step")
-                     and str(s.get("actor") or "").strip().lower() != "ai"]
-            if not steps:
-                continue
-            p["steps"] = steps[:8]
-            p["exceptions"] = [e for e in (p.get("exceptions") or []) if isinstance(e, dict) and e.get("when")][:3]
-            p["phase"] = "pilot"
-            p["module"] = "The pilot"
-            procs.append(p)
-        if not procs:
-            raise ValueError("no valid pilot procedures")
-        return {"payload": {"procedures": procs[:4]}, "usage": body.get("usage")}
+        return _ask(prompt, 4200, use, record)
 
-    def _journey() -> dict | None:
+    def _journey(record) -> dict:
         prompt = render(
             "journey.j2",
             business_name=biz_name,
@@ -383,19 +393,21 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             modules=slim,
             engagement_register=register,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
-        result = extract_json_from_text(body["choices"][0]["message"]["content"])
-        stages = []
-        for s in result.get("stages") or []:
-            if not (isinstance(s, dict) and s.get("stage")):
-                continue
-            s["backstage_modules"] = [m for m in (s.get("backstage_modules") or []) if m in module_ids]
-            stages.append(s)
-        if not stages:
-            raise ValueError("journey had no valid stages")
-        return {"payload": {"stages": stages[:6]}, "usage": body.get("usage")}
 
-    def _governance() -> dict | None:
+        def use(result: dict) -> dict:
+            stages = []
+            for s in result.get("stages") or []:
+                if not (isinstance(s, dict) and s.get("stage")):
+                    continue
+                s["backstage_modules"] = [m for m in (s.get("backstage_modules") or []) if m in module_ids]
+                stages.append(s)
+            if not stages:
+                raise ValueError("journey had no valid stages")
+            return {"stages": stages[:6]}
+
+        return _ask(prompt, 1500, use, record)
+
+    def _governance(record) -> dict:
         prompt = render(
             "governance.j2",
             business_name=biz_name,
@@ -407,14 +419,16 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             engagement_register=register,
             pilot_gate_sentence=gate_sentence,
         )
+
+        def use(result: dict) -> dict:
+            scoreboard = [r for r in (result.get("scoreboard") or []) if isinstance(r, dict) and r.get("metric")][:7]
+            risks = [r for r in (result.get("risks") or []) if isinstance(r, dict) and r.get("risk")][:5]
+            if not scoreboard and not risks:
+                raise ValueError("governance had neither scoreboard nor risks")
+            return {"scoreboard": scoreboard, "risks": risks}
+
         # Seven scoreboard rows + five risks occasionally truncated at 1600.
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2400)
-        result = extract_json_from_text(body["choices"][0]["message"]["content"])
-        scoreboard = [r for r in (result.get("scoreboard") or []) if isinstance(r, dict) and r.get("metric")][:7]
-        risks = [r for r in (result.get("risks") or []) if isinstance(r, dict) and r.get("risk")][:5]
-        if not scoreboard and not risks:
-            raise ValueError("governance had neither scoreboard nor risks")
-        return {"payload": {"scoreboard": scoreboard, "risks": risks}, "usage": body.get("usage")}
+        return _ask(prompt, 2400, use, record)
 
     def _procedures_for(module: dict):
         """Factory: one SOP call per module — the franchise-manual library
@@ -427,7 +441,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             f"- {m.get('name')}: {m.get('purpose', '')}" for m in modules if m is not module
         ) or "none"
 
-        def _call() -> dict | None:
+        def _call(record) -> dict:
             prompt = render(
                 "procedures.j2",
                 business_name=biz_name,
@@ -437,26 +451,28 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
                 other_modules=others,
                 engagement_register=register,
             )
-            body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1800)
-            result = extract_json_from_text(body["choices"][0]["message"]["content"])
-            procs = []
-            for p in result.get("procedures") or []:
-                if not (isinstance(p, dict) and p.get("name")):
-                    continue
-                steps = [s for s in (p.get("steps") or []) if isinstance(s, dict) and s.get("step")]
-                if not steps:
-                    continue
-                p["steps"] = steps[:8]
-                p["exceptions"] = [e for e in (p.get("exceptions") or []) if isinstance(e, dict) and e.get("when")][:3]
-                p["module"] = module_name
-                procs.append(p)
-            if not procs:
-                raise ValueError("no valid procedures")
-            return {"payload": {"procedures": procs[:3]}, "usage": body.get("usage")}
+
+            def use(result: dict) -> dict:
+                procs = []
+                for p in result.get("procedures") or []:
+                    if not (isinstance(p, dict) and p.get("name")):
+                        continue
+                    steps = [s for s in (p.get("steps") or []) if isinstance(s, dict) and s.get("step")]
+                    if not steps:
+                        continue
+                    p["steps"] = steps[:8]
+                    p["exceptions"] = [e for e in (p.get("exceptions") or []) if isinstance(e, dict) and e.get("when")][:3]
+                    p["module"] = module_name
+                    procs.append(p)
+                if not procs:
+                    raise ValueError("no valid procedures")
+                return {"procedures": procs[:3]}
+
+            return _ask(prompt, 1800, use, record)
 
         return _call
 
-    def _checklists() -> dict | None:
+    def _checklists(record) -> dict:
         prompt = render(
             "checklists.j2",
             business_name=biz_name,
@@ -464,31 +480,33 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             modules=slim,
             engagement_register=register,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2200)
-        result = extract_json_from_text(body["choices"][0]["message"]["content"])
-        checklists = []
-        for c in result.get("checklists") or []:
-            if not (isinstance(c, dict) and c.get("name")):
-                continue
-            items = [str(i) for i in (c.get("items") or []) if i][:10]
-            if not items:
-                continue
-            c["items"] = items
-            checklists.append(c)
-        forms = []
-        for f in result.get("forms") or []:
-            if not (isinstance(f, dict) and f.get("name")):
-                continue
-            fields = [str(i) for i in (f.get("fields") or []) if i][:10]
-            if not fields:
-                continue
-            f["fields"] = fields
-            forms.append(f)
-        if not checklists and not forms:
-            raise ValueError("checklists call produced nothing valid")
-        return {"payload": {"checklists": checklists[:6], "forms": forms[:4]}, "usage": body.get("usage")}
 
-    def _organization() -> dict | None:
+        def use(result: dict) -> dict:
+            checklists = []
+            for c in result.get("checklists") or []:
+                if not (isinstance(c, dict) and c.get("name")):
+                    continue
+                items = [str(i) for i in (c.get("items") or []) if i][:10]
+                if not items:
+                    continue
+                c["items"] = items
+                checklists.append(c)
+            forms = []
+            for f in result.get("forms") or []:
+                if not (isinstance(f, dict) and f.get("name")):
+                    continue
+                fields = [str(i) for i in (f.get("fields") or []) if i][:10]
+                if not fields:
+                    continue
+                f["fields"] = fields
+                forms.append(f)
+            if not checklists and not forms:
+                raise ValueError("checklists call produced nothing valid")
+            return {"checklists": checklists[:6], "forms": forms[:4]}
+
+        return _ask(prompt, 2200, use, record)
+
+    def _organization(record) -> dict:
         prompt = render(
             "organization.j2",
             business_name=biz_name,
@@ -496,15 +514,17 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             modules=slim,
             engagement_register=register,
         )
+
+        def use(result: dict) -> dict:
+            roles = [r for r in (result.get("roles") or []) if isinstance(r, dict) and r.get("role")][:12]
+            impact = [c for c in (result.get("change_impact") or []) if isinstance(c, dict) and c.get("role")][:8]
+            if not roles:
+                raise ValueError("organization had no valid roles")
+            return {"roles": roles, "change_impact": impact}
+
         # Twelve roles with responsibilities run long — 1800 tokens was seen
         # truncating mid-JSON on a 5-module business.
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3000)
-        result = extract_json_from_text(body["choices"][0]["message"]["content"])
-        roles = [r for r in (result.get("roles") or []) if isinstance(r, dict) and r.get("role")][:12]
-        impact = [c for c in (result.get("change_impact") or []) if isinstance(c, dict) and c.get("role")][:8]
-        if not roles:
-            raise ValueError("organization had no valid roles")
-        return {"payload": {"roles": roles, "change_impact": impact}, "usage": body.get("usage")}
+        return _ask(prompt, 3000, use, record)
 
     tasks = [
         ("journey", _journey),
@@ -522,41 +542,47 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             return
 
     def _guarded(item):
+        """(name, payload, calls, error). The calls, each (usage, error), are
+        collected here and ledgered on the calling thread."""
         name, fn = item
+        calls: list = []
         try:
-            return name, fn(), None
+            return name, fn(lambda usage, error: calls.append((usage, error))), calls, None
         except Exception as exc:  # handed back, not raised: this runs on a worker thread
-            return name, None, str(exc)[:500]
+            return name, None, calls, str(exc)[:500]
 
     results = []
     if tasks:
         with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
             results = list(pool.map(_guarded, tasks))
 
-    for name, result, error in results:
-        log_usage(
-            db, request_id,
-            # per-module SOP calls all ledger under one purpose
-            provider="openrouter", model=settings.ANALYSIS_MODEL,
-            purpose="procedures" if name.startswith("procedures:") else name,
-            usage=(result or {}).get("usage"), success=error is None, error=error,
-        )
+    for name, _, calls, error in results:
+        # every call a layer made, including the replies that could not be
+        # used; a layer that failed before any call still leaves its row
+        for usage, call_error in calls or [(None, error)]:
+            log_usage(
+                db, request_id,
+                # per-module SOP calls all ledger under one purpose
+                provider="openrouter", model=settings.ANALYSIS_MODEL,
+                purpose="procedures" if name.startswith("procedures:") else name,
+                usage=usage, success=call_error is None, error=call_error,
+            )
         if error is not None:
             logger.warning("extras layer %s failed: request=%s error=%s", name, request_id, error)
 
     # After every layer's usage is on the ledger, and before anything is saved:
     # a run that stops here keeps none of its layers, not some of them.
-    errored = [(name, error) for name, _, error in results if error is not None]
+    errored = [(name, error) for name, _, _, error in results if error is not None]
     if errored:
         name, error = errored[0]
         raise StageFailed("shaping", f"{len(errored)} of {len(results)} layers failed; first, {name}: {error}")
 
-    by_name = {name: (result or {}).get("payload") for name, result, _ in results}
+    by_name = {name: payload for name, payload, _, _ in results}
     # Merge the per-module SOP calls into one library, module order kept.
     procedure_library = []
-    for name, result, _ in results:
-        if name.startswith("procedures:") and result:
-            procedure_library.extend(result["payload"]["procedures"])
+    for name, payload, _, _ in results:
+        if name.startswith("procedures:") and payload:
+            procedure_library.extend(payload["procedures"])
     if only:
         # a partial rebuild keeps every existing layer and splices the new
         # procedures in front of the library already on the row

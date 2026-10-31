@@ -27,6 +27,15 @@ def _signed_in(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _stage_reply_attempts(monkeypatch):
+    """Every test sees the default: a stage asks for an unusable reply twice in
+    all, whatever the developer's environment sets."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "STAGE_REPLY_ATTEMPTS", 2)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_provider(monkeypatch):
     """No test reaches OpenRouter. A test that needs a model stubs
     `provider.chat` (or, to exercise `chat` itself, `provider.httpx.post`) and

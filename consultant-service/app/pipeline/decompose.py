@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, log_usage, reply_json
 from app.pipeline import handoff
 from app.pipeline.analyze import _format_site_research
 from app.pipeline.failure import StageFailed
@@ -437,7 +437,7 @@ def _clamp_modules(modules: list) -> list:
 
 def _module_calls_failed(what: str, modules: list, results: list) -> StageFailed | None:
     """The stop for module calls that failed, or None when every one worked.
-    `results` are the (value, usage, error) of `_spec_one` / `_tech_one` in
+    `results` are the (value, calls, error) of `_spec_one` / `_tech_one` in
     module order. Built here, on the calling thread, once the usage of every
     call is on the ledger: a worker thread must never be the one to raise."""
     failed = [(m, error) for m, (_, _, error) in zip(modules, results) if error is not None]
@@ -449,6 +449,30 @@ def _module_calls_failed(what: str, modules: list, results: list) -> StageFailed
         f"{len(failed)} of {len(modules)} module {what} calls failed; "
         f"first, for {first_module.get('name')}: {first_error}",
     )
+
+
+def _breakdown(body: dict) -> tuple[list, dict]:
+    """The modules and the business case out of the breakdown reply. A reply
+    that names no usable module raises: every volume after it is written from
+    the breakdown, so a breakdown of nothing is no breakdown."""
+    result = reply_json(body)
+    modules = _clamp_modules(result.get("modules") or [])
+    business_case = result.get("business_case") or {}
+    _sanitize_financial_model(business_case)
+    if not modules:
+        raise ValueError("the breakdown came back with no usable modules")
+    return modules, business_case
+
+
+def _ledger_calls(db: Session, request_id: int, purpose: str, calls: list, error: str | None) -> None:
+    """Put one worker's calls on the cost ledger, on the calling thread. A
+    worker that failed before it made any call still leaves its row."""
+    for usage, call_error in calls or [(None, error)]:
+        log_usage(
+            db, request_id,
+            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose=purpose,
+            usage=usage, success=call_error is None, error=call_error,
+        )
 
 
 def decompose_business(
@@ -497,28 +521,13 @@ def decompose_business(
             max_modules=settings.MAX_MODULES_PER_REQUEST,
             preflight_feedback="\n".join(f"- {f}" for f in (feedback or [])),
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=6400)
-        content = body["choices"][0]["message"]["content"]
-        result = extract_json_from_text(content)
-        modules = _clamp_modules(result.get("modules") or [])
-        business_case = result.get("business_case") or {}
-        _sanitize_financial_model(business_case)
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="decompose",
-            usage=body.get("usage"), success=True,
+        modules, business_case = ask_until_usable(
+            lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=6400),
+            _breakdown,
+            ledger(db, request_id, model=settings.ANALYSIS_MODEL, purpose="decompose"),
         )
     except Exception as exc:
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="decompose",
-            success=False, error=str(exc)[:500],
-        )
         raise StageFailed("decomposing", exc) from exc
-
-    if not modules:
-        logger.warning("decomposition returned no usable modules: request=%s", request_id)
-        raise StageFailed("decomposing", "the breakdown came back with no usable modules")
 
     # Deep-spec each module with its own dedicated call. The calls are pure
     # HTTP and independent, so they run in parallel — but the DB session is
@@ -533,7 +542,8 @@ def decompose_business(
     biz_name = req.business_name or ""
     biz_desc = req.business_description or ""
 
-    def _spec_one(module: dict) -> tuple[dict | None, dict | None, str | None]:
+    def _spec_one(module: dict) -> tuple[dict | None, list, str | None]:
+        calls: list = []
         others = "\n".join(
             f"- {m.get('name')}: {m.get('purpose', '')}" for m in modules if m is not module
         ) or "none"
@@ -552,23 +562,23 @@ def decompose_business(
                 pilot_gate=json.dumps(business_case.get("pilot_gate") or "") if isinstance(business_case, dict) else '""',
                 other_modules=others,
             )
-            body = provider.chat(
-                settings.ANALYSIS_MODEL, [{"role": "user", "content": spec_prompt}], max_tokens=2000,
+            spec = ask_until_usable(
+                lambda: provider.chat(
+                    settings.ANALYSIS_MODEL, [{"role": "user", "content": spec_prompt}], max_tokens=2000,
+                ),
+                reply_json,
+                lambda usage, error: calls.append((usage, error)),
             )
-            return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage"), None
+            return spec, calls, None
         except Exception as exc:  # handed back, not raised: this runs on a worker thread
-            return None, None, str(exc)[:500]
+            return None, calls, str(exc)[:500]
 
     with ThreadPoolExecutor(max_workers=min(4, len(modules))) as pool:
         results = list(pool.map(_spec_one, modules))
 
-    for module, (spec, usage, error) in zip(modules, results):
+    for module, (spec, calls, error) in zip(modules, results):
         module["spec"] = spec
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="module_spec",
-            usage=usage, success=error is None, error=error,
-        )
+        _ledger_calls(db, request_id, "module_spec", calls, error)
     # Before the engineering specs, which are written FROM these: a module
     # without its spec would be given a blank one and the money spent anyway.
     stop = _module_calls_failed("spec", modules, results)
@@ -580,7 +590,8 @@ def decompose_business(
     # escalation/evaluation. Its own dedicated call per module, fed that
     # module's business spec, so the technical plan downstream is written
     # from engineering facts rather than improvising them.
-    def _tech_one(module: dict) -> tuple[dict | None, dict | None, str | None]:
+    def _tech_one(module: dict) -> tuple[dict | None, list, str | None]:
+        calls: list = []
         others = "\n".join(
             f"- {m.get('name')}: {m.get('purpose', '')}" for m in modules if m is not module
         ) or "none"
@@ -601,27 +612,29 @@ def decompose_business(
             # ("Unterminated string starting at ... char 12242") and the whole
             # engagement failed. When the model reports it was cut off by the
             # cap, raise the cap once rather than parse the wreckage.
-            for budget in TECH_SPEC_BUDGETS:
-                body = provider.chat(
-                    settings.ANALYSIS_MODEL, [{"role": "user", "content": tech_prompt}], max_tokens=budget,
-                )
-                choice = body["choices"][0]
-                if choice.get("finish_reason") != "length":
-                    break
-            return extract_json_from_text(choice["message"]["content"]), body.get("usage"), None
+            # The larger budget answers a reply cut off by the cap; a reply
+            # that still cannot be read is asked for again, whole.
+            def ask() -> dict:
+                for budget in TECH_SPEC_BUDGETS:
+                    body = provider.chat(
+                        settings.ANALYSIS_MODEL, [{"role": "user", "content": tech_prompt}], max_tokens=budget,
+                    )
+                    choice = (body.get("choices") or [{}])[0] or {}
+                    if choice.get("finish_reason") != "length":
+                        break
+                return body
+
+            tech = ask_until_usable(ask, reply_json, lambda usage, error: calls.append((usage, error)))
+            return tech, calls, None
         except Exception as exc:
-            return None, None, str(exc)[:500]
+            return None, calls, str(exc)[:500]
 
     with ThreadPoolExecutor(max_workers=min(4, len(modules))) as pool:
         tech_results = list(pool.map(_tech_one, modules))
 
-    for module, (tech, usage, error) in zip(modules, tech_results):
+    for module, (tech, calls, error) in zip(modules, tech_results):
         module["tech"] = tech
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="tech_spec",
-            usage=usage, success=error is None, error=error,
-        )
+        _ledger_calls(db, request_id, "tech_spec", calls, error)
     stop = _module_calls_failed("tech", modules, tech_results)
     if stop is not None:
         raise stop

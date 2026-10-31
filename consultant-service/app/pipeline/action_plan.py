@@ -30,7 +30,7 @@ from app.models import Request
 from app.pipeline import answer as _answer
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
-from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
+from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline.failure import StageFailed
 from app.templating import render
 
@@ -171,14 +171,15 @@ def write(db: Session, request_id: int) -> dict | None:
             if feedback:
                 prompt += ("\n\nYOUR LAST ATTEMPT WAS REJECTED FOR THESE REASONS — fix exactly these:\n"
                            + feedback)
-            body = provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}],
-                                 max_tokens=PLAN_TOKENS)
-            raw = extract_json_from_text(body["choices"][0]["message"]["content"])
-            log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                      purpose=f"roadmap:{attempt}", usage=body.get("usage"), success=True)
+            # A reply that is not JSON is asked for again here; this loop's
+            # second attempt is for a reply that read but was wrong.
+            raw = ask_until_usable(
+                lambda: provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}],
+                                      max_tokens=PLAN_TOKENS),
+                reply_json,
+                ledger(db, request_id, model=settings.REASONING_MODEL, purpose=f"roadmap:{attempt}"),
+            )
         except Exception as exc:
-            log_usage(db, request_id, provider="openrouter", model=settings.REASONING_MODEL,
-                      purpose=f"roadmap:{attempt}", success=False, error=str(exc)[:500])
             logger.warning("roadmap call failed: %s", str(exc)[:200])
             cause = exc
             break

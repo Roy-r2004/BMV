@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import build_engagement_register, log_usage
+from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_text
 from app.pipeline import handoff
 from app.pipeline.failure import StageFailed
 from app.templating import render
@@ -33,31 +33,29 @@ from app.templating import render
 def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str, *, stage: str,
                    max_tokens: int = 4000) -> str:
     """One document, as Markdown. `purpose` is the ledger's name for the call,
-    `stage` the stage a failure is reported against; a call that fails, or a
-    reply with nothing in it, raises `StageFailed(stage)`."""
+    `stage` the stage a failure is reported against; a call that fails, or
+    replies with nothing in them `STAGE_REPLY_ATTEMPTS` times over, raise
+    `StageFailed(stage)`."""
     try:
-        body = provider.chat(
-            settings.ANALYSIS_MODEL,
-            [{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-        )
-        content = (body["choices"][0]["message"]["content"] or "").strip()
-        if content.startswith("```"):
-            content = content.strip("`").removeprefix("markdown").strip()
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose=purpose,
-            usage=body.get("usage"), success=True,
+        return ask_until_usable(
+            lambda: provider.chat(
+                settings.ANALYSIS_MODEL,
+                [{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+            ),
+            _document,
+            ledger(db, request_id, model=settings.ANALYSIS_MODEL, purpose=purpose),
         )
     except Exception as exc:
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose=purpose,
-            success=False, error=str(exc)[:500],
-        )
         raise StageFailed(stage, exc) from exc
+
+
+def _document(body: dict) -> str:
+    content = (reply_text(body) or "").strip()
+    if content.startswith("```"):
+        content = content.strip("`").removeprefix("markdown").strip()
     if not content:
-        raise StageFailed(stage, "the model returned an empty document")
+        raise ValueError("the model returned an empty document")
     return content
 
 

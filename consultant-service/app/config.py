@@ -10,6 +10,16 @@ def _env_or(name: str, default: str) -> str:
     return value or default
 
 
+def _env_int_within(name: str, default: int, low: int, high: int) -> int:
+    """An integer setting held inside [low, high]: a value out of range is
+    moved to the nearest bound, and one that is not a number reads as unset."""
+    try:
+        value = int(_env_or(name, str(default)))
+    except ValueError:
+        value = default
+    return max(low, min(high, value))
+
+
 def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name, "").strip().lower()
     if not value:
@@ -70,6 +80,12 @@ class Settings:
     # The team gets one email per kind of stall per this many seconds, not one
     # per round.
     STALL_MAIL_WINDOW_SECONDS: int = int(_env_or("STALL_MAIL_WINDOW_SECONDS", "300"))
+    # How many times, in all, a stage asks for ONE reply it must be able to use
+    # (JSON of the right shape, a document that is not empty) before the run
+    # stops. 2 is one retry. A reply cut off mid-object is a known, occasional
+    # fault and a paid run should not end on the first one; the provider's own
+    # failures are retried in the provider and never again here. Held to 1..3.
+    STAGE_REPLY_ATTEMPTS: int = _env_int_within("STAGE_REPLY_ATTEMPTS", 2, 1, 3)
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
     # Managing Consultant"). A document a person signs reads senior; one

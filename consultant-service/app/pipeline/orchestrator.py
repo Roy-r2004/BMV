@@ -25,13 +25,32 @@ def _decompose_with_preflight(db, request_id, *args, **kwargs):
     each retry hands the model the exact failures of the previous attempt
     (a blind re-roll is a lottery; a targeted one is a correction). After
     PREFLIGHT_ATTEMPTS the run stops cleanly instead of generating volumes
-    from a broken skeleton."""
+    from a broken skeleton.
+
+    Only the first attempt must produce a skeleton. A retry is a try at a
+    better one: when it fails (the call, its reply, or anything else out of
+    `decompose_business`) the skeleton already in hand is carried on with,
+    exactly as when every attempt produced one and none was clean."""
     feedback = None
     issues = []
+    decomposition = None
     for attempt in range(1, PREFLIGHT_ATTEMPTS + 1):
-        # No skeleton at all is a StageFailed out of decompose_business. (A
-        # skeleton with defects is another matter, handled after the loop.)
-        decomposition = decompose.decompose_business(db, request_id, *args, feedback=feedback, **kwargs)
+        # No skeleton at all on the first attempt is a StageFailed out of
+        # decompose_business. (A skeleton with defects is another matter,
+        # handled after the loop.)
+        try:
+            candidate = decompose.decompose_business(db, request_id, *args, feedback=feedback, **kwargs)
+        except Exception as exc:
+            if decomposition is None:
+                raise
+            # The failed retry may have left the session unusable. The row
+            # still holds the skeleton in hand: a decomposition is written
+            # only once all of it has succeeded.
+            db.rollback()
+            logger.warning("preflight retry %s produced no skeleton, carrying on with the one in hand: %s",
+                           attempt, str(exc)[:200])
+            break
+        decomposition = candidate
         issues = _structural_preflight(
             decomposition.get("business_case") or {},
             decomposition.get("modules") or [],
@@ -277,11 +296,16 @@ def _read_capacity(db: Session, request_id: int) -> None:
     req = db.get(Request, request_id)
     if req is None:
         return
+    earlier: list = []
     picture, usage, error = capacity.read(
         capacity.owner_texts(req), "not launched yet — this is a plan"
-        if req.operating_stage == "opening" else "already operating")
+        if req.operating_stage == "opening" else "already operating", earlier=earlier)
     from app.pipeline._shared import log_usage
 
+    # the replies that could not be read, then the last call
+    for unread_usage, unread_error in earlier:
+        log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
+                  purpose="capacity", usage=unread_usage, success=False, error=unread_error)
     if usage is not None or error is not None:
         log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose="capacity", usage=usage, success=error is None, error=error)

@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+import threading
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -764,7 +765,7 @@ def _provider_by_template(monkeypatch, stage_module, replies: dict) -> None:
     """For a stage that renders several templates: the provider answers each
     prompt from the template it was rendered from. A reply is the dict to
     answer with, an exception to raise, or a function of the prompt that
-    returns either."""
+    returns either; a str reply is sent as it is, not as JSON."""
     rendered: dict[str, str] = {}
     real_render = stage_module.render
 
@@ -780,7 +781,8 @@ def _provider_by_template(monkeypatch, stage_module, replies: dict) -> None:
             reply = reply(prompt)
         if isinstance(reply, BaseException):
             raise reply
-        return {"choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}}
+        content = reply if isinstance(reply, str) else json.dumps(reply)
+        return {"choices": [{"message": {"content": content}}], "usage": {}}
 
     monkeypatch.setattr(stage_module, "render", render_and_remember)
     monkeypatch.setattr("app.ai.provider.chat", chat)
@@ -1280,7 +1282,8 @@ def test_a_diagnosis_that_is_not_json_is_a_failed_call(monkeypatch):
         _diagnose(request_id)
 
     assert stopped.value.stage == "diagnosing" and "No JSON object found" in stopped.value.cause
-    assert _ledger(request_id) == [("diagnose:1", False)]
+    # asked once more (STAGE_REPLY_ATTEMPTS), and neither reply could be read
+    assert _ledger(request_id) == [("diagnose:1", False)] * settings.STAGE_REPLY_ATTEMPTS
     assert _read(request_id).diagnosis_json is None
 
 
@@ -1303,7 +1306,8 @@ def test_a_diagnosis_with_fewer_than_two_usable_explanations_stops_the_stage(mon
 
     assert stopped.value.stage == "diagnosing"
     assert "usable explanation" in stopped.value.cause and "needs 2" in stopped.value.cause
-    assert _ledger(request_id) == [("diagnose:1", True)]  # the call worked; its answer did not
+    # the calls worked, their answers did not: each is asked again, then the stage stops
+    assert _ledger(request_id) == [("diagnose:1", False)] * settings.STAGE_REPLY_ATTEMPTS
     assert _read(request_id).diagnosis_json is None
 
 
@@ -2784,3 +2788,412 @@ def test_a_blueprint_the_gate_holds_for_unfinished_wording_or_a_figure_says_so_t
     assert page[start:end] == [ARTIFACT_SENTENCE]
     text = " ".join(page)
     assert hit not in text and "artifact" not in text.lower() and "ROI" not in text and "TODO" not in text
+
+
+# -- a reply that cannot be used is asked for again ------------------------
+#
+# A model reply that comes back cut off mid-object, or of the wrong shape, is
+# an occasional fault of that one reply: the code records it in production
+# (runs 47 and 49). With some forty replies in a run, stopping on the first one
+# would end a good share of paid runs. So each is asked for again, up to
+# STAGE_REPLY_ATTEMPTS in all; the provider's own failures are not, because
+# the provider has already retried them.
+
+CUT_OFF = '{"business_model": "Group classes", "pain_points": ["Empty mornin'
+UNREADABLE = "the reply stopped here"  # no JSON object anywhere in it
+
+
+def _replies_in_turn(monkeypatch, *replies) -> list[str]:
+    """The provider answers each call with the next reply: a str is sent as it
+    is, a dict as JSON, an exception is raised. Returns the prompts asked."""
+    queue, asked, lock = list(replies), [], threading.Lock()
+
+    def chat(model, messages, **kwargs):
+        with lock:
+            asked.append(messages[0]["content"])
+            reply = queue.pop(0)
+        if isinstance(reply, BaseException):
+            raise reply
+        content = reply if isinstance(reply, str) else json.dumps(reply)
+        return {"choices": [{"message": {"content": content}}], "usage": {}}
+
+    monkeypatch.setattr("app.ai.provider.chat", chat)
+    return asked
+
+
+def _unusable_first(reply, times: int = 1, only: str | None = None):
+    """A reply for `_provider_by_template`: unreadable the first `times` times
+    each prompt (containing `only`, when given) is asked, then `reply`."""
+    seen, lock = {}, threading.Lock()
+
+    def answer(prompt):
+        if only is not None and only not in prompt:
+            return reply
+        with lock:
+            seen[prompt] = seen.get(prompt, 0) + 1
+            n = seen[prompt]
+        return UNREADABLE if n <= times else reply
+
+    return answer
+
+
+def _in_session(call):
+    db = SessionLocal()
+    try:
+        return call(db)
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("value, held", [
+    ("0", 1), ("1", 1), ("2", 2), ("3", 3), ("9", 3), ("-4", 1), ("", 2), ("two", 2),
+])
+def test_stage_reply_attempts_is_held_between_one_and_three(monkeypatch, value, held):
+    from app import config
+
+    monkeypatch.setenv("STAGE_REPLY_ATTEMPTS", value)
+    assert config._env_int_within("STAGE_REPLY_ATTEMPTS", 2, 1, 3) == held
+    assert 1 <= settings.STAGE_REPLY_ATTEMPTS <= 3
+
+
+def test_an_unusable_reply_is_asked_for_up_to_the_setting_and_no_further(monkeypatch):
+    from app.pipeline._shared import ask_until_usable, reply_json
+
+    for attempts in (1, 2, 3):
+        monkeypatch.setattr(settings, "STAGE_REPLY_ATTEMPTS", attempts)
+        calls = []
+        asked = _replies_in_turn(monkeypatch, *[UNREADABLE] * 4)
+        from app.ai import provider
+
+        with pytest.raises(ValueError):
+            ask_until_usable(lambda: provider.chat("m", [{"role": "user", "content": "p"}]), reply_json,
+                             lambda usage, error: calls.append(error))
+        assert len(asked) == attempts and len(calls) == attempts and all(calls)
+
+
+def test_a_provider_failure_is_never_asked_again_by_the_stage(monkeypatch):
+    """The provider retried its own transient failures already; one that is
+    refusing should stop the stage fast, not be asked again."""
+    from app.ai import provider
+    from app.pipeline._shared import ask_until_usable, reply_json
+
+    monkeypatch.setattr(settings, "STAGE_REPLY_ATTEMPTS", 3)
+    calls = []
+    asked = _replies_in_turn(monkeypatch, AiProviderError(SECRET_CAUSE), {"ok": True})
+
+    with pytest.raises(AiProviderError):
+        ask_until_usable(lambda: provider.chat("m", [{"role": "user", "content": "p"}]), reply_json,
+                         lambda usage, error: calls.append(error))
+    assert len(asked) == 1 and calls == [SECRET_CAUSE]
+
+
+def _stage_calls():
+    from app.pipeline import analyze, blueprint, decide, plan, playbook
+
+    return {
+        "analyze": (lambda db, rid: analyze.analyze_business(db, rid),
+                    CUT_OFF, {"business_model": "Group classes"}, "analyzing"),
+        "decide": (lambda db, rid: decide.decide(db, rid, {"business_model": "classes"}),
+                   CUT_OFF, {"intervention_kind": "software", "consulting_summary": "Fill the quiet hours."},
+                   "consulting"),
+        "plan": (lambda db, rid: plan.plan_integration(db, rid, {"consulting_summary": "Fill the quiet hours."}),
+                 {"concept_name": "Halo", "roles": []},
+                 {"concept_name": "Halo", "roles": [{"id": "customer_view", "label": "Customer View"}]},
+                 "planning"),
+        "playbook": (lambda db, rid: playbook.write_playbook(db, rid, {"concept_name": "Halo"}, None),
+                     {"steps": [{"title": "Missing its phase and its owner"}]},
+                     {"steps": [{"title": "Export your bookings", "phase": "before", "who": "you"}]},
+                     "playbook"),
+        "blueprint": (lambda db, rid: blueprint._markdown_call(db, rid, "blueprint", "write it", stage="blueprint"),
+                      "   ", "## The decision\nGo.", "blueprint"),
+        "technical_plan": (lambda db, rid: blueprint._markdown_call(db, rid, "technical_plan", "write it",
+                                                                    stage="technical"),
+                           "```markdown\n```", "## How it works\nIt works.", "technical"),
+    }
+
+
+SEQUENTIAL_STAGES = ["analyze", "decide", "plan", "playbook", "blueprint", "technical_plan"]
+
+
+@pytest.mark.parametrize("purpose", SEQUENTIAL_STAGES)
+def test_one_unusable_reply_then_a_usable_one_is_a_stage_that_worked(monkeypatch, purpose):
+    call, unusable, usable, _ = _stage_calls()[purpose]
+    asked = _replies_in_turn(monkeypatch, unusable, usable)
+    request_id = _generating_row()
+
+    assert _in_session(lambda db: call(db, request_id))
+
+    assert len(asked) == 2 and asked[0] == asked[1]  # the same question, asked again
+    assert _ledger(request_id) == [(purpose, False), (purpose, True)]
+
+
+@pytest.mark.parametrize("purpose", SEQUENTIAL_STAGES)
+def test_two_unusable_replies_stop_the_stage_and_both_are_on_the_ledger(monkeypatch, purpose):
+    call, unusable, usable, stage = _stage_calls()[purpose]
+    asked = _replies_in_turn(monkeypatch, unusable, unusable, usable)
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _in_session(lambda db: call(db, request_id))
+
+    assert stopped.value.stage == stage
+    assert len(asked) == 2
+    assert _ledger(request_id) == [(purpose, False), (purpose, False)]
+
+
+def test_a_run_whose_analysis_comes_back_cut_off_twice_stops_and_says_where(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only("analyzing")
+    _replies_in_turn(monkeypatch, CUT_OFF, CUT_OFF)
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "failed" and json.loads(row.failure_json)["stage"] == "analyzing"
+    assert [m[1] for m in run.outbox] == ["Run failed: Halo Reformer Studio (analyzing)"]
+
+
+def test_a_run_whose_analysis_comes_back_cut_off_once_carries_on(pipeline_with_only, monkeypatch):
+    run = pipeline_with_only("analyzing")
+    _replies_in_turn(monkeypatch, CUT_OFF, {"business_model": "Group classes"})
+
+    orchestrator.run(run.request_id)
+
+    row = _read(run.request_id)
+    assert row.status == "done" and not row.is_failed
+    assert json.loads(row.business_analysis_json)["business_model"] == "Group classes"
+
+
+def test_a_breakdown_that_comes_back_cut_off_once_is_asked_for_again(monkeypatch):
+    from app.pipeline import decompose
+
+    _provider_by_template(monkeypatch, decompose, {
+        "decompose.j2": _unusable_first(TWO_MODULES), "module_spec.j2": {"features": []},
+        "tech_spec.j2": {"data_model": []}})
+    request_id = _generating_row()
+
+    result = _decompose(request_id)
+
+    assert [m["name"] for m in result["modules"]] == ["Module 0", "Module 1"]
+    assert sorted(_ledger(request_id)) == sorted([
+        ("decompose", False), ("decompose", True), *[("module_spec", True)] * 2, *[("tech_spec", True)] * 2])
+
+
+@pytest.mark.parametrize("template, purpose", [("module_spec.j2", "module_spec"), ("tech_spec.j2", "tech_spec")])
+def test_one_modules_spec_that_comes_back_cut_off_once_is_asked_for_again(monkeypatch, template, purpose):
+    from app.pipeline import decompose
+
+    replies = {"decompose.j2": TWO_MODULES, "module_spec.j2": {"features": []}, "tech_spec.j2": {"data_model": []}}
+    replies[template] = _unusable_first(replies[template], only="Name: Module 1\n")
+    _provider_by_template(monkeypatch, decompose, replies)
+    request_id = _generating_row()
+
+    result = _decompose(request_id)
+
+    assert all(m["spec"] is not None and m["tech"] is not None for m in result["modules"])
+    rows = [ok for p, ok in _ledger(request_id) if p == purpose]
+    assert sorted(rows) == [False, True, True]  # Module 1 twice, Module 0 once
+
+
+@pytest.mark.parametrize("template", ["module_spec.j2", "tech_spec.j2"])
+def test_one_modules_spec_that_comes_back_cut_off_twice_stops_decomposition(monkeypatch, template):
+    from app.pipeline import decompose
+
+    replies = {"decompose.j2": TWO_MODULES, "module_spec.j2": {"features": []}, "tech_spec.j2": {"data_model": []}}
+    replies[template] = _unusable_first(replies[template], times=2, only="Name: Module 1\n")
+    _provider_by_template(monkeypatch, decompose, replies)
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _decompose(request_id)
+
+    assert stopped.value.stage == "decomposing" and "Module 1" in stopped.value.cause
+    purpose = template.removesuffix(".j2")
+    assert sorted(ok for p, ok in _ledger(request_id) if p == purpose) == [False, False, True]
+
+
+def test_a_shaping_layer_that_comes_back_cut_off_once_is_asked_for_again(monkeypatch):
+    from app.pipeline import extras
+
+    _provider_by_template(monkeypatch, extras, {**SHAPING_LAYERS,
+                                                "journey.j2": _unusable_first(SHAPING_LAYERS["journey.j2"])})
+    request_id = _generating_row()
+
+    _shape(request_id)
+
+    assert [ok for p, ok in _ledger(request_id) if p == "journey"] == [False, True]
+    assert json.loads(_read(request_id).journey_json)["stages"][0]["stage"] == "Find a class"
+
+
+def test_a_shaping_layer_that_comes_back_wrong_twice_stops_the_run(monkeypatch):
+    from app.pipeline import extras
+
+    _provider_by_template(monkeypatch, extras, {**SHAPING_LAYERS, "journey.j2": {"stages": []}})
+    request_id = _generating_row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _shape(request_id)
+
+    assert stopped.value.stage == "shaping" and "journey had no valid stages" in stopped.value.cause
+    assert [ok for p, ok in _ledger(request_id) if p == "journey"] == [False, False]
+    assert _read(request_id).journey_json is None
+
+
+def test_a_diagnosis_that_comes_back_cut_off_once_is_asked_for_again(monkeypatch):
+    from app.pipeline import diagnose
+
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": _unusable_first(_explanations(*EXPLANATIONS)),
+        "test_hypothesis.j2": {"verdict": "supported", "because": "The evenings are full.", "cites": []},
+        "challenge.j2": {"kills": False, "because": "It held.", "weakness": ""}})
+    request_id = _generating_row()
+
+    result = _diagnose(request_id)
+
+    assert len(result["hypotheses"]) == 3 and result["status"] == "survived"
+    assert _ledger(request_id)[:2] == [("diagnose:1", False), ("diagnose:1", True)]
+
+
+def test_a_hypothesis_test_that_comes_back_cut_off_once_is_still_tested(monkeypatch):
+    from app.pipeline import diagnose
+
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": _explanations(*EXPLANATIONS),
+        "test_hypothesis.j2": _unusable_first({"verdict": "supported", "because": "The evenings are full.",
+                                               "cites": []}, only="Mornings are empty"),
+        "challenge.j2": {"kills": False, "because": "It held.", "weakness": ""}})
+    request_id = _generating_row()
+
+    result = _diagnose(request_id)
+
+    tests = {h["statement"]: h["test"] for h in result["hypotheses"]}
+    assert not tests["Mornings are empty"].get("not_tested") and tests["Mornings are empty"]["verdict"] == "supported"
+    assert sorted(ok for p, ok in _ledger(request_id) if p == "test_hypothesis") == [False, True, True, True]
+
+
+def test_a_hypothesis_test_that_comes_back_cut_off_twice_is_not_tested(monkeypatch):
+    from app.pipeline import diagnose
+
+    _provider_by_template(monkeypatch, diagnose, {
+        "diagnose.j2": _explanations(*EXPLANATIONS),
+        "test_hypothesis.j2": _unusable_first({"verdict": "supported", "because": "The evenings are full.",
+                                               "cites": []}, times=2, only="Mornings are empty"),
+        "challenge.j2": {"kills": False, "because": "It held.", "weakness": ""}})
+    request_id = _generating_row()
+
+    result = _diagnose(request_id)
+
+    tests = {h["statement"]: h["test"] for h in result["hypotheses"]}
+    assert tests["Mornings are empty"]["not_tested"] is True
+    assert sorted(ok for p, ok in _ledger(request_id) if p == "test_hypothesis") == [False, False, True, True]
+
+
+CAPACITY_TEXTS = ["12 reformers, six classes a day, six days a week."]
+
+
+def test_a_capacity_read_cut_off_once_is_asked_for_again(monkeypatch):
+    from app.pipeline import capacity
+
+    asked = _replies_in_turn(monkeypatch, CUT_OFF, {"week": []})
+    earlier = []
+
+    picture, usage, error = capacity.read(CAPACITY_TEXTS, earlier=earlier)
+
+    assert error is None and len(asked) == 2
+    assert len(earlier) == 1 and earlier[0][1]  # the unreadable reply, with its error
+
+
+def test_a_capacity_read_cut_off_twice_reports_its_error(monkeypatch):
+    from app.pipeline import capacity
+
+    _replies_in_turn(monkeypatch, CUT_OFF, CUT_OFF)
+    earlier = []
+
+    picture, usage, error = capacity.read(CAPACITY_TEXTS, earlier=earlier)
+
+    assert picture is None and error and len(earlier) == 1
+
+
+def test_the_run_ledgers_every_capacity_call_and_stops_on_two_unreadable_replies(monkeypatch):
+    _replies_in_turn(monkeypatch, CUT_OFF, CUT_OFF)
+    request_id = _generating_row(main_problem=CAPACITY_TEXTS[0])
+
+    with pytest.raises(StageFailed) as stopped:
+        _in_session(lambda db: orchestrator._read_capacity(db, request_id))
+
+    assert stopped.value.stage == "capacity"
+    assert _ledger(request_id) == [("capacity", False), ("capacity", False)]
+
+
+# -- the structural preflight: only the first attempt must produce a skeleton
+
+
+SKELETON = {"modules": [{"id": "booking", "name": "Booking"}], "business_case": {}, "registry": {}}
+
+
+def _preflight(monkeypatch, *attempts):
+    """Run the preflight over decomposition attempts that each return a
+    skeleton (which the preflight always finds a defect in) or raise."""
+    queue = list(attempts)
+
+    def decompose_business(db, request_id, *args, **kwargs):
+        outcome = queue.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr("app.pipeline.decompose.decompose_business", decompose_business)
+    monkeypatch.setattr(orchestrator, "_structural_preflight",
+                        lambda *a, **k: [{"where": "scenarios", "issue": "A defect.", "fix": "Fix it."}])
+    request_id = _generating_row()
+    return _in_session(lambda db: orchestrator._decompose_with_preflight(db, request_id, {}, {}, {})), queue
+
+
+@pytest.mark.parametrize("failure", [
+    pytest.param(StageFailed("decomposing", "the breakdown came back with no usable modules"), id="stage failed"),
+    pytest.param(AiProviderError(SECRET_CAUSE), id="provider"),
+    pytest.param(ValueError("No JSON object found"), id="anything else"),
+])
+def test_a_preflight_retry_that_produces_nothing_carries_on_with_the_skeleton_in_hand(monkeypatch, failure):
+    decomposition, left = _preflight(monkeypatch, SKELETON, failure, {"modules": "never asked"})
+
+    assert decomposition is SKELETON
+    assert left == [{"modules": "never asked"}]  # no attempt after the one that failed
+
+
+def test_a_preflight_whose_third_attempt_fails_carries_on_with_the_second(monkeypatch):
+    second = {**SKELETON, "modules": [{"id": "payments", "name": "Payments"}]}
+
+    decomposition, _ = _preflight(monkeypatch, SKELETON, second, StageFailed("decomposing", "boom"))
+
+    assert decomposition is second
+
+
+def test_a_preflight_whose_first_attempt_produces_nothing_stops(monkeypatch):
+    with pytest.raises(StageFailed) as stopped:
+        _preflight(monkeypatch, StageFailed("decomposing", "boom"), SKELETON)
+
+    assert stopped.value.stage == "decomposing"
+
+
+# -- a provider that is down is asked once per call, never again by a stage --
+
+
+@pytest.mark.parametrize("real, failed_stage", STAGES_THAT_STOP_THE_RUN)
+def test_a_provider_that_is_down_is_asked_once_per_call(pipeline_with_only, monkeypatch, real, failed_stage):
+    run = pipeline_with_only(real)
+    asked, lock = [], threading.Lock()
+
+    def provider_down(*args, **kwargs):
+        with lock:
+            asked.append(1)
+        raise AiProviderError(SECRET_CAUSE)
+
+    monkeypatch.setattr("app.ai.provider.chat", provider_down)
+
+    orchestrator.run(run.request_id)
+
+    ledger = _ledger(run.request_id)
+    assert json.loads(_read(run.request_id).failure_json)["stage"] == failed_stage
+    # every call is on the ledger once, as failed, and none was asked twice
+    assert len(asked) == len(ledger) and not any(ok for _, ok in ledger)
+    assert len({purpose for purpose, _ in ledger}) == len(ledger), ledger

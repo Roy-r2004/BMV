@@ -297,6 +297,81 @@ def test_when_the_first_screen_cannot_be_drawn_the_rest_are_not_paid_for(monkeyp
     db.close()
 
 
+def _unreadable_first(reply, times: int = 1, title: str | None = None):
+    """A reply for `_fake_chat` that is not JSON the first `times` times it is
+    asked (for the screen called `title`, when given), then `reply`. A str is
+    sent as a JSON string, which holds no object to read."""
+    seen = {"n": 0}
+
+    def answer(prompt):
+        if title is not None and prompt.split("Title: ")[1].split("\n")[0].strip() != title:
+            return reply(prompt) if callable(reply) else reply
+        seen["n"] += 1
+        if seen["n"] <= times:
+            return "the reply stopped here"
+        return reply(prompt) if callable(reply) else reply
+
+    return answer
+
+
+def test_a_plan_reply_that_cannot_be_read_is_asked_for_again(monkeypatch):
+    """A cut-off reply is an occasional fault of that one reply; the plan is
+    asked for again rather than the run stopped on it."""
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    _fake_chat(monkeypatch, {"plan": _unreadable_first(_plan_reply()),
+                             "screen": _screen_reply_failing_for(ex, None)})
+    monkeypatch.setattr(browser, "available", lambda: False)
+    db = SessionLocal()
+    req = _request(db)
+    assert generate.build(db, req.id) == 6
+    assert _ledger(db, req.id)[:2] == [("screens_plan:1", False), ("screens_plan:1", True)]
+    db.close()
+
+
+def test_a_plan_that_cannot_be_read_twice_stops_the_stage(monkeypatch):
+    calls = _fake_chat(monkeypatch, {"plan": _unreadable_first(_plan_reply(), times=2), "screen": {}})
+    db = SessionLocal()
+    req = _request(db)
+    with pytest.raises(StageFailed) as stopped:
+        generate.build(db, req.id)
+    assert stopped.value.stage == "screens" and "No JSON object found" in stopped.value.cause
+    assert len(calls) == 2
+    assert _ledger(db, req.id) == [("screens_plan:1", False), ("screens_plan:1", False)]
+    db.close()
+
+
+def test_a_screen_reply_that_cannot_be_read_does_not_skip_its_second_attempt(monkeypatch):
+    """The parse used to sit inside the call's try: a cut-off reply counted as a
+    failed call and the screen was given up before it was asked again."""
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    _fake_chat(monkeypatch, {"plan": _plan_reply(),
+                             "screen": _unreadable_first(_screen_reply_failing_for(ex, None), title="Schedule")})
+    monkeypatch.setattr(browser, "available", lambda: False)
+    db = SessionLocal()
+    req = _request(db)
+    assert generate.build(db, req.id) == 6
+    rows = [ok for p, ok in _ledger(db, req.id) if p.startswith("screen:schedule:")]
+    assert rows == [False, True]
+    db.close()
+
+
+def test_a_screen_whose_reply_cannot_be_read_twice_stops_the_stage(monkeypatch):
+    ex = {s["id"]: s for s in render.load_example()["screens"]}
+    _fake_chat(monkeypatch, {"plan": _plan_reply(),
+                             "screen": _unreadable_first(_screen_reply_failing_for(ex, None), times=2,
+                                                         title="Schedule")})
+    monkeypatch.setattr(browser, "available", lambda: False)
+    db = SessionLocal()
+    req = _request(db)
+    with pytest.raises(StageFailed) as stopped:
+        generate.build(db, req.id)
+    assert stopped.value.stage == "screens" and "Schedule" in stopped.value.cause
+    assert [ok for p, ok in _ledger(db, req.id) if p.startswith("screen:schedule:")] == [False, False]
+    db.refresh(req)
+    assert req.screens_json is None
+    db.close()
+
+
 def _screen_reply_undrawable_for(ex: dict, undrawable: set):
     """A screen reply that is valid JSON but nothing the renderer can draw, for
     the named screens (no call fails), and a real drawing for the rest."""
