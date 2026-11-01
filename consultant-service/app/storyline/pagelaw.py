@@ -88,12 +88,19 @@ def check_section(section) -> list[str]:
 
 
 def pdf_findings(path: str) -> list[str]:
-    """What is wrong with the rendered file. Every reason names its page."""
-    from app.engine.gates.presentation import clipping_findings
-    from app.pipeline.export_pdf import presentation_findings
+    """What is wrong with the rendered file. Every reason names its page.
 
+    The frame is the pipeline's body frame. The cover panel's own words sit
+    left of that frame on purpose, so they are not a clipped page.
+    """
+    from app.engine.gates.presentation import clipping_findings
+    from app.pipeline.export_pdf import COVER_PANEL_SPANS, presentation_findings
+
+    frame = {"left": 18, "bottom": 20, "top": 16}
     reasons = []
-    for reason in list(presentation_findings(path)) + list(clipping_findings(path)):
+    for reason in list(presentation_findings(path)) + list(clipping_findings(path, frame_mm=frame)):
+        if reason.endswith(COVER_PANEL_SPANS):
+            continue
         if "page" not in reason.lower():
             reason = f"page 1: {reason}"
         reasons.append(reason)
