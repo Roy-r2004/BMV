@@ -422,10 +422,48 @@ export interface CapacitySlot {
   waitlist: number | 'unknown' | null;
 }
 
+/** Whose a figure is. `theirs` is shown as "yours", `derived` as "worked out",
+ *  `ours` as "our estimate", `reference` as "reference". */
+export type FigureKind = 'theirs' | 'derived' | 'ours' | 'reference';
+
+/** One figure a payload names: how it prints, whose it is, the word the client
+ *  sees beside it (`tag`, said by the server so every surface uses the same
+ *  words) and one plain sentence on where it came from. */
+export interface FigureJson {
+  display: string;
+  kind: FigureKind;
+  tag: string;
+  source: string;
+}
+
+/** The figures a payload names, by id. Absent on a payload from before figures
+ *  had tags: every use of it must work without it. */
+export type FigureMap = Record<string, FigureJson>;
+
+/** A piece of prose: plain text, or a number that is a known figure (`figure`
+ *  is its id in the payload's figure map). */
+export interface FigureSegment {
+  text: string;
+  figure?: string;
+}
+
+/** A figure as a stage stores it (the roadmap's own figures). Shown through the
+ *  payload's `figures` map, never formatted in the browser. */
+export interface StoredFigure {
+  id: string;
+  value: string;
+  unit: string;
+  period: string | null;
+  kind: FigureKind;
+  precision: number;
+}
+
 export interface CapacityDerived {
   key: string;
   value: number;
   label: string;
+  /** The unit the value is counted in. Absent on a week stored before it was kept. */
+  unit?: string;
   /** The arithmetic, on their own figures: "12 × 6 a day × 6 days". */
   working: string;
 }
@@ -466,21 +504,38 @@ export interface AnswerMove {
   period: string;
   display: string;
   working: string;
-  /** Numbers that are OUR proposal, not their figures. */
-  proposed: { value: number; label: string }[];
+  /** Numbers that are OUR proposal, not their figures. The n-th is the figure
+   *  `PROP-n` in the payload's figure map. */
+  proposed: { value: number; label: string; unit?: string }[];
   cites: string[];
 }
 
+/** One of the answer's headline figures. `value` and `label` are text with every
+ *  number already bound to a figure; `ids` name those figures, and the
+ *  `*_segments` say where in the text each one sits. */
+export interface AnswerFigure {
+  value: string;
+  label: string;
+  cites: string[];
+  ids?: string[];
+  value_segments?: FigureSegment[];
+  label_segments?: FigureSegment[];
+}
+
 /** The answer screen's parts. Every number in them was checked against the
- *  owner's own figures before it was stored. */
+ *  owner's own figures before it was stored. `headline`, `turn` and `sub` also
+ *  arrive in pieces (`*_segments`), each bound number carrying its figure's id. */
 export interface StudioAnswer {
   headline: string;
   turn: string;
   sub: string;
   emphasis: string;
-  figures: { value: string; label: string; cites: string[] }[];
+  headline_segments?: FigureSegment[];
+  turn_segments?: FigureSegment[];
+  sub_segments?: FigureSegment[];
+  figures: AnswerFigure[];
   move: AnswerMove | null;
-  action: { weeks: number; name: string };
+  action: { weeks: number; name: string; figure?: StoredFigure };
 }
 
 export interface PlanMeasure {
@@ -519,6 +574,9 @@ export interface Roadmap {
   phases?: RoadmapPhase[];
   decisions?: RoadmapDecision[];
   assumptions?: string[];
+  /** The roadmap's own figures (`PLAN-WEEKS`, `PLAN-PHASE-n-WEEKS`, `PLAN-PHASES`),
+   *  all ours. Shown through the payload's figure map. Absent on an older roadmap. */
+  figures?: StoredFigure[];
 }
 
 /** Kept for older imports. */
@@ -531,9 +589,17 @@ export interface DecisionState {
   go_at?: string;
 }
 
-/** A figure from their own answers, with the exact words it was read from. */
+/** A figure from their own answers, with the exact words it was read from.
+ *  Every one is theirs: `source` says where it came from in plain words, and
+ *  `display` and `tag` are what the page shows (as on a payload's figure map).
+ *  Absent on a file from before they were sent. */
 export interface CaseFigure {
+  kind?: FigureKind;
+  tag?: string;
+  display?: string;
+  /** "From your answer to ...": a sentence, never an id. */
   source: string;
+  source_id?: string;
   token: string;
   value: string;
   label: string;
@@ -579,9 +645,10 @@ export async function fetchCaseFile(input: {
 export async function getStudioPlan(ref: StudioRef): Promise<{
   plan: Roadmap | null;
   decisions: DecisionState;
+  figures: FigureMap;
 }> {
   const { data } = await consultantClient.get(`/api/requests/${ref}/plan`);
-  return { plan: data?.plan ?? null, decisions: data?.decisions ?? {} };
+  return { plan: data?.plan ?? null, decisions: data?.decisions ?? {}, figures: data?.figures ?? {} };
 }
 
 /** The owner's calls on the roadmap, and (with `go`) the go-ahead. */
@@ -619,6 +686,8 @@ export interface SharedPackage {
   answer: StudioAnswer | null;
   capacity: CapacityPicture | null;
   action_plan: Roadmap | null;
+  /** The figures the answer, the week and the roadmap name. */
+  figures?: FigureMap;
   decisions?: DecisionState;
   brief?: Scope | null;
   summary: string | null;
@@ -830,6 +899,8 @@ export interface StudioPreview {
   answer?: StudioAnswer | null;
   capacity?: CapacityPicture | null;
   action_plan?: Roadmap | null;
+  /** The figures the answer, the week and the roadmap name. Absent on an older payload. */
+  figures?: FigureMap;
   decisions?: DecisionState;
   brief?: Scope | null;
   intervention_kind?: string | null;
@@ -1171,6 +1242,8 @@ export interface StudioDecision {
   /** The answer screen's parts. Null → fall back to the decision's summary. */
   answer?: StudioAnswer | null;
   action_plan?: Roadmap | null;
+  /** The figures the answer, the week and the roadmap name: whose each is, and where from. */
+  figures?: FigureMap;
   decisions?: DecisionState;
   brief?: Scope | null;
   operating_stage?: string | null;

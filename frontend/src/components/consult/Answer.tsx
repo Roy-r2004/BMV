@@ -10,16 +10,26 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
-import type { StudioDecision, StudioDiagnosis } from '../../api/consultant';
+import type { FigureSegment, StudioDecision, StudioDiagnosis } from '../../api/consultant';
 import { fmt } from '../../utils/week';
+import { FigTags, Segments } from './Fig';
 
 interface Pillar {
   key: string;
   text: string;
+  /** The text in pieces, when the server sent them: each bound number is a figure with a tag. */
+  textSegments?: FigureSegment[];
   lead?: string;
   fig?: string;
   work?: string;
+  /** The figures `fig` names, whose tags are shown under the point. */
+  ids?: string[];
 }
+
+const sentence = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/** The figures in a stretch of prose, in order, once each. */
+const figureIds = (segments?: FigureSegment[]) => (segments ?? []).flatMap((s) => (s.figure ? [s.figure] : []));
 
 /** `locked` holds the dialog open while what it sends is in flight, so a failure
  *  is read where it was caused rather than after the dialog has gone. */
@@ -100,9 +110,13 @@ export default function Answer({
   const a = decision.answer ?? null;
   const d = decision.decision;
   const diag = decision.diagnosis;
+  const figs = decision.figures ?? null;
   const headline = a?.headline || d.central_problem || 'Here is what we found.';
   const turn = a?.turn || '';
   const sub = a?.sub || (a ? '' : d.summary || '');
+  // Pieces only for the prose they belong to: a fallback sentence has none.
+  const headlineParts = a?.headline ? a.headline_segments : undefined;
+  const subParts = a?.sub ? a.sub_segments : undefined;
   const unverified = d.unverified ?? [];
   const cites = diag?.leading?.cites ?? [];
   const citeText = (ids: string[]) =>
@@ -120,21 +134,39 @@ export default function Answer({
   for (const f of a?.figures ?? []) {
     f.cites.forEach((c) => usedCites.add(c));
     const from = citeText(f.cites);
-    pillars.push({ key: `f-${f.value}-${f.label}`, text: f.label, fig: f.value, work: from ? `From your answers: ${from}.` : 'From your answers.' });
+    pillars.push({
+      key: `f-${f.value}-${f.label}`,
+      text: f.label,
+      textSegments: f.label_segments,
+      fig: f.value,
+      work: from ? `From your answers: ${from}.` : 'From your answers.',
+      // the figures the value names; an older answer has only the list of ids
+      ids: f.value_segments?.length ? figureIds(f.value_segments) : f.ids,
+    });
   }
   const move = a?.move ?? null;
   if (move) {
     move.cites.forEach((c) => usedCites.add(c));
+    // our proposals are figures PROP-1, PROP-2... in the payload; without the map the number is shown as sent
+    const said = move.proposed.map((p, i) => `${p.label || 'The target'} (${figs?.[`PROP-${i + 1}`]?.display ?? fmt(p.value)})`);
     const proposed = move.proposed.length
-      ? ` ${move.proposed.map((p) => `${p.label || 'The target'} (${fmt(p.value)})`).join(' and ')} ${move.proposed.length > 1 ? 'are' : 'is'} our proposal; the rest is yours.`
+      ? ` ${said.join(' and ')} ${move.proposed.length > 1 ? 'are' : 'is'} our proposal; the rest is yours.`
       : ' Every term is one of your figures.';
-    pillars.push({ key: 'move', text: move.label, fig: move.display, work: `${move.working}.${proposed}` });
+    pillars.push({
+      key: 'move',
+      text: move.label,
+      fig: move.display,
+      work: `${move.working}.${proposed}`,
+      ids: ['MOVE', ...move.proposed.map((_, i) => `PROP-${i + 1}`)],
+    });
   }
   for (const c of cites) {
     if (usedCites.has(c.id) || !c.text) continue;
     pillars.push({ key: `c-${c.id}`, text: c.text, work: c.source ? `From ${c.source}.` : undefined });
   }
   const shown = pillars.slice(0, 5);
+  // Their week, worked out: shown with its tags once the server names these figures.
+  const week = (decision.capacity?.derived ?? []).filter((w) => figs?.[w.key]);
 
   const legacy = !stopped && !writing && (decision.status === 'awaiting_approval' || decision.status === 'advised');
   const ready = pct >= 100;
@@ -149,10 +181,10 @@ export default function Answer({
       <div className="cx-ans">
         <motion.div className="cx-pane cx-gov" {...enter(0)}>
           <h2>
-            {headline}
-            {turn ? <span>{turn}</span> : null}
+            <Segments segments={headlineParts} text={headline} figures={figs} />
+            {turn ? <span><Segments segments={a?.turn_segments} text={turn} figures={figs} /></span> : null}
           </h2>
-          {sub ? <p className="cx-sub">{sub}</p> : null}
+          {sub ? <p className="cx-sub"><Segments segments={subParts} text={sub} figures={figs} /></p> : null}
 
           {shown.length ? (
             <ol className="cx-pillars">
@@ -160,13 +192,31 @@ export default function Answer({
                 <li key={p.key} className="cx-pillar">
                   <span className="k">{i + 1}</span>
                   <div>
-                    <p>{p.lead ? <b>{p.lead} </b> : null}{p.text}</p>
+                    <p>{p.lead ? <b>{p.lead} </b> : null}<Segments segments={p.textSegments} text={p.text} figures={figs} /></p>
                     {p.work ? <p className="work">{p.work}</p> : null}
+                    {p.ids?.length ? <FigTags ids={p.ids} figures={figs} /> : null}
                   </div>
                   {p.fig ? <span className="fig">{p.fig}</span> : <span />}
                 </li>
               ))}
             </ol>
+          ) : null}
+
+          {week.length ? (
+            <div style={{ marginTop: 22 }}>
+              <p className="cx-faint" style={{ fontSize: 13, fontWeight: 600 }}>Your week, worked out</p>
+              <ul style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+                {week.map((w) => (
+                  <li key={w.key} style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--cx-bg1)' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '2px 12px' }}>
+                      <span style={{ fontSize: 14, flex: '1 1 11em', minWidth: 0 }}>{sentence(w.label)}</span>
+                      <b style={{ fontFamily: 'var(--cx-display)', color: 'var(--cx-hot)', whiteSpace: 'nowrap' }}>{figs?.[w.key]?.display}</b>
+                    </div>
+                    <FigTags ids={[w.key]} figures={figs} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
 
           {decision.revisions ? (

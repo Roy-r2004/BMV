@@ -9,8 +9,9 @@
  */
 import { useState } from 'react';
 
-import type { DecisionState, Roadmap, StudioAnswer, StudioExportKind, SystemPayload } from '../../api/consultant';
+import type { DecisionState, FigureMap, Roadmap, StudioAnswer, StudioExportKind, SystemPayload } from '../../api/consultant';
 import { shortName } from '../../utils/names';
+import { FigTags, Segments } from './Fig';
 import SystemViewer from './SystemViewer';
 
 export interface PackageScreen {
@@ -146,6 +147,7 @@ export default function Package({
   answer,
   fallbackFinding,
   roadmap,
+  figures,
   decisions,
   unverified,
   screens,
@@ -165,6 +167,9 @@ export default function Package({
   answer: StudioAnswer | null;
   fallbackFinding: string | null;
   roadmap: Roadmap | null;
+  /** The figures the answer and the roadmap name: whose each is, and where from.
+   *  Absent on an older payload, which is then shown without tags. */
+  figures?: FigureMap | null;
   decisions: DecisionState;
   unverified: string[];
   /** The PNG screens of older runs. Shown only when there is no system. */
@@ -236,7 +241,19 @@ export default function Package({
         <div className="min-w-0" style={{ maxWidth: '46em' }}>
           <h1 className="cx-title">Everything needed to build it. Written for {short}.</h1>
           <p className="cx-lede">
-            {finding ? <>Built around the answer: {finding} </> : null}
+            {finding ? (
+              <>
+                Built around the answer:{' '}
+                {answer ? (
+                  <>
+                    <Segments segments={answer.headline_segments} text={answer.headline} figures={figures} />
+                    {answer.turn ? <>{' '}<Segments segments={answer.turn_segments} text={answer.turn} figures={figures} /></> : null}
+                  </>
+                ) : (
+                  finding
+                )}{' '}
+              </>
+            ) : null}
             Every figure in these plans is one you gave us, arithmetic on those figures, or an estimate marked as ours.
           </p>
         </div>
@@ -311,6 +328,7 @@ export default function Package({
         <div className="cx-pane cx-road" id="cx-roadmap">
           <h3>{roadmap?.title || 'How it gets done'}</h3>
           <p>{roadmap?.summary || 'We do the work. You make the calls.'}</p>
+          {ready && phases.length ? <FigTags ids={['PLAN-WEEKS']} figures={figures} lead="Length of the plan" labelled /> : null}
           {ready && phases.length ? (
             <ol className="cx-phases">
               {phases.map((ph, i) => (
@@ -322,6 +340,7 @@ export default function Package({
                     <div className="who">
                       <span className="cx-chip cx-chip--blue">{ph.by === 'together' ? 'Together' : 'We do it'}</span>
                       {ph.you ? <span className="cx-chip cx-chip--dim">You: {ph.you}</span> : null}
+                      <FigTags ids={[`PLAN-PHASE-${i + 1}-WEEKS`]} figures={figures} labelled className="" />
                     </div>
                   </div>
                 </li>

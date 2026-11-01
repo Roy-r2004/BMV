@@ -15,6 +15,7 @@ from app import auth_client, mailer, produced
 from app.config import settings
 from app.database import get_db
 from app.figures import casefile
+from app.figures import payload as figure_payload
 from app.models import AiUsageEvent, Request
 from app.pipeline import compositing, decide, evidence, export_pdf, export_pptx, orchestrator, screen_story, what_this_is
 from app.pipeline import action_plan as plan_stage
@@ -643,6 +644,9 @@ def _diagnosis_payload(req: Request) -> dict | None:
 def _decision_payload(req: Request) -> dict:
     analysis = json.loads(req.business_analysis_json) if req.business_analysis_json else {}
     decision = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
+    capacity, plan = capacity_stage.load(req), plan_stage.load(req)
+    # the answer also in pieces, and the figures its numbers name (whose they are, and where from)
+    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=plan, capacity=capacity)
     return {
         "diagnosis": _diagnosis_payload(req),
         "id": req.id,
@@ -677,9 +681,10 @@ def _decision_payload(req: Request) -> dict:
         # The answer screen: their week drawn from their own answers, the
         # finding in two lines, and the value of the move with its working.
         # Each is null when it could not be made — never a placeholder.
-        "capacity": capacity_stage.load(req),
-        "answer": answer_stage.load(req),
-        "action_plan": plan_stage.load(req),
+        "capacity": capacity,
+        "answer": answer,
+        "action_plan": plan,
+        "figures": figures,
         "decisions": plan_stage.load_decisions(req),
         "brief": _brief(req),
         "operating_stage": req.operating_stage,
@@ -858,7 +863,9 @@ def get_plan(request_ref: str, review_token: str | None = None,
              authorization: str | None = Header(None), db: Session = Depends(get_db)):
     req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
-    return {"plan": plan_stage.load(req), "decisions": plan_stage.load_decisions(req)}
+    plan = plan_stage.load(req)
+    _, figures = figure_payload.for_web(req, plan=plan)
+    return {"plan": plan, "decisions": plan_stage.load_decisions(req), "figures": figures}
 
 
 MAX_CHOICES = 12
@@ -986,6 +993,8 @@ def get_preview(request_ref: str, review_token: str | None = None,
         }
         for i, emp in enumerate(recommendations.get("recommended_ai_employees", []), start=1)
     ]
+    capacity, plan = capacity_stage.load(req), plan_stage.load(req)
+    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=plan, capacity=capacity)
     # Cache-buster on every image URL. The path alone is NOT unique across
     # time: request ids restart when the database does, so /uploads/images/1/
     # can hold a DIFFERENT business's screens than it did last week — and a
@@ -1096,9 +1105,10 @@ def get_preview(request_ref: str, review_token: str | None = None,
         "checklists": json.loads(req.checklists_json) if req.checklists_json else None,
         # The package page opens with these: the answer it was built around,
         # their week, the implementation roadmap and what they chose on it.
-        "answer": answer_stage.load(req),
-        "capacity": capacity_stage.load(req),
-        "action_plan": plan_stage.load(req),
+        "answer": answer,
+        "capacity": capacity,
+        "action_plan": plan,
+        "figures": figures,
         "decisions": plan_stage.load_decisions(req),
         "brief": _brief(req),
         "intervention_kind": recommendations.get("intervention_kind"),

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.figures import payload as figure_payload
 from app.models import Request
 from app.pipeline import compositing, screen_story
 from app.pipeline import action_plan as plan_stage
@@ -57,14 +58,19 @@ def shared_package(token: str, db: Session = Depends(get_db)):
         for img in sorted(req.images, key=lambda i: (i.role_id, i.variant))
     ]
     plan = plan_stage.load(req)
+    ready = plan if isinstance(plan, dict) and plan.get("status") == plan_stage.READY else None
+    capacity = capacity_stage.load(req)
+    # the answer also in pieces, and the figures its numbers name (whose they are, and where from)
+    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=ready, capacity=capacity)
     return {
         "business_name": req.business_name,
         "concept_name": req.concept_name,
         "status": req.status,
-        "answer": answer_stage.load(req),
-        "capacity": capacity_stage.load(req),
+        "answer": answer,
+        "capacity": capacity,
         # the implementation roadmap, and what the owner chose on it — read-only
-        "action_plan": plan if (plan or {}).get("status") == plan_stage.READY else None,
+        "action_plan": ready,
+        "figures": figures,
         "decisions": plan_stage.load_decisions(req),
         "summary": decision.get("consulting_summary") or req.consulting_analysis,
         "unverified": decision.get("unverified") or [],

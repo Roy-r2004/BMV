@@ -13,6 +13,7 @@ import {
   unshareStudio,
   type DecisionState,
   type Fact,
+  type FigureMap,
   type Roadmap,
   type Scope,
 } from '../api/consultant';
@@ -1506,6 +1507,8 @@ export default function StudioPage() {
   // The roadmap on a finished package, when it is rewritten after the fact,
   // and the calls they have made on it.
   const [revealPlan, setRevealPlan] = useState<Roadmap | null>(null);
+  // The figures that roadmap names (whose each is, and where from), as /plan sends them.
+  const [revealFigures, setRevealFigures] = useState<FigureMap | null>(null);
   const [decisionState, setDecisionState] = useState<DecisionState>({});
   // The review gate. The token arrives as ?review=... on the reviewer's
   // link; its presence turns the page into the review view of the run.
@@ -1773,7 +1776,10 @@ export default function StudioPage() {
     const t = setInterval(() => {
       getStudioPlan(routeId)
         .then((r) => {
-          if (r.plan && r.plan.status !== 'writing') setRevealPlan(r.plan);
+          if (r.plan && r.plan.status !== 'writing') {
+            setRevealPlan(r.plan);
+            setRevealFigures(r.figures);
+          }
         })
         .catch(() => undefined);
     }, 3000);
@@ -2728,6 +2734,7 @@ export default function StudioPage() {
                   answer={preview.answer ?? null}
                   fallbackFinding={preview.preview_summary}
                   roadmap={revealPlan ?? preview.action_plan ?? null}
+                  figures={{ ...preview.figures, ...revealFigures }}
                   decisions={decisionState}
                   unverified={preview.unverified ?? []}
                   screens={packageScreens}

@@ -81,6 +81,7 @@ export default function SharedPage() {
               answer={data.answer}
               fallbackFinding={data.summary}
               roadmap={data.action_plan}
+              figures={data.figures}
               decisions={data.decisions ?? {}}
               unverified={data.unverified}
               screens={screens}

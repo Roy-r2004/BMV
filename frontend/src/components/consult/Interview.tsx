@@ -11,7 +11,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
-import type { DiscoveryQuestion, Fact } from '../../api/consultant';
+import type { CaseFigure, DiscoveryQuestion, Fact } from '../../api/consultant';
+import { Tags } from './Fig';
 
 const ACCEPT = '.csv,.tsv,.txt,.xlsx,.xlsm,.pdf';
 const RING = 2 * Math.PI * 25;
@@ -20,7 +21,14 @@ function inHand(f: Fact): boolean {
   return f.status !== 'need';
 }
 
-function DataRequest({ facts }: { facts: Fact[] }) {
+/** Every figure in the case file is theirs: the tag and the sentence on where it
+ *  came from are what the server sent, and the words are only used when it sent
+ *  none (an older server). */
+function caseTag(c: CaseFigure) {
+  return { key: `${c.source_id ?? ''}|${c.value}|${c.token}`, info: { display: c.display ?? c.value, kind: c.kind ?? 'theirs', tag: c.tag ?? 'yours', source: c.source } };
+}
+
+function DataRequest({ facts, caseFigures }: { facts: Fact[]; caseFigures: CaseFigure[] }) {
   const prev = useRef<Map<string, string>>(new Map());
   const [flash, setFlash] = useState<Set<string>>(new Set());
 
@@ -88,11 +96,11 @@ function DataRequest({ facts }: { facts: Fact[] }) {
                 <span className="n">{f.label}</span>
                 <span className="v">
                   {f.status === 'estimate' ? (
-                    <>{f.value || "We'll estimate"}<small>ours</small></>
+                    <>{f.value || "We'll estimate"}<small>our estimate</small></>
                   ) : f.status === 'file' ? (
-                    <>{f.value}<small>file</small></>
+                    <>{f.value}<small>yours, from a file</small></>
                   ) : f.status === 'got' ? (
-                    f.value
+                    <>{f.value}<small>yours</small></>
                   ) : null}
                 </span>
               </div>
@@ -101,8 +109,26 @@ function DataRequest({ facts }: { facts: Fact[] }) {
         </div>
       ))}
 
+      {caseFigures.length ? (
+        <div className="cx-group">
+          <h4>What we read in your answers</h4>
+          {caseFigures.map((c) => {
+            const t = caseTag(c);
+            return (
+              <div key={t.key} className="cx-item got" style={{ display: 'block' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                  <span className="n" style={{ minWidth: 0 }}>{c.label || c.token}</span>
+                  <span className="v">{t.info.display}</span>
+                </div>
+                {c.source ? <Tags items={[t]} className="mt-1" /> : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       <div className="cx-legend">
-        <span><i style={{ background: '#0e9f6e' }} />From you</span>
+        <span><i style={{ background: '#0e9f6e' }} />Yours</span>
         <span><i style={{ background: '#fff1dc', border: '1.5px dashed #a85b00' }} />Our estimate</span>
         <span><i style={{ border: '1.5px solid #c3d2ee' }} />Still needed</span>
       </div>
@@ -128,6 +154,7 @@ export default function Interview({
   onFinish,
   finishError,
   submitting,
+  caseFigures,
 }: {
   question: DiscoveryQuestion | null;
   facts: Fact[];
@@ -148,6 +175,9 @@ export default function Interview({
   onFinish: () => void;
   finishError?: string | null;
   submitting?: boolean;
+  /** What we have read in their answers so far (the case file's figures). Each says it
+   *  is theirs and where it came from. Nothing is shown when there are none. */
+  caseFigures?: CaseFigure[];
 }) {
   const reduce = useReducedMotion();
   const [text, setText] = useState('');
@@ -327,7 +357,7 @@ export default function Interview({
           {done ? null : dropZone}
         </div>
 
-        <DataRequest facts={facts} />
+        <DataRequest facts={facts} caseFigures={caseFigures ?? []} />
       </div>
     </section>
   );
