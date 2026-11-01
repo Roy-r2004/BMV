@@ -44,6 +44,14 @@ logger = logging.getLogger("consultant.answer")
 ANSWER_TOKENS = 3500
 MAX_FIGURES = 2
 MAX_TERMS = 5
+#: The largest number one term of the move may hold. A real term is a count, a
+#: price or a share of a small business's week; anything past a trillion is a
+#: model's mistake, and refusing it keeps the product inside what the exact
+#: arithmetic and the rounding can hold (five terms make at most 1e60).
+MAX_TERM = 1e12
+#: The registry's word for a claim whose time basis it could not find
+#: (registry._infer_unit); it is no basis, not a period.
+_NO_BASIS = "as stated"
 _WEEK_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight",
                9: "nine", 10: "ten", 11: "eleven", 12: "twelve"}
 
@@ -83,7 +91,10 @@ def _claim_figure(claim: dict, v: float) -> Figure | None:
         logger.info("a cited claim is not a figure: %s", exc)
         return None
     d = decimal_of(v)
-    return dataclasses.replace(figure, value=d, precision=places_of(d))
+    # "as stated" is the registry saying it found no time basis: no period, which
+    # any other period may be added to or taken from
+    period = None if figure.period == _NO_BASIS else figure.period
+    return dataclasses.replace(figure, value=d, precision=places_of(d), period=period)
 
 
 def _sum(label: str, parts: list[tuple[int, dict]]) -> Figure | None:
@@ -137,8 +148,8 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
         return {"label": label, "value": float(total.value), "figure": total, "money": money,
                 "proposed": proposed, "text": " ".join(bits), "parts": True, "cited": cited, "cites": cites}
     v = _as_float(t.get("value"))
-    if v is None:
-        return None
+    if v is None or v <= 0 or v > MAX_TERM:
+        return None   # a term is a positive number of a size a business has; a part's sign says "less"
     source = str(t.get("from") or "").strip()
     if source == "proposed":
         priced = "$" in label or "price" in label.lower()
@@ -214,13 +225,13 @@ def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
         product = derive("product", [t["figure"] for t in terms if "figure" in t], id="move",
                          unit="USD" if money else unit, period=period,
                          factors=[t["factor"] for t in terms if "factor" in t])
+        value = float(product.value)
+        if not math.isfinite(value) or value <= 0:
+            return None
+        shown = _said(value)
     except ValueError as exc:
         logger.info("move rejected: %s", exc)
         return None
-    value = float(product.value)
-    if value <= 0:
-        return None
-    shown = _said(value)
     display = (f"≈ {_money(shown)} a {period}" if money
                else f"≈ {_plain(shown)} {unit or ''} a {period}".replace("  ", " "))
     working_terms = []

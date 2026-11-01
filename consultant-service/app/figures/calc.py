@@ -105,8 +105,12 @@ def places_of(value: Decimal) -> int:
 def round_half_up(value: object, places: int = 0) -> Decimal:
     """`value` (any number `decimal_of` reads) to `places` digits after the point,
     a tie going away from zero: 2.5 is 3 and -2.5 is -3, as `model.display` rounds.
-    Python's round() and float formatting send a tie to the even digit instead."""
-    return decimal_of(value).quantize(Decimal(1).scaleb(-places), context=_ROUND)
+    Python's round() and float formatting send a tie to the even digit instead.
+    A number too wide to be held at that many places raises ValueError."""
+    try:
+        return decimal_of(value).quantize(Decimal(1).scaleb(-places), context=_ROUND)
+    except DecimalException:
+        raise ValueError(f"{value!r} has too many digits to be rounded to {places} places") from None
 
 
 def unit_key(unit: str) -> str:

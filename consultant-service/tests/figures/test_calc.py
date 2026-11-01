@@ -422,6 +422,58 @@ def test_parts_with_nothing_to_take_away_from_or_with_a_constant_in_them_are_ref
                                CLAIMS) is None
 
 
+def _proposed_move(*values):
+    return {"label": "x", "unit": "USD", "period": "year",
+            "terms": [{"label": "price", "value": 22, "from": "CF-04"},
+                      *({"label": "new members", "value": v, "from": "proposed"} for v in values)]}
+
+
+@pytest.mark.parametrize("values", [(1e150,), (1e200, 1e200), (1e12 + 1,), (-5,), (0,)])
+def test_a_term_too_large_negative_or_zero_rejects_the_move_and_never_raises(values):
+    from app.pipeline import answer
+    assert answer.compute_move(_proposed_move(*values), CLAIMS) is None
+    got, _ = answer.shape({"headline": "You are full.", "move": _proposed_move(*values)}, CLAIMS, [])
+    assert got is not None and got["move"] is None
+
+
+def test_a_term_at_the_bound_is_still_a_move():
+    from app.pipeline import answer
+    assert answer.compute_move(_proposed_move(1e12), CLAIMS)["value"] == 22e12
+
+
+def test_round_half_up_refuses_a_number_too_wide_in_plain_words():
+    with pytest.raises(ValueError, match="too many digits"):
+        round_half_up(1e150, 0)
+
+
+def _basis_claims(a_basis, b_basis, unit="members"):
+    return [{"id": "CF-11", "value": 120, "unit": unit, "time_basis": a_basis, "text": "a",
+             "provenance": "client_input"},
+            {"id": "CF-12", "value": 20, "unit": unit, "time_basis": b_basis, "text": "b",
+             "provenance": "client_input"}]
+
+
+def _sum_move(unit, sign=1):
+    return {"label": "x", "unit": unit, "period": "year",
+            "terms": [{"label": "rise", "parts": [{"value": 120, "from": "CF-11"},
+                                                  {"value": 20, "from": "CF-12", "sign": sign}]},
+                      {"label": "weeks a year", "value": 52, "from": "constant"}]}
+
+
+def test_as_stated_is_no_basis_so_it_adds_to_and_takes_from_any_period():
+    from app.pipeline import answer
+    # two member counts, one with no basis found ("as stated") and one a week
+    assert answer.compute_move(_sum_move("members"), _basis_claims("as stated", "week"))["value"] == 140 * 52
+    # $120 (a week) less $20 (as stated)
+    move = answer.compute_move(_sum_move("USD", -1), _basis_claims("week", "as stated", "USD"))
+    assert move["value"] == 100 * 52
+
+
+def test_claims_on_really_different_periods_are_still_not_added():
+    from app.pipeline import answer
+    assert answer.compute_move(_sum_move("members"), _basis_claims("week", "month")) is None
+
+
 # -- precision left to the working, ties, and very small results ---------------------------------
 
 def test_a_result_with_no_precision_shows_the_places_it_needs():
