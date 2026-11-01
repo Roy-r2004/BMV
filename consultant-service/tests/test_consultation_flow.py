@@ -94,8 +94,11 @@ def test_a_waiting_list_without_a_size_is_drawn_as_unknown_not_invented():
 # ── the answer ───────────────────────────────────────────────────────────
 
 
-CLAIMS = [{"id": "CF-04", "value": 22, "unit": "USD", "text": "$22 a class"},
-          {"id": "CF-06", "value": 32, "unit": "USD", "text": "$32"}] + capacity.as_claims(capacity.shape(GRID, HALO))
+# A claim says whose it is (as every registry claim does): `answer` builds a Figure from each
+# claim a move cites, and a claim with no provenance is not a figure.
+CLAIMS = [{"id": "CF-04", "value": 22, "unit": "USD", "text": "$22 a class", "provenance": "client_input"},
+          {"id": "CF-06", "value": 32, "unit": "USD", "text": "$32", "provenance": "client_input"},
+          ] + capacity.as_claims(capacity.shape(GRID, HALO))
 
 MOVE = {"label": "moving 6pm and 7pm to $28, if regulars stay", "unit": "USD", "period": "year",
         "terms": [{"label": "evening spots a week", "value": 144, "from": "CAP-05"},

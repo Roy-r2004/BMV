@@ -27,10 +27,11 @@ not name their class times, the columns carry no times.
 import json
 import logging
 import math
+from decimal import Decimal
 
 from app.ai import provider
 from app.config import settings
-from app.figures.calc import decimal_of, derive
+from app.figures.calc import decimal_of, derive, places_of, round_half_up
 from app.figures.model import Figure, TheirsSource
 from app.pipeline import figures
 from app.pipeline._shared import ask_until_usable, reply_json
@@ -138,7 +139,7 @@ def say_time(t: str) -> str:
 
 
 def _fmt(v: float) -> str:
-    return f"{int(v):,}" if float(v).is_integer() else f"{v:,.1f}"
+    return f"{int(v):,}" if float(v).is_integer() else f"{round_half_up(v, 1):,.1f}"
 
 
 def _told(key: str, value, unit: str, quote: str, period: str | None = None) -> Figure:
@@ -147,7 +148,14 @@ def _told(key: str, value, unit: str, quote: str, period: str | None = None) -> 
     they named."""
     d = decimal_of(value)
     source = TheirsSource(turn=None, field=None, quote=quote, file=None, cell=None)
-    return Figure(key, d, unit, period, "theirs", source, max(0, -d.as_tuple().exponent))
+    return Figure(key, d, unit, period, "theirs", source, places_of(d))
+
+
+def _percent(part: Figure, whole: Figure) -> int:
+    """How many whole percent `part` is of `whole`; a tie rounds up, as every
+    figure we print does."""
+    share = derive("ratio", [part, whole], id="share", unit="percent", factors=[(Decimal(100), "percent")])
+    return int(round_half_up(share.value))
 
 
 def shape(raw: dict, texts: list[str]) -> dict | None:
@@ -179,10 +187,12 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
         period = period if period in ("day", "week", "month", "year") else "week"
         scale = _dot_scale(cap)
         derived = [{"key": "CAP-01", "value": cap, "label": f"{unit_plural} a {period}", "working": "as you told us"}]
+        pct = None
         if taken is not None:
-            unused = derive("difference", [_told("capacity", cap, unit_plural, quote, period),
-                                           _told("used", taken, unit_plural, quote, period)],
-                            id="CAP-03", unit=unit_plural, period=period)
+            f_cap = _told("capacity", cap, unit_plural, quote, period)
+            f_used = _told("used", taken, unit_plural, quote, period)
+            unused = derive("difference", [f_cap, f_used], id="CAP-03", unit=unit_plural, period=period)
+            pct = _percent(f_used, f_cap)
             derived.append({"key": "CAP-02", "value": taken, "label": f"{unit_plural} used a {period}",
                             "working": "as you told us"})
             derived.append({"key": "CAP-03", "value": float(unused.value), "label": f"{unit_plural} unused a {period}",
@@ -190,7 +200,7 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
         return {
             "shape": "total", "unit": unit, "unit_plural": unit_plural, "period": period,
             "capacity": cap, "taken": taken, "dot_scale": scale,
-            "pct": round(100 * taken / cap) if taken is not None else None,
+            "pct": pct,
             "derived": derived, "quote": quote,
             "basis": [f"{_fmt(cap)} {unit_plural} a {period}"]
                      + ([f"{_fmt(taken)} used"] if taken is not None else []),
@@ -264,31 +274,35 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
     f_full = _told("full_slots", full_count, "slots a day", quote)
     f_total = derive("product", [f_per, f_slots, f_days], id="CAP-01", unit=unit_plural, period="week")
     f_slots_week = derive("product", [f_slots, f_days], id="CAP-02", unit="slots", period="week")
-    f_full_spots = derive("product", [f_per, f_full, f_days], id="CAP-05", unit=unit_plural, period="week")
-    total, full_spots = int(f_total.value), int(f_full_spots.value)
+    f_full_spots = (derive("product", [f_per, f_full, f_days], id="CAP-05", unit=unit_plural, period="week")
+                    if full_count else None)
+    total = int(f_total.value)
     derived = [
         {"key": "CAP-01", "value": total, "label": f"{unit_plural} a week",
          "working": f"{per_slot} × {slots} a day × {days} days"},
         {"key": "CAP-02", "value": int(f_slots_week.value), "label": "slots a week",
          "working": f"{slots} a day × {days} days"},
     ]
-    taken_total = None
+    taken_total, pct = None, None
     if typical is not None:
         f_ordinary = derive("difference", [f_slots, f_full], id="ordinary_slots", unit="slots a day")
-        f_ordinary_taken = derive("product", [_told("typical_taken", typical, f"{unit_plural} a slot", quote),
-                                              f_ordinary, f_days],
-                                  id="CAP-03a", unit=unit_plural, period="week")
-        f_taken = derive("total", [f_ordinary_taken, f_full_spots], id="CAP-03", unit=unit_plural, period="week")
+        # With no slot selling out nothing is added on, so the ordinary slots are the whole of CAP-03.
+        f_taken = derive("product", [_told("typical_taken", typical, f"{unit_plural} a slot", quote),
+                                     f_ordinary, f_days],
+                         id="CAP-03a" if f_full_spots else "CAP-03", unit=unit_plural, period="week")
+        if f_full_spots:
+            f_taken = derive("total", [f_taken, f_full_spots], id="CAP-03", unit=unit_plural, period="week")
         f_empty = derive("difference", [f_total, f_taken], id="CAP-04", unit=unit_plural, period="week")
         taken_total, ordinary = float(f_taken.value), int(f_ordinary.value)
+        pct = _percent(f_taken, f_total)
         working = (f"{_fmt(typical)} × {ordinary} ordinary slots × {days} days"
                    + (f" + {per_slot} × {full_count} full slots × {days} days" if full_count else ""))
         derived.append({"key": "CAP-03", "value": taken_total, "label": f"{unit_plural} taken a week",
                         "working": working})
         derived.append({"key": "CAP-04", "value": float(f_empty.value), "label": f"{unit_plural} empty a week",
                         "working": f"{_fmt(total)} − {_fmt(taken_total)}"})
-    if full_count:
-        derived.append({"key": "CAP-05", "value": full_spots, "label": f"{unit_plural} a week in the slots that sell out",
+    if f_full_spots:
+        derived.append({"key": "CAP-05", "value": int(f_full_spots.value), "label": f"{unit_plural} a week in the slots that sell out",
                         "working": f"{per_slot} × {full_count} × {days} days"})
 
     basis = [f"{per_slot} {unit_plural} a slot", f"{slots} slots a day", f"{days} days a week"]
@@ -305,7 +319,7 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
         "days_named": labels_given, "times": times, "typical_taken": typical,
         "full": sorted(full), "waitlist": waitlist, "waitlist_size": waitlist_size,
         "grid": grid, "capacity": total, "taken": taken_total,
-        "pct": round(100 * taken_total / total) if taken_total is not None else None,
+        "pct": pct,
         "derived": derived, "quote": quote, "basis": basis,
     }
 

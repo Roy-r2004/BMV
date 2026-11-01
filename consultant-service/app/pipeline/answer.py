@@ -23,14 +23,14 @@ the stage had not been asked.
 import dataclasses
 import json
 import logging
-from decimal import Decimal
+import math
 
 from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
-from app.figures.calc import decimal_of, derive
-from app.figures.model import Figure, Proposal, TheirsSource, Working
+from app.figures.calc import decimal_of, derive, places_of, round_half_up, unit_key
+from app.figures.model import Figure, Proposal, from_claim
 from app.models import Request
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
@@ -49,12 +49,15 @@ _WEEK_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven",
 
 
 def _as_float(v) -> float | None:
+    """The number as a float, or None: a bool, text that is not a number, and NaN or
+    infinity (a model's JSON can say them) are not numbers a figure can rest on."""
     if isinstance(v, bool):
         return None
     try:
-        return float(v)
-    except (TypeError, ValueError):
+        f = float(v)
+    except (TypeError, ValueError, OverflowError):
         return None
+    return f if math.isfinite(f) else None
 
 
 def _claim_matches(v: float, claim: dict) -> bool:
@@ -69,35 +72,32 @@ def _is_money(claim: dict | None) -> bool:
     return bool(claim) and str(claim.get("unit") or "").upper() == "USD"
 
 
-def _places(d: Decimal) -> int:
-    return max(0, -d.as_tuple().exponent)
-
-
-def _claim_figure(source: str, claim: dict, v: float) -> Figure:
-    """The claim a term cites, at the value the term quotes, as the Figure `derive` works on.
-    Whose it is follows the claim's provenance: computed is derived, proposed or anything not
-    plainly the client's is ours, and a claim that names no provenance is read as theirs."""
-    d, unit, provenance = decimal_of(v), str(claim.get("unit") or ""), claim.get("provenance")
-    text = str(claim.get("text") or "")
-    if provenance == "machine_computed":
-        return Figure(source, d, unit, None, "derived",
-                      Working((), "derived_value", str(claim.get("source") or "")), _places(d))
-    if provenance not in (None, "client_input"):
-        return Figure(source, d, unit, None, "ours", Proposal(note=text or source), _places(d))
-    return Figure(source, d, unit, None, "theirs",
-                  TheirsSource(turn=None, field=None, quote=text, file=None, cell=None), _places(d))
+def _claim_figure(claim: dict, v: float) -> Figure | None:
+    """The claim a term cites, at the value the term quotes, as the Figure `derive`
+    works on. `from_claim` decides whose it is (a canonical_gate claim by its approval).
+    None when the claim cannot be mapped: a claim that does not say whose it is is not
+    a figure, so a term resting on it is not accepted."""
+    try:
+        figure = from_claim(claim)
+    except ValueError as exc:
+        logger.info("a cited claim is not a figure: %s", exc)
+        return None
+    d = decimal_of(v)
+    return dataclasses.replace(figure, value=d, precision=places_of(d))
 
 
 def _sum(label: str, parts: list[tuple[int, dict]]) -> Figure | None:
     """The parts of one term as a Figure: what is added, less what is taken away.
-    None when there is nothing to take it from, when a calendar constant is among them
-    (a constant multiplies, it is not added to a price), or when they are not one unit."""
+    None when there is nothing to take it from (every part is taken away), when a
+    calendar constant is among them (a constant multiplies, it is not added to a
+    price), or when they are not one kind of number (units are compared as written
+    ignoring case and the singular or plural of a time or count word)."""
     if any(sub.get("factor") for _, sub in parts):
         return None
     # A number we propose takes the unit of what it is added to or taken from.
     unit = next((sub["figure"].unit for _, sub in parts if sub["cited"]), None)
     if unit is None:
-        unit = "USD" if any(sub["figure"].unit == "USD" for _, sub in parts) else ""
+        unit = "USD" if any(unit_key(sub["figure"].unit) == "usd" for _, sub in parts) else ""
     figs = [(sign, sub["figure"] if sub["cited"] else dataclasses.replace(sub["figure"], unit=unit))
             for sign, sub in parts]
     added, taken = [f for sign, f in figs if sign > 0], [f for sign, f in figs if sign < 0]
@@ -144,10 +144,10 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
         priced = "$" in label or "price" in label.lower()
         d = decimal_of(v)
         ours = Figure(f"proposed: {label}" if label else "proposed", d, "USD" if priced else "", None, "ours",
-                      Proposal(note=label or "proposed"), _places(d))
+                      Proposal(note=label or "proposed"), places_of(d))
         return {"label": label, "value": v, "figure": ours, "money": False,
                 "proposed": [{"value": v, "label": label or "proposed"}],
-                "text": f"{figures.money(v) if priced else _plain(v)} proposed",
+                "text": f"{_money(v) if priced else _plain(v)} proposed",
                 "cited": False}
     if source == "constant":
         if not figures.holds(v, figures.CONSTANTS):
@@ -157,13 +157,34 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
     claim = by_id.get(source)
     if claim is None or not _claim_matches(v, claim):
         return None
-    shown = figures.money(v) if _is_money(claim) else _plain(v)
-    return {"label": label, "value": v, "figure": _claim_figure(source, claim, v), "money": _is_money(claim),
+    figure = _claim_figure(claim, v)
+    if figure is None:
+        return None
+    shown = _money(v) if _is_money(claim) else _plain(v)
+    return {"label": label, "value": v, "figure": figure, "money": _is_money(claim),
             "proposed": [], "text": f"{shown} now" if depth else shown, "cited": True, "cite": source}
 
 
+# How a number prints in the move's words. A tie goes away from zero (2.5 is 3), the
+# way `model.display` rounds, not to the even digit as Python's round() and float
+# formatting do; a whole number prints whole.
 def _plain(v: float) -> str:
-    return f"{int(v):,}" if float(v).is_integer() else f"{v:,.2f}".rstrip("0").rstrip(".")
+    if not math.isfinite(v):
+        return str(v)
+    return f"{int(v):,}" if float(v).is_integer() else f"{round_half_up(v, 2):,.2f}".rstrip("0").rstrip(".")
+
+
+def _money(v: float) -> str:
+    if not math.isfinite(v):
+        return str(v)
+    return f"${int(v):,}" if float(v).is_integer() else f"${round_half_up(v):,.0f}"
+
+
+def _said(v: float) -> int:
+    """The figure a person would say out loud, 44,928 -> 45,000 (`figures.rounded`
+    with the same steps, but a tie going away from zero)."""
+    tens = 3 if abs(v) >= 10_000 else 2 if abs(v) >= 1000 else 1 if abs(v) >= 100 else 0
+    return int(round_half_up(v, -tens))
 
 
 def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
@@ -199,17 +220,17 @@ def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
     value = float(product.value)
     if value <= 0:
         return None
-    shown = figures.rounded(value)
-    display = (f"≈ {figures.money(shown)} a {period}" if money
+    shown = _said(value)
+    display = (f"≈ {_money(shown)} a {period}" if money
                else f"≈ {_plain(shown)} {unit or ''} a {period}".replace("  ", " "))
     working_terms = []
     for t in terms:
         if t.get("parts"):
-            head = figures.money(t["value"]) if t["money"] else _plain(t["value"])
+            head = _money(t["value"]) if t["money"] else _plain(t["value"])
             working_terms.append(f"{head} {t['label']} ({t['text']})".replace("  ", " ").strip())
         else:
             working_terms.append(f"{t['text']} {t['label']}".strip())
-    working = " × ".join(working_terms) + f" = {figures.money(value) if money else _plain(value)}"
+    working = " × ".join(working_terms) + f" = {_money(value) if money else _plain(value)}"
     return {
         "label": str(raw.get("label") or "").strip()[:120],
         "value": value, "rounded": shown, "money": money, "unit": "USD" if money else unit,
