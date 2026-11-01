@@ -92,7 +92,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
 
-from app.figures.labels import LABEL_WORDS
+from app.figures.labels import LABEL_WORDS, TECH_NAMES
 from app.figures.model import FigureSet
 
 Form = Literal["digit", "money", "percent", "word", "multiplier", "ordinal", "fraction", "range", "time",
@@ -123,14 +123,14 @@ _SIGN = f"[{_SIGNS}]"
 _CURRENCY_CODES: tuple[str, ...] = (
     "USD", "EUR", "GBP", "AUD", "CAD", "CHF", "JPY", "CNY", "INR", "SGD", "AED", "SAR", "ZAR",
     "NZD", "SEK", "NOK", "DKK", "HKD", "MXN", "BRL", "PLN", "TRY", "KRW", "THB", "IDR", "MYR",
-    "PHP", "CZK", "HUF", "ILS", "EGP", "NGN", "KES", "PKR", "VND", "TWD", "RUB", "UAH", "QAR",
+    "CZK", "HUF", "ILS", "EGP", "NGN", "KES", "PKR", "VND", "TWD", "RUB", "UAH", "QAR",
     "KWD", "BHD", "OMR",
     "Rs", "R", "RM", "Dh", "kr", "Kr",          # local prefixes: rupee, rand, ringgit, dirham, krona/krone
 )
 _CODE = "(?:" + "|".join(sorted(_CURRENCY_CODES, key=len, reverse=True)) + ")"   # RM before R
-# The short local prefixes also name things ("Risk R1", "Room R2"): before a number
-# they make money only when it looks like an amount (three digits, a separator, a
-# decimal or a magnitude). A glued ISO code needs two digits ("AUD50", not "PHP8").
+# The short local prefixes also name things ("Risk R1", "Room R2"): before a single
+# digit they are an identifier; before two or more digits, money ("R80", "RM45").
+# An ISO code before any number is money ("GBP5").
 _LOCAL_PREFIXES = frozenset({"Rs", "R", "RM", "Dh", "kr", "Kr"})
 _CUR = rf"(?:[A-Z]{{1,3}}\$|{_SIGN})"          # $, US$ / A$ style, the other signs
 # Thousands in groups of three, by comma or by one kind of space (a space, a thin
@@ -174,8 +174,11 @@ _TIME_24 = re.compile(r"(?P<h>[01]?\d|2[0-3]):(?P<mi>[0-5]\d)(?![\d:])")
 # 45, its hour is zero-led (09:10), a time word stands before it, or a time stands
 # at the other end of a range ("9:05 to 17:00"); any other pair is a ratio and both
 # sides are numbers ("1:12", "after 1:12 became standard").
-_RATIO_CUES = frozenset({"ratio", "ratios", "split", "mix", "odds", "staffing"})
-_CUE_WORD = re.compile(r"[A-Za-z]+(?:-[A-Za-z]+)*")
+# A ratio or a duration or score is not a clock time: these words near a colon
+# pair, or a "teacher:student" compound, make both sides numbers.
+_RATIO_CUES = frozenset({"ratio", "ratios", "split", "splits", "mix", "odds", "staffing", "average", "length",
+                         "duration", "wait", "lap", "pace", "score", "call", "calls", "runtime"})
+_CUE_WORD = re.compile(r"[A-Za-z]+(?:[-:][A-Za-z]+)*")
 _TIME_LEADS = frozenset({"at", "from", "until", "till", "between", "around", "by"})
 _QUARTER_MINUTES = frozenset({"00", "15", "30", "45"})
 _CLOCK_LINK = rf"(?:{_SP}*[-\u2013]{_SP}*|{_SP}+(?:to|and|until|till){_SP}+)"
@@ -190,7 +193,8 @@ _NINE_TO_FIVE = re.compile(rf"9(?:{_SP}*[-\u2013]{_SP}*|{_SP}+to{_SP}+)(?P<five>
 _NINE_LEAD = re.compile(rf"(?:^|[^A-Za-z])(?i:open|opens|hours|shift|daily):?{_SP}+$")
 
 # Idioms that hold digits but no quantity: the one closed list.
-_IDIOMS: tuple[str, ...] = ("24/7", "24x7", "1-on-1", "one-on-one", "1:1", "one to one")
+_IDIOMS: tuple[str, ...] = ("24/7", "24x7", "1-on-1", "one-on-one", "1:1", "one to one", "2FA", "3D", "B2B",
+                            "B2C")
 _IDIOM = re.compile("(?i:" + "|".join(re.escape(i) for i in _IDIOMS) + ")(?![A-Za-z0-9])")
 
 # "x3": a lone x glued before a number is a multiplier ("grow revenue x3"); a
@@ -223,14 +227,28 @@ _MONTH_DAYS = {"jan": 31, "feb": 29, "mar": 31, "apr": 30, "may": 31, "jun": 30,
 # Two or more month-day pairs in a comma or semicolon list are a monthly series of
 # counts ("New members: Jan 12, Feb 14, Mar 18."), not dates.
 _MD_UNIT = rf"(?:{_MONTHS}\.?{_SP}+\d{{1,2}}|\d{{1,2}}{_SP}+{_MONTHS})(?![A-Za-z0-9])"
-_SERIES_NEXT = re.compile(rf"{_SP}*[,;]{_SP}*{_MD_UNIT}")
-_SERIES_PREV = re.compile(rf"{_MD_UNIT}{_SP}*[,;]{_SP}*$")
+# A strong separator (comma, semicolon, bar, slash) makes a series on its own. A
+# weak one ("and", a spaced dash) joins a series only when the list has three
+# items or a colon or dash introduces it ("New members: Jan 12 and Feb 14"), so
+# "Closed Dec 24 - Jan 2." stays a date range.
+_SER_STRONG = rf"(?:{_SP}*[,;|/]{_SP}*|{_SP}+)"     # juxtaposed pairs too: "Jan 12 Feb 14 Mar 18"
+_SER_WEAK = rf"(?:,?{_SP}+and{_SP}+|{_SP}+[-\u2013]{_SP}+)"
+_SER_ANY = rf"(?:{_SER_STRONG}|{_SER_WEAK})"
+_SER_INTRO = rf"(?::|{_SP}[-\u2013]){_SP}*$"
+_SERIES_NEXT = re.compile(rf"{_SER_STRONG}{_MD_UNIT}")
+_SERIES_PREV = re.compile(rf"{_MD_UNIT}{_SER_STRONG}$")
+_SERIES_NEXT_WEAK = re.compile(rf"{_SER_WEAK}{_MD_UNIT}")
+_SERIES_NEXT_THREE = re.compile(rf"{_SER_WEAK}{_MD_UNIT}{_SER_ANY}{_MD_UNIT}")
+_SERIES_PREV_ANY = re.compile(rf"{_MD_UNIT}{_SER_ANY}$")
+_SERIES_PREV_INTRO = re.compile(_SER_INTRO)
+_SERIES_PREV_WEAK_LIST = re.compile(rf"(?:{_MD_UNIT}{_SER_ANY}|{_SER_INTRO[:-1]}){_MD_UNIT}{_SER_WEAK}$")
 _ISO_DATE = re.compile(r"(?P<y>19\d\d|20\d\d|2100)-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)")
 # numeric dates need a four-digit year: 31/10/2025, 10/31/2025, 31-10-2025, 2025/10/31.
 # "5/10/20 class packs" and "5/10" are numbers.
 _SLASH_DATE = re.compile(r"(?P<d>\d{1,2})(?P<s>[/-])(?P<e>\d{1,2})(?P=s)(?:19\d\d|20\d\d|2100)(?![\d/-]?\d)")
 _YEAR_FIRST_DATE = re.compile(r"(?P<y>19\d\d|20\d\d|2100)/(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?![\d/])")
-_YEAR_AFTER_DATE = re.compile(rf",?{_SP}+(?P<y>19\d\d|20\d\d|2100)(?![\d,%A-Za-z]|\.\d)")
+# the year that completes a date may end a clause ("On 3 March 2026, we start")
+_YEAR_AFTER_DATE = re.compile(rf",?{_SP}+(?P<y>19\d\d|20\d\d|2100)(?![\d%A-Za-z]|[.,]\d)")
 
 # What may follow a date so that it reads as one: the end, punctuation, or a
 # function word. Any other word after "May 12" or "in 2000" makes it a count.
@@ -254,11 +272,15 @@ _DATE_END = re.compile(
 _CLAUSE_END = re.compile(_ENDS)
 # nouns a year qualifies ("the 2025 plan", "FY 2025 revenue"); any other noun after a
 # year-shaped number makes it a count ("growth of 2000 members")
+# A count noun (sales, members) or a generic word (a, the, for) after it makes the
+# number a count; so the year continuation drops those from the date words.
 _YEAR_NOUNS = ("plan", "plans", "budget", "budgets", "season", "report", "reports", "cohort", "revenue",
-               "forecast", "target", "targets", "results", "accounts", "campaign", "intake", "sales",
+               "forecast", "target", "targets", "results", "accounts", "campaign", "intake",
                "goal", "goals", "review", "roadmap", "strategy", "figures")
+_YEAR_DATE_WORD = ("(?i:" + "|".join(w for w in _DATE_WORDS if w not in ("a", "an", "the", "for"))
+                   + r")(?![A-Za-z])")
 _YEAR_FOLLOW = re.compile(
-    rf"{_ENDS}|{_SP}+{_DATE_WORD}|{_SP}+{_MONTHS}(?![A-Za-z])|(?:{_SP}+to{_SP}+|{_SP}*[-\u2013]{_SP}*){_YEAR}"
+    rf"{_ENDS}|{_SP}+{_YEAR_DATE_WORD}|{_SP}+{_MONTHS}(?![A-Za-z])|(?:{_SP}+to{_SP}+|{_SP}*[-\u2013]{_SP}*){_YEAR}"
     rf"|{_SP}+(?i:{'|'.join(_YEAR_NOUNS)})(?![A-Za-z])")
 # after "from" a year needs its other end: "from 2020 to 2024", "from 2020 until May 2024"
 _FROM_YEAR = re.compile(rf"{_SP}+(?:to|until|till){_SP}+(?:{_MONTHS}{_SP}+)?{_YEAR}")
@@ -269,8 +291,10 @@ _FROM_YEAR = re.compile(rf"{_SP}+(?:to|until|till){_SP}+(?:{_MONTHS}{_SP}+)?{_YE
 _BARE_END = re.compile(rf"{_ENDS}|{_SP}+{_FUNCTION}|{_SP}+(?i:per|each|every)(?![A-Za-z])")
 
 # the words after which a 1900-2100 number may be a year
+# by, of, for, over, the and through lead amounts as often as years ("a budget of
+# 2000", "grow by 2000"), so they do not make a year
 _YEAR_WORDS = frozenset({"in", "since", "from", "until", "till", "during", "before", "after", "year", "fy",
-                         "by", "for", "of", "over", "through", "early", "late", "mid", "the"})
+                         "early", "late", "mid"})
 _MONTH_WORD = re.compile(_MONTHS)
 _QUARTER = re.compile(r"[Qq][1-4]")
 _BEFORE_YEAR = re.compile(rf"(?P<w>[A-Za-z0-9]+)(?:[.,]?{_SP}+|-)$")     # "in 2025", "mid-2025"
@@ -297,7 +321,9 @@ _LABEL_JOIN_PLURAL = re.compile(
 # a verb that says what the numbered things do ("Weeks 1-4 are setup", "Phases
 # 2-3 take 10 weeks"). A unit noun ("Phases 2 and 3 weeks") makes it a quantity.
 _LABEL_VERBS = ("is", "are", "was", "were", "will", "run", "runs", "take", "takes", "cost", "costs",
-                "start", "starts", "end", "ends", "begin", "begins", "last", "lasts")
+                "start", "starts", "end", "ends", "begin", "begins", "last", "lasts", "cover", "covers",
+                "include", "includes", "focus", "focuses", "handle", "handles", "deliver", "delivers",
+                "build", "builds", "set", "sets", "need", "needs")
 _ITEM_END = re.compile(
     rf"[.!?;:](?!\d)|[)\]}}]|{_SP}*(?:[\r\n]|$)|{_SP}+(?:and|to)(?![A-Za-z])|{_SP}*[,&](?!\d)|{_DASH_JOIN}"
     rf"|{_SP}+[-\u2013\u2014]{_SP}+(?=[A-Za-z])|{_SP}+{_FUNCTION}|{_SP}+(?i:{'|'.join(_LABEL_VERBS)})(?![A-Za-z])")
@@ -306,6 +332,17 @@ _WORD_LABEL_END = _ITEM_END
 
 # a numbered list marker: digits, then "." or ")", then a space, first on its line
 _LIST_MARKER = re.compile(rf"\d+[.)]{_SP}")
+# a markdown heading's own number ("## 2. Diagnosis", "### 3.1 Plan") is structure too
+_HEADING_LEAD = re.compile(rf"(?:^|[\r\n]){_SP}*#{{1,6}}{_SP}+$")
+# ... when it is numbered like a section: "2.", "2)", "3.1", or a bare number before
+# a capitalised title ("# 1 Intro"). "## 3 quick wins" holds a count and is read.
+_HEADING_NUMBER = re.compile(
+    rf"(?:\d+(?:\.\d+)+\.?|\d+[.)])(?={_SP}|[\r\n]|$)|\d+(?={_SP}+[A-Z])")
+
+# technical names whose number is part of the name ("ISO 27001", "TLS 1.3")
+_TECH = frozenset(TECH_NAMES)
+_TECH_ITEM = re.compile(r"\d+(?:[.:]\d+)*")
+_TOKEN_EDGE = "([{\"'*_"
 
 # number words
 _UNITS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9}
@@ -335,6 +372,7 @@ _MULT_WORDS = {
     **{f"double{s}": 2 for s in ("", "s", "d")}, "doubling": 2,
     **{f"triple{s}": 3 for s in ("", "s", "d")}, "tripling": 3,
     **{f"quadruple{s}": 4 for s in ("", "s", "d")}, "quadrupling": 4,
+    **{w: Decimal("0.5") for w in ("halve", "halved", "halving", "halves")},   # "churn halved"
 }
 # after "to" or a modal the word is a verb, and the noun after it is its object:
 # "aim to triple bookings", "will double bookings"
@@ -426,12 +464,9 @@ def _quantity(text: str, pos: int) -> _Qty | None:
                (q.signed or q.money or q.percent or q.times or q.ordinal))
     code = m.group("code")
     if code:
-        digits = len(num.translate(_GROUP_SEPARATORS).split(".")[0])
-        amount = digits >= 3 or not num.isdigit() or q.scale != 1
-        glued = m.end("code") == m.start("num")
+        one_digit = num.isdigit() and len(num) == 1 and q.scale == 1
         if (text[q.end:q.end + 1].isalpha()                   # "CAD 3D": the number is not an amount
-                or (code in _LOCAL_PREFIXES and not amount)     # "R1", "Room R2"
-                or (glued and not amount and digits < 2)):      # "PHP8"
+                or (code in _LOCAL_PREFIXES and one_digit)):    # "R1", "Room R2": an identifier
             return None
     return q
 
@@ -527,6 +562,37 @@ def _read_label(text: str, pos: int) -> Read | None:
         return None
     listed = _listed(text, item.end(), label)
     return (listed[-1][1] if listed else item.end()), []
+
+
+def _token_before(text: str, start: int) -> str:
+    """The token (letters, digits, dots, hyphens) right before `start` after
+    spaces, in lower case without brackets or emphasis; "" when there is none or
+    it is longer than any technical name. The walk is bounded."""
+    j = start
+    while j > 0 and text[j - 1] in _SPACES:
+        j -= 1
+    if j == start:
+        return ""
+    k, limit = j, max(0, j - 24)
+    while k > limit and not text[k - 1].isspace():
+        k -= 1
+    if k == limit and k > 0 and not text[k - 1].isspace():
+        return ""
+    return text[k:j].strip(_TOKEN_EDGE).lower()
+
+
+def _read_tech(text: str, pos: int) -> Read | None:
+    """The number or version right after a technical name: part of the name."""
+    item = _TECH_ITEM.match(text, pos) if _token_before(text, pos) in _TECH else None
+    if not item:
+        return None
+    q = _quantity(text, pos)
+    if q is None or q.end > item.end() or q.scale != 1 or q.money or q.percent or q.times or q.ordinal:
+        return None   # "ISO 27001 costs ..." is fine; "React 19%" is a quantity
+    to = _TO.match(text, item.end())
+    if to and text[to.end():to.end() + 1].isdigit():
+        return None   # "Office 9 to 5": a range, not a version
+    return item.end(), []
 
 
 def _read_position(text: str, pos: int) -> Read | None:
@@ -653,7 +719,9 @@ def _clock(text: str, pos: int, m: re.Match) -> bool:
     if _ratio_cue(text, pos, m.end()):
         return False
     hour, minutes = m.group("h"), m.group("mi")
-    return ((minutes in _QUARTER_MINUTES and 1 <= int(hour) <= 23)
+    # quarter minutes alone make a time from 6 on: "1:15" and "4:30" with nothing
+    # else are ratios or durations ("Mat classes are 1:15", "4:30 average")
+    return ((minutes in _QUARTER_MINUTES and 6 <= int(hour) <= 23)
             or (len(hour) == 2 and hour[0] == "0")
             or _word_before(text, pos)[0].lower() in _TIME_LEADS
             or bool(_CLOCK_NEXT.match(text, m.end()))
@@ -665,8 +733,16 @@ def _valid_day(month: str, day: int) -> bool:
 
 
 def _in_series(text: str, start: int, end: int) -> bool:
-    """Whether a month-day pair sits in a comma or semicolon list of them."""
-    return bool(_SERIES_NEXT.match(text, end) or _SERIES_PREV.search(text, max(0, start - 30), start))
+    """Whether a month-day pair sits in a list of them (a monthly series of counts):
+    next to a strong separator; first of three weakly joined; in the middle; or
+    last after a list or an introducing colon ("Jan 12, Feb 14 and Mar 18")."""
+    if _SERIES_NEXT.match(text, end) or _SERIES_PREV.search(text, max(0, start - 30), start):
+        return True
+    if _SERIES_NEXT_WEAK.match(text, end):
+        if (_SERIES_NEXT_THREE.match(text, end) or _SERIES_PREV_ANY.search(text, max(0, start - 30), start)
+                or _SERIES_PREV_INTRO.search(text, max(0, start - 8), start)):
+            return True
+    return bool(_SERIES_PREV_WEAK_LIST.search(text, max(0, start - 80), start))
 
 
 def _day_and_year(text: str, pos: int, m: re.Match) -> Read:
@@ -996,9 +1072,13 @@ def _read_at(text: str, pos: int) -> Read | None:
     marker = _LIST_MARKER.match(text, pos)
     if marker and _line_start(text, pos):   # "1. Book the studio": structure, not a number
         return marker.end(), []
+    heading = _HEADING_NUMBER.match(text, pos) if _HEADING_LEAD.search(text, max(0, pos - 12), pos) else None
+    if heading:   # "## 2. Diagnosis": structure
+        return heading.end(), []
     # a clock time is a time even after a label word ("Step 6pm")
-    return (_read_time(text, pos) or _read_position(text, pos) or _read_label(text, pos)
-            or _read_date(text, pos) or _read_range(text, pos) or _read_digits(text, pos))
+    return (_read_time(text, pos) or _read_tech(text, pos) or _read_position(text, pos)
+            or _read_label(text, pos) or _read_date(text, pos) or _read_range(text, pos)
+            or _read_digits(text, pos))
 
 
 def _runs(text: str) -> tuple[bytearray, bytearray]:
