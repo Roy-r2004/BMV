@@ -427,6 +427,14 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     emit(db, request_id, "roadmap", "Writing your implementation roadmap...", 61)
     action_plan.write(db, request_id)
 
+    # The plan summary: the register's words and the proof titles. Amounts
+    # stay in code. A summary that cannot be written stops the run.
+    current()
+    from app.storyline import stage as storyline_stage
+
+    emit(db, request_id, "storyline", storyline_stage.PROGRESS, 62)
+    storyline_stage.write(db, request_id)
+
     current()
     emit(db, request_id, "quality", "Expert auditors reviewing your documents...", 61)
     qa_experts.review_quality(db, request_id)

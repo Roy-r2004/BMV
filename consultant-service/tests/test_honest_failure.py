@@ -439,6 +439,7 @@ HEALTHY_STAGES = {
     "technical": ("app.pipeline.blueprint.write_technical_plan", _nothing),
     "playbook": ("app.pipeline.playbook.write_playbook", _nothing),
     "roadmap": ("app.pipeline.action_plan.write", _nothing),
+    "storyline": ("app.storyline.stage.write", _nothing),
     "quality": ("app.pipeline.qa_experts.review_quality", _nothing),
     "integrity": ("app.pipeline.integrity.enforce", _nothing),
     "screens": ("app.screens.generate.build", lambda *a, **k: 0),

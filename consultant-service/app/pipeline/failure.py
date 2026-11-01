@@ -45,6 +45,7 @@ STAGE_WORK: dict[str, str] = {
     "technical": "writing your technical plan",
     "playbook": "writing your operations manual",
     "roadmap": "writing your implementation roadmap",
+    "storyline": "writing the plan summary",
     "quality": "checking the quality of your documents",
     "screens": "drawing your product screens",
     "email": "emailing you your documents",
