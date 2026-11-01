@@ -1906,12 +1906,30 @@ def test_twenty_thousand_numbers_against_four_hundred_figures_bind_in_seconds():
     assert time.perf_counter() - t0 < 12
 
 
-def test_a_figure_in_a_stand_in_noun_binds_only_that_noun():
+def test_a_figure_in_a_generic_noun_is_a_wildcard_noun():
     others = fs(theirs("A", "2", "others"))
-    _stays_unresolved("You and two studios nearby.", others, "two")          # "others" is a noun like any other
-    _stays_unresolved("Add 2 evening classes.", others, "2")
-    assert [f.id for f in bind("Two others nearby.", others).bound] == ["A"]
+    for text in ("You and two studios nearby.", "You and 2 studios nearby.", "Two competitors charge more.", "the 2 others",
+                 "There are 2.", "Two others nearby."):
+        r = bind(text, others)
+        assert r.text == text and [f.id for f in r.bound] == ["A"] and r.unresolved == [], text
+    _stays_unresolved("You and 3 studios nearby.", others, "3")             # a wildcard noun still needs the exact value
     _stays_unresolved("It takes 2 days.", others, "2")                       # a time word still needs a time figure
+    _stays_unresolved("Add 2 studios.", others, "2")                         # nor does it bind after a verb
+    for unit in ("other", "things", "thing", "people", "items"):             # plural and singular are the same word
+        assert [f.id for f in bind("You and 2 studios nearby.", fs(theirs("A", "2", unit))).bound] == ["A"], unit
+
+
+def test_a_specific_noun_beats_a_generic_one_and_no_noun_is_not_a_wildcard():
+    both = [theirs("A", "2", "others"), theirs("B", "2", "classes")]
+    for known in (fs(*both), fs(*reversed(both))):
+        assert [f.id for f in bind("You have 2 classes nearby.", known).bound] == ["B"]
+        assert [f.id for f in bind("You have two class slots.", known).bound] == ["B"]
+        assert [f.id for f in bind("You have 2 studios nearby.", known).bound] == ["A"]
+    bare = fs(theirs("N", "2", ""))
+    _stays_unresolved("You and 2 studios nearby.", bare, "2")                # the client gave no noun: only a noun-free 2
+    assert [f.id for f in bind("You have 2.", bare).bound] == ["N"]
+    # the cost of a wildcard: a model noun that no figure names takes it
+    assert [f.id for f in bind("Compare the 2 evening classes.", fs(theirs("A", "2", "others"))).bound] == ["A"]
 
 
 # ==============================================================================================
@@ -2402,12 +2420,19 @@ def test_a_number_word_that_is_supported_stays_a_word():
     assert bind("{{F:CLS}} run", known).text == "2 classes run"
 
 
-def test_a_number_word_bound_by_noun_does_not_take_an_unrelated_figure():
-    others = fs(theirs("T4-2", "2", "others"))
-    _stays_unresolved("2 evening classes", others, "2")
-    _stays_unresolved("the two evening classes", others, "two")
-    _stays_unresolved("two studios nearby", others, "two")
-    assert [f.id for f in bind("Two others nearby.", others).bound] == ["T4-2"]
+def test_the_clients_two_others_nearby_bind_the_models_two_studios():
+    client = fs(theirs("T3-1", "22", "USD"), theirs("T4-1", "2", "others"), theirs("T4-2", "32", "USD"))
+    r = bind("You charge $22 against $32 at the two studios nearby.", client)
+    assert r.unresolved == [] and [f.id for f in r.bound] == ["T3-1", "T4-2", "T4-1"]
+    r = bind("you and 2 studios nearby", client)
+    assert r.text == "you and 2 studios nearby" and [f.id for f in r.bound] == ["T4-1"]
+    # a token before the model's own noun prints the number once; with none the figure's noun stands
+    assert bind("{{F:T4-1}} studios nearby", client).text == "2 studios nearby"
+    assert bind("{{F:T4-1}} nearby", client).text == "2 others nearby"
+    r = bind("{{F:T4-1}} days", client)
+    assert r.text == "{{F:T4-1}} days" and r.bound == []
+    # and what binds once binds again
+    assert bind(bind("{{F:T4-1}} studios nearby", client).text, client).text == "2 studios nearby"
 
 
 # -- 7. percentage points are not percents --------------------------------------------------------------------------------------------------
@@ -2430,6 +2455,8 @@ def test_percentage_points_after_a_token_are_refused_and_a_plain_percent_is_not(
 # -- 8. one table of time words --------------------------------------------------------------------------------------------------------------
 
 def test_the_time_words_include_mo_and_mos_and_agree_with_the_case_file():
+    from app.figures import words
+    assert B._TIME_CANON is words.TIME_CANON                      # one table, the case file's too
     assert B._TIME_CANON["mo"] == "month" and B._TIME_CANON["mos"] == "month"
     month = fs(theirs("M3", "3", "month"))
     r = bind("a 3 mo pilot", month)

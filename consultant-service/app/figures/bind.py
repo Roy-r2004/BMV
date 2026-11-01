@@ -21,9 +21,14 @@ stand for:
                 evening spots" are figures in "reformer spots", "Hire 4 more
                 instructors" is not 4 reformers. A figure with no noun takes a number
                 only when no noun follows it, and a figure that names the unit beats a
-                unitless one. "Percentage points", "percent points", "% points" and "pp"
-                after a number say a difference between percents: never a percent, so
-                the mention is unresolved. Only an unspaced hyphen or en dash, " to ", and "and"
+                unitless one. A figure whose unit is a generic noun ("others", "things", "people":
+                `words.GENERIC_NOUNS`, plural or singular) is a wildcard: the client's "2 others
+                nearby" fits the model's "2 studios nearby" and a noun-free 2, still only at its
+                exact value, never before a time word, and never when another figure in the very
+                noun the mention gives fits it (a figure in "classes" takes "2 classes"). A
+                figure with no unit at all is not a wildcard. "Percentage points",
+                "percent points", "% points" and "pp" after a number say a difference
+                between percents: never a percent, so the mention is unresolved. Only an unspaced hyphen or en dash, " to ", and "and"
                 after "between" or "from" join two numbers into a range; a spaced
                 dash, an em dash or a clause break never does. Two numbers so joined
                 share a shape only when one is bare and the other carries it
@@ -122,7 +127,8 @@ figure is unresolved). Where nothing next to it names the unit, the figure print
 whole ("$22", "25%", "6 weeks", "24 GB"). The figure carries its own unit, so a word
 after it is the sentence's own and may be anything for a figure in a noun or a percent
 ("{{F:CAP-04}} go empty", "a {{F:P}} drop"); the figure's noun is said once ("{{F:M}}
-members" is "12 members"). A word after a figure in money ("$22 members"), in time
+members" is "12 members"), and a generic noun gives way to the model's own
+("{{F:T4-1}} studios nearby" is "2 studios nearby" for a figure in "others"). A word after a figure in money ("$22 members"), in time
 ("6 weeks starts": the time word itself is allowed) or with no unit at all would double
 the unit or give it one it does not have, and is unresolved, as is a token before
 "percentage points". A token with an unknown id, one stuck to digits or letters ("12{{F:A}}", "{{F:A}}k"), and any "{{F:"
@@ -159,8 +165,9 @@ from decimal import ROUND_HALF_UP, Context, Decimal
 from functools import lru_cache
 from typing import NamedTuple
 
-from app.figures.model import TIME_WORDS, Figure, FigureSet, display, display_number, displayed_value
+from app.figures.model import Figure, FigureSet, display, display_number, displayed_value
 from app.figures.read import _CURRENCY_CODES, _MONEY_UNITS, Mention, mentions, supported
+from app.figures.words import GENERIC_NOUNS, TIME_CANON
 
 
 @dataclass(frozen=True)
@@ -311,9 +318,8 @@ def _joiner(text: str, a: Mention, b: Mention) -> str | None:
     return None
 
 
-# time words, by what they stand for ("hrs" is "hour"); the model's own table is the
-# source for the words, the abbreviations are the ones clients type
-_TIME_CANON = dict(TIME_WORDS)
+# time words, by what they stand for ("hrs" is "hour"): the one table the case file reads too
+_TIME_CANON = TIME_CANON
 
 # words that follow a number without naming what it counts
 _FUNCTION_WORDS = frozenset(
@@ -389,6 +395,17 @@ def _unit_head(unit: str) -> str:
     return _stem(words[-1]) if words else ""
 
 
+_GENERIC_HEADS = frozenset(_stem(w) for w in GENERIC_NOUNS)
+
+
+def _is_generic(unit: str) -> bool:
+    """Whether a figure's unit is a noun that says nothing about what is counted ("others",
+    "things", "people": `words.GENERIC_NOUNS`, plural or singular). Such a figure is a wildcard
+    noun: the model's own word for the same count ("2 studios nearby" for the client's "2 others
+    nearby") fits it, as does no noun at all."""
+    return bool(unit) and _unit_head(unit) in _GENERIC_HEADS
+
+
 def _unit_fits(phrase: tuple[str, ...], unit: str) -> bool:
     """Whether the words after a bare number can name what a figure in `unit` counts.
     A time word after the number means the figure must be in that same time unit: a
@@ -397,7 +414,8 @@ def _unit_fits(phrase: tuple[str, ...], unit: str) -> bool:
     agreement). A figure with no unit of its own takes the number only when no noun
     follows it. A figure in a noun unit takes it when no noun follows, or when the head
     noun of its unit is among the words: "432 spots a week" is a figure in "reformer
-    spots", "reformers" is not, and "Hire 4 more instructors" is not 4 reformers."""
+    spots", "reformers" is not, and "Hire 4 more instructors" is not 4 reformers. A figure
+    in a generic noun ("others") takes any noun: it is a wildcard, never a time word."""
     word = phrase[0] if phrase else None
     figure_time = _TIME_CANON.get(unit.lower())
     word_time = _TIME_CANON.get(word) if word else None
@@ -407,7 +425,7 @@ def _unit_fits(phrase: tuple[str, ...], unit: str) -> bool:
         return False
     if unit in ("", "count"):
         return not phrase
-    if not phrase:
+    if not phrase or _is_generic(unit):
         return True
     return _unit_head(unit) in {_stem(w) for w in phrase}
 
@@ -499,7 +517,7 @@ def _pick(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure
     with no unit takes only an exact mention that stands where a quantity stands (`bare_ok`).
     Every rate or period phrase in the clause must be the figure's own period."""
     cands = [f for f in found if _admissible(f, shape, phrase) and _period_ok(f.period, keys)
-             and (f.unit not in ("", "count") or (bare_ok and f.value == m.value))]
+             and (f.unit not in ("", "count") and not _is_generic(f.unit) or (bare_ok and f.value == m.value))]
     equal = [f for f in cands if f.value == m.value]
     if strict:
         pool, tier = equal, "equal"
@@ -838,8 +856,8 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
                 return _UNRESOLVED
             if _TIME_CANON.get(f.unit.lower()):
                 return _Decision(False, f, number, None, kind) if _unit_fits(phrase, f.unit) else _UNRESOLVED
-            if f.unit == "percent" or _names_unit(phrase, f.unit):
-                return _Decision(False, f, number, None, kind)
+            if f.unit == "percent" or _is_generic(f.unit) or _names_unit(phrase, f.unit):
+                return _Decision(False, f, number, None, kind)    # a generic noun gives way to the model's own
         return _Decision(False, f, number + (" " + unit_word if unit_word else ""), None, kind)
     if not fits:
         return _UNRESOLVED
