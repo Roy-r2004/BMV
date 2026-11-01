@@ -155,14 +155,6 @@ _TIME_UNITS = (("ms", "ms"), ("millisecond", "milliseconds"), ("second", "second
                ("month", "months"), ("year", "years"))
 
 
-# Every spelling of a time unit a client types, said by what it stands for ("hrs" is "hour",
-# "3 mo" is a month). One table for the binder; the case file keeps its own copy of it.
-TIME_WORDS: dict[str, str] = {word: one for one, many in _TIME_UNITS for word in (one, many)}
-TIME_WORDS.update({"sec": "second", "secs": "second", "min": "minute", "mins": "minute", "hr": "hour",
-                   "hrs": "hour", "wk": "week", "wks": "week", "mo": "month", "mos": "month",
-                   "yr": "year", "yrs": "year"})
-
-
 def _unit_styles() -> dict[str, tuple[str, str, str, int]]:
     table = {
         "USD": ("$", "", "", 2),
