@@ -396,19 +396,38 @@ def test_a_multiplier_word_as_a_modifier_is_not_a_mention(text):
 
 @pytest.mark.parametrize("text,value,span", [
     ("a third of members", "33.3333", "a third"),
-    ("one third", "33.3333", "one third"),
-    ("two thirds", "66.6667", "two thirds"),
+    ("a third of no-shows", "33.3333", "a third"),
+    ("one third of sales", "33.3333", "one third"),
+    ("two thirds of the week", "66.6667", "two thirds"),
     ("two-thirds of them", "66.6667", "two-thirds"),
+    ("half of members", "50", "half"),
+    ("Half of members", "50", "Half"),
     ("half the clients", "50", "half"),
-    ("a half", "50", "a half"),
+    ("an hour and a half", "50", "a half"),
     ("a quarter of sales", "25", "a quarter"),
-    ("three quarters", "75", "three quarters"),
-    ("a fifth", "20", "a fifth"),
-    ("an eighth", "12.5", "an eighth"),
+    ("three quarters of members", "75", "three quarters"),
+    ("two quarters of the year", "50", "two quarters"),
+    ("a fifth of revenue", "20", "a fifth"),
+    ("an eighth of it", "12.5", "an eighth"),
 ])
-def test_a_fraction_reads_as_the_percent_number(text, value, span):
+def test_a_fraction_in_a_quantity_use_reads_as_the_percent_number(text, value, span):
     found = mentions(text)
     assert [(m.text, m.value, m.form) for m in found] == [(span, D(value), "fraction")]
+
+
+@pytest.mark.parametrize("text,want", [
+    ("the first half", []),
+    ("in the second half", []),
+    ("half-price classes", []),
+    ("half price classes", []),
+    ("a half", []),
+    ("a third time", [("third", "3", "ordinal")]),      # an order, read as one
+    ("two quarters", [("two", "2", "word")]),          # fiscal quarters: a count
+    ("one third", [("third", "3", "ordinal")]),         # no "of": the number is still read
+    ("three quarters", [("three", "3", "word")]),
+])
+def test_a_fraction_word_outside_a_quantity_use_is_not_a_fraction(text, want):
+    assert [(m.text, str(m.value), m.form) for m in mentions(text)] == want
 
 
 def test_a_number_word_or_ordinal_is_not_taken_for_a_fraction():
@@ -461,12 +480,16 @@ def test_a_year_shaped_count_is_a_digit(text, want, forms):
 @pytest.mark.parametrize("text", [
     "Phases 2 and 3", "Steps 1-3", "Phases 1, 2 and 3", "Phases 1, 2, and 3", "Steps 1 & 2",
     "Phases 2 to 4", "Phase 2\u20133", "Phase 2 and 3", "Steps 1-3 and 5", "Phase two",
+    "Steps 1, 2", "Phases 1, 2, 3 and 4", "Phase 2-3, and Steps 4, 5",
 ])
 def test_a_list_after_a_label_word_is_labels(text):
     assert mentions(text) == []
 
 
 @pytest.mark.parametrize("text,want", [
+    ("Phase 2, 12 weeks long", ["12"]),        # a comma joins only after a plural label
+    ("Phase 2, 3 and 4", ["3", "4"]),
+    ("Step 1, then 2 calls", ["2"]),
     ("Phase 2 costs $35", ["$35"]),
     ("Step 3 takes 12 weeks", ["12"]),
     ("Phase 2. 3 weeks later", ["3"]),

@@ -26,8 +26,11 @@ What it counts (plan ruling 8), with the form each mention carries:
                 their, its, what, that, as or a number ("double the revenue",
                 not "no double booking")
     ordinal     3rd, 1st, 22nd; third and up, twenty-first
-    fraction    half, a half, a third, one third, two thirds, a quarter, three
-                quarters, a fifth, ...; the value is the percent number (33.3333
+    fraction    half, a third, one third, two thirds, a quarter, three quarters,
+                a fifth, ... only as a quantity: before "of" ("a third of
+                members"), "half the ...", or the tail "and a half" ("an hour
+                and a half"); not "the first half", "half-price", "a third
+                time", "two quarters". The value is the percent number (33.3333
                 for a third), so it is compared with percent figures
     range       2-3, 2 to 3, en or em dash, $20-$30, 10-15%, 10-15k: one
                 mention per end, a magnitude on the second end scales the first
@@ -46,8 +49,8 @@ What it does not count:
     "one and a half" are quantities and are counted.
   - a number right after a label word from `labels.LABEL_WORDS`, or its plural
     ("Phase 2", "Exhibit 2.1", "Phase two"), and every number listed with it,
-    joined by and, a comma, &, a hyphen, to or an en dash ("Phases 1, 2 and 3",
-    "Steps 1-3"): ruling 4.
+    joined by and, &, a hyphen, to or an en dash ("Steps 1-3", "Phase 2 and
+    3"), or by a comma after a plural label ("Phases 1, 2 and 3"): ruling 4.
   - a numbered list marker at the start of a line ("1. ", "2) "): structure.
   - identifiers: letters with digits glued on (Q3, M3-A, B2B, FY2025, v2.1) and capitals,
     a hyphen and digits (CF-04); a dotted chain of three or more parts (3.2.1).
@@ -132,10 +135,14 @@ _WORD = re.compile(r"[A-Za-z]+")
 _JOIN = re.compile(rf"{_SP}+|-(?=[A-Za-z])")
 
 _LABELS = frozenset(w.lower() for w in LABEL_WORDS)
-# the numbers listed after a label ("Phases 1, 2 and 3", "Steps 1-3 & 5") are labels too
-_LABEL_LIST = re.compile(
-    rf"(?:{_SP}*(?:,|&|-|\u2013){_SP}*(?:(?:and|&){_SP}+)?|{_SP}+(?:and|to){_SP}+)"
-    rf"\d+(?:\.\d+)*(?![A-Za-z0-9%])")
+# the numbers listed after a label ("Steps 1-3 & 5", "Phase 2 and 3") are labels
+# too. A comma joins only after a plural label ("Phases 1, 2 and 3"): after a
+# singular one ("Phase 2, 12 weeks long") the comma ends the label, so the 12 is
+# read. A hidden number is the worst failure here, so when unsure, read it.
+_LIST_ITEM = r"\d+(?:\.\d+)*(?![A-Za-z0-9%])"
+_LABEL_LIST = re.compile(rf"(?:{_SP}*(?:&|-|\u2013){_SP}*|{_SP}+(?:and|to){_SP}+){_LIST_ITEM}")
+_LABEL_LIST_PLURAL = re.compile(
+    rf"(?:{_SP}*(?:,|&|-|\u2013){_SP}*(?:(?:and|&){_SP}+)?|{_SP}+(?:and|to){_SP}+){_LIST_ITEM}")
 
 # a numbered list marker: digits, then "." or ")", then a space, first on its line
 _LIST_MARKER = re.compile(rf"\d+[.)]{_SP}")
@@ -257,23 +264,29 @@ def _mention(text: str, start: int, end: int, value: Decimal | int, form: Form) 
     return Mention(text=text[start:end], start=start, end=end, value=Decimal(value), form=form)
 
 
-def _after_label(text: str, start: int) -> bool:
-    """True when the number at `start` follows a label word ("Phase 2", "Phases 1-2")."""
+def _after_label(text: str, start: int) -> Literal["singular", "plural"] | None:
+    """Whether the number at `start` follows a label word, and in which number:
+    "Phase 2" is singular, "Phases 1-2" plural, anything else None."""
     j = start
     while j > 0 and text[j - 1] in " \t\u00a0":
         j -= 1
     if j == start:
-        return False
+        return None
     k = j
     while k > 0 and text[k - 1].isalpha():
         k -= 1
     word = text[k:j].lower()
-    return word in _LABELS or (word.endswith("s") and word[:-1] in _LABELS)
+    if word in _LABELS:
+        return "singular"
+    if word.endswith("s") and word[:-1] in _LABELS:
+        return "plural"
+    return None
 
 
-def _label_end(text: str, end: int) -> int:
+def _label_end(text: str, end: int, label: Literal["singular", "plural"]) -> int:
     """Where the list of numbers a label started ends: "Phases 1, 2 and 3"."""
-    while (m := _LABEL_LIST.match(text, end)):
+    joiner = _LABEL_LIST_PLURAL if label == "plural" else _LABEL_LIST
+    while (m := joiner.match(text, end)):
         end = m.end()
     return end
 
@@ -309,6 +322,25 @@ def _percent_of(numerator: int, denominator: int) -> Decimal:
     """numerator/denominator as a percent number, exact to four places: 33.3333."""
     value = (Decimal(numerator) * 100 / Decimal(denominator)).quantize(_PERCENT_PLACES)
     return value.quantize(Decimal(1)) if value == value.to_integral_value() else value.normalize()
+
+
+_FRACTION_OF = re.compile(rf"{_SP}+of(?![A-Za-z])", re.I)
+# "half the clients" is "half of the clients"; English drops the "of" only after half
+_HALF_DETERMINER = re.compile(
+    rf"{_SP}+(?:the|your|our|their|its|these|those|all|my|his|her)(?![A-Za-z])", re.I)
+_AND_BEFORE = re.compile(rf"(?:^|[^A-Za-z])and{_SP}+$", re.I)
+
+
+def _fraction_in_use(text: str, start: int, end: int, words: list[str]) -> bool:
+    """A fraction counts only as a quantity: "<fraction> of ..." ("a third of
+    no-shows"), "half the ...", or the tail "and a half" ("an hour and a half").
+    "The first half", "half-price", "a third time" and "two quarters" (of a
+    fiscal year) are not fractions."""
+    if _FRACTION_OF.match(text, end):
+        return True
+    if words == ["half"] and _HALF_DETERMINER.match(text, end):
+        return True
+    return words == ["a", "half"] and bool(_AND_BEFORE.search(text, max(0, start - 8), start))
 
 
 def _fraction(words: list[str]) -> tuple[Decimal, int] | None:
@@ -394,8 +426,9 @@ def _read_range(text: str, pos: int) -> Read | None:
     b = _quantity(text, to.end())
     if b is None or b.ordinal or b.signed:
         return None
-    if _after_label(text, pos):
-        return _label_end(text, b.end), []
+    label = _after_label(text, pos)
+    if label:
+        return _label_end(text, b.end, label), []
     if _is_year(a, text) and _year_shaped(b, text):   # from 2025-2026: the second end follows the first
         return b.end, [_mention(text, a.start, a.end, a.value, "date"),
                        _mention(text, b.start, b.end, b.value, "date")]
@@ -413,8 +446,9 @@ def _read_digits(text: str, pos: int) -> Read | None:
     if q is None:
         return None
     form = _form(q)
-    if form == "digit" and _after_label(text, pos):
-        return _label_end(text, q.end), []
+    label = _after_label(text, pos) if form == "digit" else None
+    if label:
+        return _label_end(text, q.end, label), []
     if _is_year(q, text):
         return q.end, [_mention(text, pos, q.end, q.value, "date")]
     if q.plain and q.end - q.start == 4 and 1900 <= q.value <= 2100 and text[q.end:q.end + 1] == "s" \
@@ -525,11 +559,11 @@ def _read_words(text: str, pos: int) -> Read | None:
     if first.endswith("fold") and first[:-4] in _FOLD_PREFIX:
         return first_end, [_mention(text, pos, first_end, _FOLD_PREFIX[first[:-4]], "multiplier")]
     words = [w[0] for w in ws]
-    # "half a dozen" is a number; any other "half", "a third", "two thirds" a fraction
+    # "half a dozen" is a number; "a third of members" a fraction
     parsed = _phrase(words) if first == "half" else None
     if parsed is None:
         fraction = _fraction(words)
-        if fraction is not None:
+        if fraction is not None and _fraction_in_use(text, pos, ws[fraction[1] - 1][2], words[:fraction[1]]):
             value, used = fraction
             return ws[used - 1][2], [_mention(text, pos, ws[used - 1][2], value, "fraction")]
         parsed = _phrase(words)
