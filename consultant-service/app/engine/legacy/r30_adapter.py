@@ -456,8 +456,11 @@ def snapshot(row: Any) -> tuple[str, str | None]:
 
 
 def load_outputs(row: Any) -> R30Outputs:
-    """Read the finished package. Nothing here writes, and every reader is
-    r30's own: a shape the engine invented would drift from what r30 ships."""
+    """Read the finished package. Nothing here writes the row, and every reader
+    is r30's own: a shape the engine invented would drift from what r30 ships.
+    The one write is the release law's record of each document not yet checked
+    (`law.ensure_records`, files beside the exports), made before r30's gate is
+    read so the gate's answer covers the whole package."""
     content = _integrity.load(row)
     report = _integrity.current_report(row)
     # The release law's records must be whole before r30's gate is read. They

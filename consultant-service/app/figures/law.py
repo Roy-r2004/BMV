@@ -65,7 +65,30 @@ DOCUMENTS: tuple[tuple[str, str], ...] = (
     ("Volume I", "page"), ("Volume II", "page"), ("Volume III", "page"),
     ("Volume IV", "page"), ("The deck", "slide"),
 )
-_UNIT_OF = dict(DOCUMENTS)
+
+
+def _law_version() -> str:
+    """The rules a record was made under: LAW_RULES (bumped by hand when the
+    law's own rules change) and a short hash of the modules that decide what a
+    finding is (the law, the reader, the binder, the label words, the figure
+    model). A record or a cached file made under other rules is stale."""
+    import hashlib
+
+    digest = hashlib.sha256()
+    here = os.path.dirname(os.path.abspath(__file__))
+    for name in ("law.py", "read.py", "bind.py", "labels.py", "model.py"):
+        try:
+            with open(os.path.join(here, name), "rb") as fh:
+                digest.update(fh.read())
+        except OSError:
+            digest.update(name.encode())
+    return f"{LAW_RULES}-{digest.hexdigest()[:12]}"
+
+
+#: Bumped by hand when the law's rules change in a way the module hash would
+#: not show (a document's furniture redrawn, a choke point added).
+LAW_RULES = 1
+LAW_VERSION = _law_version()
 
 #: What a sample region must show to be drawn at all.
 SAMPLE_STAMP = "Sample data"
@@ -413,7 +436,7 @@ def save(request_id: object, where: str, findings: Iterable[Finding], *,
     if path is None:
         return False
     record = {"where": where, "built_at": (built_at or datetime.utcnow()).isoformat(),
-              "stamped": stamped if isinstance(stamped, str) else None, "absent": bool(absent),
+              "law_version": LAW_VERSION, "stamped": stamped if isinstance(stamped, str) else None, "absent": bool(absent),
               "findings": [] if absent else [as_json(f) for f in sorted_findings(findings)]}
     body = json.dumps(record)
     folder = os.path.dirname(path)
@@ -443,8 +466,10 @@ def save(request_id: object, where: str, findings: Iterable[Finding], *,
 
 def record(request_id: object, where: str, updated_at: datetime | None) -> dict | None:
     """A document's kept record (`findings` as `Finding`s, `stamped`, `absent`),
-    when its check started after the request's last data change; None when it
-    was never checked since (or the record cannot be read)."""
+    when its check started after the request's last data change and was made
+    under these rules (`LAW_VERSION`); None when it was never checked since, was
+    checked under other rules, or the record cannot be read. An `absent` record
+    is checked against the row by `_records`."""
     path = findings_path(request_id, where)
     if path is None or not isinstance(updated_at, datetime) or not os.path.isfile(path):
         return None
@@ -455,6 +480,8 @@ def record(request_id: object, where: str, updated_at: datetime | None) -> dict 
     except (OSError, ValueError, TypeError, AttributeError):
         return None
     if built_at.tzinfo is not None or not built_at > updated_at:
+        return None
+    if raw.get("law_version") != LAW_VERSION:
         return None
     items = raw.get("findings") if isinstance(raw.get("findings"), list) else []
     stamped = raw.get("stamped")
@@ -469,10 +496,35 @@ def fresh(request_id: object, where: str, updated_at: datetime | None) -> bool:
     return record(request_id, where, updated_at) is not None
 
 
+def can_record(req) -> bool:
+    """Whether the request can hold a fresh record at all: a whole-number id and
+    the time of its last data change. Anything else (a row made up in memory)
+    can never be checked, so nothing about the law is said of it."""
+    return (findings_path(getattr(req, "id", None), "x") is not None
+            and isinstance(getattr(req, "updated_at", None), datetime))
+
+
+def _trusted(rec: dict | None, req, buildable) -> dict | None:
+    """A record, unless it says the package has no such document while the row
+    shows one can be built: "absent" means the stage produced nothing, and the
+    row, not the file, is what says so."""
+    if rec is None or not rec["absent"] or buildable is None:
+        return rec
+    try:
+        return None if buildable(req) else rec
+    except Exception:
+        return None
+
+
 def _records(req) -> dict[str, dict | None]:
     request_id = getattr(req, "id", None)
     updated_at = getattr(req, "updated_at", None)
-    out = {where: record(request_id, where, updated_at) for where, _ in DOCUMENTS}
+    try:
+        buildable = {where: can for where, _, can in _checkers()}
+    except Exception:
+        buildable = {}
+    out = {where: _trusted(record(request_id, where, updated_at), req, buildable.get(where))
+           for where, _ in DOCUMENTS}
     s = _ACTIVE.get()
     if s is not None and request_id is not None and s.request_id == request_id:
         out[s.where] = {"findings": list(s.pending if s.pending is not None else s._found),
@@ -512,11 +564,14 @@ def _checkers():
     from app.pipeline import export_pdf, export_pptx
     from app.screens import export as screens_export
 
-    return (("Volume I", lambda r: export_pdf.check_volume(r, "blueprint")),
-            ("Volume II", lambda r: export_pdf.check_volume(r, "technical")),
-            ("Volume III", lambda r: export_pdf.check_volume(r, "operations")),
-            ("Volume IV", screens_export.check_proposal),
-            ("The deck", export_pptx.check_deck))
+    return (("Volume I", lambda r: export_pdf.check_volume(r, "blueprint"),
+             lambda r: export_pdf.volume_ready(r, "blueprint")),
+            ("Volume II", lambda r: export_pdf.check_volume(r, "technical"),
+             lambda r: export_pdf.volume_ready(r, "technical")),
+            ("Volume III", lambda r: export_pdf.check_volume(r, "operations"),
+             lambda r: export_pdf.volume_ready(r, "operations")),
+            ("Volume IV", screens_export.check_proposal, screens_export.proposal_ready),
+            ("The deck", export_pptx.check_deck, lambda r: export_pptx.deck_inputs(r) is not None))
 
 
 def ensure_records(req) -> dict[str, list[Finding] | None]:
@@ -535,8 +590,8 @@ def ensure_records(req) -> dict[str, list[Finding] | None]:
     except Exception:
         logger.warning("the release law's checkers could not be loaded", exc_info=True)
         return recorded(req)
-    for where, check_document in checkers:
-        if record(request_id, where, updated_at) is not None:
+    for where, check_document, buildable in checkers:
+        if _trusted(record(request_id, where, updated_at), req, buildable) is not None:
             continue
         try:
             check_document(req)

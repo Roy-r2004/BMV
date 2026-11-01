@@ -425,12 +425,23 @@ def canonical_sentence(g: dict | None) -> str:
 def full_definition(g: dict | None) -> str:
     """The complete gate, printed ONCE (the gate box). Everywhere else the
     short reference stands in for it."""
+    return "".join(text for text, _ in full_definition_parts(g))
+
+
+def full_definition_parts(g: dict | None) -> list[tuple[str, bool]]:
+    """`full_definition` in pieces, each with whether this module wrote it
+    entirely itself (True): the canonical assignment sentence is composed here
+    from the typed control ratio and letters of the population, so its numbers
+    (the 50/50 split) are ours to draw, never a model's. Every other piece
+    carries text the model wrote (population, metric, guardrails, baseline) and
+    is content (the release law reads it)."""
     if not g:
-        return ""
+        return []
     dur = f"{_fmt(g.get('duration_value'))}-{g.get('duration_unit') or 'week'}"
     metric = _lc(g.get("primary_metric")) or "the primary metric"
     ratio = g.get("control_ratio")
-    split = (_lc(assignment_sentence(g)).rstrip(".") if (ratio or not g.get("design_errors")) and g.get("control_method")
+    canonical = bool((ratio or not g.get("design_errors")) and g.get("control_method"))
+    split = (_lc(assignment_sentence(g)).rstrip(".") if canonical
              else (_lc(g.get("control_method")) or "a control group"))
     definition = ""
     if g.get("numerator") and g.get("denominator"):
@@ -444,13 +455,18 @@ def full_definition(g: dict | None) -> str:
         base = f" Context only: today's {metric} is {g.get('baseline')} (your figure); the control group, not this baseline, is the comparison."
     elif g.get("baseline_source") == "measure in week 1":
         base = " Context only: the week-one measurement of both groups; the control group, not a baseline, is the comparison."
-    return (f"{g.get('id') or 'PG-01'} — the pilot decision gate. Duration: {dur} pilot {LABEL}. "
-            f"Population: {_lc(g.get('population')) or 'the pilot population'}. Geography: {g.get('geography') or 'the pilot zone'}. "
-            f"Assignment: {split}; the treatment group receives {_lc(g.get('treatment')) or 'the pilot workflow'}. "
+    return [
+        (f"{g.get('id') or 'PG-01'} — the pilot decision gate. Duration: {dur} pilot {LABEL}. "
+         f"Population: {_lc(g.get('population')) or 'the pilot population'}. Geography: {g.get('geography') or 'the pilot zone'}. "
+         f"Assignment: ", False),
+        (split, canonical),
+        (f"; the treatment group receives {_lc(g.get('treatment')) or 'the pilot workflow'}. "
             f"Primary metric: {g.get('comparison_metric') or metric}{definition}. "
             f"Target: treatment {metric} must {verb} the control group's by {_fmt(g.get('target_value'))} {_unit_words(g)}"
             f"{' — ' + g['target_formula'] if g.get('target_formula') else ''} {LABEL}."
-            f"{guard}{base} Approval status: {(g.get('approval_status') or APPROVAL_REQUIRED).replace('_', ' ')}.")
+            f"{guard}{base} Approval status: {(g.get('approval_status') or APPROVAL_REQUIRED).replace('_', ' ')}.",
+         False),
+    ]
 
 
 def gate_claims(g: dict) -> list[dict]:

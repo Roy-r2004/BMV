@@ -11,7 +11,27 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # the developer's .env names — the real dev database, on a laptop.
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tempfile.mkdtemp(prefix="bmv-consultant-tests-"), "test.db")
 
+#: The checkout's own uploads folder, which the local app serves and trusts. No
+#: test may write into it: the same rule as the database above. The environment
+#: variable reaches app.config before it is imported and every subprocess a test
+#: starts; the autouse fixture below gives each test a folder of its own.
+REAL_UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+os.environ["UPLOADS_DIR"] = tempfile.mkdtemp(prefix="bmv-consultant-uploads-")
+
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _uploads_in_a_folder_of_its_own(tmp_path, monkeypatch):
+    """Every test, tests/engine included, keeps its files (exports, law records,
+    images) in a temporary folder, and so does any subprocess it starts."""
+    from app.config import settings
+
+    root = tmp_path / "uploads"
+    root.mkdir(exist_ok=True)
+    monkeypatch.setattr(settings, "UPLOADS_DIR", str(root))
+    monkeypatch.setenv("UPLOADS_DIR", str(root))
+    return root
 
 
 @pytest.fixture(autouse=True)

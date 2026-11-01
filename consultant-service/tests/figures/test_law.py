@@ -37,7 +37,9 @@ def test_outside_a_scope_check_reads_nothing_and_finds_nothing():
 def test_check_binds_what_it_knows_and_records_what_it_does_not():
     with law.scope(KNOWN, where="Volume I") as s:
         out = law.check("You have twelve reformers at $22 a class and lose 37 calls a week.")
-    assert out == "You have 12 reformers at $22 a class and lose 37 calls a week."
+    # how a bound number prints is the binder's rule ("12" or "twelve"); the law
+    # records only the number nobody owns
+    assert "$22 a class" in out and "37 calls a week" in out
     assert [(f.number, f.region, f.page) for f in s.findings] == [("37", "Volume I", None)]
     assert "37 calls a week" in s.findings[0].snippet
 
@@ -450,6 +452,35 @@ def test_the_pilot_gate_passes_its_own_proposals_and_flags_an_unowned_number(db)
     assert [f.number for f in law.recorded(row)["Volume I"]] == ["20%"]
 
 
+GATE = {"id": "PG-01", "canonical_sentence": True, "primary_metric": "No-show rate", "duration_value": 6,
+        "duration_unit": "week", "population": "every new patient", "geography": "the clinic",
+        "control_method": "randomized", "control_ratio": 0.5, "treatment": "the reminder workflow",
+        "direction": "fall", "target_value": 5, "change_kind": "relative",
+        "guardrails": ["3 complaints a week"], "baseline_source": "measure in week 1",
+        "approval_status": "consultant_proposed"}
+PAYBACK = ("Payback cannot yet be calculated: it is the build cost ÷ the Expected scenario's monthly "
+           "hard-dollar savings (annual ÷ 365 × 30), and no verified dollar saving or build cost exists yet.")
+
+
+def test_a_package_with_a_gate_and_a_financial_model_whose_prose_is_clean_is_final(db):
+    """Review B: our own code's text (the randomized 50/50 split, the payback
+    rule's 365 and 30, a guardrail's "3 complaints a week") must not hold a
+    package back; with clean model prose the package reaches FINAL."""
+    from app.pipeline import export_pdf as ep
+
+    scenario = {"name": "Expected", "assumption": "25% of no-shows recovered", "impact": "$3,705/year",
+                "impact_verified": True}
+    bc = {"pilot_gate": GATE,
+          "financial_model": {"lines": [VERIFIED], "scenarios": [scenario], "payback_note": PAYBACK}}
+    row = _seed(db, mvp_blueprint=CLEAN_MD, business_case_json=json.dumps(bc))
+    path = ep.build_pdf(row, "blueprint")
+    assert law.recorded(row)["Volume I"] == []
+    status = ep.release_status(row)
+    assert status["status"] == "final", status["reasons"]
+    for printed in ("50/50", "365", "3 complaints a week", "$3,705"):
+        assert _pages_holding(path, printed), printed
+
+
 def test_a_rebuild_replaces_stale_findings(db):
     from app.pipeline import export_pdf as ep
     from tests._integrity_stub import stamp_clean
@@ -654,6 +685,105 @@ def test_the_proposal_prints_a_proposed_price_as_its_figure():
             "proposed": [{"value": 28.0, "label": "proposed evening price", "unit": "USD"}], "cites": []}
     ctx = render.proposal_context(_system(), business_name="Halo Reformer Studio", answer={"move": move})
     assert "($28)" in ctx["move"]["proposed"]
+
+
+# -- records ---------------------------------------------------------------------------------
+
+def test_a_record_made_under_other_rules_is_stale_and_its_cached_file_rebuilt(db, monkeypatch):
+    from app.pipeline import export_pdf as ep
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD)
+    path = ep.build_pdf(row, "blueprint")
+    mtime = os.path.getmtime(path)
+    assert law.record(row.id, "Volume I", row.updated_at) is not None
+    monkeypatch.setattr(law, "LAW_VERSION", law.LAW_VERSION + "-changed")
+    assert law.record(row.id, "Volume I", row.updated_at) is None
+    assert ep.release_status(row)["law"]["Volume I"] == "not yet checked"
+    ep.build_pdf(row, "blueprint")
+    assert os.path.getmtime(path) != mtime
+    assert law.record(row.id, "Volume I", row.updated_at)["findings"] == []
+
+
+def test_an_absent_record_is_not_trusted_when_the_row_holds_the_document(db):
+    from datetime import datetime, timedelta
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD, technical_plan="## The build\nWe will add 37 screens.\n")
+    later = datetime.utcnow() + timedelta(seconds=5)
+    law.save(row.id, "Volume II", [], built_at=later, absent=True)           # a stray "absent" record
+    assert law.record(row.id, "Volume II", row.updated_at)["absent"] is True
+    assert law.states(row)["Volume II"] == "not yet checked"
+    law.ensure_records(row)
+    assert [f.number for f in law.recorded(row)["Volume II"]] == ["37"]
+
+
+def test_a_package_with_a_document_not_yet_checked_is_not_plainly_final(db):
+    from app.pipeline import export_pdf as ep
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD)
+    status = ep.release_status(row)
+    assert status["status"] == "draft"
+    assert "5 document(s) not yet checked against the figures since the last data change" in status["reasons"]
+    law.ensure_records(row)
+    status = ep.release_status(row)
+    assert status["status"] == "final", status["reasons"]
+    assert set(status["law"].values()) <= {"checked", "not produced"}
+
+
+def test_a_row_that_can_hold_no_record_is_not_judged_on_the_law():
+    from types import SimpleNamespace
+
+    from app.pipeline import export_pdf as ep
+
+    row = SimpleNamespace(id=None, updated_at=None, status="done", is_failed=False, mvp_blueprint="fine",
+                          technical_plan=None, qa_report_json='{"checks": [], "findings": []}')
+    assert not any("not yet checked" in r for r in ep.release_status(row)["reasons"])
+
+
+def test_a_sample_region_without_its_stamp_does_not_cost_the_zip_its_volumes(db, monkeypatch):
+    from app.routers.requests import build_zip
+    from app.screens import export as screens_export
+
+    def unstamped(req):
+        raise law.UnstampedSample("a sample region was drawn without its SAMPLE DATA stamp")
+
+    monkeypatch.setattr(screens_export, "build_system_pdf", unstamped)
+    row = _seed(db, mvp_blueprint=CLEAN_MD)
+    path, _ = build_zip(row)
+    import zipfile
+
+    with zipfile.ZipFile(path) as bundle:
+        assert [n for n in bundle.namelist() if n.endswith("Volume I - The Blueprint.pdf")]
+
+
+# -- the real uploads folder -------------------------------------------------------------------
+
+def _real_law_records() -> dict[str, float]:
+    from tests.conftest import REAL_UPLOADS_DIR
+
+    folder = os.path.join(REAL_UPLOADS_DIR, "exports")
+    if not os.path.isdir(folder):
+        return {}
+    return {n: os.path.getmtime(os.path.join(folder, n)) for n in os.listdir(folder) if "-law-" in n}
+
+
+def test_no_test_writes_a_law_record_into_the_real_uploads_folder():
+    """The suite that reaches the release law the most ways (a build, the
+    engine's adapter on a database row, the audit in a subprocess) leaves the
+    checkout's own uploads folder exactly as it found it."""
+    import subprocess
+    import sys
+
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    before = _real_law_records()
+    env = {k: v for k, v in os.environ.items() if k != "UPLOADS_DIR"}      # a run as a developer starts it
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+         "tests/engine/test_engine_legacy_adapter.py::test_run_technology_blueprint_creates_one_row_and_runs_the_orchestrator",
+         "tests/figures/test_audit.py::test_a_failed_build_leaves_no_trace_of_its_error_on_the_terminal",
+         "tests/figures/test_law.py::test_acceptance_an_untagged_number_makes_the_blueprint_a_draft_that_names_its_page"],
+        cwd=root, capture_output=True, text=True, timeout=600, env=env)
+    assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]
+    assert _real_law_records() == before
 
 
 # -- the client's emails -----------------------------------------------------------------------

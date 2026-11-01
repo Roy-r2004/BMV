@@ -23,7 +23,7 @@ from app.figures import labels
 from app.figures import model as M
 from app.figures.model import (
     Figure, FigureSet, Proposal, Reference, TheirsSource, Working,
-    as_json, display, display_number, displayed_value, from_claim, from_json, tag_word, to_claim,
+    as_json, display, display_number, displayed_value, from_claim, from_json, tag_word,
 )
 from app.pipeline import capacity, registry as R
 
@@ -86,10 +86,6 @@ def claim(**over):
             "text": "five"}
     base.update(over)
     return base
-
-
-def registry_errors(c):
-    return R.validate_registry({"claims": [c], "monthly_identity": R.MONTHLY_IDENTITY})
 
 
 # -- construction ------------------------------------------------------------
@@ -262,7 +258,7 @@ def test_display_number_agrees_with_display_on_every_number():
 def test_every_hardware_unit_the_registry_emits_prints_with_its_unit(unit):
     assert display(theirs(value="24", unit=unit)) == f"24 {unit}"
     c = claim(value=24.0, unit=unit)
-    assert to_claim(from_claim(c))["unit"] == unit
+    assert from_claim(c).unit == unit
 
 
 @pytest.mark.parametrize("one, many", [("ms", "ms"), ("second", "seconds"), ("minute", "minutes"),
@@ -274,7 +270,7 @@ def test_every_time_unit_the_registry_grammar_emits(one, many):
     assert display(theirs(value="1", unit=one)) == f"1 {one}"
     assert display(theirs(value="1", unit=many)) == f"1 {one}"
     c = claim(value=8.0, unit=many)
-    assert to_claim(from_claim(c))["unit"] == many
+    assert from_claim(c).unit == many
 
 
 def test_the_time_words_match_the_registry_grammar():
@@ -290,26 +286,17 @@ def test_tag_words():
         tag_word("guessed")
 
 
-# -- from_claim / to_claim ---------------------------------------------------
-
-CORE = ("id", "value", "unit", "time_basis", "provenance", "approval_status")
-
+# -- from_claim ---------------------------------------------------
 
 @pytest.mark.parametrize("cid", ["CF-01", "CF-02", "CF-03", "CF-04", "CE-01", "DV-01", "TB-01-day",
                                  "TB-01-month", "SA-01-1", "SI-01-1", "SI-01-month", "CAP-01"])
-def test_every_producer_claim_round_trips_its_core_fields(cid):
+def test_every_producer_claim_maps_to_a_figure_of_its_value(cid):
     c = claims_from_producers()[cid]
     f = from_claim(c)
-    back = to_claim(f)
-    for key in CORE:
-        if key not in c:
-            assert back[key]                  # CAP claims have no approval_status; the claim we build does
-            continue
-        if key == "unit" and c["unit"] == "ratio":
-            assert back["unit"] == "%"        # a ratio is a fraction shown as a percent
-            continue
-        assert back[key] == c[key], (cid, key)
-    assert registry_errors(back) == []
+    assert f.id == cid
+    expected = c["value"] * 100 if c["unit"] in ("%", "ratio") else c["value"]
+    assert float(f.value) == pytest.approx(expected)
+    assert f.unit == ("percent" if c["unit"] in ("%", "ratio") else c["unit"])
 
 
 def test_the_value_is_a_decimal_built_from_the_floats_repr():
@@ -346,7 +333,6 @@ def test_registry_division_noise_does_not_reach_the_display(answer, shown, as_fl
     f = from_claim(c)
     assert display(f) == shown
     assert f.unit == "percent" and f.precision == 1
-    assert to_claim(f)["value"] == as_float
 
 
 def test_cf_maps_to_theirs_with_the_question_and_the_text():
@@ -366,9 +352,7 @@ def test_ce_maps_to_theirs_with_file_sheet_and_cell():
     assert f.kind == "theirs" and f.source.file == "bookings.xlsx" and f.source.cell == "B7"
     assert f.source.field == "Sheet1"
     assert f.period == "week" and f.unit == ""
-    back = to_claim(f)
-    assert back["source"] == c["source"] and back["file"] == "bookings.xlsx" and back["cell"] == "B7"
-    assert back["origin"] == "file" and back["text"] == c["text"]
+    assert f.source.quote == c["text"]
 
 
 def test_dv_maps_to_derived_with_the_claims_source_as_its_working():
@@ -378,12 +362,10 @@ def test_dv_maps_to_derived_with_the_claims_source_as_its_working():
     assert f.source.text == "financial_model.lines[0]: 24 classes x $36 x 52"
     assert f.source.op == "derived_value"
     assert display(f) == "$44,928"
-    back = to_claim(f)
-    assert back["type"] == "derived_value" and back["source"] == c["source"]
     tb = from_claim(claims_from_producers()["TB-01-month"])
     assert tb.period == R.MONTHLY_IDENTITY and display(tb) == "$3,692.71"
-    assert to_claim(tb)["type"] == "time_basis_conversion"
-    assert to_claim(from_claim(claims_from_producers()["SI-01-1"]))["type"] == "scenario_impact"
+    assert tb.source.op == "time_basis_conversion"
+    assert from_claim(claims_from_producers()["SI-01-1"]).source.op == "scenario_impact"
 
 
 def test_sa_maps_to_ours_as_a_percent():
@@ -392,18 +374,12 @@ def test_sa_maps_to_ours_as_a_percent():
     assert f.kind == "ours" and f.unit == "percent" and f.value == D("25") and f.precision == 0
     assert display(f) == "25%"
     assert f.source == Proposal(note="25% (conservative scenario assumption)")
-    back = to_claim(f)
-    assert back["value"] == 0.25 and back["provenance"] == "consultant_proposed"
-    assert back["approval_status"] == PROPOSED
 
 
 def test_cap_claim_has_no_type_or_scope_and_still_maps():
     f = from_claim(claims_from_producers()["CAP-01"])
     assert f.kind == "derived" and f.unit == "classes" and f.period == "week"
     assert f.value == D("144") and display(f) == "144 classes"
-    back = to_claim(f)
-    assert back["type"] == "derived_value" and back["scope"] == "engagement" and back["phase"] == "all"
-    assert registry_errors(back) == []
 
 
 def test_percent_in_and_out():
@@ -412,8 +388,6 @@ def test_percent_in_and_out():
     assert from_claim(claim(value=0.07, unit="%")).value == D("7")          # not 7.000000000000001
     g = from_claim(claim(value=0.255, unit="%"))
     assert g.value == D("25.5") and g.precision == 1 and display(g) == "25.5%"
-    assert to_claim(f)["value"] == 0.25 and to_claim(f)["unit"] == "%"
-    assert to_claim(g)["value"] == 0.255
     assert from_claim(claim(value=1.5, unit="%")).value == D("150")
     # percentage points and pp are not fractions: the number stays as written
     assert from_claim(claim(value=5.0, unit="pp")).value == D("5")
@@ -438,15 +412,12 @@ def test_a_rejected_claim_is_not_a_figure():
         from_claim(claim(approval_status="rejected"))
 
 
-def test_provenance_maps_to_kind_and_back():
+def test_provenance_maps_to_kind():
     for prov, appr, kind in (("client_input", "client_stated", "theirs"),
                              ("machine_computed", "machine_verified", "derived"),
                              ("consultant_proposed", PROPOSED, "ours")):
         f = from_claim(claim(provenance=prov, approval_status=appr))
         assert f.kind == kind
-        back = to_claim(f)
-        assert (back["provenance"], back["approval_status"]) == (prov, appr)
-        assert registry_errors(back) == []
 
 
 def test_a_claim_the_mapping_cannot_read_is_refused_plainly():
@@ -455,11 +426,6 @@ def test_a_claim_the_mapping_cannot_read_is_refused_plainly():
                 claim(value=float("inf")), claim(id="")):
         with pytest.raises(ValueError):
             from_claim(bad)
-
-
-def test_a_reference_figure_is_not_a_registry_claim():
-    with pytest.raises(ValueError):
-        to_claim(reference())
 
 
 # -- JSON ----------------------------------------------------------------------
@@ -623,7 +589,6 @@ def test_the_approval_and_provenance_words_match_the_registry():
     for word in ("client_input", "machine_computed", "canonical_gate", "consultant_proposed"):
         assert word in R.PROVENANCE
     assert set(M._DERIVED_CLAIM_TYPES) <= R.CLAIM_TYPES
-    assert M._PROPOSED_CLAIM_TYPE in R.CLAIM_TYPES
 
 
 def test_the_model_files_are_ascii():

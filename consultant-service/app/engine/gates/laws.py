@@ -602,8 +602,13 @@ def law_infeasible_objective_without_decision(view: "RegistryView",
 def default_legacy_status(request_id: int) -> Mapping[str, Any]:
     """r30's own release decision for one delivered package: its gate reasons
     (export_pdf.release_status) and its integrity report
-    (integrity.current_report). Read, never written -- the adapter's Request
-    row is frozen after the pipeline returns (design 13.4)."""
+    (integrity.current_report). The Request row is read, never written -- it
+    is frozen after the pipeline returns (design 13.4). One thing IS written:
+    before the gate is read, `law.ensure_records` checks every document of the
+    package not yet checked since its data last changed and keeps the release
+    law's record of each beside the exports (`uploads/exports/<id>-law-*.json`),
+    so this reader can write files on a GET. The records are what a build would
+    write; they never touch the row."""
     from app.database import SessionLocal
     from app.models import Request
     from app.pipeline import export_pdf, integrity

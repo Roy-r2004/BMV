@@ -70,7 +70,7 @@ def _find(db, ref: str):
     from app.models import Request
 
     ref = ref.strip()
-    if ref.isdigit():
+    if ref.isascii() and ref.isdecimal():          # "12", never a superscript or another script's digits
         return db.get(Request, int(ref))
     return db.query(Request).filter(Request.public_id == ref).first()
 
@@ -205,9 +205,12 @@ def safe(text: object, limit: int = FIELD_MAX) -> str:
     """One field of client or model text made safe to print in TEXT mode: runs
     of whitespace become one space, every control, format, surrogate, private-use
     or unassigned character becomes "?", and the length is bounded. (JSON mode
-    is ASCII-escaped by `json.dumps`.)"""
-    text = _scrub(" ".join(str(text if text is not None else "").split()))
-    return text if len(text) <= limit else text[:max(0, limit - 3)].rstrip() + "..."
+    is ASCII-escaped by `json.dumps`.) The text is cut to length first and
+    scrubbed after, so what is printed is exactly what was scrubbed."""
+    text = " ".join(str(text if text is not None else "").split())
+    if len(text) > limit:
+        text = text[:max(0, limit - 3)].rstrip() + "..."
+    return _scrub(text)
 
 
 def _table(rows: list[tuple[str, ...]], head: tuple[str, ...]) -> list[str]:

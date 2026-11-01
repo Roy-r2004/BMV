@@ -703,6 +703,12 @@ def release_status(req: Request) -> dict:
     for where, place, said in law.page_reasons(recorded):
         reasons.append(f"{where}, {place}: {said} none of the client's figures, our workings, "
                        f"our estimates or a cited reference")
+    # A package is not plainly final while a document of it has not been checked
+    # since its data last changed. A row that can hold no record at all (made up
+    # in memory, no id or no time of change) is not judged on this.
+    unchecked = [where for where, found in recorded.items() if found is None]
+    if unchecked and law.can_record(req):
+        reasons.append(f"{len(unchecked)} document(s) not yet checked against the figures since the last data change")
     # client governance is the optional LATER state: a consultancy deliverable
     # is final on its quality checks alone; CLIENT APPROVED needs the client's
     # own owner and approver (intake facts, never invented)
@@ -868,10 +874,16 @@ _CELLHEAD_ON_ACCENT = ParagraphStyle(
 )
 
 
+class DrawnCell(str):
+    """A table cell this renderer (or the pipeline code it renders) wrote
+    entirely itself: furniture, drawn without the release law (`_drawn`)."""
+
+
 def _table(head: list[str], rows: list[list[str]], widths: list[float]) -> Table:
     data = [[Paragraph(t, _CELLHEAD_ON_ACCENT) for t in head]]
     for row in rows:
-        data.append([Paragraph(_rich(v or "—"), _S["cell"]) for v in row])
+        data.append([Paragraph(_drawn(v) if isinstance(v, DrawnCell) else _rich(v or "—"), _S["cell"])
+                     for v in row])
     table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), ACCENT),
@@ -1114,7 +1126,10 @@ def _pilot_gate_flowables(business_case: dict) -> list:
         # reference (the form every other section uses), then its components
         from app.pipeline import pilot_gate as _pg
 
-        flows.append(_callout(_rich(_pg.full_definition(gate)), ACCENT, TINT))
+        # the gate box: the pieces the gate module wrote itself (the randomized
+        # split) are drawn; the pieces carrying the model's words are content
+        flows.append(_callout("".join(_drawn(text) if drawn else _rich(text)
+                                      for text, drawn in _pg.full_definition_parts(gate)), ACCENT, TINT))
         flows.append(Spacer(1, 3))
         flows.append(Paragraph("<b>Referenced everywhere else as:</b> " + _rich(_pg.canonical_sentence(gate)), _S["body"]))
         flows.append(Spacer(1, 4))
@@ -1147,8 +1162,14 @@ def _pilot_gate_flowables(business_case: dict) -> list:
             ("Control group", "control"), ("Primary metric", "primary_metric"),
             ("Baseline", "baseline"), ("Target", "target"), ("Guardrail", "guardrail"),
         ) if gate.get(key)]
+    # the control row the gate module writes itself (the canonical randomized
+    # split, `pilot_gate.assignment_sentence`) is drawn; any other value is content
+    from app.pipeline import pilot_gate as _pg_rows
+
+    ours = _pg_rows.assignment_sentence(gate)
     flows.append(_table(["Parameter", "Value"],
-                        [[label, str(v)] for label, v in rows], [34 * mm, 134 * mm]))
+                        [[label, DrawnCell(v) if str(v) == ours else str(v)] for label, v in rows],
+                        [34 * mm, 134 * mm]))
     approvals = [a for a in (gate.get("approvals_required") or []) if a]
     if approvals:
         flows.append(Paragraph("Before launch, you approve:", _S["body"]))
@@ -1188,11 +1209,19 @@ def _working(line: dict) -> str:
     """A verified line's arithmetic, through the law as a working: each operand
     must be a figure we hold, or a calendar constant (`figures.CONSTANTS`), or
     the line's own period step; a share written as 0.12 matches our 12%."""
+    step = _period_step(line)
+    return _formula(str(line.get("arithmetic") or ""), extra=[step] if step else [])
+
+
+def _formula(text: str, extra=()) -> str:
+    """Arithmetic printed in a document (a working, the payback rule): content
+    whose numbers must be figures we hold, save the calendar constants the
+    arithmetic is allowed (`figures.CONSTANTS`: 52, 12, 7, 365, 30...) and any
+    `extra` the caller verified (a line's period step)."""
     from app.pipeline.figures import CONSTANTS
 
-    allowed = list(CONSTANTS) + ([_period_step(line)] if _period_step(line) else [])
-    text = _strip_artifacts(str(line.get("arithmetic") or ""))
-    return _inline(law.check(text, region="working", constants=allowed, fractions_as_percent=True))
+    return _inline(law.check(_strip_artifacts(text), region="working", constants=list(CONSTANTS) + list(extra),
+                             fractions_as_percent=True))
 
 
 def _financial_model_flowables(business_case: dict) -> list:
@@ -1258,7 +1287,9 @@ def _financial_model_flowables(business_case: dict) -> list:
             [22 * mm, 78 * mm, 74 * mm],
         ))
     if payback:
-        flows.append(Paragraph("<b>Payback:</b> " + _rich(payback), _S["body"]))
+        # the payback rule ("annual ÷ 365 × 30") is arithmetic: its calendar
+        # constants pass, any other number in it must be a figure we hold
+        flows.append(Paragraph("<b>Payback:</b> " + _formula(payback), _S["body"]))
     if missing:
         flows.append(Paragraph("To complete this model, we still need from you:", _S["body"]))
         for m in missing:
@@ -1930,6 +1961,18 @@ _VOLUME_LABELS = {"blueprint": ("The Blueprint", "Volume I — strategy"),
                   "operations": ("The Operations Manual", "Volume III — running it day to day")}
 
 
+def volume_ready(req: Request, kind: str) -> bool:
+    """Whether the row holds what the volume is built from (the same test
+    `build_pdf` and `_volume_flows` apply before they refuse)."""
+    if kind == "blueprint":
+        return bool(getattr(req, "mvp_blueprint", None))
+    if kind == "technical":
+        return bool(getattr(req, "technical_plan", None))
+    procedures = (_loads(getattr(req, "procedures_json", None), {}) or {}).get("procedures") or []
+    return bool(procedures or _loads(getattr(req, "org_json", None), None)
+                or _loads(getattr(req, "checklists_json", None), None))
+
+
 def check_volume(req: Request, kind: str) -> None:
     """The law-only pass of one volume (`law.ensure_records`): its flowables
     made inside the law, no PDF laid out, no page located. A volume the package
@@ -1953,20 +1996,26 @@ def check_volume(req: Request, kind: str) -> None:
 
 
 def gate_figures(gate: dict | None) -> list:
-    """The pilot gate's own numbers as the figures they are: the duration, the
-    target and the guardrail the gate proposes are ours, registered with the
-    typed gate for the client's approval (the registry's `claim_values` counts
-    them as the gate's). The baseline is not one of them: it is the client's
-    figure or is measured in week 1."""
+    """The pilot gate's own numbers as the figures they are: the duration and
+    the target the gate proposes are ours, registered with the typed gate for
+    the client's approval (the registry's `claim_values` counts them as the
+    gate's). The target is held in the unit the gate's sentences print it in
+    (`pilot_gate._unit_words`: a percent, or "points"). The guardrails are
+    proposals too, labelled for approval where they print: each number in them
+    is registered as ours, read with its unit and period the way the case file
+    reads a sentence ("3 complaints a week"). The baseline is not one of them:
+    it is the client's figure or is measured in week 1."""
     from decimal import Decimal
 
+    from app.figures import casefile
     from app.figures.model import Figure, Proposal
 
     if not isinstance(gate, dict):
         return []
+    target_unit = "percent" if gate.get("change_kind") in ("percentage_point", "relative") else "points"
     units = {"duration_value": "week" if (gate.get("duration_unit") or "week") == "week"
              else str(gate.get("duration_unit")),
-             "target_value": "percent", "guardrail_value": ""}
+             "target_value": target_unit}
     out = []
     for key, unit in units.items():
         v = gate.get(key)
@@ -1976,6 +2025,15 @@ def gate_figures(gate: dict | None) -> list:
         places = max(0, -value.as_tuple().exponent)
         out.append(Figure(f"PG-{key.split('_')[0].upper()}", value, unit, None, "ours",
                           Proposal(note=f"the pilot gate's {key.split('_')[0]}"), places))
+    guardrails = list(gate.get("guardrails")) if isinstance(gate.get("guardrails"), list) else []
+    if isinstance(gate.get("guardrail"), str):                     # the gate's older shape
+        guardrails.append(gate["guardrail"])
+    for i, text in enumerate(guardrails, 1):
+        if not isinstance(text, str) or not text.strip():
+            continue
+        for _, f in casefile.read_text(text.strip(), f"PG-GUARD{i}", limit=settings.CASE_FILE_FIGURES_PER_TEXT):
+            out.append(Figure(f.id, f.value, f.unit, f.period, "ours",
+                              Proposal(note="a guardrail of the pilot gate, proposed for approval"), f.precision))
     return out
 
 

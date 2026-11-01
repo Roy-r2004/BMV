@@ -77,6 +77,11 @@ def build_system_pdf(req: Request) -> str:
     return path
 
 
+def proposal_ready(req: Request) -> bool:
+    """Whether a system has been drawn for the request (the proposal's source)."""
+    return bool(generate.load(req))
+
+
 def check_proposal(req: Request) -> None:
     """The proposal's law-only pass (`law.ensure_records`). A package with no
     system drawn yet is recorded as having no proposal."""

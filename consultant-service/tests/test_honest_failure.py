@@ -2514,6 +2514,8 @@ REASON_KINDS = [
      "or a cited reference",
      "Some figures in the documents are not yet tied to your figures, our workings, our estimates or a "
      "cited source."),
+    ("2 document(s) not yet checked against the figures since the last data change",
+     "Some of the documents have not yet been checked against your figures."),
 ]
 
 

@@ -390,6 +390,23 @@ def test_safe_replaces_everything_a_terminal_could_act_on(text):
     assert audit.safe(None) == ""
 
 
+def test_safe_cuts_to_length_then_scrubs_what_it_kept():
+    got = audit.safe("w" * 46 + "\x1b[2J and more", 50)
+    assert len(got) == 50 and got.endswith("...") and _unsafe(got) == []
+    assert got.startswith("w" * 46 + "?")
+
+
+@pytest.mark.parametrize("ref", ["\N{SUPERSCRIPT TWO}", "1\N{SUPERSCRIPT TWO}", "٣", "１"])
+def test_a_reference_that_is_not_ascii_digits_is_never_read_as_an_id(db, ref):
+    from app.database import SessionLocal
+
+    session = SessionLocal()
+    try:
+        assert audit._find(session, ref) is None       # looked up as a public id, which none has
+    finally:
+        session.close()
+
+
 def test_the_last_pass_before_printing_scrubs_what_a_field_missed():
     import io
 

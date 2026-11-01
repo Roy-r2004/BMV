@@ -1170,6 +1170,9 @@ def test_release_status_comes_from_the_runs_own_records(client):
     assert "high finding" in ep.release_status(dirty)["reasons"][0]
     assert ep.release_status(artifacty)["status"] == "draft"
     assert "artifacts" in ep.release_status(artifacty)["reasons"][0]
+    from app.figures import law
+
+    law.ensure_records(clean)  # the release law reads every document before the gate answers
     final = ep.release_status(clean)
     assert (final["status"], final["reasons"], final["status_label"]) == ("final", [], "FINAL — CONSULTANCY DELIVERABLE")
     db.close()
@@ -1244,6 +1247,9 @@ def test_repaired_findings_release_the_gate(client):
                 qa_report_json=json.dumps({"checks": [], "findings": [
                     {"severity": "high", "issue": "was wrong", "repaired": True},
                     {"severity": "low", "issue": "cosmetic"}]}))
+    from app.figures import law
+
+    law.ensure_records(row)  # the release law reads every document before the gate answers
     assert ep.release_status(row)["status"] == "final"
     db.close()
 
@@ -1365,6 +1371,9 @@ def test_ops_manual_carries_doc_control_and_state_legend(client):
     db = SessionLocal()
     row = _seed(db, mvp_blueprint="doc",
                 qa_report_json=json.dumps({"checks": [], "findings": []}))
+    from app.figures import law
+
+    law.ensure_records(row)  # the release law reads every document before the gate answers
     text = _flow_text(ep._doc_control_flowables(row))
     assert "Document control" in text and "FINAL" in text
     assert "Uncontrolled when printed" in text
@@ -1433,6 +1442,9 @@ def test_release_audit_records_hashes_and_detects_mutation(client, tmp_path, mon
                     {"name": "P", "phase": "pilot", "module": "The pilot",
                      "steps": [{"actor": "you", "step": "x"}], "exceptions": []}]}),
                 qa_report_json=json.dumps({"checks": [], "findings": []}))
+    from app.figures import law
+
+    law.ensure_records(row)  # the release law reads every document before the gate answers
     record = release_audit.audit_run(row)
     assert record["status"] == "final"
     assert record["revision"].endswith("-r1")
@@ -1522,8 +1534,14 @@ def test_auditor_arithmetic_error_cannot_block_release(client):
     from app.pipeline.adjudicate import adjudicate
 
     db = SessionLocal()
+    # the verified line's operands are the client's own answers: the release law
+    # holds every operand of a working to a figure the client gave
     row = _seed(db, mvp_blueprint="doc",
                 business_case_json=json.dumps(_verified_fm()),
+                ops_numbers_json=json.dumps([
+                    {"question": "How many deliveries a day?", "answer": "900 a day"},
+                    {"question": "What share fail the first attempt?", "answer": "12% fail the first attempt"},
+                    {"question": "What does a re-attempt cost?", "answer": "$1.80 per re-attempt"}]),
                 qa_report_json=json.dumps({"checks": [], "findings": [{
                     "severity": "high", "source": "qa_numbers",
                     "where": "financial_model.lines[0].annual",
@@ -1533,6 +1551,9 @@ def test_auditor_arithmetic_error_cannot_block_release(client):
     db.commit()
     assert result["false_positives"] == 1 and result["open_real"] == 0
     assert "machine-verified" in result["ledger"][0]["evidence"]
+    from app.figures import law
+
+    law.ensure_records(row)  # the release law reads every document before the gate answers
     assert ep.release_status(row)["status"] == "final"
     db.close()
 
@@ -1881,6 +1902,9 @@ def test_failed_or_unaudited_runs_can_never_be_final(client):
     assert "no documents" in " ".join(ep.release_status(empty)["reasons"])
     complete = _seed(db, mvp_blueprint="doc",
                      qa_report_json=json.dumps({"checks": [], "findings": []}))
+    from app.figures import law
+
+    law.ensure_records(complete)  # the release law reads every document before the gate answers
     assert ep.release_status(complete)["status"] == "final"
     db.close()
 
