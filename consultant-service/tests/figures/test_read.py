@@ -115,12 +115,12 @@ MUST_FLAG = [
     ("10-15% more", ["10", "15"], ["percent", "percent"]),
     ("$20-$30 a class", ["20", "30"], ["money", "money"]),
     ("10-15k a month", ["10000", "15000"], ["range", "range"]),
-    ("Weeks 1-2", ["1", "2"], ["range", "range"]),
+    ("weeks 1-2", ["1", "2"], ["range", "range"]),   # lower case, no reference lead: not a plan position
     ("2000-3000 members", ["2000", "3000"], ["range", "range"]),
     ("2,025 members", ["2025"], ["digit"]),
     ("$2025", ["2025"], ["money"]),
     ("1 of 5 explanations", ["1", "5"], ["digit", "digit"]),
-    ("zero and 0", ["0"], ["digit"]),
+    ("zero and 0", ["0", "0"], ["word", "digit"]),
     ("covers .5 of it", ["0.5"], ["digit"]),
     ("12 reformers and twelve mats", ["12", "12"], ["digit", "word"]),
     ("6 classes a day, six days a week", ["6", "6"], ["digit", "word"]),
@@ -385,8 +385,8 @@ def test_a_multiplier_word_before_what_it_multiplies_counts(text, want):
 
 
 @pytest.mark.parametrize("text", [
-    "no double booking", "a triple room", "bookings double.", "double-check it",
-    "triple-booked", "a double", "Double booking is gone",
+    "no double booking", "a triple room", "double-check it",
+    "triple-booked", "Double booking is gone",
 ])
 def test_a_multiplier_word_as_a_modifier_is_not_a_mention(text):
     assert mentions(text) == []
@@ -598,7 +598,7 @@ def test_markdown_emphasis_does_not_hide_a_number(text, want):
 @pytest.mark.parametrize("text,want", [
     ("10x12", ["10", "12"]),
     ("1h30", ["1", "30"]),
-    ("24x7", ["24", "7"]),
+    ("10x24", ["10", "24"]),
     ("2x2", ["2", "2"]),
     ("M3-A, CF-04 and v2", []),
 ])
@@ -885,7 +885,7 @@ def test_a_year_shaped_number_before_a_noun_is_a_count(text, want):
 
 @pytest.mark.parametrize("text", [
     "in 2025.", "in 2025, revenue grew", "In 2025 the studio grew", "since 2019 we have",
-    "from 2020 to 2025", "in 2025-2026", "during 2024 and in 2025", "Q3 2025", "FY 2025 May",
+    "from 2020 to 2025", "in 2025-2026", "during 2024, and in 2025", "Q3 2025", "FY 2025 May",
     "until 2027 as planned",
 ])
 def test_a_year_in_date_position_is_a_date(text):
@@ -969,6 +969,193 @@ def test_a_range_hands_a_shape_only_to_a_bare_end_with_no_noun(text, want):
 
 def test_a_label_word_number_before_a_function_word_is_a_label():
     assert mentions("See Phase two of the plan, Q3 and CF-04.") == []
+
+
+# -- third review ---------------------------------------------------------------------------
+
+# 1. a colon pattern is a time only with am/pm, a time word before it, or an hour 13-23
+
+@pytest.mark.parametrize("text,want", [
+    ("an instructor-to-client ratio of 1:10", [("1", "1", "digit"), ("10", "10", "digit")]),
+    ("1:12", [("1", "1", "digit"), ("12", "12", "digit")]),
+    ("1:20", [("1", "1", "digit"), ("20", "20", "digit")]),
+    ("a 10:30 split", [("10", "10", "digit"), ("30", "30", "digit")]),
+    ("at 10:30", [("10:30", "10", "time")]),
+    ("18:00", [("18:00", "18", "time")]),
+    ("6:30pm", [("6:30pm", "18", "time")]),
+    ("from 9:00 to 17:00", [("9:00", "9", "time"), ("17:00", "17", "time")]),
+    ("doors open 09:00", [("09:00", "9", "time")]),
+    ("1:1 coaching", []),
+])
+def test_a_colon_pattern_is_a_ratio_unless_it_is_clearly_a_time(text, want):
+    assert readings(text) == want
+
+
+# 2. multiplier words are read in every use but compounds and the nouns they describe
+
+@pytest.mark.parametrize("text", [
+    "could double by next summer", "Bookings will double.", "Aim to triple bookings",
+    "Doubling membership is realistic.", "a double", "bookings double.", "revenue doubles",
+    "tripling the classes", "will double bookings",
+])
+def test_a_multiplier_word_is_read_as_a_verb_too(text):
+    found = mentions(text)
+    assert len(found) == 1 and found[0].form == "multiplier", found
+
+
+@pytest.mark.parametrize("text", [
+    "no double booking", "a double room", "double shifts", "double beds", "double-check",
+    "triple-booked", "double glazing", "a double major", "double standard", "double agent",
+    "double take", "double vision", "double space", "double entry", "double clicks", "double checks",
+])
+def test_a_multiplier_word_as_a_compound_or_before_its_noun_is_not_read(text):
+    assert mentions(text) == []
+
+
+# 3. slash and hyphen dates need a four-digit year
+
+@pytest.mark.parametrize("text,want", [
+    ("10/31/2025", [("10/31/2025", "10", "date")]),
+    ("31/10/2025", [("31/10/2025", "31", "date")]),
+    ("2025-10-31", [("2025-10-31", "2025", "date")]),
+    ("31-10-2025", [("31-10-2025", "31", "date")]),
+    ("2025/10/31", [("2025/10/31", "2025", "date")]),
+    ("5/10/20 class packs", [("5", "5", "digit"), ("10", "10", "digit"), ("20", "20", "digit")]),
+    ("5/10/15% apply", [("5", "5", "digit"), ("10", "10", "digit"), ("15%", "15", "percent")]),
+    ("5/10", [("5", "5", "digit"), ("10", "10", "digit")]),
+    ("31/10/25", [("31", "31", "digit"), ("10", "10", "digit"), ("25", "25", "digit")]),
+])
+def test_a_numeric_date_needs_a_four_digit_year(text, want):
+    assert readings(text) == want
+
+
+# 4. words that also follow counts do not make a month and day a date
+
+@pytest.mark.parametrize("text,want", [
+    ("In May 12 to 15 new members", [("12", "12", "range"), ("15", "15", "range")]),
+    ("In June 10 or 12 members cancelled", [("10", "10", "digit"), ("12", "12", "digit")]),
+    ("In March 12 of our 40 members renewed", [("12", "12", "digit"), ("40", "40", "digit")]),
+    ("In March 12 were lost", [("12", "12", "digit")]),
+    ("May 10-15 new members", [("10", "10", "range"), ("15", "15", "range")]),
+    ("We lost 5 of April's new members", [("5", "5", "digit")]),
+])
+def test_a_month_before_a_count_word_reads_the_count(text, want):
+    assert readings(text) == want
+
+
+@pytest.mark.parametrize("text,want", [
+    ("May 10-15 we close", [("May 10", "10", "date"), ("15", "15", "date")]),
+    ("May 10-15.", [("May 10", "10", "date"), ("15", "15", "date")]),
+    ("On May 12 the studio opens", [("May 12", "12", "date")]),
+    ("May 12 is the date", [("May 12", "12", "date")]),
+    ("By June 15, instructors had left", [("June 15", "15", "date")]),
+])
+def test_a_month_and_day_before_a_date_word_is_a_date(text, want):
+    assert readings(text) == want
+
+
+# 5. a lone x glued before a number is a multiplier
+
+def test_x_before_a_number_is_a_multiplier():
+    assert ("x3", "3", "multiplier") in readings("Grow revenue x3 in two years")
+    assert readings("Grow revenue x3 in two years") == [("x3", "3", "multiplier"), ("two", "2", "word")]
+    assert readings("X2 the bookings") == [("X2", "2", "multiplier")]
+    assert readings("x86-64 servers and v2") == []
+
+
+# 6. decade words read like "30s"
+
+@pytest.mark.parametrize("text,value", [
+    ("in their thirties", "30"), ("the twenties", "20"), ("mid-forties", "40"), ("the nineties", "90"),
+])
+def test_a_decade_word_reads_its_decade(text, value):
+    found = mentions(text)
+    assert [(m.value, m.form) for m in found] == [(D(value), "digit")]
+
+
+# 7. more currency prefixes, in the one tuple
+
+@pytest.mark.parametrize("text,span", [
+    ("Prices start at R500 a month", "R500"), ("RM500", "RM500"), ("Dh500", "Dh500"),
+    ("kr500", "kr500"), ("Kr 500", "Kr 500"), ("MXN500", "MXN500"), ("BRL 120", "BRL 120"),
+    ("500 PLN", "500 PLN"),
+])
+def test_more_currency_prefixes_make_money(text, span):
+    found = [m for m in mentions(text) if m.form == "money"]
+    assert [m.text for m in found] == [span]
+    for code in ("R", "RM", "Dh", "kr", "Kr", "MXN", "OMR"):
+        assert code in R._CURRENCY_CODES
+
+
+# 8. idioms hold no quantity; working hours are times
+
+@pytest.mark.parametrize("text", ["24/7", "open 24x7", "1-on-1", "one-on-one", "1:1 coaching", "one to one"])
+def test_an_idiom_is_not_a_quantity(text):
+    assert mentions(text) == []
+
+
+def test_nine_to_five_is_working_hours():
+    assert readings("a 9-5 job") == [("9", "9", "time"), ("5", "17", "time")]
+    assert readings("9 to 5") == [("9", "9", "time"), ("5", "17", "time")]
+    assert unsupported("a 9-5 job", NOTHING) == []
+    assert unsupported("a 9-5 job", NOTHING, hours={9, 17}) == []
+    assert [m.value for m in unsupported("a 9-5 job", NOTHING, hours={9})] == [D(17)]
+
+
+@pytest.mark.parametrize("text,want", [
+    ("a 5-star review", ["5"]), ("the 80/20 rule", ["80", "20"]), ("4K video", ["4K"]), ("3D scans", ["3"]),
+])
+def test_things_that_look_like_idioms_but_hold_numbers_are_read(text, want):
+    assert [m.text for m in mentions(text)] == want
+
+
+# 9. positions on the plan's own time axis are dates
+
+@pytest.mark.parametrize("text,want", [
+    ("Week 6", [("6", "6", "date")]),
+    ("Weeks 1-4", [("1", "1", "date"), ("4", "4", "date")]),
+    ("Month 1-3", [("1", "1", "date"), ("3", "3", "date")]),
+    ("Day 30", [("30", "30", "date")]),
+    ("Year 1", [("1", "1", "date")]),
+    ("by Week 6", [("6", "6", "date")]),
+    ("in week 6", [("6", "6", "date")]),
+    ("Quarter 2.", [("2", "2", "date")]),
+    ("Week 6 costs $50", [("6", "6", "date"), ("$50", "50", "money")]),
+    ("Week 6 - 12 members", [("6", "6", "date"), ("12", "12", "digit")]),
+    ("week 6 starts", [("6", "6", "digit")]),
+    ("Week 12 members", [("12", "12", "digit")]),
+])
+def test_a_plan_position_is_a_date_and_a_quantity_after_it_is_read(text, want):
+    assert readings(text) == want
+
+
+# 10. minor
+
+def test_a_half_dozen_and_a_half_million_read_the_quantity():
+    assert [(m.text, m.value, m.form) for m in mentions("A half dozen instructors")] == [
+        ("A half dozen", D(6), "word")]
+    assert [(m.text, m.value, m.form) for m in mentions("a half million dollars")] == [
+        ("a half million dollars", D(500000), "money")]
+
+
+def test_vulgar_half_zero_noon_and_midnight():
+    assert readings("1\u00bd hours") == [("1", "1", "digit"), ("\u00bd", "50", "fraction")]
+    assert readings("zero churn") == [("zero", "0", "word")]
+    assert readings("at noon") == [("noon", "12", "time")]
+    assert readings("by midnight") == [("midnight", "0", "time")]
+    assert readings("12 noon") == [("12 noon", "12", "time")]
+    assert readings("afternoon") == []
+
+
+@pytest.mark.parametrize("text,want", [
+    ("Phase 12 weeks is enough", ["12"]),
+    ("Phase 2 starts", []),
+    ("Phase 12 is next", []),
+    ("Phase 12.", []),
+    ("Exhibit 2.1 shows it", []),
+])
+def test_a_label_number_of_two_digits_must_end_the_phrase(text, want):
+    assert [m.text for m in mentions(text)] == want
 
 
 # -- the module stays its own grammar -----------------------------------------------------

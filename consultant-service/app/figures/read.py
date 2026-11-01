@@ -122,9 +122,12 @@ _SIGNS = "$\u20ac\u00a3\u00a5\u20b9"
 _SIGN = f"[{_SIGNS}]"
 _CURRENCY_CODES: tuple[str, ...] = (
     "USD", "EUR", "GBP", "AUD", "CAD", "CHF", "JPY", "CNY", "INR", "SGD", "AED", "SAR", "ZAR",
-    "NZD", "SEK", "NOK", "DKK", "HKD", "Rs",
+    "NZD", "SEK", "NOK", "DKK", "HKD", "MXN", "BRL", "PLN", "TRY", "KRW", "THB", "IDR", "MYR",
+    "PHP", "CZK", "HUF", "ILS", "EGP", "NGN", "KES", "PKR", "VND", "TWD", "RUB", "UAH", "QAR",
+    "KWD", "BHD", "OMR",
+    "Rs", "R", "RM", "Dh", "kr", "Kr",          # local prefixes: rupee, rand, ringgit, dirham, krona/krone
 )
-_CODE = "(?:" + "|".join(_CURRENCY_CODES) + ")"
+_CODE = "(?:" + "|".join(sorted(_CURRENCY_CODES, key=len, reverse=True)) + ")"   # RM before R
 _CUR = rf"(?:[A-Z]{{1,3}}\$|{_SIGN})"          # $, US$ / A$ style, the other signs
 # Thousands in groups of three, by comma or by one kind of space (a space, a thin
 # space, a no-break space, a narrow no-break space); a point only with a digit
@@ -161,17 +164,41 @@ _TIME_RANGE = re.compile(
     rf"(?P<h2>\d{{1,2}})(?:[:.](?P<m2>[0-5]\d))?{_SP}?(?P<ap>[ap]){_MER}", re.I)
 _TIME_12 = re.compile(rf"(?P<h>\d{{1,2}})(?:[:.](?P<mi>[0-5]\d))?{_SP}?(?P<ap>[ap]){_MER}", re.I)
 _TIME_24 = re.compile(r"(?P<h>[01]?\d|2[0-3]):(?P<mi>[0-5]\d)(?![\d:])")
+# A colon pattern without am/pm is a clock time only after a time word, with an
+# hour of 13-23, or with a zero-led hour (09:00); otherwise it is a ratio and both
+# sides are numbers ("a ratio of 1:10", "a 10:30 split").
+_TIME_LEADS = frozenset({"at", "from", "until", "till", "by", "before", "after", "around", "between",
+                         "to", "and"})
+_NOON = re.compile(rf"(?:12{_SP}*)?(?P<w>noon|midnight)(?![A-Za-z])", re.I)
+# "9-5" and "9 to 5" are working hours: two clock times, 9 and 17
+_NINE_TO_FIVE = re.compile(rf"9(?:{_SP}*[-\u2013]{_SP}*|{_SP}+to{_SP}+)(?P<five>5)(?![\d.,:%A-Za-z])")
+
+# Idioms that hold digits but no quantity: the one closed list.
+_IDIOMS: tuple[str, ...] = ("24/7", "24x7", "1-on-1", "one-on-one", "1:1", "one to one")
+_IDIOM = re.compile("(?i:" + "|".join(re.escape(i) for i in _IDIOMS) + ")(?![A-Za-z0-9])")
+
+# "x3": a lone x glued before a number is a multiplier ("grow revenue x3"); a
+# longer identifier ("x86-64", "x2b") is not
+_X_TIMES = re.compile(r"[xX](?P<n>\d+(?:\.\d+)?)(?![A-Za-z0-9_-]|\.\d)")
+
+# the vulgar fractions, as percent numbers: "1\u00bd hours" is 1 and a half
+_VULGAR = {"\u00bd": 50, "\u00bc": 25, "\u00be": 75}
 
 # dates: month names are proper nouns, so only capitalised ones are read
 _MONTHS = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?"
            r"|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)")
 _YEAR = r"(?:19\d\d|20\d\d|2100)(?!\d)"
-_DAY_MONTH = re.compile(rf"(?P<d>\d{{1,2}})(?:st|nd|rd|th)?(?:{_SP}+of)?{_SP}+{_MONTHS}(?![A-Za-z])")
+# a possessive month owns something, so the number before it is a count: "5 of April's members"
+_DAY_MONTH = re.compile(
+    rf"(?P<d>\d{{1,2}})(?:st|nd|rd|th)?(?:{_SP}+of)?{_SP}+{_MONTHS}(?![A-Za-z]|['\u2019]s(?![A-Za-z]))")
 _MONTH_DAY = re.compile(
     rf"{_MONTHS}\.?{_SP}+(?P<d>\d{{1,2}})(?P<suf>st|nd|rd|th)?(?![A-Za-z0-9%]|[.:]\d)")
 _MONTH_DAY_SPAN = re.compile(rf"{_SP}*[-\u2013]{_SP}*(?P<d>\d{{1,2}})(?:st|nd|rd|th)?(?![A-Za-z0-9%]|[.:]\d)")
 _ISO_DATE = re.compile(r"(?P<y>19\d\d|20\d\d|2100)-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)")
-_SLASH_DATE = re.compile(r"(?P<d>\d{1,2})/\d{1,2}/(?:\d{4}|\d{2})(?![\d/])")
+# numeric dates need a four-digit year: 31/10/2025, 10/31/2025, 31-10-2025, 2025/10/31.
+# "5/10/20 class packs" and "5/10" are numbers.
+_SLASH_DATE = re.compile(r"(?P<d>\d{1,2})(?P<s>[/-])(?P<e>\d{1,2})(?P=s)(?:19\d\d|20\d\d|2100)(?![\d/-]?\d)")
+_YEAR_FIRST_DATE = re.compile(r"(?P<y>19\d\d|20\d\d|2100)/(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?![\d/])")
 _YEAR_AFTER_DATE = re.compile(rf",?{_SP}+(?P<y>19\d\d|20\d\d|2100)(?![\d,%A-Za-z]|\.\d)")
 
 # What may follow a date so that it reads as one: the end, punctuation, or a
@@ -183,11 +210,19 @@ _FUNCTION_WORDS = (
 )
 _FUNCTION = "(?i:" + "|".join(sorted(_FUNCTION_WORDS, key=len, reverse=True)) + r")(?![A-Za-z])"
 _ENDS = rf"{_SP}*(?:[\r\n]|$)|[.!?;:,)\]]"
-_DATE_FOLLOW = re.compile(
-    rf"{_ENDS}|{_SP}+{_FUNCTION}|{_SP}+\d{{1,2}}(?:[:.][0-5]\d)?{_SP}?[ap]\.?{_SP}?m(?![A-Za-z])"
-    rf"|{_SP}+(?:[01]?\d|2[0-3]):[0-5]\d|{_SP}*[-\u2013]{_SP}*(?:\d{{1,2}}(?!\d)|{_MONTHS})")
+# After a date the narrower list: words that also follow counts ("May 12 to 15 new
+# members", "12 of our 40", "12 were lost") make the number a count.
+_DATE_WORDS = (
+    "at", "on", "in", "from", "until", "till", "through", "by", "for", "with", "as", "is", "was", "has",
+    "we", "our", "i", "you", "they", "he", "she", "it", "the", "a", "an", "that", "which", "who",
+)
+_DATE_WORD = "(?i:" + "|".join(sorted(_DATE_WORDS, key=len, reverse=True)) + r")(?![A-Za-z])"
+_DATE_END = re.compile(
+    rf"{_ENDS}|{_SP}+{_DATE_WORD}|{_SP}+\d{{1,2}}(?:[:.][0-5]\d)?{_SP}?[ap]\.?{_SP}?m(?![A-Za-z])"
+    rf"|{_SP}+(?:[01]?\d|2[0-3]):[0-5]\d")
+_DASH_MONTH = re.compile(rf"{_SP}*[-\u2013]{_SP}*{_MONTHS}(?![A-Za-z])")
 _YEAR_FOLLOW = re.compile(
-    rf"{_ENDS}|{_SP}+{_FUNCTION}|{_SP}+{_MONTHS}(?![A-Za-z])|(?:{_SP}+to{_SP}+|{_SP}*[-\u2013]{_SP}*){_YEAR}")
+    rf"{_ENDS}|{_SP}+{_DATE_WORD}|{_SP}+{_MONTHS}(?![A-Za-z])|(?:{_SP}+to{_SP}+|{_SP}*[-\u2013]{_SP}*){_YEAR}")
 
 # A bare range end takes the other end's money or percent only when no noun of its
 # own follows it: the end, punctuation, a function word, or a rate ("$20-30 a class",
@@ -248,18 +283,31 @@ _NOT_ALONE = frozenset({"one", "first", "second"})
 _AFTER_A = frozenset({"dozen", "hundred", *_SCALES})
 _STARTS = frozenset({*_UNITS, *_TEENS, *_TENS, *_ORD_UNITS, *_ORD_TEENS, *_ORD_TENS})
 
-# always a factor
-_MULT_ALWAYS = {"twice": 2, "doubled": 2, "tripled": 3, "quadrupled": 4}
-# a factor only before what it multiplies ("double the revenue"); otherwise a
-# modifier ("no double booking", "a triple room", "double-check")
-_MULT_BEFORE = {
-    **{f"double{s}": 2 for s in ("", "s")}, "doubling": 2,
-    **{f"triple{s}": 3 for s in ("", "s")}, "tripling": 3,
-    **{f"quadruple{s}": 4 for s in ("", "s")}, "quadrupling": 4,
+# Multiplier words are read in every use, verbs included ("bookings will double"),
+# except in a hyphenated compound ("double-check") or right before a noun they
+# only describe ("double booking", "a triple room").
+_MULT_WORDS = {
+    "twice": 2,
+    **{f"double{s}": 2 for s in ("", "s", "d")}, "doubling": 2,
+    **{f"triple{s}": 3 for s in ("", "s", "d")}, "tripling": 3,
+    **{f"quadruple{s}": 4 for s in ("", "s", "d")}, "quadrupling": 4,
 }
-_MULTIPLIED = re.compile(
-    rf"{_SP}+(?:(?i:the|your|our|their|its|what|that|as)(?![A-Za-z])|[\d.{_SIGNS}]"
-    rf"|(?i:{'|'.join(sorted({*_UNITS, *_TEENS, *_TENS}, key=len, reverse=True))})(?![A-Za-z]))")
+# after "to" or a modal the word is a verb, and the noun after it is its object:
+# "aim to triple bookings", "will double bookings"
+_MULT_VERB_LEADS = frozenset({"to", "will", "would", "could", "can", "should", "may", "might", "must"})
+_MULT_MODIFIES = re.compile(
+    rf"{_SP}+(?i:bookings?|checks?|rooms?|shifts?|beds?|clicks?|entry|glazing|major|standard|agents?"
+    rf"|take|vision|space)(?![A-Za-z])")
+
+# decades: "in their thirties" reads like "30s"
+_DECADES = {"twenties": 20, "thirties": 30, "forties": 40, "fifties": 50, "sixties": 60,
+            "seventies": 70, "eighties": 80, "nineties": 90}
+
+# Positions on the plan's own time axis ("Week 6", "Weeks 1-4", "by Day 30") are
+# dates: capitalised, or lower case after a reference word.
+_POSITIONS = frozenset({"week", "month", "day", "year", "quarter"})
+_POSITION_LEADS = frozenset({"see", "in", "by", "from", "until", "of", "to", "during", "before", "after",
+                             "at", "on"})
 _FOLD_PREFIX = {**_UNITS, **_TEENS, **_TENS, "hundred": 100, "thousand": 1000}
 
 # fractions
@@ -358,45 +406,79 @@ def _word_before(text: str, start: int) -> tuple[str, int]:
     return text[k:j], k
 
 
-def _after_label(text: str, start: int) -> Label | None:
-    """Whether the number at `start` follows a label word, and in which number:
+def _after_word(text: str, start: int, words: frozenset[str], leads: frozenset[str]) -> Label | None:
+    """Whether the number at `start` follows one of `words`, and in which number:
     "Phase 2" is singular, "Phases 1-2" plural, anything else None. A lower-case
-    label word counts only after a word that refers to it ("in phase 2")."""
+    word counts only after one of `leads` ("in phase 2", "by week 6")."""
     word, k = _word_before(text, start)
     lower = word.lower()
-    if lower in _LABELS:
+    if lower in words:
         label: Label = "singular"
-    elif lower.endswith("s") and lower[:-1] in _LABELS:
+    elif lower.endswith("s") and lower[:-1] in words:
         label = "plural"
     else:
         return None
-    if word[0].isupper() or _word_before(text, k)[0].lower() in _LABEL_LEADS:
+    if word[0].isupper() or _word_before(text, k)[0].lower() in leads:
         return label
     return None
 
 
-def _label_end(text: str, end: int, label: Label) -> int:
-    """Where the list of bare numbers a label started ends: "Phases 1, 2 and 3"."""
+def _after_label(text: str, start: int) -> Label | None:
+    return _after_word(text, start, _LABELS, _LABEL_LEADS)
+
+
+def _listed(text: str, end: int, label: Label) -> list[tuple[int, int]]:
+    """The bare numbers listed after the first one a label started, as spans:
+    "Phases 1, 2 and 3" lists 2 and 3."""
     join = _LABEL_JOIN_PLURAL if label == "plural" else _LABEL_JOIN
+    items = []
     while (j := join.match(text, end)):
         item = _LABEL_ITEM.match(text, j.end())
         if not item or not _ITEM_END.match(text, item.end()):
             break
+        items.append(item.span())
         end = item.end()
-    return end
+    return items
+
+
+def _bare_first(text: str, pos: int) -> re.Match | None:
+    """The first number after a label or a plan position, when it is bare: plain
+    digits or a dotted exhibit number, carrying no unit ("Phase 2,000" and "Step
+    3 40%" are quantities). A number of two or more digits must also end the
+    phrase as a listed item does or meet a function word: "Phase 12 weeks" is a
+    quantity, "Phase 12 is next" a label. A single digit or a dotted number is a
+    label before any word ("Phase 2 starts", "Exhibit 2.1 shows")."""
+    item = _LABEL_ITEM.match(text, pos)
+    q = _quantity(text, pos) if item else None
+    if (q is None or q.end > item.end() or q.scale != 1
+            or q.signed or q.money or q.percent or q.times or q.ordinal):
+        return None
+    if item.end() - pos > 1 and "." not in item.group() and not _WORD_LABEL_END.match(text, item.end()):
+        return None
+    return item
 
 
 def _read_label(text: str, pos: int) -> Read | None:
     """A bare number after a label word, and the bare numbers listed with it."""
     label = _after_label(text, pos)
-    item = _LABEL_ITEM.match(text, pos) if label else None
+    item = _bare_first(text, pos) if label else None
     if not item:
         return None
-    q = _quantity(text, pos)
-    if (q is None or q.end > item.end() or q.scale != 1
-            or q.signed or q.money or q.percent or q.times or q.ordinal):
-        return None   # "Phase 2,000", "Step 3 40%": a quantity, read as one
-    return _label_end(text, item.end(), label), []
+    listed = _listed(text, item.end(), label)
+    return (listed[-1][1] if listed else item.end()), []
+
+
+def _read_position(text: str, pos: int) -> Read | None:
+    """A position on the plan's own time axis ("Week 6", "Weeks 1-4", "by Day
+    30"): each bare number is a date. A quantity after it is still read."""
+    label = _after_word(text, pos, _POSITIONS, _POSITION_LEADS)
+    item = _bare_first(text, pos) if label else None
+    if not item:
+        return None
+    spans = [item.span(), *_listed(text, item.end(), label)]
+    # a dotted position ("Week 2.1.3") keeps its first two parts as its value
+    return spans[-1][1], [_mention(text, s, e, Decimal(".".join(text[s:e].split(".")[:2])), "date")
+                          for s, e in spans]
 
 
 def _year_number(q: _Qty) -> bool:
@@ -475,9 +557,16 @@ def _read_time(text: str, pos: int) -> Read | None:
     if m and 1 <= int(m.group("h")) <= 12:
         return m.end(), [_mention(text, pos, m.end(), _hour24(int(m.group("h")), m.group("ap")), "time")]
     m = _TIME_24.match(text, pos)
-    if m:
+    if m and (int(m.group("h")) >= 13 or (len(m.group("h")) == 2 and m.group("h")[0] == "0")
+              or _word_before(text, pos)[0].lower() in _TIME_LEADS):
         return m.end(), [_mention(text, pos, m.end(), int(m.group("h")), "time")]
-    return None
+    m = _NINE_TO_FIVE.match(text, pos)
+    if m:   # "9-5", "9 to 5": working hours
+        return m.end(), [_mention(text, pos, pos + 1, 9, "time"), _mention(text, m.start("five"), m.end(), 17, "time")]
+    m = _NOON.match(text, pos)
+    if m:
+        return m.end(), [_mention(text, pos, m.end(), 12 if m.group("w").lower() == "noon" else 0, "time")]
+    return None   # a colon pattern that is not a time is a ratio: both sides are read
 
 
 def _day_and_year(text: str, pos: int, m: re.Match) -> Read:
@@ -494,8 +583,11 @@ def _read_date(text: str, pos: int) -> Read | None:
     m = _ISO_DATE.match(text, pos)
     if m:
         return m.end(), [_mention(text, pos, m.end(), int(m.group("y")), "date")]
+    m = _YEAR_FIRST_DATE.match(text, pos)
+    if m:
+        return m.end(), [_mention(text, pos, m.end(), int(m.group("y")), "date")]
     m = _SLASH_DATE.match(text, pos)
-    if m and 1 <= int(m.group("d")) <= 31:
+    if m and 1 <= int(m.group("d")) <= 31 and 1 <= int(m.group("e")) <= 31:
         return m.end(), [_mention(text, pos, m.end(), int(m.group("d")), "date")]
     m = _DAY_MONTH.match(text, pos)
     if m and 1 <= int(m.group("d")) <= 31:
@@ -505,18 +597,22 @@ def _read_date(text: str, pos: int) -> Read | None:
 
 def _read_month_day(text: str, pos: int) -> Read | None:
     """"May 12" is a date when the day is followed by the end, punctuation, a
-    function word, an ordinal suffix, a time or a dash and another day ("May
-    12-14"). Before any other word ("In May 12 members joined") the 12 is a
-    count: the month is passed over and the number is read."""
+    date word (`_DATE_WORDS`), an ordinal suffix, a time, or a dash and a month
+    ("May 12 - June 3"). A span ("May 12-14") is two dates under the same rule
+    after its second day. Before any other word ("In May 12 members joined",
+    "May 10-15 new members") the numbers are counts: the month is passed over
+    and they are read."""
     m = _MONTH_DAY.match(text, pos)
     if not m or not 1 <= int(m.group("d")) <= 31:
         return None
-    if not (m.group("suf") or _DATE_FOLLOW.match(text, m.end())):
-        return m.start("d"), []
     span = _MONTH_DAY_SPAN.match(text, m.end())
     if span and 1 <= int(span.group("d")) <= 31:
+        if not _DATE_END.match(text, span.end()):
+            return m.start("d"), []
         return span.end(), [_mention(text, pos, m.end(), int(m.group("d")), "date"),
                             _mention(text, span.start("d"), span.end(), int(span.group("d")), "date")]
+    if not (m.group("suf") or _DATE_END.match(text, m.end()) or _DASH_MONTH.match(text, m.end())):
+        return m.start("d"), []
     return _day_and_year(text, pos, m)
 
 
@@ -601,6 +697,8 @@ def _phrase(words: list[str]) -> tuple[Decimal, int, bool] | None:
     hundred_here, last_scale, ordinal, k = False, None, False, 0
     if at(0) == "a" and at(1) in _AFTER_A:
         group, last, k = Decimal(1), "a", 1
+    elif at(0) == "a" and at(1) == "half" and at(2) in _AFTER_A:   # a half dozen, a half million
+        group, last, k = Decimal("0.5"), "a", 2
     elif at(0) == "half":
         j = 2 if at(1) == "a" else 1
         if at(j) not in _AFTER_A:
@@ -697,17 +795,23 @@ def _read_words(text: str, pos: int) -> Read | None:
     if not ws:
         return None
     first, _, first_end, _ = ws[0]
-    if first in _MULT_ALWAYS:
-        return first_end, [_mention(text, pos, first_end, _MULT_ALWAYS[first], "multiplier")]
-    if first in _MULT_BEFORE:
-        if not _MULTIPLIED.match(text, first_end):   # no double booking, double-check
+    if first in _MULT_WORDS:
+        compound = len(ws) > 1 and ws[1][3]
+        verb = _word_before(text, pos)[0].lower() in _MULT_VERB_LEADS
+        if compound or (not verb and _MULT_MODIFIES.match(text, first_end)):   # double-check, double booking
             return first_end, []
-        return first_end, [_mention(text, pos, first_end, _MULT_BEFORE[first], "multiplier")]
+        return first_end, [_mention(text, pos, first_end, _MULT_WORDS[first], "multiplier")]
     if first.endswith("fold") and first[:-4] in _FOLD_PREFIX:
         return first_end, [_mention(text, pos, first_end, _FOLD_PREFIX[first[:-4]], "multiplier")]
+    if first in _DECADES:   # "in their thirties" reads like "30s"
+        return first_end, [_mention(text, pos, first_end, _DECADES[first], "digit")]
+    if first == "zero":
+        return first_end, [_mention(text, pos, first_end, 0, "word")]
+    if first in ("noon", "midnight"):
+        return first_end, [_mention(text, pos, first_end, 12 if first == "noon" else 0, "time")]
     words = [w[0] for w in ws]
-    # "half a dozen" is a number; "a third of members" a fraction
-    parsed = _phrase(words) if first == "half" else None
+    # "half a dozen" and "a half million" are numbers; "a third of members" a fraction
+    parsed = _phrase(words) if first == "half" or words[:2] == ["a", "half"] else None
     if parsed is None:
         fraction = _read_fraction(text, pos, ws)
         if fraction is not None:
@@ -743,6 +847,9 @@ def _read_letters(text: str, pos: int) -> Read | None:
     q = _quantity(text, pos)   # US$35, USD 35, AUD50, Rs500
     if q is not None:
         return q.end, [_mention(text, pos, q.end, q.value, _form(q))]
+    m = _X_TIMES.match(text, pos)
+    if m:   # "x3"
+        return m.end(), [_mention(text, pos, m.end(), Decimal(m.group("n")), "multiplier")]
     m = _IDENT.match(text, pos)
     if m:
         return m.end(), []
@@ -750,14 +857,19 @@ def _read_letters(text: str, pos: int) -> Read | None:
 
 
 def _read_at(text: str, pos: int) -> Read | None:
+    idiom = _IDIOM.match(text, pos)
+    if idiom:   # 24/7, 1:1, one-on-one: no quantity
+        return idiom.end(), []
+    if text[pos] in _VULGAR:
+        return pos + 1, [_mention(text, pos, pos + 1, _VULGAR[text[pos]], "fraction")]
     if text[pos].isalpha():
         return _read_letters(text, pos)
     marker = _LIST_MARKER.match(text, pos)
     if marker and _line_start(text, pos):   # "1. Book the studio": structure, not a number
         return marker.end(), []
     # a clock time is a time even after a label word ("Step 6pm")
-    return (_read_time(text, pos) or _read_label(text, pos) or _read_date(text, pos)
-            or _read_range(text, pos) or _read_digits(text, pos))
+    return (_read_time(text, pos) or _read_position(text, pos) or _read_label(text, pos)
+            or _read_date(text, pos) or _read_range(text, pos) or _read_digits(text, pos))
 
 
 def _runs(text: str) -> tuple[bytearray, bytearray]:
@@ -786,6 +898,8 @@ def _runs(text: str) -> tuple[bytearray, bytearray]:
 
 def _can_start(text: str, i: int, led: bytearray, glued: bytearray) -> bool:
     ch, nxt = text[i], text[i + 1:i + 2]
+    if ch in _VULGAR:   # "1\u00bd": the half is read after the 1
+        return True
     prev = text[i - 1] if i else ""
     if prev.isalnum():
         # inside a token: only a digit, and only when the token starts with one
