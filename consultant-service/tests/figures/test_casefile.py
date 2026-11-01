@@ -577,3 +577,15 @@ def test_a_table_made_before_this_column_gets_it_and_its_rows_still_work(tmp_pat
             assert [f.value for f in casefile.load(row)] == [Decimal(8)]
     finally:
         old.dispose()
+
+
+def test_a_run_of_punctuation_does_not_make_the_sentence_split_take_quadratic_time():
+    """Hostile or accidental text in a form field (50,000 dots) must split in milliseconds."""
+    import time
+
+    from app.figures import casefile
+
+    text = "." * casefile.MAX_TEXT_CHARS + "x"
+    started = time.perf_counter()
+    casefile._sentence_spans(text)
+    assert time.perf_counter() - started < 2.0

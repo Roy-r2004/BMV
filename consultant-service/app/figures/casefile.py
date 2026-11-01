@@ -72,7 +72,9 @@ _FILE_SEP = " \u00b7 "
 _ELLIPSIS = "\u2026"
 # A sentence ends at ., ! or ? when what follows (after a space) does not start in
 # lower case ("6 p.m. on Fridays" runs on; "22.50" has no space), and at a line break.
-_SENTENCE_END = re.compile(r"[.!?]+[\"')\u201d\u2019]*(?=\s+[^a-z\s])|\n+")
+# The lookbehind starts a match only at the first mark of a run: without it a long run of
+# dots is retried from every position and takes quadratic time (50,000 dots took a minute).
+_SENTENCE_END = re.compile(r"(?<![.!?])[.!?]+[\"')\u201d\u2019]*(?=\s+[^a-z\s])|\n+")
 _TRAILING_NUMBER = re.compile(r"(\d+)\s*$")
 
 
