@@ -35,7 +35,8 @@ def _digits_after_point(value: str) -> int:
     return max(0, -D(value).as_tuple().exponent)
 
 
-def fig(kind: str, fid: str, value: str, unit: str = "", precision: int | None = None) -> Figure:
+def fig(kind: str, fid: str, value: str, unit: str = "", precision: int | None = None,
+        period: str | None = None) -> Figure:
     p = _digits_after_point(value) if precision is None else precision
     source = {
         "theirs": TheirsSource(turn=1, field=None, quote=f"{value} {unit}", file=None, cell=None),
@@ -43,19 +44,19 @@ def fig(kind: str, fid: str, value: str, unit: str = "", precision: int | None =
         "ours": Proposal(note="we propose it"),
         "reference": Reference(publication="Survey", year=2024, population="studios", url="https://example.org"),
     }[kind]
-    return Figure(id=fid, value=D(value), unit=unit, period=None, kind=kind, source=source, precision=p)
+    return Figure(id=fid, value=D(value), unit=unit, period=period, kind=kind, source=source, precision=p)
 
 
-def theirs(fid, value, unit="", precision=None):
-    return fig("theirs", fid, value, unit, precision)
+def theirs(fid, value, unit="", precision=None, period=None):
+    return fig("theirs", fid, value, unit, precision, period)
 
 
-def derived(fid, value, unit="", precision=None):
-    return fig("derived", fid, value, unit, precision)
+def derived(fid, value, unit="", precision=None, period=None):
+    return fig("derived", fid, value, unit, precision, period)
 
 
-def ours(fid, value, unit="", precision=None):
-    return fig("ours", fid, value, unit, precision)
+def ours(fid, value, unit="", precision=None, period=None):
+    return fig("ours", fid, value, unit, precision, period)
 
 
 def fs(*figures: Figure) -> FigureSet:
@@ -294,7 +295,7 @@ def test_a_hedge_word_that_is_a_preposition_is_never_deleted():
 
 def test_only_the_word_right_before_is_a_hedge():
     known = fs(derived("DV-01", "44928", "USD", precision=-3))
-    assert bind("about the $44,928", known).text == "about the ~$45,000"
+    assert bind("about the $44,928", known).text == "about the $45,000"      # an article, like a hedge, says "roughly"
     assert bind("costs only $44,928", known).text == "costs only ~$45,000"
     assert bind("thereabout $44,928", known).text == "thereabout ~$45,000"      # not the word "about"
 
@@ -531,8 +532,8 @@ def test_a_closing_quote_or_bracket_after_the_full_stop_stays_with_its_sentence(
 
 
 def test_a_sentence_ending_in_a_number_still_ends():
-    cleaned, removed = clean_sentences("We start in week 4. Then $777 follows. End.", KNOWN)
-    assert removed == ["We start in week 4.", "Then $777 follows."] and cleaned == "End."
+    cleaned, removed = clean_sentences("Each class has 12. Then $777 follows. End.", KNOWN)
+    assert removed == ["Each class has 12.", "Then $777 follows."] and cleaned == "End."
 
 
 def test_paragraphs_survive_a_dropped_sentence():
@@ -1031,7 +1032,8 @@ def test_a_token_followed_by_a_time_word_that_is_not_its_unit_is_unresolved():
         r = bind(text, known)
         assert r.text == text and r.bound == [] and len(r.unresolved) == 1, text
     assert bind("{{F:PL-01}}-week pilot", known).text == "6-week pilot"
-    assert bind("{{F:N}} days", known).text == "12 days"      # a count has no time unit to contradict
+    r = bind("{{F:N}} days", known)                          # a count is not a figure in days either
+    assert r.text == "{{F:N}} days" and r.bound == [] and len(r.unresolved) == 1
 
 
 def test_a_time_word_after_a_number_does_not_bind_to_a_figure_in_a_noun_unit():
@@ -1234,3 +1236,359 @@ def test_when_the_text_starts_with_a_drop_the_first_kept_line_keeps_its_own_inde
     assert clean_sentences("\tTabbed $9.\n\tTabbed $22.", KS) == ("\tTabbed $22.", ["Tabbed $9."])
     assert clean_sentences("  Bad $9. Good $22.", KS) == ("  Good $22.", ["Bad $9."])
     assert clean_sentences("- Bad $9\n  - Child $22\n- Last", KS) == ("  - Child $22\n- Last", ["- Bad $9"])
+
+
+# ==============================================================================================
+# Third review round: what joins two numbers, tier before specificity, periods, comparatives,
+# true roundings only, the round-trip net, glued tokens, bold-led paragraphs, no code blocks.
+# Judged against the reader as committed.
+# ==============================================================================================
+
+# the review's figures
+R1 = fs(theirs("CF-62", "62", "percent"), theirs("CF-04", "4", "count"), derived("DV-398", "3.98", "percent", precision=2),
+        theirs("CF-22", "22", "USD"), theirs("CF-12", "12", "count"), derived("DV-1196", "11.96", "USD", precision=2),
+        ours("PL-25", "25", "USD"), theirs("CF-40", "40", "count"), derived("DV-399", "39.9", "USD", precision=1))
+
+
+def _binds_each_on_its_own(text, known, *ids):
+    r = bind(text, known)
+    assert r.text == text, r.text
+    assert [f.id for f in r.bound] == list(ids), [f.id for f in r.bound]
+    assert r.unresolved == [], r.unresolved
+    return r
+
+
+# -- 1. what can join two numbers ----------------------------------------------------------------------
+
+def test_a_spaced_dash_or_an_em_dash_never_joins_two_numbers():
+    _binds_each_on_its_own("Occupancy is 62% - 4 of your instructors are idle at noon.", R1, "CF-62", "CF-04")
+    _binds_each_on_its_own("Occupancy is 62% \u2014 4 of your instructors are idle at noon.", R1, "CF-62", "CF-04")
+    _binds_each_on_its_own("Occupancy is 62% \u2013 4 of your instructors are idle at noon.", R1, "CF-62", "CF-04")
+    _binds_each_on_its_own("Occupancy is 62%\u20144 of your instructors are idle at noon.", R1, "CF-62", "CF-04")
+    _binds_each_on_its_own("Each class costs $22 - 12 of them sell out.", R1, "CF-22", "CF-12")
+    _binds_each_on_its_own("Class size 12 - $22 per head.", R1, "CF-12", "CF-22")
+    _binds_each_on_its_own("Price: $22 - 12 per class.", R1, "CF-22", "CF-12")
+
+
+def test_a_bare_number_followed_by_a_partitive_or_an_alternative_shares_nothing():
+    _binds_each_on_its_own("At $22 to 12 or more members, a class pays.", R1, "CF-22", "CF-12")
+    _binds_each_on_its_own("Offer $25 to 40 of your members.", R1, "PL-25", "CF-40")
+    _binds_each_on_its_own("Offer $25 to 40 and more members.", R1, "PL-25", "CF-40")
+    _binds_each_on_its_own("Offer $25 to 40 than we had.", R1, "PL-25", "CF-40")
+
+
+def test_a_bare_left_number_does_not_become_dollars_because_a_dollar_amount_follows():
+    _binds_each_on_its_own("Class size 12 to $22 per head.", R1, "CF-12", "CF-22")
+    # it can when the range is plainly of money
+    pairs = fs(theirs("A", "20", "USD"), theirs("B", "30", "USD"), theirs("C", "20", "count"))
+    for text in ("From 20 to $30 a class.", "Costs 20-$30 a class.", "Between 20 and $30 a class."):
+        r = bind(text, pairs)
+        assert r.unresolved == [] and [f.id for f in r.bound] == ["A", "B"], text
+    r = bind("Costs 20 to $30 a class.", pairs)
+    assert [f.id for f in r.bound] == ["C", "B"]
+    # a bare left end that is the tail of a partitive keeps to itself
+    pct = fs(theirs("A", "12", "percent"), theirs("B", "15", "percent"))
+    assert [u.text for u in bind("4 of 12 to 15% came.", pct).unresolved] == ["4", "12"]
+
+
+def test_the_joiners_that_remain_still_join():
+    pct = fs(theirs("A", "10", "count"), theirs("B", "15", "percent"))
+    for text in ("Churn 10-15% a year.", "Churn 10\u201315% a year.", "Churn of 10 to 15% a year.",
+                 "Churn between 10 and 15% a year.", "Churn from 10 to 15% a year."):
+        assert [u.text for u in bind(text, pct).unresolved] == ["10"], text
+    usd = fs(theirs("A", "20", "USD"), theirs("B", "30", "count"))
+    for text in ("Costs $20-30 a class.", "Costs $20 to 30 a class.", "Costs between $20 and 30 a class."):
+        assert [u.text for u in bind(text, usd).unresolved] == ["30"], text
+    assert [u.text for u in bind("Costs $20 and 30 a class.", usd).unresolved] == []   # "and" alone is not "between"
+
+
+# -- 2. the tier decides first, specificity only within it ------------------------------------------------
+
+def test_the_clients_exact_number_beats_a_more_specific_near_figure():
+    known = fs(theirs("CF-01", "12", "count"), ours("PL-01", "12.05", "reformers", precision=2))
+    _binds_each_on_its_own("You have 12 reformers.", known, "CF-01")
+    known = fs(theirs("CF-01", "12", "count"), derived("DV-01", "12.04", "classes", precision=2))
+    _binds_each_on_its_own("You run 12 classes a week.", known, "CF-01")
+
+
+def test_within_a_tier_the_figure_that_names_the_unit_still_wins():
+    known = fs(theirs("CF-01", "12", "count"), derived("DV-01", "12", "classes"))
+    _binds_each_on_its_own("You run 12 classes a week.", known, "DV-01")
+
+
+# -- 3. a period the sentence names must be the figure's ---------------------------------------------------------
+
+def test_a_weekly_figure_never_binds_to_a_monthly_or_yearly_amount():
+    known = fs(derived("DV-01", "9504", "USD", period="week"), derived("DV-02", "1953.6", "USD", precision=1, period="week"))
+    _stays_unresolved("You bring in about $9,500 a month.", known, "$9,500")
+    _stays_unresolved("Empty seats cost you $1,950 a year.", known, "$1,950")
+    _stays_unresolved("Empty seats cost you $1,950 per year.", known, "$1,950")
+    _stays_unresolved("Empty seats cost you $1,950 yearly.", known, "$1,950")
+    _stays_unresolved("Your monthly rent of $9,500 is high.", known, "$9,500")
+
+
+def test_the_same_amount_binds_when_the_period_agrees_or_is_absent():
+    weekly = fs(derived("DV-01", "9504", "USD", period="week"))
+    assert bind("You bring in about $9,500 a week.", weekly).text == "You bring in about $9,504 a week."
+    assert bind("You bring in about $9,500 each week.", weekly).bound[0].id == "DV-01"
+    assert bind("Your weekly rent of $9,500 is high.", weekly).bound[0].id == "DV-01"
+    assert bind("You bring in about $9,500 a class.", weekly).bound[0].id == "DV-01"     # "a class" is no period
+    assert bind("You bring in about $9,500.", weekly).bound[0].id == "DV-01"
+    no_period = fs(derived("DV-01", "9504", "USD"))
+    assert bind("You bring in about $9,500 a month.", no_period).bound[0].id == "DV-01"
+    month = fs(derived("DV-01", "9504", "USD", period="operating_30_day_month"))
+    assert bind("You bring in about $9,500 a month.", month).bound[0].id == "DV-01"
+    _stays_unresolved("You bring in about $9,500 a week.", month, "$9,500")
+
+
+def test_a_period_blocks_percents_and_counts_too_and_not_through_a_time_word():
+    known = fs(theirs("CF-01", "30", "percent", period="week"), theirs("CF-02", "12", "count", period="week"))
+    _stays_unresolved("Churn is 30% a month.", known, "30%")
+    _stays_unresolved("We run 12 classes a month.", known, "12")
+    assert bind("We run 12 classes a week.", known).bound[0].id == "CF-02"
+    days = fs(theirs("CF-03", "10", "days", period="week"))
+    assert bind("It takes 10 days a week.", days).bound[0].id == "CF-03"      # "days" is the unit; the period is the week's
+
+
+def test_a_token_is_held_to_the_period_too():
+    weekly = fs(derived("DV-01", "9504", "USD", period="week"))
+    r = bind("You bring in {{F:DV-01}} a month.", weekly)
+    assert r.text == "You bring in {{F:DV-01}} a month." and len(r.unresolved) == 1
+    assert bind("You bring in {{F:DV-01}} a week.", weekly).text == "You bring in $9,504 a week."
+
+
+# -- 4. a comparative is a claim, not a rounding ------------------------------------------------------------------------
+
+def test_a_limit_is_never_rewritten_to_a_near_figure():
+    _stays_unresolved("Keep costs under $7,500.", fs(derived("DV-01", "7480", "USD")), "$7,500")
+    _stays_unresolved("Costs are over $45,000.", fs(derived("DV-01", "44928", "USD")), "$45,000")
+
+
+@pytest.mark.parametrize("lead", ["over", "under", "above", "below", "at least", "at most", "up to", "more than",
+                                  "less than", "fewer than", "exceeds", "no more than", "no less than", "nearly",
+                                  "almost", "exactly", "Over", "AT LEAST"])
+def test_every_comparative_binds_only_on_an_exact_match(lead):
+    known = fs(derived("DV-01", "44928", "USD"))
+    _stays_unresolved(f"Costs are {lead} $45,000 now.", known, "$45,000")
+    r = bind(f"Costs are {lead} $44,928 now.", known)
+    assert r.text == f"Costs are {lead} $44,928 now." and [f.id for f in r.bound] == ["DV-01"]
+
+
+def test_a_comparative_over_a_figure_that_displays_as_the_mention_binds_without_a_tilde():
+    known = fs(derived("DV-01", "44928", "USD", precision=-3))
+    r = bind("Costs are over $45,000 now.", known)
+    assert r.text == "Costs are over $45,000 now." and [f.id for f in r.bound] == ["DV-01"]
+
+
+def test_about_and_around_are_hedges_and_not_limits():
+    known = fs(derived("DV-01", "7480", "USD"))
+    assert bind("Keep costs about $7,500.", known).text == "Keep costs about $7,480."
+    assert bind("Keep costs around $7,500.", known).text == "Keep costs around $7,480."
+
+
+# -- 5. a near rewrite must be a true rounding -----------------------------------------------------------------------------
+
+def test_a_near_mention_is_rewritten_only_when_it_is_the_figure_rounded_to_its_own_last_place():
+    known = fs(derived("DV-01", "44928", "USD"))
+    assert bind("We lose $45,000 a year.", known).text == "We lose $44,928 a year."      # thousands
+    assert bind("We lose $44,900 a year.", known).text == "We lose $44,928 a year."      # hundreds
+    assert bind("We lose $44,930 a year.", known).text == "We lose $44,928 a year."      # tens
+    _stays_unresolved("We lose $44,950 a year.", known, "$44,950")                       # near, but 44,928 is 44,930 to tens
+    _stays_unresolved("We lose $44,960 a year.", known, "$44,960")
+    _stays_unresolved("We lose $44,990 a year.", known, "$44,990")
+    assert bind("Fees are $1,000.", fs(derived("DV-01", "995", "USD"))).text == "Fees are $995."
+    _stays_unresolved("A seat is $4,750.", fs(derived("DV-01", "4728", "USD")), "$4,750")
+    assert bind("About 12 classes a week.", fs(derived("DV-01", "12.04", "classes", precision=2))).text == \
+        "About 12.04 classes a week."
+
+
+# -- 6. the round trip: what is written must read back as what was meant ---------------------------------------------------------------
+
+def test_a_replacement_that_would_read_back_as_another_number_is_taken_back():
+    known = fs(ours("PL-02", "2", ""), ours("PL-03", "200", ""))
+    text = "Run two 200-person events."
+    r = bind(text, known)
+    assert r.text == text                                   # "2 200-person" would read as 2,200
+    assert r.unresolved == [] and {f.id for f in r.bound} == {"PL-02", "PL-03"}
+    assert [m.value for m in mentions(r.text)] == [D(2), D(200)]
+
+
+def test_a_replacement_that_would_change_how_the_number_reads_is_taken_back():
+    # "USD 2" reads as money, "two" beside "USD" did not: the figure is named, the words stay
+    known = fs(ours("PL-02", "2", ""))
+    for text in ("Pay USD two now.", "It costs EUR two."):
+        r = bind(text, known)
+        assert r.text == text and [f.id for f in r.bound] == ["PL-02"] and r.unresolved == [], text
+
+
+def test_braces_around_a_replaced_number_that_now_read_as_a_token_take_it_back():
+    r = bind("{{F: {{F:C}} 3x }}", fs(theirs("C", "12", "count")))
+    assert "{{F:" in r.text and r.bound == [] and r.unresolved
+    r = bind("{{F:{{F:A}}}}", fs(theirs("A", "22", "USD")))
+    assert r.bound == [] and r.unresolved
+
+
+def test_a_currency_sign_after_a_number_is_kept_with_it():
+    known = fs(ours("W", "6", ""))
+    _stays_unresolved("Rent is 6 $ a week", known, "6 $")        # it was dollars; a bare figure does not name them
+    r = bind("Rent is 6 $ a week", fs(ours("W", "6", "USD")))
+    assert r.text == "Rent is 6 $ a week" and [f.id for f in r.bound] == ["W"]
+
+
+def test_a_currency_code_that_belongs_to_the_number_before_is_not_the_lead_of_a_token():
+    known = fs(theirs("A", "22", "USD"))
+    r = bind("We pay 22 USD {{F:A}} more.", known)
+    assert r.text == "We pay 22 USD $22 more."
+
+
+def test_a_number_a_token_becomes_can_be_an_end_of_a_range():
+    # "{{F:A}} to 6": once A prints as $22 this reads "$22 to 6", so the 6 shares the dollars
+    known = fs(theirs("A", "22", "USD"), theirs("B", "6", "count"))
+    r = bind("{{F:A}} to 6 a class", known)
+    assert r.text == "$22 to 6 a class" and [u.text for u in r.unresolved] == ["6"]
+    r = bind("{{F:A}} to 6 members", known)
+    assert r.unresolved == [] and [f.id for f in r.bound] == ["A", "B"]
+
+
+def test_what_bind_wrote_reads_back_as_the_figures_it_named():
+    known = fs(theirs("CF-01", "22", "USD"), derived("DV-01", "44928", "USD", precision=-3), ours("PL-01", "6", "weeks"),
+               theirs("P", "25", "percent"), theirs("E", "1000", "EUR"))
+    text = "A class is $22; we lose about $44,928 a year over six weeks, 25 percent of it, in EUR 1,000 steps."
+    r = bind(text, known)
+    assert [m.value for m in mentions(r.text)] == [D(22), D(45000), D(6), D(25), D(1000)]
+
+
+_FRAGMENTS = ["about", "roughly a", "over", "$22", "22", "12", "$ 12", "{{F:A}}", "{{F:C}}", "{{F:A}}{{F:C}}", "two",
+              "200-person", "2 200", "weeks", "per week", "a month", "-", " - ", "to", "of", "or", "%", "10-15%", "and",
+              "x", "k", ".", ",", "\n", "- ", "(", ")", "\"", "$", "USD", "twice", "half", "3x", "45,000", "6", "44,928",
+              "12.04", "classes", "members", "hours", "{{F:Z}}", "{{F:", "}}", "~", "EUR 5", "5 percent", "1,000"]
+
+
+def test_binding_what_was_bound_changes_nothing_more():
+    """Property: for random texts, bind(bind(x).text) names the same figures, has no
+    unresolved number the first pass did not have, and leaves the text as it is."""
+    import random
+    known = fs(theirs("A", "22", "USD"), theirs("C", "12", "count"), derived("D", "44928", "USD", precision=-3),
+               ours("W", "6", "weeks"), theirs("N2", "2", ""), theirs("N200", "200", ""),
+               theirs("P", "25", "percent"), derived("Q", "12.04", "classes", precision=2), theirs("E", "5", "EUR"),
+               derived("R", "6", "", period="week"))
+    rng = random.Random(20261101)
+    for _ in range(1500):
+        text = "".join(rng.choice(_FRAGMENTS) + rng.choice([" ", " ", "  "]) for _ in range(rng.randint(1, 9)))
+        first = bind(text, known)
+        again = bind(first.text, known)
+        assert {f.id for f in again.bound} == {f.id for f in first.bound}, (text, first.text, again.text)
+        old = sorted(u.text for u in first.unresolved)
+        new = sorted(u.text for u in again.unresolved)
+        for t in new:
+            assert t in old, (text, first.text, again.text, old, new)
+        assert again.text == first.text, (text, first.text, again.text)
+        for u in first.unresolved:
+            assert first.text[u.start:u.end] == u.text, (text, u)
+
+
+# -- 7. tokens ------------------------------------------------------------------------------------------------------------------------------
+
+def test_a_count_or_unitless_token_before_a_time_word_is_unresolved():
+    known = fs(theirs("CLS", "12", "count"), theirs("U", "6", ""), ours("PL-01", "6", "weeks"))
+    for text in ("{{F:CLS}} hours", "{{F:U}} weeks", "{{F:CLS}}-day pilot", "{{F:U}} days"):
+        r = bind(text, known)
+        assert r.text == text and r.bound == [] and len(r.unresolved) == 1, text
+    assert bind("{{F:PL-01}} weeks", known).text == "6 weeks"
+
+
+def test_two_adjacent_tokens_are_unresolved_and_two_apart_are_not():
+    known = fs(theirs("A", "22", "USD"), theirs("C", "12", "count"))
+    r = bind("{{F:A}}{{F:C}}", known)
+    assert r.text == "{{F:A}}{{F:C}}" and r.bound == [] and len(r.unresolved) == 2
+    assert bind("{{F:A}} {{F:C}}", known).text == "$22 12"
+    assert bind("{{F:A}}, {{F:C}}", known).text == "$22, 12"
+
+
+def test_a_token_after_a_dollar_sign_reads_as_one_amount_and_never_doubles_a_tilde():
+    rounded = fs(derived("M", "44928", "USD", precision=-3), theirs("E", "22", "USD"))
+    assert bind("$ {{F:M}}", rounded).text == "~$45,000"
+    assert bind("Rent is $ {{F:M}} a year.", rounded).text == "Rent is ~$45,000 a year."
+    assert bind("$ {{F:E}}", rounded).text == "$ 22"                      # nothing was rounded: the sign stays as written
+    assert bind("about $ {{F:M}}", rounded).text == "about $ 45,000"       # the hedge already says it
+    assert bind("about {{F:M}}", rounded).text == "about $45,000"
+
+
+def test_a_token_after_a_hedge_and_an_article_or_an_article_alone_drops_the_tilde():
+    known = fs(derived("P", "33.333", "percent", precision=0))
+    assert bind("roughly a {{F:P}}", known).text == "roughly a 33%"
+    assert bind("about a {{F:P}} drop", known).text == "about a 33% drop"
+    assert bind("a {{F:P}} drop", known).text == "a 33% drop"
+    assert bind("the {{F:P}} drop", known).text == "the 33% drop"
+    assert bind("{{F:P}} of seats", known).text == "~33% of seats"
+    usd = fs(derived("M", "44928", "USD", precision=-3))
+    assert bind("roughly a $44,928 loss", usd).text == "roughly a $45,000 loss"
+
+
+# -- 8. clean_sentences --------------------------------------------------------------------------------------------------------------------------
+
+def test_a_bold_led_paragraph_of_several_sentences_splits_into_sentences():
+    text = "**Bottom line:** Your price is $22. You lose $9. Raise it to $22."
+    cleaned, removed = clean_sentences(text, KS)
+    assert cleaned == "**Bottom line:** Your price is $22. Raise it to $22." and removed == ["You lose $9."]
+    cleaned, removed = clean_sentences("**Bottom line:** Your price is $9. You pay $22.", KS)
+    assert cleaned == "You pay $22." and removed == ["**Bottom line:** Your price is $9."]
+
+
+def test_a_bold_lead_with_no_sentence_end_in_the_middle_is_still_one_unit():
+    cleaned, removed = clean_sentences("**Rent:** $999.\n**Classes:** $22.", KS)
+    assert cleaned == "**Classes:** $22." and removed == ["**Rent:** $999."]
+    cleaned, removed = clean_sentences("**Rent:** about $999 a month, give or take\n**Classes:** $22", KS)
+    assert cleaned == "**Classes:** $22"
+
+
+def test_an_unindented_line_after_an_item_that_ended_a_sentence_is_a_new_paragraph():
+    cleaned, removed = clean_sentences("- Rent is $22.\nThis is a new paragraph $9.", KS)
+    assert cleaned == "- Rent is $22." and removed == ["This is a new paragraph $9."]
+    cleaned, removed = clean_sentences("- Rent is $9.\nKeep this paragraph.", KS)
+    assert cleaned == "Keep this paragraph." and removed == ["- Rent is $9."]
+    cleaned, removed = clean_sentences("- **Rent is $22.**\nNew paragraph $9.", KS)
+    assert cleaned == "- **Rent is $22.**"
+    cleaned, removed = clean_sentences('- He said "rent is $22."\nNew paragraph $9.', KS)
+    assert cleaned == '- He said "rent is $22."'
+    cleaned, removed = clean_sentences("1. Rent is $9.\nKeep this paragraph.", KS)
+    assert cleaned == "Keep this paragraph."
+
+
+def test_a_drop_never_leaves_a_line_with_four_spaces_that_the_text_did_not_have():
+    cleaned, removed = clean_sentences("Rent is high at $9.\n    Indented wrap continues here.", KS)
+    assert cleaned == "Indented wrap continues here." and removed == ["Rent is high at $9."]
+    cleaned, removed = clean_sentences("Fine.\n- item $9\n\n    para in item\n\nEnd.", KS)
+    assert cleaned == "Fine.\n\nEnd." and removed == ["- item $9\n\n    para in item"]
+    # the text already had it: left alone
+    assert clean_sentences("    code line $22\n\nBad $9.", KS) == ("    code line $22", ["Bad $9."])
+
+
+def test_a_loose_list_item_with_an_indented_second_paragraph_goes_whole():
+    cleaned, removed = clean_sentences("- Rent is $22.\n\n  And that is fine.\n\n- Bad item $9.\n\n  More on it.\n\nEnd.", KS)
+    assert cleaned == "- Rent is $22.\n\n  And that is fine.\n\nEnd."
+
+
+# -- 9. idioms -------------------------------------------------------------------------------------------------------------------------------------------
+
+def test_24_7_and_24x7_are_not_quantities():
+    for text in ("We are open 24/7.", "Support runs 24x7 for you."):
+        if mentions(text):
+            pytest.skip("the reader in this checkout reads this idiom")
+        r = bind(text, FigureSet())
+        assert r.text == text and r.unresolved == []
+
+
+def test_a_number_word_made_a_digit_must_not_become_a_multiplier():
+    # "2 - 3x" reads the 2 as a multiplier, "two - 3x" did not: the words stay
+    known = fs(ours("PL-02", "2", ""), ours("PL-03", "3", ""))
+    r = bind("Allow two - 3x more.", known)
+    assert r.text == "Allow two - 3x more." and [f.id for f in r.bound] == ["PL-02"] and r.unresolved == []
+
+
+def test_a_tilde_before_the_second_number_of_a_range_does_not_break_the_range():
+    known = fs(theirs("A", "22", "USD"), derived("D", "44928", "USD", precision=-3))
+    r = bind("From $22 to ~45,000 a year.", known)
+    assert r.text == "From $22 to ~45,000 a year." and [f.id for f in r.bound] == ["A", "D"]
+    again = bind(bind("From $22 to 45,000 a year.", known).text, known)
+    assert again.text == "From $22 to ~45,000 a year."
