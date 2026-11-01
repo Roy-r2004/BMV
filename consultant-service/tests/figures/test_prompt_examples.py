@@ -24,11 +24,11 @@ says "$100 a class", a copied example passes the checker as theirs. The round
 values make that unlikely, never impossible; the only full cure is a prompt that
 shows no number at all, which is what an example should do whenever it can.
 
-The first check covers every template. The second covers the prompts that write
-for a client or read the client's own words (`IN_SCOPE`) and the screen block
-guide; the other templates (the decision, analysis and diagnosis prompts, the
-auditors, the extras) still hold some realistic-looking examples and are brought
-to it by the tasks that own them.
+Both checks cover every template under app/prompts, the screen block guide that
+two of them carry in a variable, and every string and number of
+app/screens/example.json, the worked screen the model is shown when it draws the
+first screen of a system ("from another business: copy the density, never the
+content").
 """
 from __future__ import annotations
 
@@ -39,17 +39,13 @@ from pathlib import Path
 from app.figures import read
 from app.figures.labels import LABEL_WORDS
 from app.figures.model import FigureSet
-from app.screens import generate
+from app.screens import generate, render
 
 PROMPTS = Path(__file__).resolve().parents[2] / "app" / "prompts"
 BLOCK_GUIDE = "screens/generate.py BLOCK_GUIDE"
 
-#: The prompts that write prose a client reads, or read the client's own words:
-#: both checks apply to them, and to the block guide the screen prompts carry.
-IN_SCOPE = (
-    "answer.j2", "roadmap.j2", "decompose.j2", "blueprint.j2", "technical_plan.j2", "playbook.j2",
-    "screens_plan.j2", "screen.j2", "casefile.j2", "interview.j2", BLOCK_GUIDE,
-)
+EXAMPLE_JSON = "screens/example.json"
+_ROOT = object()
 
 #: Values that are not round and are not invented: the calendar, when the word
 #: after the number is its unit ("52 weeks", "12 months", "365 days"). A bare 12 is
@@ -141,9 +137,28 @@ def _sources() -> dict[str, str]:
     return out
 
 
-def _scanned(only: tuple[str, ...] | None = None) -> list[tuple[str, str]]:
-    return [(name, e) for name, text in _sources().items() if only is None or name in only
-            for e in examples_in(text)]
+def _scanned() -> list[tuple[str, str]]:
+    return [(name, e) for name, text in _sources().items() for e in examples_in(text)]
+
+
+def example_json_leaves(node=_ROOT, path="") -> list[tuple[str, object]]:
+    """Every string and every number in the worked screen example, with its path.
+    A string is an example as a whole; a number is judged by its value. Booleans and
+    nulls hold no figure."""
+    node = render.load_example() if node is _ROOT else node
+    if isinstance(node, dict):
+        return [x for k, v in node.items() for x in example_json_leaves(v, f"{path}/{k}")]
+    if isinstance(node, list):
+        return [x for i, v in enumerate(node) for x in example_json_leaves(v, f"{path}/{i}")]
+    if isinstance(node, bool) or node is None:
+        return []
+    return [(path, node)]
+
+
+def plain_number(value) -> bool:
+    """Whether a JSON number is round (one significant digit) or zero."""
+    d = abs(Decimal(str(value)))
+    return d == 0 or len(d.normalize().as_tuple().digits) == 1
 
 
 # -- the scanner itself ---------------------------------------------------------------
@@ -167,9 +182,14 @@ def test_what_the_reader_passes_by_form_is_allowed_and_any_other_hidden_digit_is
     assert uncaught("$22 vs $32") is None and uncaught("six-week pilot") is None   # the reader flags these
 
 
-def test_the_templates_and_the_block_guide_are_there():
-    assert set(_sources()) >= set(IN_SCOPE)
+def test_every_template_the_block_guide_and_the_worked_example_are_scanned():
+    names = set(_sources())
+    assert len(names) == len(_templates()) + 1 and BLOCK_GUIDE in names
+    assert {"answer.j2", "decide.j2", "diagnose.j2", "capacity.j2", "journey.j2", "qa_numbers.j2"} <= names
     assert generate.BLOCK_GUIDE.strip()
+    leaves = example_json_leaves()
+    assert len(leaves) > 500 and any(isinstance(v, (int, float)) for _, v in leaves)
+    assert plain_number(100) and plain_number(0) and plain_number(0.5) and not plain_number(41) and not plain_number(5400)
 
 
 # -- the two checks --------------------------------------------------------------------
@@ -182,7 +202,25 @@ def test_a_copied_example_would_be_caught_by_the_checker():
 
 
 def test_every_example_number_is_plainly_invented():
-    """Every example number in the prompts that write for a client is round (one
-    significant digit) or a calendar constant."""
-    failing = [f"{name}: {e!r} -> {', '.join(bad)}" for name, e in _scanned(IN_SCOPE) if (bad := looks_real(e))]
+    """Every example number in every prompt is round (one significant digit) or a
+    calendar constant."""
+    failing = [f"{name}: {e!r} -> {', '.join(bad)}" for name, e in _scanned() if (bad := looks_real(e))]
     assert not failing, "examples that read like a client's own figures:\n" + "\n".join(failing)
+
+
+def test_the_worked_screen_holds_only_numbers_a_copy_of_which_is_caught_and_none_that_reads_like_a_figure():
+    """The worked screen is shown to the model as another business's. Every string
+    in it that holds a number passes the same two checks as a prompt's example, and
+    every number in it is round."""
+    caught, invented = [], []
+    for path, value in example_json_leaves():
+        if isinstance(value, str):
+            if any(ch.isdigit() for ch in value) or read.mentions(value):
+                if why := uncaught(value):
+                    caught.append(f"{EXAMPLE_JSON}{path}: {value!r} -> {why}")
+                if bad := looks_real(value):
+                    invented.append(f"{EXAMPLE_JSON}{path}: {value!r} -> {', '.join(bad)}")
+        elif not plain_number(value):
+            invented.append(f"{EXAMPLE_JSON}{path}: {value!r}")
+    assert not caught, "numbers of the worked screen that would pass as a figure:\n" + "\n".join(caught)
+    assert not invented, "numbers of the worked screen that read like a client's own figures:\n" + "\n".join(invented)

@@ -5,8 +5,12 @@ BUSINESS
 Industry: {{ industry }}
 Facts from their own site: {{ site_research }}
 
-THEIR OWN NUMBERS — the only figures that count as evidence
+THEIR OWN NUMBERS — the only figures that count as evidence, cited by claim id in "cites"
 {{ evidence }}
+
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block }}
+In "because" and "would_need", write only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. Show your arithmetic with the listed numbers; a result that is not listed is said in words ("more than the volume they reported"), because a number nobody listed is taken out of what the client reads. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
 
 THE HYPOTHESIS
 {{ statement }}
@@ -34,7 +38,7 @@ Rules:
 
    FOLLOW YOUR OWN ARITHMETIC. If you completed the calculation and every input came from above, the verdict is SUPPORTED or REFUTED — whichever the result shows. It is not UNTESTABLE. UNTESTABLE means you could not finish, and you must then name the figure you lacked. Showing a complete calculation and then calling it untestable tells the client nothing they can act on, and it is the most common way this judgement goes wrong.
 
-   If you finished the arithmetic but doubt what one of their figures MEANS — whether "320 sessions" counts booked or completed, say — that doubt goes in `because` as the caveat it is. The verdict still follows the arithmetic.
+   If you finished the arithmetic but doubt what one of their figures MEANS — whether "100 sessions" counts booked or completed, say — that doubt goes in `because` as the caveat it is. The verdict still follows the arithmetic.
 
 3. Never invent a number. Every figure you cite must appear above with its id.
 

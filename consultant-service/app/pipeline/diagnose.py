@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
-from app.figures.known import hours_for, known_for
+from app.figures.known import hours_for, known_for, prompt_lines
 from app.models import Request
 from app.pipeline._shared import (
     ask_until_usable, briefing_corrections, build_engagement_register, extract_json_from_text, ledger,
@@ -293,6 +293,8 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
         "industry": req.industry or "unspecified",
         "site_research": (analysis.get("business_model") or "none given"),
         "evidence": evidence,
+        # shared by the three prompts that write for the client, and shown the same figures the check reads
+        "figures_block": prompt_lines(known),
     }
 
     corrections = briefing_corrections(req.business_description)

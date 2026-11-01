@@ -6,14 +6,14 @@ WHAT THEY SAID ({{ stage }})
 Pick ONE shape:
 
   "weekly_grid" — they sell fixed slots on a repeating week: classes, sittings, appointments in chairs, shifts, courses. You need all three of: how many units ONE slot holds (reformers, seats, chairs, places), how many slots a day, how many days a week.
-  "total"       — they gave one pool instead: a number they can handle per period and (ideally) how much of it is used. E.g. "we can do 400 orders a month and do about 340".
+  "total"       — they gave one pool instead: a number they can handle per period and (ideally) how much of it is used. E.g. "we can do 500 orders a month and do about 400".
   "none"        — they did not give enough to draw either. This is a normal, honest answer.
 
 THE RULES — breaking any of them makes the picture worthless
 1. Every number you return must be one THEY said, in digits or words ("six" counts as 6). Never multiply, estimate, average or round. The code does the arithmetic.
 2. "slot_times" has exactly slots_per_day entries, earliest first. Put a time ONLY where they named that slot's time ("the 6pm class"); every other entry is null. Never invent a timetable.
 3. "day_names" only if they named the days ("Monday to Saturday"). Otherwise [].
-4. "typical_taken" is how many units a typical slot sells, as they said it ("about 10 of 12" -> 10). null if they did not say.
+4. "typical_taken" is how many units a typical slot sells, as they said it ("about 5 of 10" -> 5). null if they did not say.
 5. "full_slots" lists the times of slots they said sell out, are always full, or have a waiting list. Only times that also appear in slot_times.
 6. "waitlist" is true only if they mentioned a waiting list or turning people away. "waitlist_size" only if they gave a number for it.
 7. "unit" is one dot in the drawing, in THEIR words, singular: "reformer spot", "seat", "chair appointment", "van", "order".

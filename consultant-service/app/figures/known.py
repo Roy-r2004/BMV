@@ -356,22 +356,49 @@ def _prompt_line(f: Figure) -> str:
     return f"{f.id} | {shown} | {tag_word(f.kind)}" + (f" | {note}" if note else "")
 
 
+def _is_proposal(f: Figure) -> bool:
+    """The figures the plan stands on: the move, what we propose in it, and the plan's lengths."""
+    return f.kind == "ours" and (f.id == MOVE_ID or f.id.startswith(("PROP-", "PLAN-")))
+
+
+def _kept_for_prompt(known: FigureSet, budget: int) -> set[str]:
+    """The ids of the `budget` figures a prompt lists when they do not all fit.
+
+    Our proposals and the references are never pushed out by the client's own and
+    derived figures. They come first: the move, what it proposes and the plan's
+    lengths, then the references, then our other proposals, but never more than half
+    the budget, so the client's figures are not left with no room at all. The rest of
+    the budget goes to derived and theirs: each may have half, and one that needs less
+    lends what it does not use to the other. Of each kind it is the latest that are
+    kept (the later answers, the registry's later claims)."""
+    ours = known.by_kind("ours")
+    protected = [f for f in ours if _is_proposal(f)] + known.by_kind("reference") + \
+        [f for f in ours if not _is_proposal(f)]
+    protected = protected[:max(1, budget // 2)]
+    room = budget - len(protected)
+    derived, theirs = known.by_kind("derived"), known.by_kind("theirs")
+    take_derived = min(len(derived), max(room // 2, room - len(theirs)))
+    take_theirs = min(len(theirs), room - take_derived)
+    return {f.id for f in (*protected, *derived[len(derived) - take_derived:], *theirs[len(theirs) - take_theirs:])}
+
+
 def prompt_lines(known: FigureSet) -> str:
     """The known set as the lines a prompt lists under "Figures you may use": one
     line per figure, `id | figure | whose it is | what it is`, theirs first, then
     derived, reference and ours, each kind in the order its figures were added.
 
-    At most `settings.PROMPT_FIGURE_LINES` lines. When there are more figures, the
-    list is cut from the end of that order (so theirs and derived are the last to
-    go) and its last line says how many more exist and whose they are. An empty set
-    gives "none"."""
+    At most `settings.PROMPT_FIGURE_LINES` lines. When the figures do not all fit,
+    what is left out is theirs and derived (`_kept_for_prompt`: our proposals and the
+    references stay, then the latest of the others), and the last line says how many
+    more exist and whose they are. An empty set gives "none"."""
     ordered = [f for kind in _PROMPT_ORDER for f in known.by_kind(kind)]
     if not ordered:
         return "none"
     limit = settings.PROMPT_FIGURE_LINES
     if len(ordered) <= limit:
         return "\n".join(_prompt_line(f) for f in ordered)
-    shown, left = ordered[:limit - 1], ordered[limit - 1:]
+    kept = _kept_for_prompt(known, limit - 1)
+    shown, left = [f for f in ordered if f.id in kept], [f for f in ordered if f.id not in kept]
     whose = ", ".join(f"{n} {tag_word(k)}" for k in _PROMPT_ORDER if (n := sum(1 for f in left if f.kind == k)))
     more = f"... and {len(left)} more figures exist but are not listed here ({whose}); write only the numbers listed above"
     return "\n".join([*(_prompt_line(f) for f in shown), more])

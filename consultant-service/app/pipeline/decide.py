@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
-from app.figures.known import hours_for, known_for
+from app.figures.known import hours_for, known_for, prompt_lines
 from app.figures.model import FigureSet
 from app.models import Request
 from app.pipeline import consult
@@ -149,6 +149,7 @@ def decide(db: Session, request_id: int, analysis: dict) -> dict:
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
                 req.business_description,
             ),
+            figures_block=prompt_lines(known),
         )
         result = ask_until_usable(
             lambda: provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}],
