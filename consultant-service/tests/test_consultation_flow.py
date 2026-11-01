@@ -144,7 +144,7 @@ def test_a_move_resting_only_on_proposals_is_refused():
 def test_the_answer_drops_a_figure_she_never_gave():
     raw = {"headline": "You're not short of clients.", "turn": "You're full.",
            "sub": "Every evening sells out, and at $22 you're the cheapest nearby.",
-           "figures": [{"value": "$22 vs $32", "label": "you and the studios nearby", "cites": ["CF-04", "CF-06"]},
+           "figures": [{"value": "$22 vs $32", "label": "you and two studios nearby", "cites": ["CF-04", "CF-06"]},
                        {"value": "$25 vs $40", "label": "made up", "cites": ["CF-04"]}],
            "move": MOVE, "action": {"weeks": 6, "name": "six-week pilot"}}
     got, problems = answer.shape(raw, CLAIMS, KNOWN, HOURS)

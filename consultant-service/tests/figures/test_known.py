@@ -136,10 +136,8 @@ def test_a_headline_with_twelve_she_never_gave_is_dropped_and_kept_when_she_did(
     assert got["headline"] == "You have twelve reformers." and not problems
 
 
-@pytest.mark.xfail(strict=True, reason="casefile gives a generic noun ('people', 'others') no unit, but bind "
-                                       "binds a count with a noun only to a figure with that noun, so the "
-                                       "client's own 'twelve people' echoed back names nothing (Review Focus 6)")
 def test_her_own_count_with_a_generic_noun_echoed_back_is_hers():
+    # a figure counted in a generic noun ("people", "others") fits any noun at its exact value (Review Focus 6)
     got, problems = _answer({"headline": "You turn away twelve people a week.", "sub": ""},
                             ["We turn away twelve people a week."])
     assert got["headline"] == "You turn away twelve people a week." and not problems
@@ -154,9 +152,18 @@ def test_a_headline_figure_keeps_the_ids_of_both_figures_it_names_and_an_unmatch
     ids = got["figures"][0]["ids"]
     assert [f["value"] for f in got["figures"]] == ["$22 vs $32"] and problems
     assert [known.get(i).value for i in ids] == [22, 32] and all(known.get(i).unit == "USD" for i in ids)
-    # a count in the label must name a figure with its noun: she said "two others", not "two studios"
+    # her "two others" is a generic noun, so it backs "two studios" at its exact value: the
+    # figure is kept, its label binds her count, and its ids stay the value's own (ruling 1)
     raw["figures"][0]["label"] = "you and two studios nearby"
     got, problems = _answer(raw)
+    assert [f["value"] for f in got["figures"]] == ["$22 vs $32"] and problems     # "$22 vs $35" still dropped
+    assert [known.get(i).value for i in got["figures"][0]["ids"]] == [22, 32]
+    from app.figures.bind import bind
+    label = bind("you and two studios nearby", known)
+    assert not label.unresolved and [(f.value, f.unit) for f in label.bound] == [(2, "others")]
+    # a count with a specific noun does not: "2 instructors" never backs "2 studios"
+    instructors = [*HALO[:3], "Two instructors, both $32 a class."]
+    got, problems = _answer(raw, instructors)
     assert got["figures"] == [] and problems
 
 
