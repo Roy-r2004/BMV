@@ -20,13 +20,17 @@ the page that follows would otherwise show the decision's own summary, as if
 the stage had not been asked.
 """
 
+import dataclasses
 import json
 import logging
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures.calc import decimal_of, derive
+from app.figures.model import Figure, Proposal, TheirsSource, Working
 from app.models import Request
 from app.pipeline import capacity as _capacity
 from app.pipeline import figures
@@ -65,47 +69,97 @@ def _is_money(claim: dict | None) -> bool:
     return bool(claim) and str(claim.get("unit") or "").upper() == "USD"
 
 
+def _places(d: Decimal) -> int:
+    return max(0, -d.as_tuple().exponent)
+
+
+def _claim_figure(source: str, claim: dict, v: float) -> Figure:
+    """The claim a term cites, at the value the term quotes, as the Figure `derive` works on.
+    Whose it is follows the claim's provenance: computed is derived, proposed or anything not
+    plainly the client's is ours, and a claim that names no provenance is read as theirs."""
+    d, unit, provenance = decimal_of(v), str(claim.get("unit") or ""), claim.get("provenance")
+    text = str(claim.get("text") or "")
+    if provenance == "machine_computed":
+        return Figure(source, d, unit, None, "derived",
+                      Working((), "derived_value", str(claim.get("source") or "")), _places(d))
+    if provenance not in (None, "client_input"):
+        return Figure(source, d, unit, None, "ours", Proposal(note=text or source), _places(d))
+    return Figure(source, d, unit, None, "theirs",
+                  TheirsSource(turn=None, field=None, quote=text, file=None, cell=None), _places(d))
+
+
+def _sum(label: str, parts: list[tuple[int, dict]]) -> Figure | None:
+    """The parts of one term as a Figure: what is added, less what is taken away.
+    None when there is nothing to take it from, when a calendar constant is among them
+    (a constant multiplies, it is not added to a price), or when they are not one unit."""
+    if any(sub.get("factor") for _, sub in parts):
+        return None
+    # A number we propose takes the unit of what it is added to or taken from.
+    unit = next((sub["figure"].unit for _, sub in parts if sub["cited"]), None)
+    if unit is None:
+        unit = "USD" if any(sub["figure"].unit == "USD" for _, sub in parts) else ""
+    figs = [(sign, sub["figure"] if sub["cited"] else dataclasses.replace(sub["figure"], unit=unit))
+            for sign, sub in parts]
+    added, taken = [f for sign, f in figs if sign > 0], [f for sign, f in figs if sign < 0]
+    if not added:
+        return None
+    try:
+        first = added[0] if len(added) == 1 else derive("total", added, id=f"{label or 'parts'} (added)", unit=unit)
+        return derive("difference", [first] + taken, id=label or "parts", unit=unit) if taken else first
+    except ValueError as exc:
+        logger.info("move parts rejected: %s", exc)
+        return None
+
+
 def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
-    """One verified factor: {label, value, money, proposed: [...], text}."""
+    """One verified factor: {label, value, money, proposed: [...], text}, with
+    `figure` (a Figure, for `derive`) or, for a calendar constant, `factor`."""
     if not isinstance(t, dict) or depth > 1:
         return None
     label = str(t.get("label") or "").strip()[:60]
     parts = t.get("parts")
     if parts:
-        total, money, cited, proposed, bits, cites = 0.0, False, False, [], [], []
+        money, cited, proposed, bits, cites, signed = False, False, [], [], [], []
         for p in list(parts)[:4]:
             sub = _term({k: v for k, v in p.items() if k != "parts"}, by_id, depth + 1) if isinstance(p, dict) else None
             if sub is None:
                 return None
             sign = -1 if str(p.get("sign")) in ("-1", "-") else 1
-            total += sign * sub["value"]
+            signed.append((sign, sub))
             money = money or sub["money"]
             cited = cited or sub["cited"]
             cites += [sub["cite"]] if sub.get("cite") else []
             proposed += sub["proposed"]
             bits.append(("− " if sign < 0 else ("+ " if bits else "")) + sub["text"])
-        return {"label": label, "value": total, "money": money, "proposed": proposed,
-                "text": " ".join(bits), "parts": True, "cited": cited, "cites": cites}
+        total = _sum(label, signed)
+        if total is None:
+            return None
+        return {"label": label, "value": float(total.value), "figure": total, "money": money,
+                "proposed": proposed, "text": " ".join(bits), "parts": True, "cited": cited, "cites": cites}
     v = _as_float(t.get("value"))
     if v is None:
         return None
     source = str(t.get("from") or "").strip()
     if source == "proposed":
-        return {"label": label, "value": v, "money": False,
+        priced = "$" in label or "price" in label.lower()
+        d = decimal_of(v)
+        ours = Figure(f"proposed: {label}" if label else "proposed", d, "USD" if priced else "", None, "ours",
+                      Proposal(note=label or "proposed"), _places(d))
+        return {"label": label, "value": v, "figure": ours, "money": False,
                 "proposed": [{"value": v, "label": label or "proposed"}],
-                "text": f"{figures.money(v) if '$' in label or 'price' in label.lower() else _plain(v)} proposed",
+                "text": f"{figures.money(v) if priced else _plain(v)} proposed",
                 "cited": False}
     if source == "constant":
         if not figures.holds(v, figures.CONSTANTS):
             return None
-        return {"label": label, "value": v, "money": False, "proposed": [], "text": _plain(v),
-                "cited": False}
+        return {"label": label, "value": v, "factor": (decimal_of(v), label), "money": False, "proposed": [],
+                "text": _plain(v), "cited": False}
     claim = by_id.get(source)
     if claim is None or not _claim_matches(v, claim):
         return None
     shown = figures.money(v) if _is_money(claim) else _plain(v)
-    return {"label": label, "value": v, "money": _is_money(claim), "proposed": [],
-            "text": f"{shown} now" if depth else shown, "cited": True, "cite": source}
+    return {"label": label, "value": v, "figure": _claim_figure(source, claim, v), "money": _is_money(claim),
+            "proposed": [], "text": f"{shown} now" if depth else shown, "cited": True, "cite": source}
 
 
 def _plain(v: float) -> str:
@@ -131,15 +185,20 @@ def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
     # proposals and constants is a guess with a dollar sign on it.
     if not any(t.get("cited") for t in terms):
         return None
-    value = 1.0
-    for t in terms:
-        value *= t["value"]
-    if value <= 0:
-        return None
     unit = str(raw.get("unit") or "").strip()[:16]
     money = unit.upper() == "USD" or any(t["money"] for t in terms)
     period = str(raw.get("period") or "year").strip().lower()
     period = period if period in ("week", "month", "year") else "year"
+    try:
+        product = derive("product", [t["figure"] for t in terms if "figure" in t], id="move",
+                         unit="USD" if money else unit, period=period,
+                         factors=[t["factor"] for t in terms if "factor" in t])
+    except ValueError as exc:
+        logger.info("move rejected: %s", exc)
+        return None
+    value = float(product.value)
+    if value <= 0:
+        return None
     shown = figures.rounded(value)
     display = (f"≈ {figures.money(shown)} a {period}" if money
                else f"≈ {_plain(shown)} {unit or ''} a {period}".replace("  ", " "))

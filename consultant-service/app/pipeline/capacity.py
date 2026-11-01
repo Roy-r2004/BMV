@@ -30,6 +30,8 @@ import math
 
 from app.ai import provider
 from app.config import settings
+from app.figures.calc import decimal_of, derive
+from app.figures.model import Figure, TheirsSource
 from app.pipeline import figures
 from app.pipeline._shared import ask_until_usable, reply_json
 from app.templating import render
@@ -139,6 +141,15 @@ def _fmt(v: float) -> str:
     return f"{int(v):,}" if float(v).is_integer() else f"{v:,.1f}"
 
 
+def _told(key: str, value, unit: str, quote: str, period: str | None = None) -> Figure:
+    """A number the owner gave, as the Figure `derive` works on. Every number
+    passed here has already been through `_num` or been counted from times
+    they named."""
+    d = decimal_of(value)
+    source = TheirsSource(turn=None, field=None, quote=quote, file=None, cell=None)
+    return Figure(key, d, unit, period, "theirs", source, max(0, -d.as_tuple().exponent))
+
+
 def shape(raw: dict, texts: list[str]) -> dict | None:
     """Turn the model's reading into a verified picture, or None.
 
@@ -169,9 +180,12 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
         scale = _dot_scale(cap)
         derived = [{"key": "CAP-01", "value": cap, "label": f"{unit_plural} a {period}", "working": "as you told us"}]
         if taken is not None:
+            unused = derive("difference", [_told("capacity", cap, unit_plural, quote, period),
+                                           _told("used", taken, unit_plural, quote, period)],
+                            id="CAP-03", unit=unit_plural, period=period)
             derived.append({"key": "CAP-02", "value": taken, "label": f"{unit_plural} used a {period}",
                             "working": "as you told us"})
-            derived.append({"key": "CAP-03", "value": cap - taken, "label": f"{unit_plural} unused a {period}",
+            derived.append({"key": "CAP-03", "value": float(unused.value), "label": f"{unit_plural} unused a {period}",
                             "working": f"{_fmt(cap)} − {_fmt(taken)}"})
         return {
             "shape": "total", "unit": unit, "unit_plural": unit_plural, "period": period,
@@ -243,23 +257,35 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
                         "waitlist": (int(waitlist_size) if waitlist_size else "unknown") if (is_full and waitlist) else None})
         grid.append({"day": d, "slots": row})
 
-    total = per_slot * slots * days
     full_count = sum(1 for t in times if t and t in full)
-    full_spots = per_slot * full_count * days
+    f_per = _told("per_slot", per_slot, f"{unit_plural} a slot", quote)
+    f_slots = _told("slots_per_day", slots, "slots a day", quote)
+    f_days = _told("days_per_week", days, "days a week", quote)
+    f_full = _told("full_slots", full_count, "slots a day", quote)
+    f_total = derive("product", [f_per, f_slots, f_days], id="CAP-01", unit=unit_plural, period="week")
+    f_slots_week = derive("product", [f_slots, f_days], id="CAP-02", unit="slots", period="week")
+    f_full_spots = derive("product", [f_per, f_full, f_days], id="CAP-05", unit=unit_plural, period="week")
+    total, full_spots = int(f_total.value), int(f_full_spots.value)
     derived = [
         {"key": "CAP-01", "value": total, "label": f"{unit_plural} a week",
          "working": f"{per_slot} × {slots} a day × {days} days"},
-        {"key": "CAP-02", "value": slots * days, "label": "slots a week",
+        {"key": "CAP-02", "value": int(f_slots_week.value), "label": "slots a week",
          "working": f"{slots} a day × {days} days"},
     ]
     taken_total = None
     if typical is not None:
-        taken_total = typical * (slots - full_count) * days + full_spots
-        working = (f"{_fmt(typical)} × {slots - full_count} ordinary slots × {days} days"
+        f_ordinary = derive("difference", [f_slots, f_full], id="ordinary_slots", unit="slots a day")
+        f_ordinary_taken = derive("product", [_told("typical_taken", typical, f"{unit_plural} a slot", quote),
+                                              f_ordinary, f_days],
+                                  id="CAP-03a", unit=unit_plural, period="week")
+        f_taken = derive("total", [f_ordinary_taken, f_full_spots], id="CAP-03", unit=unit_plural, period="week")
+        f_empty = derive("difference", [f_total, f_taken], id="CAP-04", unit=unit_plural, period="week")
+        taken_total, ordinary = float(f_taken.value), int(f_ordinary.value)
+        working = (f"{_fmt(typical)} × {ordinary} ordinary slots × {days} days"
                    + (f" + {per_slot} × {full_count} full slots × {days} days" if full_count else ""))
         derived.append({"key": "CAP-03", "value": taken_total, "label": f"{unit_plural} taken a week",
                         "working": working})
-        derived.append({"key": "CAP-04", "value": total - taken_total, "label": f"{unit_plural} empty a week",
+        derived.append({"key": "CAP-04", "value": float(f_empty.value), "label": f"{unit_plural} empty a week",
                         "working": f"{_fmt(total)} − {_fmt(taken_total)}"})
     if full_count:
         derived.append({"key": "CAP-05", "value": full_spots, "label": f"{unit_plural} a week in the slots that sell out",

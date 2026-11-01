@@ -214,7 +214,7 @@ def test_the_shape_of_the_request_is_checked():
 
 
 def test_a_working_too_wide_to_be_exact_is_refused_not_rounded():
-    wide = D("9" * 40)
+    wide = D("9" * 60)
     with pytest.raises(ValueError, match="digits"):
         derive("product", [theirs("A", "1"), theirs("B", "1")], id="X", unit="",
                factors=[(wide, "a"), (wide, "b")])
@@ -355,3 +355,74 @@ def test_at_least_five_operations_are_checked_against_the_engine():
     table itself still holds five or more cases and every operation."""
     assert len(CASES) >= 5
     assert {c[1] for c in CASES} == {"product", "total", "difference", "ratio"}
+
+
+# -- the two stages that call derive -----------------------------------------------------
+#
+# capacity.shape and answer.compute_move used to multiply and subtract floats. They
+# now work through derive, and keep every client-visible string as it was
+# (tests/test_consultation_flow.py pins those). What changes is only the digits
+# float arithmetic got wrong, and a few terms no sane answer holds.
+
+OWNER = ["12 reformers. Six classes a day, six days a week.", "A typical class is about 10.7 of 12 full."]
+WEEK = {"shape": "weekly_grid", "unit": "reformer spot", "unit_plural": "reformer spots", "per_slot": 12,
+        "slots_per_day": 6, "days_per_week": 6, "typical_taken": 10.7, "full_slots": []}
+CLAIMS = [{"id": "CF-01", "value": 144, "unit": "spots", "text": "144 spots"},
+          {"id": "CF-02", "value": 100, "unit": "members", "text": "100 members"},
+          {"id": "CF-04", "value": 22, "unit": "USD", "text": "$22 a class"},
+          {"id": "CF-08", "value": 8, "unit": "hours", "text": "8 hours"}]
+
+
+def _move(parts):
+    return {"label": "x", "unit": "USD", "period": "year",
+            "terms": [{"label": "spots a week", "value": 144, "from": "CF-01"},
+                      {"label": "rise", "parts": parts},
+                      {"label": "weeks a year", "value": 52, "from": "constant"}]}
+
+
+def test_the_week_has_no_float_noise_in_what_it_stores():
+    from app.pipeline import capacity
+    pic = capacity.shape(WEEK, OWNER)
+    taken = {d["key"]: d["value"] for d in pic["derived"]}
+    # 10.7 * 6 * 6 is 385.19999999999993 and 432 less that is 46.80000000000007 in floats
+    assert taken["CAP-03"] == 385.2 and repr(taken["CAP-03"]) == "385.2"
+    assert taken["CAP-04"] == 46.8 and repr(taken["CAP-04"]) == "46.8"
+    assert pic["taken"] == 385.2 and pic["capacity"] == 432 and isinstance(pic["capacity"], int)
+
+
+def test_the_total_picture_takes_the_used_from_the_capacity_exactly():
+    from app.pipeline import capacity
+    pic = capacity.shape({"shape": "total", "unit": "van", "total_capacity": 40.3, "total_taken": 31.1,
+                          "period": "day"}, ["We have 40.3 vans and 31.1 are on the road."])
+    # 40.3 - 31.1 is 9.199999999999996 in floats
+    assert {d["key"]: d["value"] for d in pic["derived"]}["CAP-03"] == 9.2
+
+
+def test_the_move_is_exact_where_floats_are_not():
+    from app.pipeline import answer
+    raw = {"unit": "members", "period": "year", "label": "x",
+           "terms": [{"label": "members", "value": 100, "from": "CF-02"},
+                     {"label": "share who stay", "value": 0.07, "from": "proposed"}]}
+    move = answer.compute_move(raw, CLAIMS)
+    assert move["value"] == 7.0 and repr(move["value"]) == "7.0"     # 100 * 0.07 is 7.000000000000001 in floats
+    assert move["working"] == "100 members × 0.07 proposed share who stay = 7"
+
+
+def test_a_proposed_number_takes_the_unit_of_what_it_is_taken_from():
+    from app.pipeline import answer
+    # no "$" and no "price" in the label: the proposal is still dollars beside a dollar figure
+    parts = [{"value": 28, "from": "proposed", "label": "proposed uplift"}, {"value": 22, "from": "CF-04", "sign": -1}]
+    assert answer.compute_move(_move(parts), CLAIMS)["value"] == 144 * 6 * 52
+
+
+def test_parts_in_two_units_are_refused_not_subtracted():
+    from app.pipeline import answer
+    parts = [{"value": 22, "from": "CF-04"}, {"value": 8, "from": "CF-08", "sign": -1}]
+    assert answer.compute_move(_move(parts), CLAIMS) is None
+
+
+def test_parts_with_nothing_to_take_away_from_or_with_a_constant_in_them_are_refused():
+    from app.pipeline import answer
+    assert answer.compute_move(_move([{"value": 22, "from": "CF-04", "sign": -1}]), CLAIMS) is None
+    assert answer.compute_move(_move([{"value": 22, "from": "CF-04"}, {"value": 12, "from": "constant"}]),
+                               CLAIMS) is None

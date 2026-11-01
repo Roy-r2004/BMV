@@ -36,7 +36,7 @@ OPS: tuple[str, ...] = ("product", "total", "difference", "ratio")
 _LIMITS = dict(rounding=ROUND_HALF_UP, Emin=-9999, Emax=9999)
 # Product, total and difference trap Inexact: wide enough that any figure a client
 # or a model could write passes through whole, and a working that is not is refused.
-_EXACT = Context(prec=60, traps=[InvalidOperation, DivisionByZero, Overflow, Inexact], **_LIMITS)
+_EXACT = Context(prec=100, traps=[InvalidOperation, DivisionByZero, Overflow, Inexact], **_LIMITS)
 # A division that does not end has to be cut somewhere; 50 digits is far past what
 # anything shown can use.
 _DIVIDE = Context(prec=50, traps=[InvalidOperation, DivisionByZero, Overflow], **_LIMITS)
