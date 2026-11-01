@@ -646,6 +646,30 @@ BMV_STATEMENT = ("Prepared by BMV AI. Recommendations and proposed thresholds re
 STATUS_LABELS = {"draft": "DRAFT", "final": "FINAL — CONSULTANCY DELIVERABLE", "client_approved": "CLIENT APPROVED"}
 
 
+def _presentation_reasons(req) -> list[str]:
+    """A clipped page of a PDF this run has already built, once the run has a
+    storyline. A file that is not on disk yet is not a finding. A run with no
+    storyline is left as it was: its cover is drawn outside the body frame on
+    purpose, and the font check stays on the presentation gate."""
+    if not getattr(req, "storyline_json", None):
+        return []
+    from app.engine.gates.presentation import clipping_findings
+
+    request_id = getattr(req, "id", None)
+    if request_id is None:
+        return []
+    folder = os.path.join(settings.UPLOADS_DIR, "exports")
+    # The pipeline body frame: 18mm in from the sides, 20mm up from the foot,
+    # 16mm down from the top.
+    frame = {"left": 18, "bottom": 20, "top": 16}
+    found = []
+    for kind in ("blueprint", "technical", "operations", "roadmap", "system"):
+        path = os.path.join(folder, f"{request_id}-{kind}.pdf")
+        if os.path.isfile(path):
+            found.extend(clipping_findings(path, frame_mm=frame))
+    return found
+
+
 def release_status(req: Request) -> dict:
     """The release decision, computed from THIS run's persisted records:
     its quality bench report and a deterministic artifact scan of every
@@ -709,6 +733,7 @@ def release_status(req: Request) -> dict:
     unchecked = [where for where, found in recorded.items() if found is None]
     if unchecked and law.can_record(req):
         reasons.append(f"{len(unchecked)} document(s) not yet checked against the figures since the last data change")
+    reasons.extend(_presentation_reasons(req))
     # client governance is the optional LATER state: a consultancy deliverable
     # is final on its quality checks alone; CLIENT APPROVED needs the client's
     # own owner and approver (intake facts, never invented)

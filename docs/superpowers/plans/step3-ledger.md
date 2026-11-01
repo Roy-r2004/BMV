@@ -11,3 +11,5 @@ Ruling: the answer page is assembled when the package is rendered, from what the
 Ruling: Task 4 creates `pagelaw.title_lines` and Task 6 adds the rest of the page law to that module - the stage has to measure a title before the page-law task, and the user order runs Task 4 first - the module appears one task early.
 
 Ruling: Task 10 introduces `roadmap.build_roadmap_pdf` only far enough for the zip to contain a real file, and Task 8 replaces the body with the full roadmap - the zip test requires the file and the user order runs Task 10 before Task 8 - one commit has a thin roadmap that the next task fills in.
+
+Ruling: `release_status` records a clipped page, and names that page, only for a run that has a storyline - the plan adds presentation and clipping findings to every release; the volumes' cover is drawn outside the body frame on purpose and they use base faces, so folding those findings in stamps every current clean file DRAFT - a run with no storyline stays final exactly as it is today.
