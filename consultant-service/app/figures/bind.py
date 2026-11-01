@@ -15,12 +15,15 @@ stand for:
                 ("10 days") is evidence: the figure must be in that very unit
                 ("10.03 weeks" is not it), a figure with no unit never matches, and
                 a filler word ("40 per week") is not agreement with a figure in
-                time. The noun after a count must be the figure's own unit
-                (plural or singular; "more", "extra", "new" and the like are skipped):
-                "Hire 4 more instructors" is not 4 reformers, "Add 3 classes" is not
-                3 intro classes. A figure with no noun takes a number only when no
-                noun follows it, and a figure that names the unit beats a unitless
-                one. Only an unspaced hyphen or en dash, " to ", and "and"
+                time. The noun after a count must be the figure's own unit, or the
+                head noun of it (its last word), plural or singular ("more", "extra",
+                "new" and the like are skipped): "432 spots a week" and "The 144
+                evening spots" are figures in "reformer spots", "Hire 4 more
+                instructors" is not 4 reformers. A figure with no noun takes a number
+                only when no noun follows it, and a figure that names the unit beats a
+                unitless one. "Percentage points", "percent points", "% points" and "pp"
+                after a number say a difference between percents: never a percent, so
+                the mention is unresolved. Only an unspaced hyphen or en dash, " to ", and "and"
                 after "between" or "from" join two numbers into a range; a spaced
                 dash, an em dash or a clause break never does. Two numbers so joined
                 share a shape only when one is bare and the other carries it
@@ -71,23 +74,33 @@ stand for:
                 after a limit, or in a clause with a limit word before it, is
                 unresolved when its figure is shown rounded.
     unitless    a figure with no unit binds only a mention of exactly its value that has
-                no noun after it (also through "of": "3 of 12 reformers" counts reformers
-                for both numbers), no rate or period phrase in its clause, and that
-                stands where a quantity stands: not a list marker ("**4.** Review"), not
-                a table cell ("| 4 |"), not after a verb or a name ("Dial 4", "Room 4"),
-                and not a part of a ratio ("1:10", "4/12": no figure names those).
+                no noun after it, and that stands where a quantity stands: not a list
+                marker ("**4.** Review"), not a table cell ("| 4 |"), not after a verb or
+                a name ("Dial 4", "Room 4"), and not a part of a ratio ("1:10", "4/12":
+                no figure names those). A rate or period phrase beside it does not
+                matter when the figure has no period of its own ("10 of 12 each week");
+                a figure with a period is held to the phrase like any figure. In "N of M
+                noun" the N counts the noun the M counts, when the M binds a figure in
+                that noun: "10 of 12 reformers" binds the client's unitless 10 beside
+                their 12 reformers. Without a figure for the M, the noun is not shared.
     equal       figures of one value that print the same way are one answer whatever
                 their units or kinds: the figure that names the noun, then the most
                 trusted kind (theirs, derived, reference, ours), then the lowest id.
-                One value printed two ways (12 and 12.0, "~12" and "12") is a choice.
+                Figures of one value that would print differently are one answer too
+                when the mention is not rewritten (an exact figure, a number word, a
+                limit, a quotation): "$44,928" binds the derived $44,928 over our
+                "~$45,000" of the same value. When the mention would be rewritten, one
+                value printed two ways (12 and 12.0) is a choice. Figures alike in every
+                way a page shows (value, unit, period, kind, precision) are one candidate.
 
 An unresolved mention is left as written and reported.
 
-Only the number is replaced, never what the sentence says around it. "twelve
-classes" becomes "12 classes". The currency sign, percent sign, and the words
-percent, USD or dollars that the model put on its number are kept; a symbol it did
-not write is not added; a magnitude it wrote ("10k", "1.5 million") is spelled out
-as the figure's digits. A figure that rounding changed gets a "~" in front, except
+Only the number is replaced, never what the sentence says around it. A number
+written as a word stays a word when a figure supports it ("twelve classes" is kept
+and named); digits are put in the figure's own form. The currency sign, percent
+sign, and the words percent, USD or dollars that the model put on its number are
+kept; a symbol it did not write is not added; a magnitude it wrote ("10k", "1.5
+million") is spelled out as the figure's digits. A figure that rounding changed gets a "~" in front, except
 after an approximation cue (with or without an article after it), an article, or a
 "~" the model wrote, which stay exactly as written: they may be prepositions, and
 the sentence already hedges.
@@ -106,11 +119,13 @@ A token `{{F:<id>}}` is replaced by that figure's number. A currency sign before
 it, or a percent sign or a unit word after it, is not doubled: the number prints
 without its own symbol, and the neighbour must fit the figure (a "%" after a dollar
 figure is unresolved). Where nothing next to it names the unit, the figure prints
-whole ("$22", "25%", "6 weeks", "24 GB"). A noun after it names what is counted: it
-must be the figure's own unit ("12 members" for a figure in members) or the figure a
-percent; a figure with no unit, in time, in money or in another unit would be made to
-say what the noun does not ("6 members" for weeks). A token with an
-unknown id, one stuck to digits or letters ("12{{F:A}}", "{{F:A}}k"), and any "{{F:"
+whole ("$22", "25%", "6 weeks", "24 GB"). The figure carries its own unit, so a word
+after it is the sentence's own and may be anything for a figure in a noun or a percent
+("{{F:CAP-04}} go empty", "a {{F:P}} drop"); the figure's noun is said once ("{{F:M}}
+members" is "12 members"). A word after a figure in money ("$22 members"), in time
+("6 weeks starts": the time word itself is allowed) or with no unit at all would double
+the unit or give it one it does not have, and is unresolved, as is a token before
+"percentage points". A token with an unknown id, one stuck to digits or letters ("12{{F:A}}", "{{F:A}}k"), and any "{{F:"
 still in the output (nested or unclosed braces) are unresolved and reported, never
 left silently. "{{f:id}}" in any case is a token.
 
@@ -144,7 +159,7 @@ from decimal import ROUND_HALF_UP, Context, Decimal
 from functools import lru_cache
 from typing import NamedTuple
 
-from app.figures.model import _TIME_UNITS, Figure, FigureSet, display, display_number, displayed_value
+from app.figures.model import TIME_WORDS, Figure, FigureSet, display, display_number, displayed_value
 from app.figures.read import _CURRENCY_CODES, _MONEY_UNITS, Mention, mentions, supported
 
 
@@ -298,9 +313,7 @@ def _joiner(text: str, a: Mention, b: Mention) -> str | None:
 
 # time words, by what they stand for ("hrs" is "hour"); the model's own table is the
 # source for the words, the abbreviations are the ones clients type
-_TIME_CANON = {word: one for one, many in _TIME_UNITS for word in (one, many)}
-_TIME_CANON.update({"sec": "second", "secs": "second", "min": "minute", "mins": "minute", "hr": "hour",
-                    "hrs": "hour", "wk": "week", "wks": "week", "yr": "year", "yrs": "year"})
+_TIME_CANON = dict(TIME_WORDS)
 
 # words that follow a number without naming what it counts
 _FUNCTION_WORDS = frozenset(
@@ -328,10 +341,6 @@ def _stem(word: str) -> str:
     return w
 
 
-def _unit_words(unit: str) -> set[str]:
-    return {_stem(w) for w in re.findall(r"[A-Za-z]+", unit)}
-
-
 # Words that end the noun phrase after a number, besides the function words: adverbs and
 # the period adjectives. "more", "extra", "new", "additional", "total" and the like do not
 # end it; they are skipped, and the noun is what comes after them.
@@ -339,19 +348,16 @@ _ADVERBS = frozenset(
     "here there now today tomorrow yesterday again already too also just still even ever never always often soon "
     "later early late away ahead back together apart instead anyway really very quite rather mostly mainly simply "
     "currently recently actually usually normally typically daily weekly monthly yearly annually annual overall "
-    "net gross apiece only".split())
+    "net gross apiece only nearby once".split())
 _PHRASE_STOP = _FUNCTION_WORDS | _ADVERBS
 _SKIP_WORDS = frozenset("more extra new additional total other further another fewer less".split())
-# A "noun" that only stands for one said elsewhere ("two others nearby"): a figure in it takes
-# whatever noun the number is given, and gives no evidence of its own.
-_PROFORMS = frozenset("others other ones one some many few rest those these them".split())
 
 
 # "3 of 12 reformers", "4 of your 12 reformers", "2 of your staff": the noun after "of" is the
 # one both numbers count
 _OF_TAIL = re.compile(
     rf"{_SP}+of(?:{_SP}+(?:the|your|our|their|these|those|my|his|her|its)(?![A-Za-z]))?"
-    rf"(?:{_SP}+(?:\d[\d,]*(?:\.\d+)?|{_NUMBER_WORD})(?![A-Za-z\d]))?", re.I)
+    rf"(?:{_SP}+(?P<den>\d[\d,]*(?:\.\d+)?|{_NUMBER_WORD})(?![A-Za-z\d]))?", re.I)
 
 
 def _phrase_after(view: str, pos: int) -> tuple[str, ...]:
@@ -375,15 +381,23 @@ def _phrase_after(view: str, pos: int) -> tuple[str, ...]:
     return tuple(words)
 
 
+def _unit_head(unit: str) -> str:
+    """The head noun of a unit: its last word with the plural folded ("reformer spots" is
+    "spot", "intro classes" is "class"); for a rate unit ("tokens/sec") the word before the
+    slash."""
+    words = re.findall(r"[A-Za-z]+", unit.split("/")[0])
+    return _stem(words[-1]) if words else ""
+
+
 def _unit_fits(phrase: tuple[str, ...], unit: str) -> bool:
     """Whether the words after a bare number can name what a figure in `unit` counts.
     A time word after the number means the figure must be in that same time unit: a
     figure with no unit or "count", or in another unit, never matches it, and a figure
     in time needs its own time word (a filler like "per" or "a", or nothing, is not
     agreement). A figure with no unit of its own takes the number only when no noun
-    follows it. A figure in a noun unit (reformers, classes, intro classes, GB) takes it
-    when no noun follows, or when the noun phrase holds all of the unit's words:
-    "Hire 4 more instructors" is not 4 reformers, "Add 3 classes" is not 3 intro classes."""
+    follows it. A figure in a noun unit takes it when no noun follows, or when the head
+    noun of its unit is among the words: "432 spots a week" is a figure in "reformer
+    spots", "reformers" is not, and "Hire 4 more instructors" is not 4 reformers."""
     word = phrase[0] if phrase else None
     figure_time = _TIME_CANON.get(unit.lower())
     word_time = _TIME_CANON.get(word) if word else None
@@ -393,19 +407,19 @@ def _unit_fits(phrase: tuple[str, ...], unit: str) -> bool:
         return False
     if unit in ("", "count"):
         return not phrase
-    if not phrase or unit in _PROFORMS:
+    if not phrase:
         return True
-    return _unit_words(unit) <= {_stem(w) for w in phrase}
+    return _unit_head(unit) in {_stem(w) for w in phrase}
 
 
 def _names_unit(phrase: tuple[str, ...], unit: str) -> bool:
     """Whether the words after a number name this very unit (not a unitless one)."""
-    if not phrase or unit in ("", "count") or unit in _PROFORMS:
+    if not phrase or unit in ("", "count"):
         return False
     word = phrase[0]
     if _TIME_CANON.get(word) or _TIME_CANON.get(unit.lower()):
         return _TIME_CANON.get(word) == _TIME_CANON.get(unit.lower())
-    return _unit_words(unit) <= {_stem(w) for w in phrase}
+    return _unit_head(unit) in {_stem(w) for w in phrase}
 
 
 def _admissible(f: Figure, shape: _Shape, phrase: tuple[str, ...]) -> bool:
@@ -445,6 +459,25 @@ def _period_ok(period: str | None, keys: frozenset[str] | set[str]) -> bool:
     return fp is None or all(k == fp for k in keys)
 
 
+def _rewrite_text(f: Figure, shape: _Shape) -> str:
+    """The mention rewritten to figure f's own digits, keeping what it wrote around them (the
+    currency sign, the percent word). Only a figure we show exactly is ever printed this way."""
+    body = re.fullmatch(r"(~?-?)(.*)", display_number(f, symbols=False, tilde=False), re.S)
+    return f"{body.group(1)}{shape.lead}{body.group(2)}{shape.trail}"
+
+
+def _collapse(found: list[Figure]) -> list[Figure]:
+    """Figures that are the same number in every way a page shows (value, unit, period, kind,
+    precision) are one candidate: the lowest id. A request with hundreds of alike figures is
+    then read once per number, not once per figure."""
+    best: dict[tuple, Figure] = {}
+    for f in found:
+        key = (f.value, f.unit, f.period, f.kind, f.precision)
+        if key not in best or f.id < best[key].id:
+            best[key] = f
+    return list(best.values())
+
+
 def _pick(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure], exact_only: bool,
           strict: bool = False, approximate: bool = False, keys: frozenset[str] | set[str] = frozenset(),
           bare_ok: bool = True) -> Figure | None:
@@ -458,10 +491,13 @@ def _pick(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure
     and, for a near figure, the mention is a true rounding of it. `exact_only` (a
     quotation) takes no near figure; `strict` (a limit: "over $45,000") takes only a figure
     whose own value equals the mention's. Within a tier, the figure that names the very unit
-    the next words give beats a unitless one; figures of one value that print alike are not
-    ambiguous, only unequal ones are. A figure with no unit takes only an exact mention that
-    stands where a quantity stands (`bare_ok`). Every rate or period phrase in the clause
-    must be the figure's own period."""
+    the next words give beats a unitless one. Figures of one value are not ambiguous when the
+    mention would read the same whichever bound: what is printed is what is compared, so a
+    mention that is not rewritten (exact-only, a number word, a figure we show rounded) is
+    bound by trust (theirs, derived, reference, ours) even when the figures would print
+    differently, and only a rewrite that would differ ("12" and "12.00") is a choice. A figure
+    with no unit takes only an exact mention that stands where a quantity stands (`bare_ok`).
+    Every rate or period phrase in the clause must be the figure's own period."""
     cands = [f for f in found if _admissible(f, shape, phrase) and _period_ok(f.period, keys)
              and (f.unit not in ("", "count") or (bare_ok and f.value == m.value))]
     equal = [f for f in cands if f.value == m.value]
@@ -482,8 +518,9 @@ def _pick(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure
         pool = named   # "12 weeks": the figure in weeks is more specific than a unitless 12
     if len({f.value for f in pool}) > 1:
         return None   # figures of different values: a rounding that names none of them
-    if len({display_number(f, symbols=False) for f in pool}) > 1:
-        return None   # one value printed two ways (12 and 12.00, "~12" and "12"): a choice the page would show
+    as_written = exact_only or strict or m.form == "word"
+    if len({m.text if (as_written or displayed_value(f) != f.value) else _rewrite_text(f, shape) for f in pool}) > 1:
+        return None   # one value printed two ways (12 and 12.00): a choice the page would show
     # Figures of one value that print the same are one answer whatever their units or kinds:
     # the most trusted kind, then the first id. (Unit specificity already narrowed the pool.)
     winner = min(pool, key=lambda f: (_TRUST[f.kind], f.id))
@@ -558,6 +595,9 @@ _PHRASE = re.compile(
     rf"{_SP}+(?:[A-Za-z-]+{_SP}+)?{_TIME_NOUN})(?![A-Za-z])"
     rf"|(?<![A-Za-z])(?P<overthe>over{_SP}+the{_SP}+(?:lease|term|season|life|course|contract|period))(?![A-Za-z])",
     re.I)
+# "5 percentage points", "5 pp", "5% points": a difference between percents, not a percent
+_PP_AFTER = re.compile(rf"{_SP}*(?:pp|(?:percentage|percent|%){_SP}*points?)(?![A-Za-z])", re.I)
+_POINTS_AFTER = re.compile(rf"{_SP}*points?(?![A-Za-z])", re.I)
 _CELL = re.compile(rf"\s*(?:{_TIME_NOUN}|{_TIME_ADV})\s*", re.I)
 _CANON_NOUN = {"wk": "week", "yr": "year", "mo": "month", "annum": "year"}
 _CANON_ADV = {"daily": "day", "weekly": "week", "monthly": "month", "yearly": "year", "annually": "year",
@@ -671,9 +711,12 @@ def _mask(text: str) -> str:
     spans.extend(m.span(1) for m in _MD_TARGET.finditer(text))
     for m in _URL.finditer(text):
         url = m.group()
-        while url and (url[-1] in ".,;:!?'\"]}" or (url[-1] == ")" and url.count(")") > url.count("("))):
-            url = url[:-1]
-        spans.append((m.start(), m.start() + len(url)))
+        keep, closes, opens = len(url), url.count(")"), url.count("(")
+        while keep and (url[keep - 1] in ".,;:!?'\"]}" or (url[keep - 1] == ")" and closes > opens)):
+            if url[keep - 1] == ")":
+                closes -= 1
+            keep -= 1
+        spans.append((m.start(), m.start() + keep))
     reach = 0                         # the word around each slash, found from the slash so a long run stays linear
     i = text.find("/")
     while i != -1:
@@ -711,7 +754,7 @@ def _mask(text: str) -> str:
 # a client's quotation: text between straight or curly double quotes
 _QUOTE = re.compile(r'"[^"]{0,400}"|\u201c[^\u201d]{0,400}\u201d')
 
-_TOKEN = re.compile(r"\{\{\s*F\s*:\s*([^{}]*?)\s*\}\}", re.I)
+_TOKEN = re.compile(r"\{\{\s*F\s*:([^{}]*)\}\}", re.I)
 _OPENER = re.compile(r"\{\{\s*F\s*:", re.I)
 
 class _Decision(NamedTuple):
@@ -767,6 +810,8 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
         return _UNRESOLVED   # "over {{F:M}}", "Cap spend at {{F:M}}" for a rounded figure would certify a bound it cannot
     kind = _kind_of_unit(f.unit)
     trail = _TRAIL_HEAD.match(text, end)
+    if _PP_AFTER.match(text, end) or (trail and "point" in trail.group().lower()):
+        return _UNRESOLVED   # percentage points are not a percent
     if trail and ("%" in trail.group() or "per" in trail.group().lower()):
         fits = f.unit == "percent"
     elif lead or trail:
@@ -784,14 +829,17 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
         unit_word = display(f)[len(display_number(f)):].strip()
         phrase = _phrase_after(text, end)
         if phrase:
-            # a noun follows and names what is counted: it must be the figure's own unit (then the
-            # unit is already said, once), or the figure a percent. A figure with no unit, in money,
-            # or in another unit would be made to say what the noun does not
-            if f.unit == "percent":
-                return _Decision(False, f, number, None, kind)
-            if f.unit in ("", "count") or f.unit in _MONEY_UNITS or not _unit_fits(phrase, f.unit):
+            # A figure in money says its own unit, and a noun after it would double it ("$22
+            # members"); one in time needs the time word itself ("6 weeks", never "6 weeks starts");
+            # one with no unit gives no noun to the words after it. A percent, and a figure in a
+            # noun of its own, carry what they count: any word may follow ("a 33% drop", "12
+            # reformers go empty"), and the noun is said once.
+            if f.unit in _MONEY_UNITS or f.unit in ("", "count"):
                 return _UNRESOLVED
-            return _Decision(False, f, number, None, kind)
+            if _TIME_CANON.get(f.unit.lower()):
+                return _Decision(False, f, number, None, kind) if _unit_fits(phrase, f.unit) else _UNRESOLVED
+            if f.unit == "percent" or _names_unit(phrase, f.unit):
+                return _Decision(False, f, number, None, kind)
         return _Decision(False, f, number + (" " + unit_word if unit_word else ""), None, kind)
     if not fits:
         return _UNRESOLVED
@@ -808,14 +856,13 @@ def _decide_mention(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: l
     f = _pick(m, shape, phrase, found, quoted or limited, limited, approximate, keys, bare_ok)
     if f is None:
         return _UNRESOLVED
-    if quoted or limited:
-        return _Decision(False, f, m.text)   # checked, bound, never rewritten
+    if quoted or limited or m.form == "word":
+        return _Decision(False, f, m.text)   # checked, bound, never rewritten (a number word stays a word)
     if displayed_value(f) != f.value:
         # a figure we show rounded: what was said (its exact value, its rounded display, or a true
         # rounding of it) stays as written, since printing the display could only say less
         return _Decision(False, f, m.text)
-    body = re.fullmatch(r"(~?-?)(.*)", display_number(f, symbols=False, tilde=not hedged), re.S)
-    return _Decision(False, f, f"{body.group(1)}{shape.lead}{body.group(2)}{shape.trail}")
+    return _Decision(False, f, _rewrite_text(f, shape))
 
 
 _LIST_MARK_BEFORE = re.compile(r"[ \t]*(?:[-*+>][ \t]+)?(?:\*\*|__)?\Z")
@@ -1065,6 +1112,9 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
         a, b = ms[i], ms[i + 1]
         if view[a.end:b.start] in (":", "/") and a.form in ("digit", "word") and b.form in ("digit", "word"):
             ratio.update((i, i + 1))
+    start_index = {m.start: i for i, m in enumerate(ms)}
+    pending: dict[int, tuple] = {}      # numerator -> (denominator, what its decision was made from)
+    decided: dict[int, int] = {}        # mention -> its place in `decisions`
     decisions: list[_Decision] = []
     for start, end, index, is_token in items:
         if is_token:
@@ -1075,6 +1125,10 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
             decisions.append(_UNRESOLVED)
             continue
         reach = range_end.get(index, m.end)
+        if ("point" in m.text.lower() or _PP_AFTER.match(view, reach)
+                or (shapes[index].kind == "percent" and _POINTS_AFTER.match(view, reach))):
+            decisions.append(_UNRESOLVED)       # percentage points are not a percent
+            continue
         phrase: tuple[str, ...] = ()
         keys: frozenset[str] = frozenset()
         if shapes[index].kind == "bare":
@@ -1089,9 +1143,25 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
         approximate = (not limited and bool(_APPROX_CUE.search(before)) and not clauses.limit_before(m.start))
         bare_ok = shapes[index].kind != "bare" or _stands_as_a_quantity(view, m.start, m.end, before, line_starts)
         if m.value not in matched:
-            matched[m.value] = known.match(m.value)
+            matched[m.value] = _collapse(known.match(m.value))
+        decided[index] = len(decisions)
         decisions.append(_decide_mention(m, shapes[index], phrase, matched[m.value], known, quoted, hedged, limited,
                                          approximate, bare_ok, keys, hours))
+        tail = _OF_TAIL.match(view, reach) if phrase else None
+        if tail and tail.group("den") and start_index.get(tail.start("den")) is not None:
+            pending[index] = (start_index[tail.start("den")], m, shapes[index], quoted, hedged, limited,
+                              approximate, bare_ok, keys)
+    # "10 of 12 reformers": when the 12 binds a figure in reformers, the 10 counts reformers too, and
+    # a figure with no unit may name it (the client's own "10 of 12")
+    for index, (den, m, shape, quoted, hedged, limited, approximate, bare_ok, keys) in pending.items():
+        if den not in decided:
+            continue                    # the denominator was never decided (a ratio part, "12 percentage points")
+        d, dd = decisions[decided[index]], decisions[decided[den]]
+        if d.figure is None and not d.leave and dd.figure is not None and dd.figure.unit not in ("", "count"):
+            again = _decide_mention(m, shape, (), matched[m.value], known, quoted, hedged, limited, approximate,
+                                    bare_ok, keys, hours)
+            if again.figure is not None and again.figure.unit in ("", "count"):
+                decisions[decided[index]] = again
 
     reverted: set[int] = set()
     for _ in range(len(items) + 1):
