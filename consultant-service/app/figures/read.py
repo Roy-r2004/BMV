@@ -189,6 +189,11 @@ _DATE_FOLLOW = re.compile(
 _YEAR_FOLLOW = re.compile(
     rf"{_ENDS}|{_SP}+{_FUNCTION}|{_SP}+{_MONTHS}(?![A-Za-z])|(?:{_SP}+to{_SP}+|{_SP}*[-\u2013]{_SP}*){_YEAR}")
 
+# A bare range end takes the other end's money or percent only when no noun of its
+# own follows it: the end, punctuation, a function word, or a rate ("$20-30 a class",
+# "per class", "each week").
+_BARE_END = re.compile(rf"{_ENDS}|{_SP}+{_FUNCTION}|{_SP}+(?i:per|each|every)(?![A-Za-z])")
+
 # the words after which a 1900-2100 number may be a year
 _YEAR_WORDS = frozenset({"in", "since", "from", "until", "till", "during", "before", "after", "year", "fy"})
 _MONTH_WORD = re.compile(_MONTHS)
@@ -215,6 +220,10 @@ _LABEL_JOIN_PLURAL = re.compile(
 # what may follow a listed label number: the end, punctuation, a bracket, a joiner
 _ITEM_END = re.compile(
     rf"[.!?;:](?!\d)|[)\]}}]|{_SP}*(?:[\r\n]|$)|{_SP}+(?:and|to)(?![A-Za-z])|{_SP}*[,&](?!\d)|{_DASH_JOIN}")
+
+# a number word after a label is a label when it ends the phrase as a listed item
+# does, or is followed by a function word ("Phase two of the plan")
+_WORD_LABEL_END = re.compile(rf"{_ITEM_END.pattern}|{_SP}+{_FUNCTION}")
 
 # a numbered list marker: digits, then "." or ")", then a space, first on its line
 _LIST_MARKER = re.compile(rf"\d+[.)]{_SP}")
@@ -532,7 +541,12 @@ def _read_range(text: str, pos: int) -> Read | None:
     if b.scale != 1 and a.scale == 1:   # 10-15k is ten to fifteen thousand
         a.value *= b.scale
     # a bare end takes the other end's unit: $30-35 is money twice, 30-35% percent twice
+    # ... but only when the shapes agree and a bare second end has no noun of its own:
+    # "$45 to 12 instructors" and "5% to 40 members" are two numbers, not ranges, and
+    # "by 10% to $22" joins a percent and a price. Then each end is read on its own.
     unit_a, unit_b = _unit(a), _unit(b)
+    if (unit_a and unit_b and unit_a != unit_b) or (unit_a and not unit_b and not _BARE_END.match(text, b.end)):
+        return _read_digits(text, pos)
     unit_a, unit_b = unit_a or unit_b, unit_b or unit_a
     plain_form: Form = "multiplier" if b.times else "range"
     return b.end, [_mention(text, a.start, a.end, a.value, unit_a or plain_form),
@@ -709,8 +723,9 @@ def _read_words(text: str, pos: int) -> Read | None:
         return end, [_mention(text, pos, end, value, "ordinal")]
     if used < len(ws) and ws[used][0] == "fold":   # three-fold
         return ws[used][2], [_mention(text, pos, ws[used][2], value, "multiplier")]
-    # "Phase two" is a label; "Phase twelve weeks", "Phase two thousand" are quantities
-    if used == 1 and _ITEM_END.match(text, end) and _after_label(text, pos):
+    # "Phase two", "Phase two of the plan" are labels; "Phase twelve weeks", "Phase
+    # two thousand" are quantities
+    if used == 1 and _WORD_LABEL_END.match(text, end) and _after_label(text, pos):
         return end, []
     pct = _PCT.match(text, end)
     if pct:

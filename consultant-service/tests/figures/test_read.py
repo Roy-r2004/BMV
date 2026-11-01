@@ -950,6 +950,27 @@ def test_a_lower_case_label_word_opening_a_sentence_is_read():
     assert readings("page 7 shows the plan") == [("7", "7", "digit")]
 
 
+# addendum: a range needs agreeing shapes, and a bare end that takes a shape has no noun of its own
+
+@pytest.mark.parametrize("text,want", [
+    ("We pay $45 to 12 instructors each week.", [("$45", "45", "money"), ("12", "12", "digit")]),
+    ("We cut churn 5% to 40 members.", [("5%", "5", "percent"), ("40", "40", "digit")]),
+    ("Raise the price by 10% to $22.", [("10%", "10", "percent"), ("$22", "22", "money")]),
+    ("$20-30 a class", [("$20", "20", "money"), ("30", "30", "money")]),
+    ("10-15% a year", [("10", "10", "percent"), ("15%", "15", "percent")]),
+    ("30-35 reformers", [("30", "30", "range"), ("35", "35", "range")]),
+    ("$30-35 per class", [("$30", "30", "money"), ("35", "35", "money")]),
+    ("$30-35.", [("$30", "30", "money"), ("35", "35", "money")]),
+    ("$30-$35 a class", [("$30", "30", "money"), ("$35", "35", "money")]),
+])
+def test_a_range_hands_a_shape_only_to_a_bare_end_with_no_noun(text, want):
+    assert readings(text) == want
+
+
+def test_a_label_word_number_before_a_function_word_is_a_label():
+    assert mentions("See Phase two of the plan, Q3 and CF-04.") == []
+
+
 # -- the module stays its own grammar -----------------------------------------------------
 
 def test_the_reader_is_its_own_grammar_and_imports_no_engine():
