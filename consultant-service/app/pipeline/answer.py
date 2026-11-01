@@ -139,6 +139,14 @@ def _sum(label: str, parts: list[tuple[int, dict]]) -> Figure | None:
         return None
 
 
+def _stored_leaf(kind: str, value, label: str, source: str) -> dict:
+    """One factor, as digits, so the range can be recomputed without the model."""
+    leaf = {"kind": kind, "value": format(decimal_of(value), "f"), "sign": 1, "label": label}
+    if kind == "claim":
+        leaf["id"] = source
+    return leaf
+
+
 def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
     """One verified factor: {label, value, money, proposed: [...], text}, with
     `figure` (a Figure, for `derive`) or, for a calendar constant, `factor`."""
@@ -148,12 +156,16 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
     parts = t.get("parts")
     if parts:
         money, cited, proposed, bits, cites, signed = False, False, [], [], [], []
+        stored_parts = []
         for p in list(parts)[:4]:
             sub = _term({k: v for k, v in p.items() if k != "parts"}, by_id, depth + 1) if isinstance(p, dict) else None
             if sub is None:
                 return None
             sign = -1 if str(p.get("sign")) in ("-1", "-") else 1
             signed.append((sign, sub))
+            piece = dict(sub["stored"])
+            piece["sign"] = sign
+            stored_parts.append(piece)
             money = money or sub["money"]
             cited = cited or sub["cited"]
             cites += [sub["cite"]] if sub.get("cite") else []
@@ -165,7 +177,8 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
         # a number we propose is in the unit of what it is added to or taken from
         proposed = [{**p, "unit": total.unit} for p in proposed]
         return {"label": label, "value": float(total.value), "figure": total, "money": money,
-                "proposed": proposed, "text": " ".join(bits), "parts": True, "cited": cited, "cites": cites}
+                "proposed": proposed, "text": " ".join(bits), "parts": True, "cited": cited, "cites": cites,
+                "stored": {"sign": 1, "label": label, "parts": stored_parts}}
     v = _as_float(t.get("value"))
     if v is None or v <= 0 or v > MAX_TERM:
         return None   # a term is a positive number of a size a business has; a part's sign says "less"
@@ -179,12 +192,12 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
         return {"label": label, "value": v, "figure": ours, "money": False,
                 "proposed": [{"value": v, "label": label or "proposed", "unit": unit}],
                 "text": f"{_money(v) if priced else _plain(v)} proposed",
-                "cited": False}
+                "cited": False, "stored": _stored_leaf("proposed", v, label, source)}
     if source == "constant":
         if not any(_close(v, c) for c in CONSTANTS):
             return None
         return {"label": label, "value": v, "factor": (decimal_of(v), label), "money": False, "proposed": [],
-                "text": _plain(v), "cited": False}
+                "text": _plain(v), "cited": False, "stored": _stored_leaf("constant", v, label, source)}
     claim = by_id.get(source)
     if claim is None or not _claim_matches(v, claim):
         return None
@@ -193,7 +206,8 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
         return None
     shown = _money(v) if _is_money(claim) else _plain(v)
     return {"label": label, "value": v, "figure": figure, "money": _is_money(claim),
-            "proposed": [], "text": f"{shown} now" if depth else shown, "cited": True, "cite": source}
+            "proposed": [], "text": f"{shown} now" if depth else shown, "cited": True, "cite": source,
+            "stored": _stored_leaf("claim", v, label, source)}
 
 
 # How a number prints in the move's words. A tie goes away from zero (2.5 is 3), the
@@ -267,6 +281,7 @@ def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
         "period": period, "display": display, "working": working,
         "proposed": [p for t in terms for p in t["proposed"]],
         "cites": [c for t in terms for c in ([t["cite"]] if t.get("cite") else t.get("cites") or [])],
+        "terms": [t["stored"] for t in terms],
     }
 
 

@@ -116,6 +116,19 @@ class Settings:
     # the shortest may not pass the longest (both are set from the environment)
     PLAN_WEEKS_MIN: int = _at_most("PLAN_WEEKS_MIN", _env_int_within("PLAN_WEEKS_MIN", 2, 1, 12),
                                    "PLAN_WEEKS_MAX", PLAN_WEEKS_MAX)
+    # How far an assumption of ours in the headline move is flexed either way,
+    # in percent, when a range is shown (app/storyline/flex.py). The client's
+    # own figures and the calendar constants stay exact. Held to 5..50.
+    VALUE_FLEX_PCT: int = _env_int_within("VALUE_FLEX_PCT", 20, 5, 50)
+    # How many rows the recommendation register may carry. The model chooses
+    # the count for this business; the shortest may not pass the longest.
+    REGISTER_ROWS_MAX: int = _env_int_within("REGISTER_ROWS_MAX", 8, 4, 12)
+    REGISTER_ROWS_MIN: int = _at_most("REGISTER_ROWS_MIN", _env_int_within("REGISTER_ROWS_MIN", 2, 1, 4),
+                                      "REGISTER_ROWS_MAX", REGISTER_ROWS_MAX)
+    # How many proof sections one package may have, and how many rows one
+    # exhibit may draw before the rest are grouped. Per business, so bounded.
+    STORYLINE_SECTIONS_MAX: int = _env_int_within("STORYLINE_SECTIONS_MAX", 8, 4, 12)
+    EXHIBIT_ROWS_MAX: int = _env_int_within("EXHIBIT_ROWS_MAX", 12, 4, 30)
     # How many figures a prompt lists under "Figures you may use"
     # (app/figures/known.py prompt_lines). They are listed theirs first, but when
     # they do not all fit our proposals and the references are the ones kept, and
