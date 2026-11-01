@@ -16,8 +16,11 @@ the screen as it was drawn, and a frame that cannot be measured is left alone.
 
 Numbers: the screens carry sample data and say so on every frame, but any
 figure the client gave that a screen shows is theirs. Captions and the story
-are statements about the business, so they are checked like the answer's
-prose: a number that is not one of their figures removes the sentence.
+are statements about the business, so they are bound like the answer's prose
+against what the request knows (`app.figures.known`), with no leniency: a
+number that names no figure removes its sentence, or the story item it is in.
+The block values (tiles, rows, sample records) are the sample region and are
+not bound here.
 
 The result is `screens_json` on the request, PNG thumbnails when a browser
 is available, and one image row per screen so the older parts of the site
@@ -27,17 +30,17 @@ that list screens keep working.
 import json
 import logging
 import os
-import re
 from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures import known as _known
+from app.figures.bind import bind, clean_sentences
+from app.figures.model import FigureSet
 from app.models import GeneratedImage, Request
 from app.pipeline import answer as _answer
-from app.pipeline import capacity as _capacity
-from app.pipeline import figures
 from app.pipeline._shared import ask_until_usable, ledger, log_usage, reply_json
 from app.pipeline.failure import StageFailed
 from app.screens import browser, render, schema
@@ -48,7 +51,6 @@ logger = logging.getLogger("consultant.screens")
 PLAN_TOKENS = 7000
 SCREEN_TOKENS = 3000
 WORKERS = 4
-LENIENT_BELOW = 13
 PROMPT_VERSION = "screens-v1"
 
 BLOCK_GUIDE = """Each block is {"kind": ..., "w": 1-3 (share of the row), ...fields}. Kinds and their fields:
@@ -150,8 +152,6 @@ def _inputs(req: Request) -> dict:
     decision = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
     ans = _answer.load(req) or {}
     _, claims = diagnose._evidence_lines(req)
-    texts = _capacity.owner_texts(req)
-    allowed = _answer.allowed_numbers(texts, claims, ans.get("move"))
     brief = {}
     try:
         brief = json.loads(req.brief_json) if req.brief_json else {}
@@ -170,40 +170,59 @@ def _inputs(req: Request) -> dict:
         "roles": _roles(req),
         "journey": ", ".join(_journey(req)),
         "claims": _answer._claim_lines(claims) or "none given",
-        "allowed": allowed,
-        "hours": figures.given_hours(texts),
+        # what the request knows (their figures, the week, the move, the roadmap) and the times they named
+        "known": _known.known_for(req),
+        "hours": _known.hours_for(req),
     }
 
 
-def _clean_text(text: str, allowed: set[float], hours: set[int]) -> str:
-    """A statement about the business keeps only the sentences whose
-    numbers are theirs (or small enough to be prose)."""
+def _clean_text(text: str, known: FigureSet, hours: set[int]) -> str:
+    """A statement about the business, bound to the figures, keeping only the
+    sentences whose every number names one."""
     if not text:
         return ""
-    kept = []
-    for sentence in re.split(r"(?<=[.!?])\s+", text.strip()):
-        if not figures.unsupported(sentence, allowed, lenient_below=LENIENT_BELOW, hours=hours):
-            kept.append(sentence)
-    return " ".join(kept).strip()
+    return clean_sentences(text.strip(), known, hours=hours)[0].strip()
 
 
-def _check_story(story: dict, allowed: set[float], hours: set[int]) -> dict:
-    """The narrative pages, with invented figures removed item by item."""
-    ok = lambda t: not figures.unsupported(t or "", allowed, lenient_below=LENIENT_BELOW, hours=hours)  # noqa: E731
+def _check_story(story: dict, known: FigureSet, hours: set[int]) -> dict:
+    """The narrative pages, bound to the figures, with any item holding a number
+    that names none removed."""
+    def bound(t) -> str | None:
+        r = bind(str(t or ""), known, hours=hours)
+        return None if r.unresolved else r.text
+
+    def item(d, keys: tuple[str, ...]) -> dict | None:
+        """The item with each of `keys` bound, or None when one cannot be."""
+        if not isinstance(d, dict):
+            return None
+        texts = {k: bound(d.get(k)) for k in keys}
+        if any(t is None for t in texts.values()):
+            return None
+        return {**d, **{k: t for k, t in texts.items() if d.get(k) is not None}}
+
+    def items(rows, keys: tuple[str, ...]) -> list[dict]:
+        return [kept for kept in (item(r, keys) for r in rows or []) if kept is not None]
+
     out = dict(story)
-    out["headline"] = story.get("headline", "") if ok(story.get("headline")) else ""
-    out["intro"] = _clean_text(story.get("intro", ""), allowed, hours)
+    out["headline"] = bound(story.get("headline", "")) or ""
+    out["intro"] = _clean_text(story.get("intro", ""), known, hours)
     amb = dict(story.get("ambition") or {})
-    amb["text"] = _clean_text(amb.get("text", ""), allowed, hours)
-    amb["pillars"] = [p for p in amb.get("pillars") or [] if ok(p.get("title")) and ok(p.get("text"))]
+    amb["text"] = _clean_text(amb.get("text", ""), known, hours)
+    amb["pillars"] = items(amb.get("pillars"), ("title", "text"))
     out["ambition"] = amb
-    out["changes"] = [c for c in story.get("changes") or [] if ok(c.get("today")) and ok(c.get("with")) and ok(c.get("means"))]
+    out["changes"] = items(story.get("changes"), ("today", "with", "means"))
     for key in ("principles", "local_fit"):
-        out[key] = [p for p in story.get(key) or [] if ok(p.get("title")) and ok(p.get("text"))]
+        out[key] = items(story.get(key), ("title", "text"))
     cmp_ = dict(story.get("comparison") or {})
-    cmp_["rows"] = [r for r in cmp_.get("rows") or [] if ok(r.get("label")) and all(ok(c) for c in r.get("cells") or [])]
+    rows = []
+    for r in cmp_.get("rows") or []:
+        kept = item(r, ("label",))
+        cells = [bound(c) for c in (r.get("cells") or [])] if kept is not None else [None]
+        if kept is not None and all(c is not None for c in cells):
+            rows.append({**kept, **({"cells": cells} if "cells" in r else {})})
+    cmp_["rows"] = rows
     out["comparison"] = cmp_
-    out["needs"] = [n for n in story.get("needs") or [] if ok(n)]
+    out["needs"] = [b for b in (bound(n) for n in story.get("needs") or []) if b is not None]
     return out
 
 
@@ -416,8 +435,8 @@ def build(db: Session, request_id: int) -> int:
     bodies = _fit(db, request_id, inputs, plan, bodies, reference)
 
     for s in plan["screens"]:
-        s["caption"] = _clean_text(s.get("caption", ""), inputs["allowed"], inputs["hours"])
-    plan["story"] = _check_story(plan.get("story") or {}, inputs["allowed"], inputs["hours"])
+        s["caption"] = _clean_text(s.get("caption", ""), inputs["known"], inputs["hours"])
+    plan["story"] = _check_story(plan.get("story") or {}, inputs["known"], inputs["hours"])
     system = schema.assemble(plan, bodies)
     if len(system["screens"]) < schema.SCREENS_MIN:
         # Every call is already on the ledger. Too few screens is no system.

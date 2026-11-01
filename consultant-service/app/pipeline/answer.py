@@ -7,8 +7,12 @@ the few parts the answer screen is built from — a two-line finding, the
 evidence in their figures, and what doing it is worth — and checks every part.
 
 What it checks, and why it can:
-  * every number in the headline, the evidence and the figures must be one the
-    owner gave, one computed from theirs (`capacity`), or the value below;
+  * every number in the headline, the evidence and the figures must name a
+    figure the request knows (`app.figures.known`): one the owner gave in their
+    own answers, one computed from theirs (`capacity`), or the move below. Each
+    is bound (`app.figures.bind`), so it prints as that figure's own value; one
+    that names no figure rejects the part it is in. There is no leniency: "one
+    of 1 explanations" holds a number, and so does "twelve";
   * the value of the move is a product of terms, and each term is a cited
     figure, a calendar constant, or a number WE propose — labelled as ours.
     The product is computed here, never by the model, and the working is kept
@@ -29,11 +33,13 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures import known as _known
+from app.figures.bind import bind
 from app.figures.calc import decimal_of, derive, places_of, round_half_up, unit_key
-from app.figures.model import Figure, Proposal, from_claim
+from app.figures.model import Figure, FigureSet, Proposal, as_json, display_number, from_claim
+from app.figures.read import mentions
 from app.models import Request
-from app.pipeline import capacity as _capacity
-from app.pipeline import figures
+from app.pipeline.figures import CONSTANTS
 from app.pipeline._shared import ask_until_usable, ledger, reply_json
 from app.pipeline.consult import NOT_TESTED
 from app.pipeline.failure import StageFailed
@@ -52,8 +58,9 @@ MAX_TERM = 1e12
 #: The registry's word for a claim whose time basis it could not find
 #: (registry._infer_unit); it is no basis, not a period.
 _NO_BASIS = "as stated"
-_WEEK_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight",
-               9: "nine", 10: "ten", 11: "eleven", 12: "twelve"}
+#: The length of the plan the answer proposes, in weeks, when the model gives none,
+#: and the bounds it is held to.
+PLAN_WEEKS_DEFAULT, PLAN_WEEKS_MIN, PLAN_WEEKS_MAX = 6, 2, 12
 
 
 def _as_float(v) -> float | None:
@@ -73,7 +80,12 @@ def _claim_matches(v: float, claim: dict) -> bool:
     if cv is None:
         return False
     # A percentage is stored as a fraction (20% -> 0.2); a model may write 20.
-    return figures.close(v, cv) or (cv < 1 and figures.close(v, cv * 100))
+    return _close(v, cv) or (cv < 1 and _close(v, cv * 100))
+
+
+def _close(a: float, b: float) -> bool:
+    """Within half a percent: the tolerance the registry and the known set use."""
+    return abs(a - b) <= max(0.005 * abs(b), 1e-6)
 
 
 def _is_money(claim: dict | None) -> bool:
@@ -145,6 +157,8 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
         total = _sum(label, signed)
         if total is None:
             return None
+        # a number we propose is in the unit of what it is added to or taken from
+        proposed = [{**p, "unit": total.unit} for p in proposed]
         return {"label": label, "value": float(total.value), "figure": total, "money": money,
                 "proposed": proposed, "text": " ".join(bits), "parts": True, "cited": cited, "cites": cites}
     v = _as_float(t.get("value"))
@@ -152,16 +166,17 @@ def _term(t: dict, by_id: dict, depth: int = 0) -> dict | None:
         return None   # a term is a positive number of a size a business has; a part's sign says "less"
     source = str(t.get("from") or "").strip()
     if source == "proposed":
-        priced = "$" in label or "price" in label.lower()
+        unit = _known.proposal_unit(label)
+        priced = unit == "USD"
         d = decimal_of(v)
-        ours = Figure(f"proposed: {label}" if label else "proposed", d, "USD" if priced else "", None, "ours",
+        ours = Figure(f"proposed: {label}" if label else "proposed", d, unit, None, "ours",
                       Proposal(note=label or "proposed"), places_of(d))
         return {"label": label, "value": v, "figure": ours, "money": False,
-                "proposed": [{"value": v, "label": label or "proposed"}],
+                "proposed": [{"value": v, "label": label or "proposed", "unit": unit}],
                 "text": f"{_money(v) if priced else _plain(v)} proposed",
                 "cited": False}
     if source == "constant":
-        if not figures.holds(v, figures.CONSTANTS):
+        if not any(_close(v, c) for c in CONSTANTS):
             return None
         return {"label": label, "value": v, "factor": (decimal_of(v), label), "money": False, "proposed": [],
                 "text": _plain(v), "cited": False}
@@ -192,10 +207,9 @@ def _money(v: float) -> str:
 
 
 def _said(v: float) -> int:
-    """The figure a person would say out loud, 44,928 -> 45,000 (`figures.rounded`
-    with the same steps, but a tie going away from zero)."""
-    tens = 3 if abs(v) >= 10_000 else 2 if abs(v) >= 1000 else 1 if abs(v) >= 100 else 0
-    return int(round_half_up(v, -tens))
+    """The figure a person would say out loud, 44,928 -> 45,000, a tie going away
+    from zero: the precision the move's figure carries (`known.said_precision`)."""
+    return int(round_half_up(v, _known.said_precision(decimal_of(v))))
 
 
 def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
@@ -251,22 +265,23 @@ def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
     }
 
 
-def allowed_numbers(texts: list[str], claims: list[dict], move: dict | None) -> set[float]:
-    allowed = set(figures.given(texts))
-    for c in claims:
-        v = _as_float(c.get("value"))
-        if v is not None:
-            allowed.add(v)
-            if 0 < v < 1:
-                allowed.add(round(v * 100, 6))
-    if move:
-        allowed.update({move["value"], move["rounded"]})
-        allowed.update(p["value"] for p in move.get("proposed") or [])
-    return allowed
+def plan_name(name: str, duration: Figure) -> str:
+    """The plan's name. A name that carries a number is not the model's to write:
+    it is rendered here from the duration figure ("6-week plan"), as is a missing one.
+    A digit the reader passes over (a label, a plan position) counts as a number here."""
+    name = str(name or "").strip()[:40]
+    if not name or mentions(name) or any(ch.isdigit() for ch in name):
+        return f"{display_number(duration)}-week plan"
+    return name
 
 
-def shape(raw: dict, claims: list[dict], texts: list[str]) -> tuple[dict | None, list[str]]:
-    """(answer, problems). Pure. `problems` names what failed, for a retry."""
+def shape(raw: dict, claims: list[dict], known: FigureSet,
+          hours: set[int] | None = None) -> tuple[dict | None, list[str]]:
+    """(answer, problems). Pure. `problems` names what failed, for a retry.
+
+    `known` is what the request knows (`known.known_for`); the move worked out
+    here is added to it before anything is checked. `hours` are the clock times
+    the client named; a time they did not name is unresolved."""
     if not isinstance(raw, dict):
         return None, ["the response was not an object"]
     problems = []
@@ -274,23 +289,27 @@ def shape(raw: dict, claims: list[dict], texts: list[str]) -> tuple[dict | None,
     if raw.get("move") and move is None:
         problems.append("the move's terms did not check out against the figures — "
                         "cite ids exactly and use the cited values")
-    allowed = allowed_numbers(texts, claims, move)
-    hours = figures.given_hours(texts)
+    known = _known.with_extra(known, _known.move_figures(move))
+
+    def bound(text: str):
+        """The bound text and the ids of the figures it names, or None when a
+        number in it names no figure."""
+        r = bind(text, known, hours=hours)
+        return None if r.unresolved else (r.text, [f.id for f in r.bound])
 
     def clean(text: str, what: str, limit: int) -> str:
         text = str(text or "").strip()[:limit]
-        bad = figures.unsupported(text, allowed, hours=hours)
-        if bad:
-            problems.append(f"{what} uses numbers they never gave: {', '.join(_plain(b) for b in bad)}")
+        r = bind(text, known, hours=hours)
+        if r.unresolved:
+            problems.append(f"{what} uses numbers they never gave: {', '.join(u.text for u in r.unresolved)}")
             return ""
-        return text
+        return r.text
 
     headline = clean(raw.get("headline"), "the headline", 80)
     turn = clean(raw.get("turn"), "the turn", 80)
     sub = clean(raw.get("sub"), "the sub", 420)
-    emphasis = str(raw.get("emphasis") or "").strip()
-    if emphasis and emphasis not in sub:
-        emphasis = ""
+    emphasis = bound(str(raw.get("emphasis") or "").strip())
+    emphasis = emphasis[0] if emphasis and emphasis[0] in sub else ""
 
     ids = {c["id"] for c in claims if c.get("id")}
     shown = []
@@ -302,25 +321,27 @@ def shape(raw: dict, claims: list[dict], texts: list[str]) -> tuple[dict | None,
         cites = [c for c in (f.get("cites") or []) if c in ids]
         if not value or not cites or not any(ch.isdigit() for ch in value):
             continue
-        if figures.unsupported(f"{value} {label}", allowed, hours=hours):
+        b_value, b_label = bound(value), bound(label)
+        if b_value is None or b_label is None:
             problems.append(f"the figure '{value}' is not in the figures you cited")
             continue
-        shown.append({"value": value, "label": label, "cites": cites})
+        # `ids` are the figures the value (and its label) name, for the page's tags
+        shown.append({"value": b_value[0], "label": b_label[0], "cites": cites,
+                      "ids": list(dict.fromkeys(b_value[1] + b_label[1]))})
         if len(shown) >= MAX_FIGURES:
             break
 
     action = raw.get("action") if isinstance(raw.get("action"), dict) else {}
-    weeks = int(_as_float(action.get("weeks")) or 6)
-    weeks = max(2, min(12, weeks))
-    name = str(action.get("name") or "").strip()[:40]
-    if not name or figures.unsupported(name, set(range(2, 13))):
-        name = f"{_WEEK_WORDS.get(weeks, str(weeks))}-week plan"
+    weeks = int(_as_float(action.get("weeks")) or PLAN_WEEKS_DEFAULT)
+    weeks = max(PLAN_WEEKS_MIN, min(PLAN_WEEKS_MAX, weeks))
+    duration = _known.plan_weeks_figure(weeks)
 
     if not headline:
         return None, problems or ["no headline"]
     return {
         "headline": headline, "turn": turn, "sub": sub, "emphasis": emphasis,
-        "figures": shown, "move": move, "action": {"weeks": weeks, "name": name},
+        "figures": shown, "move": move,
+        "action": {"weeks": weeks, "name": plan_name(action.get("name"), duration), "figure": as_json(duration)},
     }, problems
 
 
@@ -359,7 +380,10 @@ def write(db: Session, request_id: int, decision: dict) -> dict | None:
         return None
     try:
         _, claims = diagnose._evidence_lines(req)
-        texts = _capacity.owner_texts(req)
+        # The answer is written before the registry and the roadmap; any of them on
+        # the row now (and an earlier answer) are from an earlier run, and vouch for nothing.
+        known = _known.known_for(req, leave_out={"answer", "registry", "roadmap"})
+        hours = _known.hours_for(req)
         base = dict(
             business_name=req.business_name or "",
             main_problem=req.main_problem or "unspecified",
@@ -399,7 +423,7 @@ def write(db: Session, request_id: int, decision: dict) -> dict | None:
             logger.warning("answer call failed: %s", str(exc)[:200])
             cause = exc
             break
-        candidate, problems = shape(raw, claims, texts)
+        candidate, problems = shape(raw, claims, known, hours)
         if candidate:
             result = candidate
         if not problems:

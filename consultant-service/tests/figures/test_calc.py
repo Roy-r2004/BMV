@@ -22,8 +22,10 @@ import pytest
 
 from app.figures import calc
 from app.figures.calc import decimal_of, derive, places_of, round_half_up, unit_key
+from app.figures.known import known_for_texts
 from app.figures.model import (
-    Figure, Proposal, Reference, TheirsSource, Working, as_json, decimal_from_float, display, displayed_value,
+    Figure, FigureSet, Proposal, Reference, TheirsSource, Working, as_json, decimal_from_float, display,
+    displayed_value,
     from_claim, from_json,
 )
 
@@ -432,7 +434,7 @@ def _proposed_move(*values):
 def test_a_term_too_large_negative_or_zero_rejects_the_move_and_never_raises(values):
     from app.pipeline import answer
     assert answer.compute_move(_proposed_move(*values), CLAIMS) is None
-    got, _ = answer.shape({"headline": "You are full.", "move": _proposed_move(*values)}, CLAIMS, [])
+    got, _ = answer.shape({"headline": "You are full.", "move": _proposed_move(*values)}, CLAIMS, FigureSet())
     assert got is not None and got["move"] is None
 
 
@@ -664,7 +666,7 @@ def test_the_answer_does_not_raise_on_a_number_that_is_not_one(bad):
            "move": {"unit": "USD", "terms": [{"label": "a", "value": bad, "from": "CF-04"},
                                               {"label": "b", "value": 2, "from": "proposed"}]},
            "figures": [{"value": "$22", "label": "price", "cites": ["CF-04"]}]}
-    got, problems = answer.shape(raw, CLAIMS, ["I charge $22 a class."])
+    got, problems = answer.shape(raw, CLAIMS, known_for_texts(["I charge $22 a class."]))
     assert got["action"]["weeks"] == 6 and got["move"] is None and problems
 
 

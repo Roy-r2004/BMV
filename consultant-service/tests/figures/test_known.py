@@ -109,3 +109,148 @@ def test_a_stage_leaves_out_its_own_old_output_and_adds_what_it_just_computed():
 def test_hours_come_from_their_words():
     req = _req(ops_numbers_json=_pairs(("When are you busiest, 8am?", "The 6pm and 7pm classes.")))
     assert K.hours_for(req) == {18, 19}
+
+
+# -- the stages read it ------------------------------------------------------------------
+
+HALO = ["12 reformers. Six classes a day, six days a week.", "About 10 of 12 in a typical class.",
+        "$22 a class.", "Two others nearby, both $32 a class."]
+CLAIMS = [{"id": "CF-04", "value": 22, "unit": "USD", "text": "$22 a class", "provenance": "client_input"},
+          {"id": "CF-06", "value": 32, "unit": "USD", "text": "$32", "provenance": "client_input"}]
+
+
+def _answer(raw, texts=HALO):
+    from app.pipeline import answer
+    return answer.shape(raw, CLAIMS, K.known_for_texts(texts), K.hours_in(texts))
+
+
+def test_a_headline_with_twelve_she_never_gave_is_dropped_and_kept_when_she_did():
+    raw = {"headline": "You turn away twelve people a week.", "sub": ""}
+    got, problems = _answer(raw, ["$22 a class."])
+    assert got is None and any("twelve" in p for p in problems)
+    got, problems = _answer(raw, ["We turn away twelve people a week."])
+    assert got["headline"] == "You turn away 12 people a week." and not problems
+
+
+def test_a_headline_figure_keeps_the_ids_of_both_figures_it_names_and_an_unmatched_one_is_dropped():
+    raw = {"headline": "You are the cheapest nearby.",
+           "figures": [{"value": "$22 vs $32", "label": "you and two studios nearby", "cites": ["CF-04", "CF-06"]},
+                       {"value": "$22 vs $35", "label": "made up", "cites": ["CF-04"]}]}
+    got, problems = _answer(raw)
+    known = K.known_for_texts(HALO)
+    ids = got["figures"][0]["ids"]
+    assert [f["value"] for f in got["figures"]] == ["$22 vs $32"] and problems
+    assert [known.get(i).value for i in ids[:2]] == [22, 32] and all(known.get(i).unit == "USD" for i in ids[:2])
+    assert "2 studios" in got["figures"][0]["label"] and len(ids) == 3     # "two studios" is hers too
+
+
+def test_the_plan_name_comes_from_the_stored_duration_figure_never_the_models_words():
+    from app.figures.model import from_json
+    got, _ = _answer({"headline": "You are full.", "action": {"weeks": 6, "name": "eight-week sprint"}})
+    figure = from_json(got["action"]["figure"])
+    assert figure.id == "PLAN-WEEKS" and figure.kind == "ours" and figure.value == 6 and figure.unit == "week"
+    assert got["action"]["name"] == "6-week plan"
+    got, _ = _answer({"headline": "You are full.", "action": {"weeks": 4, "name": "Evening price pilot"}})
+    assert got["action"]["name"] == "Evening price pilot"          # no number in it: the model's own name stays
+    got, _ = _answer({"headline": "You are full.", "action": {"weeks": 30}})
+    assert got["action"]["name"] == "12-week plan"                 # held to the bound
+    # the roadmap reads the same figure from the stored answer, so its prose can say it
+    req = _req(answer_json=json.dumps(got))
+    assert K.known_for(req).get("PLAN-WEEKS") == from_json(got["action"]["figure"])
+
+
+def _roadmap(**over):
+    raw = {"summary": "We do this in two phases over four weeks.",
+           "phases": [{"when": "Weeks 1 to 2", "title": "Set the evening price",
+                       "do": "Over two weeks we move the evening classes to $22 and tell your regulars.", "by": "us"},
+                      {"when": "Weeks 3 to 4", "title": "Watch the evenings",
+                       "do": "We track evening fill against 10 of 12 each week.", "by": "us"}],
+           "decisions": [{"question": "Go ahead?", "detail": "", "options": ["Yes", "Not yet"]}],
+           "assumptions": []}
+    raw.update(over)
+    return raw
+
+
+def test_the_roadmap_registers_its_lengths_as_ours_and_its_prose_binds_to_them():
+    from app.figures.model import from_json
+    from app.pipeline import action_plan
+    plan, problems = action_plan.shape(_roadmap(), K.known_for_texts(HALO))
+    assert not problems and plan["summary"] == "We do this in 2 phases over 4 weeks."
+    figures = {f.id: f for f in map(from_json, plan["figures"])}
+    assert {i: (f.value, f.unit, f.kind) for i, f in figures.items()} == {
+        "PLAN-WEEKS": (4, "week", "ours"), "PLAN-PHASE-1-WEEKS": (2, "week", "ours"),
+        "PLAN-PHASE-2-WEEKS": (2, "week", "ours"), "PLAN-PHASES": (2, "phases", "ours")}
+    # with the answer's plan length, the roadmap uses that one
+    plan, problems = action_plan.shape(_roadmap(summary="A six-week plan."), K.known_for_texts(HALO),
+                                       plan_weeks=K.plan_weeks_figure(6))
+    assert plan["summary"] == "A 6-week plan."
+    assert any(f["id"] == "PLAN-WEEKS" and f["value"] == "6" for f in plan["figures"])
+
+
+def test_a_roadmap_phase_with_an_invented_price_or_a_small_invented_number_is_dropped():
+    from app.pipeline import action_plan
+    raw = _roadmap()
+    raw["phases"].append({"when": "Week 5", "title": "Match the studio down the road",
+                          "do": "We move to $35 like them.", "by": "us"})
+    raw["phases"].append({"when": "Month 3 on", "title": "Add 3 classes", "do": "We add classes.", "by": "us"})
+    plan, problems = action_plan.shape(raw, K.known_for_texts(HALO))
+    assert [p["title"] for p in plan["phases"]] == ["Set the evening price", "Watch the evenings"]
+    assert any("$35" in p for p in problems) and any(p.endswith(": 3") for p in problems)
+
+
+def test_interview_fact_values_are_held_to_every_number_in_their_words():
+    from app.routers import discovery
+    facts = [{"key": "price", "label": "Price", "status": "need", "value": ""},
+             {"key": "phase", "label": "Phase", "status": "need", "value": ""}]
+    texts = ["We charge $22 a class, six classes a day, since 2019."]
+    updates, _ = discovery.shape_fact_updates(
+        [{"key": "price", "value": "$22, six a day, since 2019"},          # all theirs
+         {"key": "price", "value": "twelve a day"},                        # a number word she never gave
+         {"key": "price", "value": "1 in 20"},                             # a small number is a number
+         {"key": "price", "value": "the 3rd class"},                       # an ordinal
+         {"key": "price", "value": "$22 at 7pm"},                          # a time she never named
+         {"key": "phase", "value": "Phase 4"},                             # digits behind a label
+         {"key": "price", "value": "since 2020"}], [], facts, texts)      # a date she never wrote
+    assert updates == [{"key": "price", "value": "$22, six a day, since 2019"}]
+    # a value read off a quote: the quote must be theirs, and every number in the value in the quote
+    assert discovery._fact_value("$22", "We charge $22 a class", texts) == "$22"
+    assert discovery._fact_value("$22, six a day", "We charge $22 a class", texts) == ""
+
+
+def test_a_number_only_our_interview_question_holds_does_not_back_a_fact():
+    from app.routers import discovery
+    ops = json.dumps([{"question": "Do you run 14 classes a week?", "answer": "Yes, about that."}])
+    assert discovery._answers(ops) == ["Yes, about that."]
+    updates, _ = discovery.shape_fact_updates([{"key": "price", "value": "14 a week"}], [],
+                                              [{"key": "price", "label": "x", "status": "need", "value": ""}],
+                                              discovery._answers(ops))
+    assert updates == []
+    out = discovery.shape_casefile({"summary": "You run 14 classes a week. You want an app.",
+                                    "their_fix": "14 classes"},
+                                   {"q1": "Do you run 14 classes a week? — Yes, about that."}, True,
+                                   theirs={"q1": "Yes, about that."})
+    assert out["summary"] == "You want an app." and out["their_fix"] is None
+
+
+def test_the_week_is_checked_in_their_words_and_a_price_is_not_a_count():
+    from app.pipeline import capacity
+    grid = {"shape": "weekly_grid", "unit": "seat", "per_slot": 22, "slots_per_day": 6, "days_per_week": 6}
+    assert capacity.shape(grid, ["Six sittings a day, six days a week. Lunch is $22."]) is None
+    assert capacity.shape(grid, ["22 seats. Six sittings a day, six days a week."])["capacity"] == 22 * 36
+
+
+def test_screens_captions_and_story_are_bound_and_an_unmatched_item_is_dropped():
+    from app.screens import generate
+    known = K.known_for_texts(HALO)
+    assert generate._clean_text("You run twelve reformers. You will run 40.", known, set()) == "You run 12 reformers."
+    story = generate._check_story({"headline": "Twelve reformers, full",
+                                   "needs": ["A list of your 12 regulars", "3 new staff"],
+                                   "comparison": {"rows": [{"label": "Price", "cells": ["$22", "$40"]},
+                                                           {"label": "Reformers", "cells": ["12", "twelve"]}]},
+                                   "ambition": {"pillars": [{"title": "Six a day", "text": "x"},
+                                                            {"title": "Nine a day", "text": "x"}]}},
+                                  known, set())
+    assert story["headline"] == "12 reformers, full"
+    assert story["needs"] == ["A list of your 12 regulars"]
+    assert story["comparison"]["rows"] == [{"label": "Reformers", "cells": ["12", "12"]}]
+    assert [p["title"] for p in story["ambition"]["pillars"]] == ["6 a day"]

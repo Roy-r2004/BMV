@@ -19,16 +19,20 @@ from fastapi.testclient import TestClient
 
 from app.database import Base, SessionLocal, engine
 from app.models import Request
-from app.pipeline import action_plan, answer, capacity, figures
+from app.figures import known as K
+from app.figures import read
+from app.pipeline import action_plan, answer, capacity
 from app.routers import discovery
 
+# Her own words: what she wrote first, then her answers. Our questions are not in
+# here: a number only a question of ours holds is not hers (tests/figures/test_known.py).
 HALO = [
     "I run a pilates studio and I think I need a proper booking app. The 6pm and 7pm classes have a "
     "waiting list every week, and I spend about 8 hours a week juggling bookings on WhatsApp",
-    "How many reformers, and how many classes a week?: 12 reformers. Six 50-minute classes a day, six days a week.",
-    "How full is a typical class?: About 10 of 12. The 6pm and 7pm ones have a waiting list most weeks.",
-    "What do you charge?: $22 a class, $200 for 10",
-    "What do the other studios nearby charge?: Two others nearby, both $32 a class.",
+    "12 reformers. Six 50-minute classes a day, six days a week.",
+    "About 10 of 12. The 6pm and 7pm ones have a waiting list most weeks.",
+    "$22 a class, $200 for 10",
+    "Two others nearby, both $32 a class.",
 ]
 
 GRID = {
@@ -42,21 +46,26 @@ GRID = {
 # ── figures ──────────────────────────────────────────────────────────────
 
 
-def test_given_reads_number_words_and_keeps_clock_times_apart():
+def test_their_figures_read_number_words_and_keep_clock_times_apart():
     texts = ["Six classes a day, the 7pm one is full", "$22 a class"]
-    got = figures.given(texts)
-    assert {6.0, 22.0} <= got
+    got = {f.value for f in K.known_for_texts(texts)}
+    assert {6, 22} <= got
     # "the 7pm class" is not the number 7 — it once let "7 days a week" through
-    assert 7.0 not in got and 19.0 not in got
-    assert figures.given_hours(texts) == {19}
+    assert 7 not in got and 19 not in got
+    assert K.hours_in(texts) == {19}
 
 
-def test_unsupported_catches_invented_money_and_leaves_small_prose_alone():
-    allowed = figures.given(HALO)
-    assert figures.unsupported("at $22 you are the cheapest", allowed) == []
-    assert figures.unsupported("studios nearby charge $35", allowed) == [35.0]
-    # "1 in 20" style prose is not policed below 2
-    assert figures.unsupported("one of 1 explanations", allowed) == []
+def _unsupported(text, known):
+    return [m.text for m in read.unsupported(text, known)]
+
+
+def test_unsupported_catches_invented_money_and_small_numbers_alike():
+    known = K.known_for_texts(HALO)
+    assert _unsupported("at $22 you are the cheapest", known) == []
+    assert _unsupported("studios nearby charge $35", known) == ["$35"]
+    # no leniency: a small number is a number, and a number word is one too
+    assert _unsupported("one of 1 explanations", known) == ["1"]
+    assert _unsupported("twenty classes", known) == ["twenty"]
 
 
 # ── capacity ─────────────────────────────────────────────────────────────
@@ -99,6 +108,9 @@ def test_a_waiting_list_without_a_size_is_drawn_as_unknown_not_invented():
 CLAIMS = [{"id": "CF-04", "value": 22, "unit": "USD", "text": "$22 a class", "provenance": "client_input"},
           {"id": "CF-06", "value": 32, "unit": "USD", "text": "$32", "provenance": "client_input"},
           ] + capacity.as_claims(capacity.shape(GRID, HALO))
+# What the request knows: her figures and the week worked out from them.
+KNOWN = K.with_extra(K.known_for_texts(HALO), K.capacity_figures(capacity.shape(GRID, HALO)))
+HOURS = K.hours_in(HALO)
 
 MOVE = {"label": "moving 6pm and 7pm to $28, if regulars stay", "unit": "USD", "period": "year",
         "terms": [{"label": "evening spots a week", "value": 144, "from": "CAP-05"},
@@ -113,7 +125,7 @@ def test_the_move_is_multiplied_here_and_the_proposal_is_labelled():
     assert move["value"] == 144 * 6 * 52
     assert move["rounded"] == 45000
     assert move["display"] == "≈ $45,000 a year"
-    assert move["proposed"] == [{"value": 28.0, "label": "proposed evening price"}]
+    assert move["proposed"] == [{"value": 28.0, "label": "proposed evening price", "unit": "USD"}]
     assert "$28 proposed" in move["working"]
 
 
@@ -135,13 +147,13 @@ def test_the_answer_drops_a_figure_she_never_gave():
            "figures": [{"value": "$22 vs $32", "label": "you and two studios nearby", "cites": ["CF-04", "CF-06"]},
                        {"value": "$25 vs $40", "label": "made up", "cites": ["CF-04"]}],
            "move": MOVE, "action": {"weeks": 6, "name": "six-week pilot"}}
-    got, problems = answer.shape(raw, CLAIMS, HALO)
+    got, problems = answer.shape(raw, CLAIMS, KNOWN, HOURS)
     assert [f["value"] for f in got["figures"]] == ["$22 vs $32"]
     assert problems
 
 
 def test_a_headline_with_an_invented_number_is_not_shown():
-    got, problems = answer.shape({"headline": "You lose $9,000 a month.", "sub": ""}, CLAIMS, HALO)
+    got, problems = answer.shape({"headline": "You lose $9,000 a month.", "sub": ""}, CLAIMS, KNOWN, HOURS)
     assert got is None and problems
 
 
@@ -168,7 +180,8 @@ def _roadmap_raw(**over):
 
 
 def _allowed():
-    return answer.allowed_numbers(HALO, CLAIMS, answer.compute_move(MOVE, CLAIMS))
+    """What the roadmap is checked against: what the request knows, and the move."""
+    return K.with_extra(KNOWN, K.move_figures(answer.compute_move(MOVE, CLAIMS)))
 
 
 def test_the_roadmap_is_phases_we_carry_out_and_decisions_they_make():

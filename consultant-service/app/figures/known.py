@@ -235,7 +235,9 @@ def move_figures(move: object) -> list[Figure]:
         if v is None:
             continue
         label = str(p.get("label") or "proposed")
-        out.append(Figure(f"PROP-{n}", v, proposal_unit(label), None, "ours", Proposal(note=label), _places(v)))
+        # the unit the move stored with it; a move stored before it kept one is read from the label
+        unit = p["unit"] if isinstance(p.get("unit"), str) else proposal_unit(label)
+        out.append(Figure(f"PROP-{n}", v, unit, None, "ours", Proposal(note=label), _places(v)))
     return out
 
 

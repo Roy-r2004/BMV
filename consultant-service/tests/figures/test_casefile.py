@@ -621,7 +621,7 @@ def test_the_interview_case_file_says_the_figures_are_theirs_in_plain_words(clie
     ]}
     monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: {
         "choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}})
-    monkeypatch.setattr(capacity, "read", lambda texts, stage="operating", earlier=None: (None, None, None))
+    monkeypatch.setattr(capacity, "read", lambda texts, stage="operating", earlier=None, **kw: (None, None, None))
 
     r = client.post("/api/discovery/casefile", data={
         "main_problem": "I spend about 8 hours a week juggling bookings on WhatsApp",
@@ -727,7 +727,7 @@ def test_the_interview_route_does_not_call_a_number_from_our_question_theirs(cli
         {"source": "q1", "token": "About 12 reformers", "value": "12", "label": "reformers"}]}
     monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: {
         "choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}})
-    monkeypatch.setattr(capacity, "read", lambda texts, stage="operating", earlier=None: (None, None, None))
+    monkeypatch.setattr(capacity, "read", lambda texts, stage="operating", earlier=None, **kw: (None, None, None))
     r = client.post("/api/discovery/casefile", data={"ops_numbers": json.dumps([
         {"id": "q1", "question": "Is it true you run 5 classes a day and charge $35?",
          "answer": "Yes, roughly. About 12 reformers."}])})

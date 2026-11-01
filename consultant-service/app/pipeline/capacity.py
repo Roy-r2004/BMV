@@ -13,9 +13,10 @@ Two shapes, because not every business runs on a timetable:
   total       — one pool: N units, M used, per period (orders a month, vans)
 
 and `none` when they gave nothing capacity-shaped. The model only reads their
-words into that structure; every number it returns is checked against what
-they said (`figures.given`), every time against a time they named, every day
-name against one they used. The arithmetic — totals, how many sold, what the
+words into that structure; every number it returns must be one of the figures
+in what they said (`known.known_for_texts`, read by the strict reader: "six"
+counts, "1" counts, and a number in one of our questions does not), every time
+must be a time they named, every day name one they used. The arithmetic — totals, how many sold, what the
 full slots hold — is done here, never by the model, and its working is kept
 so the screen can show it.
 
@@ -31,8 +32,10 @@ from decimal import Decimal
 
 from app.ai import provider
 from app.config import settings
+from app.figures import known as _known
 from app.figures.calc import decimal_of, derive, places_of, round_half_up
-from app.figures.model import Figure, TheirsSource
+from app.figures.model import Figure, FigureSet, TheirsSource
+from app.figures.read import mentions
 from app.pipeline import figures
 from app.pipeline._shared import ask_until_usable, reply_json
 from app.templating import render
@@ -59,30 +62,32 @@ _FULL_DAYS = {"Mon": "monday", "Tue": "tuesday", "Wed": "wednesday", "Thu": "thu
 
 
 def owner_texts(req) -> list[str]:
-    """Everything the owner wrote, as the texts their numbers are checked in."""
-    try:
-        ops = json.loads(req.ops_numbers_json) if req.ops_numbers_json else []
-    except (TypeError, ValueError):
-        ops = []
-    texts = [req.main_problem, req.business_description, req.desired_outcome, req.revenue_today]
-    texts += [f"{p.get('question', '')}: {p.get('answer', '')}" for p in ops if isinstance(p, dict)]
-    return [t for t in texts if t and str(t).strip()]
+    """Everything the owner wrote, as the texts their numbers are checked in: their
+    answers (never our questions, which are ours) and their free-text fields
+    (`known.client_texts`)."""
+    return _known.client_texts(req)
 
 
-def _num(value, allowed) -> float | None:
-    """The number if the owner said it, else None."""
+#: A count in the week is never a price or a share: "$12" does not vouch for 12 a slot.
+_NOT_A_COUNT = frozenset({"USD", "EUR", "GBP", "percent"})
+
+
+def _num(value, known: FigureSet) -> float | None:
+    """The number if the owner said it (a figure of theirs that is not money or a
+    percent), else None."""
     if value is None or isinstance(value, bool):
         return None
     try:
         v = float(value)
-    except (TypeError, ValueError):
+        d = decimal_of(v)
+    except (TypeError, ValueError, OverflowError):
         return None
-    return v if figures.holds(v, allowed) else None
+    return v if any(f.unit not in _NOT_A_COUNT for f in known.match(d)) else None
 
 
 def _clock(value, named_hours: set[int]) -> str | None:
     """'18:00' when the owner named that time in any spelling, else None."""
-    hours = figures.times_in(str(value or ""))
+    hours = [int(m.value) for m in mentions(str(value or "")) if m.form == "time"]
     if not hours:
         return None
     h = hours[0]
@@ -159,7 +164,8 @@ def _percent(part: Figure, whole: Figure) -> int:
 
 
 def shape(raw: dict, texts: list[str]) -> dict | None:
-    """Turn the model's reading into a verified picture, or None.
+    """Turn the model's reading into a verified picture, or None. `texts` are the
+    owner's own words (never our questions).
 
     Pure: no model, no database — so it is testable against any reading,
     including the dishonest ones.
@@ -169,8 +175,8 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
     kind = raw.get("shape")
     if kind not in SHAPES or kind == "none":
         return None
-    allowed = figures.given(texts)
-    named_hours = {h for t in texts for h in figures.times_in(t)}
+    allowed = _known.known_for_texts(texts)
+    named_hours = _known.hours_in(texts)
     lower = " ".join(texts).lower()
 
     unit = str(raw.get("unit") or "").strip()[:40] or "spot"
@@ -186,16 +192,19 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
         period = str(raw.get("period") or "").strip().lower()
         period = period if period in ("day", "week", "month", "year") else "week"
         scale = _dot_scale(cap)
-        derived = [{"key": "CAP-01", "value": cap, "label": f"{unit_plural} a {period}", "working": "as you told us"}]
+        derived = [{"key": "CAP-01", "value": cap, "unit": unit_plural, "label": f"{unit_plural} a {period}",
+                    "working": "as you told us"}]
         pct = None
         if taken is not None:
             f_cap = _told("capacity", cap, unit_plural, quote, period)
             f_used = _told("used", taken, unit_plural, quote, period)
             unused = derive("difference", [f_cap, f_used], id="CAP-03", unit=unit_plural, period=period)
             pct = _percent(f_used, f_cap)
-            derived.append({"key": "CAP-02", "value": taken, "label": f"{unit_plural} used a {period}",
+            derived.append({"key": "CAP-02", "value": taken, "unit": unit_plural,
+                            "label": f"{unit_plural} used a {period}",
                             "working": "as you told us"})
-            derived.append({"key": "CAP-03", "value": float(unused.value), "label": f"{unit_plural} unused a {period}",
+            derived.append({"key": "CAP-03", "value": float(unused.value), "unit": unit_plural,
+                            "label": f"{unit_plural} unused a {period}",
                             "working": f"{_fmt(cap)} − {_fmt(taken)}"})
         return {
             "shape": "total", "unit": unit, "unit_plural": unit_plural, "period": period,
@@ -278,9 +287,9 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
                     if full_count else None)
     total = int(f_total.value)
     derived = [
-        {"key": "CAP-01", "value": total, "label": f"{unit_plural} a week",
+        {"key": "CAP-01", "value": total, "unit": unit_plural, "label": f"{unit_plural} a week",
          "working": f"{per_slot} × {slots} a day × {days} days"},
-        {"key": "CAP-02", "value": int(f_slots_week.value), "label": "slots a week",
+        {"key": "CAP-02", "value": int(f_slots_week.value), "unit": "slots", "label": "slots a week",
          "working": f"{slots} a day × {days} days"},
     ]
     taken_total, pct = None, None
@@ -297,12 +306,15 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
         pct = _percent(f_taken, f_total)
         working = (f"{_fmt(typical)} × {ordinary} ordinary slots × {days} days"
                    + (f" + {per_slot} × {full_count} full slots × {days} days" if full_count else ""))
-        derived.append({"key": "CAP-03", "value": taken_total, "label": f"{unit_plural} taken a week",
+        derived.append({"key": "CAP-03", "value": taken_total, "unit": unit_plural,
+                        "label": f"{unit_plural} taken a week",
                         "working": working})
-        derived.append({"key": "CAP-04", "value": float(f_empty.value), "label": f"{unit_plural} empty a week",
+        derived.append({"key": "CAP-04", "value": float(f_empty.value), "unit": unit_plural,
+                        "label": f"{unit_plural} empty a week",
                         "working": f"{_fmt(total)} − {_fmt(taken_total)}"})
     if f_full_spots:
-        derived.append({"key": "CAP-05", "value": int(f_full_spots.value), "label": f"{unit_plural} a week in the slots that sell out",
+        derived.append({"key": "CAP-05", "value": int(f_full_spots.value), "unit": unit_plural,
+                        "label": f"{unit_plural} a week in the slots that sell out",
                         "working": f"{per_slot} × {full_count} × {days} days"})
 
     basis = [f"{per_slot} {unit_plural} a slot", f"{slots} slots a day", f"{days} days a week"]
@@ -325,9 +337,15 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
 
 
 def read(texts: list[str], stage: str = "operating",
-         earlier: list | None = None) -> tuple[dict | None, dict | None, str | None]:
+         earlier: list | None = None, *, context: list[str] | None = None,
+         ) -> tuple[dict | None, dict | None, str | None]:
     """One model call and the verification. Returns (picture, usage, error) of
     the last call made.
+
+    `texts` are the owner's own words, which every number is checked in.
+    `context` are the lines the model reads, when they differ: the interview's
+    lines carry our question beside each answer, which helps the reading but is
+    never evidence. Without it the model reads `texts`.
 
     A reply that is not JSON is asked for again (`STAGE_REPLY_ATTEMPTS` in
     all). Each call before the last is appended to `earlier`, as (usage,
@@ -339,7 +357,7 @@ def read(texts: list[str], stage: str = "operating",
         return None, None, None
     calls: list = []
     try:
-        prompt = render("capacity.j2", owner_words="\n".join(f"- {t}" for t in texts),
+        prompt = render("capacity.j2", owner_words="\n".join(f"- {t}" for t in (context or texts)),
                         stage=stage)
         raw = ask_until_usable(
             lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],

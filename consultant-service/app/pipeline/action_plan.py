@@ -11,14 +11,24 @@ genuinely needs the owner in the room), and decisions — go ahead, when to go
 live, who we deal with, and any business choice the answer rests on — each
 with answers they can tap. No tasks, no tracking.
 
-Every number is checked the way the answer's are (`answer.allowed_numbers`):
-money and percentages strictly, other figures above twelve strictly too —
-twelve and under are left to the prose, where "weeks 1 to 2" lives.
+Every number in the prose is bound the way the answer's is: against what the
+request knows (`app.figures.known`), with no leniency, so "twelve" and "3" need
+a figure as much as "$35" does. A phase, a decision or an assumption holding a
+number that names no figure is dropped; a summary holding one is left empty.
+
+The lengths the roadmap proposes are ours, and it says so: each phase whose
+"when" is a span of weeks ("Weeks 3 to 6") has its length as a figure
+(PLAN-PHASE-n-WEEKS), the plan has its length (PLAN-WEEKS, the one the answer
+proposed, or else the end of the last phase) and its number of phases
+(PLAN-PHASES). They are stored in the roadmap's `figures` (`model.as_json`), and
+prose that says "four weeks" or "three phases" binds to them. The "when" itself
+is the roadmap's structure, written as the prompt asks, and is not bound.
 """
 
 import json
 import logging
 import re
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -26,10 +36,11 @@ from app import mailer
 from app.ai import provider
 from app.config import settings
 from app.database import SessionLocal
+from app.figures import known as _known
+from app.figures.bind import bind
+from app.figures.model import Figure, FigureSet, Proposal, as_json
 from app.models import Request
 from app.pipeline import answer as _answer
-from app.pipeline import capacity as _capacity
-from app.pipeline import figures
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline.failure import StageFailed
 from app.templating import render
@@ -37,7 +48,6 @@ from app.templating import render
 logger = logging.getLogger("consultant.roadmap")
 
 PLAN_TOKENS = 4000
-LENIENT_BELOW = 13
 WRITING, READY, FAILED = "writing", "ready", "failed"
 
 
@@ -45,33 +55,73 @@ def _text(v, limit: int) -> str:
     return re.sub(r"\s+", " ", str(v or "")).strip()[:limit]
 
 
-def shape(raw: dict, allowed: set[float], hours: set[int] | None = None) -> tuple[dict | None, list[str]]:
-    """(roadmap, problems). Pure. `hours` are the clock times they named."""
+# "Weeks 3 to 6", "Week 2", "weeks 1-2": a span of weeks, first to last
+_WEEK_SPAN = re.compile(r"^\s*weeks?\s+(\d{1,3})(?:\s*(?:-|\u2013|\u2014|to|through)\s*(\d{1,3}))?\s*$", re.I)
+
+
+def week_span(when: str) -> tuple[int, int] | None:
+    """The first and last week a phase's "when" names, or None when it is not a
+    span of weeks ("Month 3 on")."""
+    m = _WEEK_SPAN.match(str(when or ""))
+    if not m:
+        return None
+    first, last = int(m.group(1)), int(m.group(2) or m.group(1))
+    return (first, last) if 1 <= first <= last else None
+
+
+def _ours(fid: str, value: int, unit: str, note: str) -> Figure:
+    return Figure(fid, Decimal(value), unit, None, "ours", Proposal(note=note), 0)
+
+
+def shape(raw: dict, known: FigureSet, hours: set[int] | None = None,
+          plan_weeks: Figure | None = None) -> tuple[dict | None, list[str]]:
+    """(roadmap, problems). Pure. `known` is what the request knows
+    (`known.known_for`), `hours` the clock times they named, `plan_weeks` the
+    length of the plan the answer proposed (PLAN-WEEKS), when there is one."""
     if not isinstance(raw, dict):
         return None, ["the response was not an object"]
     problems: list[str] = []
 
-    def ok(text: str, what: str) -> bool:
-        bad = figures.unsupported(text, allowed, lenient_below=LENIENT_BELOW, hours=hours)
-        if bad:
-            problems.append(f"{what} uses numbers they never gave: " + ", ".join(f"{b:g}" for b in bad))
-            return False
-        return True
+    def checked(text: str, what: str, against: FigureSet) -> str | None:
+        """The text bound to the figures, or None when a number in it names none."""
+        r = bind(text, against, hours=hours)
+        if r.unresolved:
+            problems.append(f"{what} uses numbers they never gave: " + ", ".join(u.text for u in r.unresolved))
+            return None
+        return r.text
 
-    summary = _text(raw.get("summary"), 400)
-    if summary and not ok(summary, "the summary"):
-        summary = ""
-
-    phases = []
+    base = [plan_weeks] if plan_weeks is not None else []
+    phases, spans, figures = [], [], []
     for i, p in enumerate(list(raw.get("phases") or [])[:6]):
         if not isinstance(p, dict):
             continue
         when, title, do = _text(p.get("when"), 40), _text(p.get("title"), 60), _text(p.get("do"), 320)
         you = _text(p.get("you"), 60)
         by = _text(p.get("by"), 10).lower()
-        if when and title and do and ok(f"{title} {do} {you}", f"phase {i + 1}"):
-            phases.append({"when": when, "title": title, "do": do,
-                           "by": "together" if by == "together" else "us", "you": you})
+        if not (when and title and do):
+            continue
+        span = week_span(when)
+        own = ([_ours(_known.phase_weeks_id(len(phases) + 1), span[1] - span[0] + 1, "week",
+                      f"how long phase {len(phases) + 1} takes")] if span else [])
+        against = _known.with_extra(known, base + own)
+        bound = [checked(t, f"phase {i + 1}", against) for t in (title, do, you)]
+        if any(b is None for b in bound):
+            continue
+        phases.append({"when": when, "title": bound[0], "do": bound[1],
+                       "by": "together" if by == "together" else "us", "you": bound[2]})
+        spans.append(span)
+        figures += own
+
+    if plan_weeks is None and phases and all(spans):
+        plan_weeks = _ours(_known.PLAN_WEEKS_ID, max(s[1] for s in spans), "week",
+                           "the length of the plan we propose")
+    figures = ([plan_weeks] if plan_weeks is not None else []) + figures
+    if phases:
+        figures.append(_ours(_known.PLAN_PHASES_ID, len(phases), "phases", "the phases we propose"))
+    against = _known.with_extra(known, figures)
+
+    summary = _text(raw.get("summary"), 400)
+    summary = (checked(summary, "the summary", against) or "") if summary else ""
 
     decisions = []
     for i, d in enumerate(list(raw.get("decisions") or [])[:4]):
@@ -80,13 +130,16 @@ def shape(raw: dict, allowed: set[float], hours: set[int] | None = None) -> tupl
         question = _text(d.get("question"), 90)
         detail = _text(d.get("detail"), 160)
         options = [o for o in (_text(x, 36) for x in (d.get("options") or [])[:4]) if o]
-        if not question or len(options) < 2 or not ok(f"{question} {detail} {' '.join(options)}", f"decision {i + 1}"):
+        if not question or len(options) < 2:
             continue
-        decisions.append({"id": f"d{len(decisions) + 1}", "question": question,
-                          "detail": detail, "options": options})
+        bound = [checked(t, f"decision {i + 1}", against) for t in (question, detail, *options)]
+        if any(b is None for b in bound):
+            continue
+        decisions.append({"id": f"d{len(decisions) + 1}", "question": bound[0],
+                          "detail": bound[1], "options": bound[2:]})
 
-    assumptions = [a for a in (_text(x, 240) for x in (raw.get("assumptions") or [])[:5])
-                   if a and ok(a, "an assumption")]
+    assumptions = [b for b in (checked(a, "an assumption", against)
+                               for a in (_text(x, 240) for x in (raw.get("assumptions") or [])[:5]) if a) if b]
 
     if len(phases) < 2:
         problems.append("fewer than two usable phases")
@@ -95,7 +148,8 @@ def shape(raw: dict, allowed: set[float], hours: set[int] | None = None) -> tupl
         problems.append("no usable decisions")
         return None, problems
     return {"status": READY, "title": "Implementation roadmap", "summary": summary,
-            "phases": phases, "decisions": decisions, "assumptions": assumptions}, problems
+            "phases": phases, "decisions": decisions, "assumptions": assumptions,
+            "figures": [as_json(f) for f in figures]}, problems
 
 
 def _modules(req) -> str:
@@ -139,9 +193,10 @@ def write(db: Session, request_id: int) -> dict | None:
         decision = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
         ans = _answer.load(req) or {}
         _, claims = diagnose._evidence_lines(req)
-        texts = _capacity.owner_texts(req)
         move = ans.get("move")
-        allowed = _answer.allowed_numbers(texts, claims, move)
+        known = _known.known_for(req, leave_out={"roadmap"})
+        hours = _known.hours_for(req)
+        plan_weeks = next((f for f in _known.answer_figures(ans) if f.id == _known.PLAN_WEEKS_ID), None)
         base = dict(
             engagement_register=build_engagement_register(
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
@@ -183,7 +238,7 @@ def write(db: Session, request_id: int) -> dict | None:
             logger.warning("roadmap call failed: %s", str(exc)[:200])
             cause = exc
             break
-        candidate, problems = shape(raw, allowed, figures.given_hours(texts))
+        candidate, problems = shape(raw, known, hours, plan_weeks)
         if candidate:
             plan = candidate
         if not problems:

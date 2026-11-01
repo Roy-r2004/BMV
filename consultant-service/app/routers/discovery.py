@@ -141,6 +141,56 @@ def fallback_facts(stage: str | None) -> list[dict]:
             for k, g, lbl, f in rows]
 
 
+_DIGITS = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def _not_in_their_words(value: str, texts: list[str]) -> list[str]:
+    """Every number in a short value read off their words that the words do not
+    hold, as written. Each number the reader finds must name a figure of theirs in
+    `texts` (`known.known_for_texts`, the strict reader: words, ordinals and small
+    numbers count); a clock time must be one they named, and a date one they
+    wrote. Digits the reader passes over as a label or an identifier ("Phase 2",
+    "Q3") must still stand in their words, so a value is held to every digit it
+    shows. Pass their own words only, never our questions."""
+    from app.figures.known import hours_in, known_for_texts
+    from app.figures.read import mentions, supported
+
+    found = mentions(value)
+    if not found and not _DIGITS.search(value):
+        return []
+    known, hours = known_for_texts(texts), hours_in(texts)
+    theirs = [m for t in texts if isinstance(t, str) for m in mentions(t)]
+    dates = {m.value for m in theirs if m.form == "date"}
+    bad = [m.text for m in found
+           if not (m.value in dates if m.form == "date" else supported(m, known, hours))]
+    covered = [(m.start, m.end) for m in found]
+    digits = {d.replace(",", "") for t in texts if isinstance(t, str) for d in _DIGITS.findall(t)}
+    for d in _DIGITS.finditer(value):
+        inside = any(s <= d.start() and d.end() <= e for s, e in covered)
+        if not inside and d.group().replace(",", "") not in digits:
+            bad.append(d.group())
+    return bad
+
+
+def _figures_in(value: str) -> bool:
+    """Whether the value holds a number that is not a clock time or a date."""
+    from app.figures.read import mentions
+
+    return any(m.form not in ("time", "date") for m in mentions(value))
+
+
+def _answers(ops_numbers: str | None) -> list[str]:
+    """Their answers alone, never the questions we asked."""
+    try:
+        pairs = json.loads(ops_numbers or "[]")
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(pairs, list):
+        return []
+    return [str(p["answer"]).strip() for p in pairs
+            if isinstance(p, dict) and str(p.get("answer") or "").strip()]
+
+
 def _fact_value(value, quote, texts: list[str]) -> str:
     """A value read off their words, kept only when the words say it: the
     quote must be theirs, and every number in the value must be in the quote."""
@@ -150,8 +200,7 @@ def _fact_value(value, quote, texts: list[str]) -> str:
     quote = str(quote or "").strip()
     if not value or not quote or not figures.quoted(quote, texts):
         return ""
-    in_quote = figures.given([quote])
-    if not all(figures.holds(v, in_quote) for v in figures.numbers_in(value, words=True)):
+    if _not_in_their_words(value, [quote]):
         return ""
     return value
 
@@ -325,13 +374,10 @@ def shape_fact_updates(raw_updates, raw_new, facts: list[dict], texts: list[str]
     """What their latest answers settled, and what the list was missing. Pure.
 
     A value is kept only when every number in it is one they gave — in an
-    answer, a file, or what they first wrote. A fact they told us they don't
-    know stays ours to estimate; an answer never overwrites that silently.
+    answer, a file, or what they first wrote (`texts`: their words only, never
+    our questions). A fact they told us they don't know stays ours to estimate;
+    an answer never overwrites that silently.
     """
-    from app.pipeline import figures
-
-    allowed = figures.given(texts)
-    hours = figures.given_hours(texts)
     by_key = {f["key"]: f for f in facts}
     updates = []
     for u in raw_updates if isinstance(raw_updates, list) else []:
@@ -345,7 +391,7 @@ def shape_fact_updates(raw_updates, raw_new, facts: list[dict], texts: list[str]
         # echoes that back has not learned the fact, it has read our note.
         if re.search(r"\b(not known|unknown|not (yet )?(given|stated|provided)|n/?a)\b", value, re.I):
             continue
-        if figures.unsupported(value, allowed, lenient_below=0, hours=hours):
+        if _not_in_their_words(value, texts):
             continue
         updates.append({"key": key, "value": value})
     added = []
@@ -572,7 +618,8 @@ def interview(
         q["field"] = field if field in FILLABLE else ""
 
     # What their answers settled, and what the list turned out to be missing.
-    texts = [main_problem or "", answered, *from_files, *[v for v in filled.values() if v]]
+    # Checked in their words alone: a number only our question holds is not theirs.
+    texts = [main_problem or "", *_answers(ops_numbers), *from_files, *[v for v in filled.values() if v]]
     updates, added = shape_fact_updates(result.get("updates"), result.get("new_facts"), fact_list, texts)
     keys = {f["key"] for f in fact_list} | {a["key"] for a in added}
     for q in questions:
@@ -691,11 +738,12 @@ def casefile_sources(main_problem: str | None, ops_numbers: str | None,
 
 
 def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
-                   derived: list[float] | None = None,
+                   derived: list | None = None,
                    origins: dict[str, str] | None = None,
                    theirs: dict[str, str] | None = None) -> dict:
     """Keep only what is really in their words. Pure. `derived` are the
-    capacity totals computed from those words, which the summary may use.
+    capacity figures computed from those words (`known.capacity_figures`), which
+    the summary may use.
 
     Every figure kept was quoted from their own words, so each says `kind:
     "theirs"` and carries `source`, where it came from in plain words (from
@@ -703,6 +751,8 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
     `theirs` is the part of each line that is their own words (an interview line
     also holds our question, and a number only our question has is not theirs); a
     line with no entry there is taken to be theirs throughout."""
+    from app.figures.bind import bind, clean_sentences
+    from app.figures.known import hours_in, known_for_texts, with_extra
     from app.pipeline import figures
 
     out: dict = {"figures": []}
@@ -717,19 +767,14 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
         label = str(f.get("label") or "").strip()[:60]
         if not text or not token or not value or not figures.quoted(token, [text]):
             continue
-        in_token = figures.given([token])
-        value_nums = figures.numbers_in(value, words=True)
-        value_hours = figures.times_in(value)
         # A time on its own ("6pm — classes") is not a figure about the
         # business; it filled half the case file with clock faces.
-        if not value_nums:
+        if not _figures_in(value):
             continue
-        if not all(figures.holds(v, in_token) for v in value_nums):
+        # every number in the value is in the words it was quoted from, a time one they named there
+        if _not_in_their_words(value, [token]):
             continue
-        if not set(value_hours) <= figures.given_hours([token]):
-            continue
-        if figures.unsupported(label, figures.given([text]), lenient_below=0,
-                               hours=figures.given_hours([text])):
+        if _not_in_their_words(label, [text]):
             continue
         key = (src, value.casefold())
         if key in seen:
@@ -740,19 +785,21 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
         if len(out["figures"]) >= CASEFILE_MAX_FIGURES:
             break
     if playback and isinstance(raw, dict):
-        all_text = list(sources.values())
+        # their words only: a number only our question holds is not theirs
         their_text = [(theirs or {}).get(k) or v for k, v in sources.items()]
+        known, hours = known_for_texts(their_text), hours_in(their_text)
         summary = str(raw.get("summary") or "").strip()[:600]
-        allowed = figures.given(all_text) | {float(v) for v in derived or []}
-        hours = figures.given_hours(all_text)
-        out["summary"] = summary if summary and not figures.unsupported(summary, allowed, hours=hours) else ""
+        # the summary is bound to their figures and the week worked out from them;
+        # a sentence holding a number that names none is dropped
+        out["summary"] = (clean_sentences(summary, with_extra(known, derived or []), hours=hours)[0].strip()
+                          if summary else "")
         words = str(raw.get("their_words") or "").strip()[:400]
         out["their_words"] = words if words and figures.quoted(words, their_text) else ""
         fix = raw.get("their_fix")
         fix = str(fix).strip().rstrip(".")[:80] if fix else ""
         # their fix is in their words: what our question suggested ("a 3-month app") is not
-        out["their_fix"] = fix if fix and not figures.unsupported(
-            fix, figures.given(their_text), hours=figures.given_hours(their_text)) else None
+        bound = bind(fix, known, hours=hours) if fix else None
+        out["their_fix"] = bound.text if bound and not bound.unresolved else None
     return out
 
 
@@ -796,7 +843,9 @@ def casefile(
     with ThreadPoolExecutor(max_workers=2) as pool:
         fig_future = pool.submit(read_figures)
         cap_earlier: list = []
-        cap_future = pool.submit(capacity.read, list(sources.values()), stage, cap_earlier)
+        # the week is checked in their words; our questions are only context for the reading
+        cap_future = pool.submit(capacity.read, list(theirs.values()), stage, cap_earlier,
+                                 context=list(sources.values()))
         try:
             raw, usage = fig_future.result()
             log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
@@ -814,8 +863,9 @@ def casefile(
         log_usage(db, None, provider="openrouter", model=settings.ANALYSIS_MODEL,
                   purpose="casefile:capacity", usage=cap_usage, success=cap_error is None, error=cap_error)
 
-    out = shape_casefile(raw, sources, playback,
-                         [d["value"] for d in (picture or {}).get("derived") or []], origins, theirs)
+    from app.figures.known import capacity_figures
+
+    out = shape_casefile(raw, sources, playback, capacity_figures(picture), origins, theirs)
     out["capacity"] = picture
     return out
 
