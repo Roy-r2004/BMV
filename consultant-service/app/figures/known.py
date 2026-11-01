@@ -361,6 +361,17 @@ def _is_proposal(f: Figure) -> bool:
     return f.kind == "ours" and (f.id == MOVE_ID or f.id.startswith(("PROP-", "PLAN-")))
 
 
+def _theirs_rank(f: Figure) -> int:
+    """How soon a figure of theirs is cut: 0 the form they filled in (F-...), kept
+    longest; 1 an interview answer (T<turn>-<n>); 2 a cell of a file they sent
+    (E<claim>-<n>), cut first."""
+    if f.id[:1] == "E" and f.id[1:2].isdigit():
+        return 2
+    if f.id[:1] == "T" and f.id[1:2].isdigit():
+        return 1
+    return 0
+
+
 def _kept_for_prompt(known: FigureSet, budget: int) -> set[str]:
     """The ids of the `budget` figures a prompt lists when they do not all fit.
 
@@ -369,17 +380,18 @@ def _kept_for_prompt(known: FigureSet, budget: int) -> set[str]:
     lengths, then the references, then our other proposals, but never more than half
     the budget, so the client's figures are not left with no room at all. The rest of
     the budget goes to derived and theirs: each may have half, and one that needs less
-    lends what it does not use to the other. Of each kind it is the latest that are
-    kept (the later answers, the registry's later claims)."""
+    lends what it does not use to the other. Of derived, the earliest are kept (their
+    week first, then the registry's claims). Of theirs, what they typed in the form is
+    kept longest, then the interview from its first answer on (the latest turns are cut
+    last-first), and the cells of the files they sent go first."""
     ours = known.by_kind("ours")
-    protected = [f for f in ours if _is_proposal(f)] + known.by_kind("reference") + \
-        [f for f in ours if not _is_proposal(f)]
+    protected = [f for f in ours if _is_proposal(f)] + known.by_kind("reference") +         [f for f in ours if not _is_proposal(f)]
     protected = protected[:max(1, budget // 2)]
     room = budget - len(protected)
-    derived, theirs = known.by_kind("derived"), known.by_kind("theirs")
+    derived, theirs = known.by_kind("derived"), sorted(known.by_kind("theirs"), key=_theirs_rank)
     take_derived = min(len(derived), max(room // 2, room - len(theirs)))
     take_theirs = min(len(theirs), room - take_derived)
-    return {f.id for f in (*protected, *derived[len(derived) - take_derived:], *theirs[len(theirs) - take_theirs:])}
+    return {f.id for f in (*protected, *derived[:take_derived], *theirs[:take_theirs])}
 
 
 def prompt_lines(known: FigureSet) -> str:
@@ -389,8 +401,9 @@ def prompt_lines(known: FigureSet) -> str:
 
     At most `settings.PROMPT_FIGURE_LINES` lines. When the figures do not all fit,
     what is left out is theirs and derived (`_kept_for_prompt`: our proposals and the
-    references stay, then the latest of the others), and the last line says how many
-    more exist and whose they are. An empty set gives "none"."""
+    references stay, then the earliest of the others, the files' cells first to go),
+    and the last line says how many more exist and whose they are. An empty set gives
+    "none"."""
     ordered = [f for kind in _PROMPT_ORDER for f in known.by_kind(kind)]
     if not ordered:
         return "none"

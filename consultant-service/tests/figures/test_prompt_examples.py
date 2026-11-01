@@ -24,11 +24,14 @@ says "$100 a class", a copied example passes the checker as theirs. The round
 values make that unlikely, never impossible; the only full cure is a prompt that
 shows no number at all, which is what an example should do whenever it can.
 
-Both checks cover every template under app/prompts, the screen block guide that
-two of them carry in a variable, and every string and number of
+Both checks cover every template under app/prompts and the screen block guide that
+two of them carry in a variable. They also cover the prose of
 app/screens/example.json, the worked screen the model is shown when it draws the
-first screen of a system ("from another business: copy the density, never the
-content").
+first screen of a system: its captions and its story, which are written for the
+client and bound like the model's own. The rest of that file (the headings, rows
+and cells of the drawn screens) is SAMPLE DATA, a region the law exempts, and it
+must look real to teach the density; only the reader check applies to it (a number
+in it would be caught if it were copied into prose).
 """
 from __future__ import annotations
 
@@ -46,6 +49,10 @@ BLOCK_GUIDE = "screens/generate.py BLOCK_GUIDE"
 
 EXAMPLE_JSON = "screens/example.json"
 _ROOT = object()
+# what the model writes as prose in the worked screen: a caption under each screen, and the story
+_EXAMPLE_PROSE = re.compile(r"^/(?:screens/\d+/caption|story/.*)$")
+# an example said in a clause rather than in quotes: "like C4=1240", "e.g. 40 seats", "such as 3 cards"
+_LOOSE = re.compile(r"(?:\blike|\be\.g\.|\bfor example|\bsuch as)[ \t:]+(?![\"'<])([^,;)\"'\n]{1,60}?)(?=[,;)]|\.(?:\s|$)|$)", re.I | re.M)
 
 #: Values that are not round and are not invented: the calendar, when the word
 #: after the number is its unit ("52 weeks", "12 months", "365 days"). A bare 12 is
@@ -69,13 +76,14 @@ _BY_FORM = frozenset({"time", "date"})
 
 def examples_in(text: str) -> list[str]:
     """Every double- or single-quoted string in the template text, on one line,
+    and every unquoted clause that follows "like", "e.g.", "for example" or "such as",
     that holds a digit or a number the reader counts. Jinja is cut out first, so a
     variable inside a quoted example does not count as part of it."""
     found: list[str] = []
     for line in _JINJA.sub(" ", text).splitlines():
-        for rx in (_DOUBLE, _SINGLE):
+        for rx in (_DOUBLE, _SINGLE, _LOOSE):
             for m in rx.finditer(line):
-                s = m.group(1)
+                s = m.group(1).strip()
                 if any(ch.isdigit() for ch in s) or read.mentions(s):
                     found.append(s)
     return found
@@ -100,12 +108,16 @@ def hidden_digits(example: str) -> list[str]:
 
 
 def uncaught(example: str) -> str | None:
-    """Why a copy of `example` would get through the checker, or None."""
-    if read.unsupported(example, FigureSet()):
-        return None
+    """Why a copy of `example` would get through the checker, or None.
+
+    Every number the reader counts is either flagged against an empty known set or
+    a date or a time, which it passes by form. What can hide is a digit the reader
+    does not count at all; ALL of them are collected, so an example with a flagged
+    number and a hidden one ("$100, open 24/7") is not let through by the first."""
     hidden = hidden_digits(example)
     if hidden:
         return f"the reader passes over {', '.join(hidden)}, and it is no identifier, label or date"
+    assert all(read.supported(m, FigureSet()) == (m.form in _BY_FORM) for m in read.mentions(example))
     return None
 
 
@@ -155,10 +167,9 @@ def example_json_leaves(node=_ROOT, path="") -> list[tuple[str, object]]:
     return [(path, node)]
 
 
-def plain_number(value) -> bool:
-    """Whether a JSON number is round (one significant digit) or zero."""
-    d = abs(Decimal(str(value)))
-    return d == 0 or len(d.normalize().as_tuple().digits) == 1
+def example_prose() -> list[tuple[str, str]]:
+    """The strings of the worked screen that are prose the model writes for the client."""
+    return [(path, v) for path, v in example_json_leaves() if isinstance(v, str) and _EXAMPLE_PROSE.match(path)]
 
 
 # -- the scanner itself ---------------------------------------------------------------
@@ -182,14 +193,26 @@ def test_what_the_reader_passes_by_form_is_allowed_and_any_other_hidden_digit_is
     assert uncaught("$22 vs $32") is None and uncaught("six-week pilot") is None   # the reader flags these
 
 
-def test_every_template_the_block_guide_and_the_worked_example_are_scanned():
+def test_every_template_the_block_guide_and_the_worked_examples_prose_are_scanned():
     names = set(_sources())
     assert len(names) == len(_templates()) + 1 and BLOCK_GUIDE in names
     assert {"answer.j2", "decide.j2", "diagnose.j2", "capacity.j2", "journey.j2", "qa_numbers.j2"} <= names
     assert generate.BLOCK_GUIDE.strip()
-    leaves = example_json_leaves()
-    assert len(leaves) > 500 and any(isinstance(v, (int, float)) for _, v in leaves)
-    assert plain_number(100) and plain_number(0) and plain_number(0.5) and not plain_number(41) and not plain_number(5400)
+    assert len(example_json_leaves()) > 500
+    paths = [path for path, _ in example_prose()]
+    assert "/story/intro" in paths and any(p.endswith("/caption") for p in paths) and len(paths) > 30
+    assert not any(re.match(r"/screens/\d+/(rows|heading|subheading)", p) for p in paths)   # sample data is not prose
+
+
+def test_a_hidden_digit_is_found_beside_a_flagged_number():
+    assert uncaught("$100 a month, open 24/7") is not None and "24" in uncaught("$100 a month, open 24/7")
+    assert uncaught("$100 a month, in 2025, for M3-A") is None
+
+
+def test_an_example_said_in_a_clause_is_found_too():
+    text = "Every cell is shown with its address, like C4=1240. Ask for a unit, e.g. USD, hours. Use 3 to 6 stages."
+    assert examples_in(text) == ["C4=1240"]
+    assert looks_real("C4=1240") == ["1240"]
 
 
 # -- the two checks --------------------------------------------------------------------
@@ -208,19 +231,19 @@ def test_every_example_number_is_plainly_invented():
     assert not failing, "examples that read like a client's own figures:\n" + "\n".join(failing)
 
 
-def test_the_worked_screen_holds_only_numbers_a_copy_of_which_is_caught_and_none_that_reads_like_a_figure():
-    """The worked screen is shown to the model as another business's. Every string
-    in it that holds a number passes the same two checks as a prompt's example, and
-    every number in it is round."""
-    caught, invented = [], []
-    for path, value in example_json_leaves():
-        if isinstance(value, str):
-            if any(ch.isdigit() for ch in value) or read.mentions(value):
-                if why := uncaught(value):
-                    caught.append(f"{EXAMPLE_JSON}{path}: {value!r} -> {why}")
-                if bad := looks_real(value):
-                    invented.append(f"{EXAMPLE_JSON}{path}: {value!r} -> {', '.join(bad)}")
-        elif not plain_number(value):
-            invented.append(f"{EXAMPLE_JSON}{path}: {value!r}")
-    assert not caught, "numbers of the worked screen that would pass as a figure:\n" + "\n".join(caught)
-    assert not invented, "numbers of the worked screen that read like a client's own figures:\n" + "\n".join(invented)
+def test_the_worked_screens_prose_holds_only_numbers_a_copy_of_which_is_caught_and_none_that_reads_like_a_figure():
+    """A caption or a line of the story in the worked screen is prose the model may
+    copy into the client's own, where it is bound like any other. It passes the same
+    two checks as a prompt's example. The sample rows and cells are not held to the
+    second: they are sample data, and look real on purpose."""
+    caught = [f"{EXAMPLE_JSON}{p}: {v!r} -> {why}" for p, v in example_prose() if (why := uncaught(v))]
+    invented = [f"{EXAMPLE_JSON}{p}: {v!r} -> {', '.join(bad)}" for p, v in example_prose() if (bad := looks_real(v))]
+    assert not caught, "prose of the worked screen that would pass as a figure:\n" + "\n".join(caught)
+    assert not invented, "prose of the worked screen that reads like a client's own figures:\n" + "\n".join(invented)
+
+
+def test_every_number_of_the_worked_screens_sample_data_would_be_caught_if_copied():
+    """The reader check, for the sample data: no digit hides from the reader."""
+    hidden = [f"{EXAMPLE_JSON}{p}: {v!r} -> {why}" for p, v in example_json_leaves()
+              if isinstance(v, str) and (why := uncaught(v))]
+    assert not hidden, "\n".join(hidden)

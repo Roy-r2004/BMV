@@ -16,12 +16,12 @@ Still unverified: {{ unverified }}
 THE DIAGNOSIS THAT HELD
 {{ leading }}
 
-THE CLAIMS BEHIND THEM — their own figures, or computed from their own (the CAP- ones). Cite their ids in "cites" and in the move.
+THE CLAIMS BEHIND THEM — their own figures, or computed from their own (the CAP- ones). These are CLAIM ids (CF-, CE-, CAP-): they go in "cites" and in the move's terms, and nowhere in a sentence.
 {{ claims }}
 
 FIGURES YOU MAY USE (id | number | whose it is | what it is)
 {{ figures_block }}
-In every sentence and label you write, use only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. A length of time or a count that our plan proposes goes in its field ("action", "move"), not only in a sentence. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
+In every sentence and label you write, use only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %}, with an id from this list and never a claim id from the list above (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. A length of time or a count that our plan proposes goes in its field ("action", "move"), not only in a sentence. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
 
 WHAT TO WRITE
 
@@ -31,13 +31,13 @@ WHAT TO WRITE
    Good: "The second clinic can work." / "Not at your current prices."
    If we agree with what they came in thinking, say so plainly: "You were right." / "Evenings are where you lose them."
 
-2. "sub": two or three sentences that give the evidence in their own figures and end on what that means for what they asked for. Every number must come from the figures above.
+2. "sub": two or three sentences that give the evidence in their own figures and end on what that means for what they asked for. Every number must be one of the figures you may use.
    "emphasis": a short phrase copied EXACTLY from your sub that carries the finding — it will be set in bold. Or "".
 
 3. "figures": up to two headline figures that prove it, each a short "value" (e.g. "$50 vs $100", "10 hrs") and a "label" under it (e.g. "you, and the comparable studios nearby"), with the claim ids it comes from in "cites". Every number in value and label must be one of the figures you may use. Do not repeat a capacity total — the page draws that already.
 
 4. "move": the value of doing the thing we recommend, as a product of terms, or null when their figures cannot support one. Each term is one factor:
-     {"label": "evening spots a week", "value": 100, "from": "CAP-05"}          <- one of the figures above, by id
+     {"label": "evening spots a week", "value": 100, "from": "CAP-05"}          <- one of the claims above, by its claim id
      {"label": "weeks a year", "value": 52, "from": "constant"}               <- only calendar constants
      {"label": "price rise per spot", "value": 50, "parts": [
          {"value": 100, "from": "proposed", "label": "proposed evening price"},

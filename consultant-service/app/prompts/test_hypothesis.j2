@@ -5,12 +5,12 @@ BUSINESS
 Industry: {{ industry }}
 Facts from their own site: {{ site_research }}
 
-THEIR OWN NUMBERS — the only figures that count as evidence, cited by claim id in "cites"
+THEIR OWN NUMBERS — the only figures that count as evidence. These are CLAIM ids (CF-, CE-, CAP-): cite them in "cites", never in a sentence
 {{ evidence }}
 
 FIGURES YOU MAY USE (id | number | whose it is | what it is)
 {{ figures_block }}
-In "because" and "would_need", write only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. Show your arithmetic with the listed numbers; a result that is not listed is said in words ("more than the volume they reported"), because a number nobody listed is taken out of what the client reads. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
+In "because" and "would_need", write only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %}, with an id from this list and never a claim id from the list above (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. Show your arithmetic with the listed numbers; a result that is not listed is said in words ("more than the volume they reported"), because a number nobody listed is taken out of what the client reads. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
 
 THE HYPOTHESIS
 {{ statement }}
@@ -32,7 +32,7 @@ Rules:
 
 1. Their own numbers are the only evidence. Industry norms, what is typical for this sector, and what usually happens are NOT evidence about this business. If you find yourself reasoning from what businesses like this normally do, the answer is UNTESTABLE.
 
-2. COMBINING their figures is testing, not inventing. If they told you how many rooms they have, how many hours they open and how long a session takes, you can work out their capacity and compare it to the volume they reported — and you should. If they gave you a price and a volume, you can work out revenue. Do the arithmetic, show it in one line, and cite every input by id.
+2. COMBINING their figures is testing, not inventing. If they told you how many rooms they have, how many hours they open and how long a session takes, you can work out their capacity and compare it to the volume they reported — and you should. If they gave you a price and a volume, you can work out revenue. Do the arithmetic and show your steps in one line using only the numbers listed above (the figures you may use), and cite every input by claim id in "cites"; a result that is not listed is said in words ("more than the volume they reported"), not written as a number.
 
    The line between allowed and not is where the numbers came from, not how many steps you took: every input must appear above with an id. A figure you had to assume, estimate or look up makes the whole calculation UNTESTABLE, and you must say which figure was missing.
 
@@ -40,7 +40,7 @@ Rules:
 
    If you finished the arithmetic but doubt what one of their figures MEANS — whether "100 sessions" counts booked or completed, say — that doubt goes in `because` as the caveat it is. The verdict still follows the arithmetic.
 
-3. Never invent a number. Every figure you cite must appear above with its id.
+3. Never invent a number. Every claim you cite must appear above with its id, and every number you write is one of the figures you may use.
 
 4. The owner's own opinion is not evidence that the owner is right. If the only thing supporting this hypothesis is that the owner said so, that is UNTESTABLE, not SUPPORTED.
 

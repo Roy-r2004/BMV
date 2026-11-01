@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures import known as _known
 from app.models import Request
 from app.pipeline._shared import ask_until_usable, build_engagement_register, log_usage, reply_json
 from app.pipeline import handoff
@@ -316,6 +317,8 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             req.business_description,
             diagnosis=handoff.for_build(req),
     )
+    # what the request knows, listed once here: the worker threads below never touch the row
+    figures_block = _known.prompt_lines(_known.known_for(req, leave_out={"roadmap"}))
 
     # Slim module context: the full deep specs would triple every prompt;
     # id/name/purpose/ai/kpis is what these three layers actually consume.
@@ -357,6 +360,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             pilot_gate_sentence=gate_sentence,
             modules=slim,
             engagement_register=register,
+            figures_block=figures_block,
         )
 
         def use(result: dict) -> dict:
@@ -392,6 +396,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             pain_points=json.dumps(analysis.get("pain_points", [])),
             modules=slim,
             engagement_register=register,
+            figures_block=figures_block,
         )
 
         def use(result: dict) -> dict:
@@ -417,6 +422,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             modules=slim,
             business_case=bc_json,
             engagement_register=register,
+            figures_block=figures_block,
             pilot_gate_sentence=gate_sentence,
         )
 
@@ -450,6 +456,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
                 module=module_json,
                 other_modules=others,
                 engagement_register=register,
+                figures_block=figures_block,
             )
 
             def use(result: dict) -> dict:
@@ -479,6 +486,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             business_description=biz_desc,
             modules=slim,
             engagement_register=register,
+            figures_block=figures_block,
         )
 
         def use(result: dict) -> dict:
@@ -513,6 +521,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             business_description=biz_desc,
             modules=slim,
             engagement_register=register,
+            figures_block=figures_block,
         )
 
         def use(result: dict) -> dict:

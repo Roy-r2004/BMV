@@ -19,19 +19,19 @@ WHAT THE PLANS SAY TO BUILD, module by module (the first one listed is built fir
 {% endif %}
 {% if timeline %}When they want it: {{ timeline }}{% endif %}
 
-THEIR FIGURES — the claims behind the numbers about their business. Cite by id.
+THEIR FIGURES — the claims behind the numbers about their business. These are CLAIM ids; they are never written in a sentence.
 {{ claims }}
 
 FIGURES YOU MAY USE (id | number | whose it is | what it is)
 {{ figures_block }}
-Write only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. A phase's length goes in its "when" ("Weeks 1 to 2"), not only in a sentence. A label such as "Phase 2" or "Gate 1" is not a quantity and is fine. Where a number is not a quantity, use words: "one of the calls", never "1 of the calls".
+Write only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %}, with an id from this list and never a claim id from the list above (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. A phase's length goes in its "when" ("Weeks 1 to 2"), not only in a sentence. A label such as "Phase 2" or "Gate 1" is not a quantity and is fine. Where a number is not a quantity, use words: "one of the calls", never "1 of the calls".
 
 {% if plan_proposed %}THE PLAN IS {{ plan_ceiling }} WEEKS LONG (PLAN-WEEKS in the list above){% else %}NO PLAN RUNS LONGER THAN {{ plan_ceiling }} WEEKS{% endif %}: that is a ceiling. Every phase fits inside it, written as week positions in the style of "Weeks 1 to 2", and none runs past week {{ plan_ceiling }}; a phase that does is refused. A phase's "when" holds week positions only: no money, no percent, no other number.
 
 WRITE
 1. "title": "Implementation roadmap".
 2. "summary": one or two sentences — what gets done, in what order, and that we do it.
-3. "phases": 3 to 6 phases in order. Each: "when" ("Weeks 1 to 2", "Weeks 3 to 4"), "title" (2-5 words, what the phase achieves: "Stop the leaks", "Refill every cancelled slot"), "do" (one or two sentences: what WE do in it, naming the module or the change), "by" — "us" when we do it alone, "together" only when it genuinely needs them in the room — and "you" — what it needs from them, if anything, in under 8 words ("One training session", "Sign off the new prices"), otherwise "". When the fix is not software (a price, a process, a hire), we still carry it out: we prepare the change, write what customers or staff are told, set up how it is measured, and watch the result with them.
+3. "phases": 3 to 6 phases in order; with a short plan, fewer (at least two), because phases may share a week position and there are never more phases than weeks: the plan length is the ceiling. Each: "when" ("Weeks 1 to 2", "Weeks 3 to 4"), "title" (2-5 words, what the phase achieves: "Stop the leaks", "Refill every cancelled slot"), "do" (one or two sentences: what WE do in it, naming the module or the change), "by" — "us" when we do it alone, "together" only when it genuinely needs them in the room — and "you" — what it needs from them, if anything, in under 8 words ("One training session", "Sign off the new prices"), otherwise "". When the fix is not software (a price, a process, a hire), we still carry it out: we prepare the change, write what customers or staff are told, set up how it is measured, and watch the result with them.
 4. "decisions": the 2 to 4 calls only the owner can make — never tasks. Always: whether to go ahead with the first phase, and when it should go live. Often: who we deal with day to day; a business choice the answer depends on (a new price, a new hire) when there is one. Each: "id" (d1, d2...), "question" (under 10 words, ends with "?"), "detail" (one short sentence), "options" — 2 to 4 short answers they can tap (under 4 words each).
 5. "assumptions": what this roadmap assumes that nobody has checked — usually the estimates and unverified points above. Each one sentence.
 

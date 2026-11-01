@@ -12,6 +12,10 @@ Spec: {{ module_spec }}
 CONTEXT — THE OTHER MODULES (name them where data flows between; do not spec them)
 {{ other_modules }}
 
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block | default("none") }}
+Write only these numbers about their business, exactly as listed; say anything else in words. A threshold or window you propose, where the rules below ask for one, keeps its "(proposed — client approval required)" label. Where a number is not a quantity, use words: "one of the steps", never "1 of the steps".
+
 TASK
 Write the technical anatomy of THIS module only.
 

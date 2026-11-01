@@ -45,10 +45,10 @@
       "heading": "Good morning", "subheading": "Saturday 26 September. Studio overview.",
       "rows": [
         [{"kind": "kpis", "items": [
-          {"value": "50/60", "label": "Spots filled today", "sub": "6 classes"},
+          {"value": "63/72", "label": "Spots filled today", "sub": "6 classes"},
           {"value": "9", "label": "On the waitlist", "sub": "6pm and 7pm"},
           {"value": "4", "label": "Packs running out this week"},
-          {"value": "10", "label": "Bookings handled overnight", "sub": "by the front desk AI"},
+          {"value": "12", "label": "Bookings handled overnight", "sub": "by the front desk AI"},
           {"value": "2", "label": "Notes to read"}
         ]}],
         [{"kind": "list", "w": 2, "title": "Needs attention", "rows": [
@@ -59,38 +59,38 @@
           {"tag": "Reviews", "tone": "good", "text": "3 new reviews this week, all five stars.", "action": "Open"}
         ]},
          {"kind": "agenda", "title": "Today's classes", "rows": [
-          {"time": "07:00", "title": "Reformer Flow", "sub": "Rana K. · 10 of 10"},
-          {"time": "09:30", "title": "Reformer Stretch", "sub": "Rana K. · 7 of 10"},
-          {"time": "12:00", "title": "Reformer Flow", "sub": "Lina T. · 6 of 10"},
-          {"time": "16:00", "title": "Reformer Power", "sub": "Joe S. · 8 of 10", "now": true},
-          {"time": "18:00", "title": "Reformer Flow", "sub": "Joe S. · 10 of 10, 5 waiting"},
-          {"time": "19:00", "title": "Reformer Power", "sub": "Joe S. · 10 of 10, 4 waiting"}
+          {"time": "07:00", "title": "Reformer Flow", "sub": "Rana K. · 12 of 12"},
+          {"time": "09:30", "title": "Reformer Stretch", "sub": "Rana K. · 9 of 12"},
+          {"time": "12:00", "title": "Reformer Flow", "sub": "Lina T. · 8 of 12"},
+          {"time": "16:00", "title": "Reformer Power", "sub": "Joe S. · 10 of 12", "now": true},
+          {"time": "18:00", "title": "Reformer Flow", "sub": "Joe S. · 12 of 12, 5 waiting"},
+          {"time": "19:00", "title": "Reformer Power", "sub": "Joe S. · 12 of 12, 4 waiting"}
         ]}]
       ]
     },
     {
       "id": "schedule", "title": "Schedule", "module_id": "client-booking-portal",
       "caption": "Every class for the week, with how full it is and who teaches it. Evening classes that sell out show their waitlist so the owner can see demand she is turning away.",
-      "heading": "This week", "subheading": "Week of 28 September. Six classes a day, six days a week.", "actions": ["Add a class"],
+      "heading": "This week", "subheading": "28 September to 3 October. Six classes a day, six days a week.", "actions": ["Add a class"],
       "rows": [
         [{"kind": "schedule", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], "legend": ["good", "warn", "bad"], "slots": [
-          {"time": "07:00", "cells": [{"title": "Flow", "sub": "10 of 10", "tone": "good"}, {"title": "Flow", "sub": "9 of 10", "tone": "good"}, {"title": "Flow", "sub": "10 of 10", "tone": "good"}, {"title": "Flow", "sub": "8 of 10", "tone": "good"}, {"title": "Flow", "sub": "10 of 10", "tone": "good"}, {"title": "Flow", "sub": "7 of 10", "tone": "warn"}]},
-          {"time": "09:30", "cells": [{"title": "Stretch", "sub": "7 of 10", "tone": "warn"}, {"title": "Stretch", "sub": "6 of 10", "tone": "warn"}, {"title": "Stretch", "sub": "8 of 10", "tone": "good"}, {"title": "Stretch", "sub": "5 of 10", "tone": "warn"}, {"title": "Stretch", "sub": "7 of 10", "tone": "warn"}, {"title": "Stretch", "sub": "9 of 10", "tone": "good"}]},
-          {"time": "12:00", "cells": [{"title": "Flow", "sub": "6 of 10", "tone": "warn"}, {"title": "Flow", "sub": "8 of 10", "tone": "good"}, {"title": "Flow", "sub": "7 of 10", "tone": "warn"}, {"title": "Flow", "sub": "8 of 10", "tone": "good"}, {"title": "Flow", "sub": "6 of 10", "tone": "warn"}, {"title": "Flow", "sub": "10 of 10", "tone": "good"}]},
-          {"time": "16:00", "cells": [{"title": "Power", "sub": "8 of 10", "tone": "good"}, {"title": "Power", "sub": "8 of 10", "tone": "good"}, {"title": "Power", "sub": "9 of 10", "tone": "good"}, {"title": "Power", "sub": "7 of 10", "tone": "warn"}, {"title": "Power", "sub": "8 of 10", "tone": "good"}, null]},
-          {"time": "18:00", "cells": [{"title": "Flow", "sub": "10 of 10 · 5 waiting", "tone": "bad"}, {"title": "Flow", "sub": "10 of 10 · 3 waiting", "tone": "bad"}, {"title": "Flow", "sub": "10 of 10 · 4 waiting", "tone": "bad"}, {"title": "Flow", "sub": "10 of 10 · no instructor", "tone": "bad"}, {"title": "Flow", "sub": "10 of 10 · 2 waiting", "tone": "bad"}, null]},
-          {"time": "19:00", "cells": [{"title": "Power", "sub": "10 of 10 · 4 waiting", "tone": "bad"}, {"title": "Power", "sub": "10 of 10 · 6 waiting", "tone": "bad"}, {"title": "Power", "sub": "10 of 10 · 3 waiting", "tone": "bad"}, {"title": "Power", "sub": "10 of 10 · 2 waiting", "tone": "bad"}, {"title": "Power", "sub": "9 of 10", "tone": "good"}, null]}
+          {"time": "07:00", "cells": [{"title": "Flow", "sub": "12 of 12", "tone": "good"}, {"title": "Flow", "sub": "11 of 12", "tone": "good"}, {"title": "Flow", "sub": "12 of 12", "tone": "good"}, {"title": "Flow", "sub": "10 of 12", "tone": "good"}, {"title": "Flow", "sub": "12 of 12", "tone": "good"}, {"title": "Flow", "sub": "9 of 12", "tone": "warn"}]},
+          {"time": "09:30", "cells": [{"title": "Stretch", "sub": "9 of 12", "tone": "warn"}, {"title": "Stretch", "sub": "8 of 12", "tone": "warn"}, {"title": "Stretch", "sub": "10 of 12", "tone": "good"}, {"title": "Stretch", "sub": "7 of 12", "tone": "warn"}, {"title": "Stretch", "sub": "9 of 12", "tone": "warn"}, {"title": "Stretch", "sub": "11 of 12", "tone": "good"}]},
+          {"time": "12:00", "cells": [{"title": "Flow", "sub": "8 of 12", "tone": "warn"}, {"title": "Flow", "sub": "10 of 12", "tone": "good"}, {"title": "Flow", "sub": "9 of 12", "tone": "warn"}, {"title": "Flow", "sub": "10 of 12", "tone": "good"}, {"title": "Flow", "sub": "8 of 12", "tone": "warn"}, {"title": "Flow", "sub": "12 of 12", "tone": "good"}]},
+          {"time": "16:00", "cells": [{"title": "Power", "sub": "10 of 12", "tone": "good"}, {"title": "Power", "sub": "10 of 12", "tone": "good"}, {"title": "Power", "sub": "11 of 12", "tone": "good"}, {"title": "Power", "sub": "9 of 12", "tone": "warn"}, {"title": "Power", "sub": "10 of 12", "tone": "good"}, null]},
+          {"time": "18:00", "cells": [{"title": "Flow", "sub": "12 of 12 · 5 waiting", "tone": "bad"}, {"title": "Flow", "sub": "12 of 12 · 3 waiting", "tone": "bad"}, {"title": "Flow", "sub": "12 of 12 · 4 waiting", "tone": "bad"}, {"title": "Flow", "sub": "12 of 12 · no instructor", "tone": "bad"}, {"title": "Flow", "sub": "12 of 12 · 2 waiting", "tone": "bad"}, null]},
+          {"time": "19:00", "cells": [{"title": "Power", "sub": "12 of 12 · 4 waiting", "tone": "bad"}, {"title": "Power", "sub": "12 of 12 · 6 waiting", "tone": "bad"}, {"title": "Power", "sub": "12 of 12 · 3 waiting", "tone": "bad"}, {"title": "Power", "sub": "12 of 12 · 2 waiting", "tone": "bad"}, {"title": "Power", "sub": "11 of 12", "tone": "good"}, null]}
         ], "footer": "Green is comfortably full, amber has open reformers, red is sold out with people waiting. Tap a class to see who is booked."}]
       ]
     },
     {
       "id": "floor", "title": "Studio floor", "module_id": "client-booking-portal",
-      "caption": "The ten reformers for any class, live: who is on which one, which are free and which are held for a waitlist offer. Instructors use it at the door instead of a printed list.",
+      "caption": "Every reformer for any class, live: who is on which one, which are free and which are held for a waitlist offer. Instructors use it at the door instead of a printed list.",
       "heading": "Studio floor", "subheading": "Reformer Flow, today 18:00 with Joe S.", "actions": ["Check everyone in", "Print list"],
       "rows": [
         [{"kind": "board", "legend": ["occupied", "free", "reserved", "preparing"], "groups": [
           {"title": "Front row", "cells": [{"code": "R1", "label": "S. K.", "state": "occupied"}, {"code": "R2", "label": "M. F.", "state": "occupied"}, {"code": "R3", "label": "A. B.", "state": "occupied"}, {"code": "R4", "label": "N. H.", "state": "occupied"}, {"code": "R5", "label": "T. R.", "state": "occupied"}, {"code": "R6", "label": "L. G.", "state": "occupied"}]},
-          {"title": "Back row", "cells": [{"code": "R7", "label": "J. D.", "state": "occupied"}, {"code": "R8", "label": "Offer out", "state": "reserved"}, {"code": "R9", "label": "K. S.", "state": "occupied"}, {"code": "R10", "label": "Wipe down", "state": "preparing"}]}
+          {"title": "Back row", "cells": [{"code": "R7", "label": "J. D.", "state": "occupied"}, {"code": "R8", "label": "Offer out", "state": "reserved"}, {"code": "R9", "label": "K. S.", "state": "occupied"}, {"code": "R10", "label": "P. L.", "state": "occupied"}, {"code": "R11", "label": "Wipe down", "state": "preparing"}, {"code": "R12", "label": "E. M.", "state": "occupied"}]}
         ], "side": {"title": "R8, held for the waitlist", "lines": ["Offered to R. A. at 16:10. She has until 17:30 to confirm.", "If she does not, the offer moves to the next person waiting."], "actions": ["Confirm now", "Release"]}}],
         [{"kind": "list", "w": 2, "title": "Waiting for this class", "rows": [
           {"tag": "1st", "tone": "info", "text": "R. A., offered R8, waiting for her reply", "action": "Message"},
@@ -106,8 +106,8 @@
       "rows": [
         [{"kind": "kpis", "items": [
           {"value": "9", "label": "Waiting now"},
-          {"value": "10", "label": "Spots refilled this week", "sub": "from late cancellations"},
-          {"value": "30 min", "label": "Average time to fill a spot"},
+          {"value": "14", "label": "Spots refilled this week", "sub": "from late cancellations"},
+          {"value": "26 min", "label": "Average time to fill a spot"},
           {"value": "3", "label": "Offers with no reply"}
         ]}],
         [{"kind": "pipeline", "columns": [
@@ -117,12 +117,12 @@
             {"title": "H. N.", "tags": ["Mon 18:00", "1 day"], "lines": ["New client, single session."], "action": "Offer a spot"}
           ]},
           {"title": "Offered", "cards": [
-            {"title": "R. A.", "tags": ["Today 18:00", "R8"], "lines": ["Offered at 16:10, replies by 17:30."], "alert": "1 h 20 min left"},
+            {"title": "R. A.", "tags": ["Today 18:00", "R8"], "lines": ["Offered 16:10, replies by 17:30."], "alert": "1 h 20 min left"},
             {"title": "B. K.", "tags": ["Tue 18:00"], "lines": ["Offered yesterday, no reply."], "alert": "Expires tonight"}
           ]},
           {"title": "Confirmed", "cards": [
             {"title": "M. F.", "tags": ["Today 18:00", "R2"], "lines": ["Confirmed in 4 minutes."]},
-            {"title": "T. R.", "tags": ["Fri 19:00"], "lines": ["Confirmed in 10 minutes."]},
+            {"title": "T. R.", "tags": ["Fri 19:00"], "lines": ["Confirmed in 12 minutes."]},
             {"title": "L. G.", "tags": ["Today 18:00", "R6"], "lines": ["Confirmed in 2 minutes."]}
           ]},
           {"title": "Released", "cards": [
@@ -134,23 +134,23 @@
     {
       "id": "instructors", "title": "Instructors", "module_id": "instructor-roster-view",
       "caption": "Who teaches what this week, hours per instructor and the classes still without one. Gaps show days in advance, and an instructor can be offered a class in one step.",
-      "heading": "Instructors", "subheading": "Week of 28 September. Three instructors, six classes a day.", "actions": ["Offer a class"],
+      "heading": "Instructors", "subheading": "Week of 28 September. Three instructors, 36 classes.", "actions": ["Offer a class"],
       "rows": [
         [{"kind": "kpis", "items": [
           {"value": "3", "label": "Instructors"},
-          {"value": "6", "label": "Classes a day"},
+          {"value": "36", "label": "Classes this week"},
           {"value": "1", "label": "Class without an instructor", "sub": "Thursday 18:00"},
           {"value": "2", "label": "Certifications due this year"}
         ]}],
         [{"kind": "table", "w": 2, "title": "This week", "columns": ["Instructor", "Mornings", "Middays", "Evenings", "Hours", "Cover"], "rows": [
-          ["Rana K.", "Mon to Fri", "Wed", "Mon, Tue", "10", {"chip": "Covered", "tone": "good"}],
-          ["Joe S.", "Sat", "Mon, Thu", "Mon to Fri", "20", {"chip": "Covered", "tone": "good"}],
+          ["Rana K.", "Mon to Fri", "Wed", "Mon, Tue", "14", {"chip": "Covered", "tone": "good"}],
+          ["Joe S.", "Sat", "Mon, Thu", "Mon to Fri", "16", {"chip": "Covered", "tone": "good"}],
           ["Lina T.", "Sat", "Tue, Fri, Sat", "Sat", "8", {"chip": "Covered", "tone": "good"}],
           ["Unassigned", "", "", "Thu 18:00", "1", {"chip": "Needs cover", "tone": "bad"}]
         ], "footer": "Thursday 18:00 has no instructor. Rana K. and Joe S. are both free and under their weekly hours."},
          {"kind": "cards", "title": "Offer the class", "items": [
-          {"title": "Rana K.", "text": "Free Thursday evening. 10 hours this week.", "action": "Offer"},
-          {"title": "Joe S.", "text": "Teaches Thursday 19:00 already. 20 hours.", "action": "Offer"},
+          {"title": "Rana K.", "text": "Free Thursday evening. 14 hours this week.", "action": "Offer"},
+          {"title": "Joe S.", "text": "Teaches Thursday 19:00 already. 16 hours.", "action": "Offer"},
           {"title": "Lina T.", "text": "Not available on weekdays.", "state": "none"}
         ]}]
       ]
@@ -158,20 +158,20 @@
     {
       "id": "clients", "title": "Clients", "module_id": "class-pack-manager",
       "caption": "Every client, with their current pack, sessions left and last visit. Regulars who stop coming show up here before they are gone, and packs about to run out are flagged so nobody is caught at the door.",
-      "heading": "Clients", "subheading": "200 active clients. Showing the 8 that need a look this week.", "actions": ["Add a client"],
+      "heading": "Clients", "subheading": "184 active clients. Showing the 8 that need a look this week.", "actions": ["Add a client"],
       "rows": [
         [{"kind": "table", "w": 2, "columns": ["Client", "Pack", "Left", "Last visit", "Status", ""], "rows": [
           ["S. K.", "10-pack", "3", "Yesterday, 18:00", {"chip": "Running low", "tone": "warn"}, {"action": "Offer a pack"}],
-          ["D. M.", "10-pack", "0", "10 days ago", {"chip": "Expired", "tone": "bad"}, {"action": "Message"}],
-          ["A. B.", "20-pack", "10", "Today, 18:00", {"chip": "Active", "tone": "good"}, ""],
+          ["D. M.", "10-pack", "0", "14 days ago", {"chip": "Expired", "tone": "bad"}, {"action": "Message"}],
+          ["A. B.", "20-pack", "11", "Today, 18:00", {"chip": "Active", "tone": "good"}, ""],
           ["N. H.", "Single sessions", "", "Today, 18:00", {"chip": "Active", "tone": "good"}, {"action": "Offer a pack"}],
           ["P. L.", "10-pack", "1", "3 days ago", {"chip": "Running low", "tone": "warn"}, {"action": "Offer a pack"}],
-          ["E. M.", "20-pack", "20", "Today, 18:00", {"chip": "Active", "tone": "good"}, ""],
-          ["G. F.", "10-pack", "7", "20 days ago", {"chip": "Not seen in 3 weeks", "tone": "warn"}, {"action": "Message"}],
+          ["E. M.", "20-pack", "16", "Today, 18:00", {"chip": "Active", "tone": "good"}, ""],
+          ["G. F.", "10-pack", "7", "21 days ago", {"chip": "Not seen in 3 weeks", "tone": "warn"}, {"action": "Message"}],
           ["K. S.", "10-pack", "9", "Today, 18:00", {"chip": "Active", "tone": "good"}, ""]
         ]},
          {"kind": "bars", "title": "Clients by pack", "horizontal": true, "items": [
-          {"label": "10-pack", "value": 100}, {"label": "20-pack", "value": 50}, {"label": "Single sessions", "value": 30}, {"label": "Monthly unlimited", "value": 20}
+          {"label": "10-pack", "value": 96}, {"label": "20-pack", "value": 41}, {"label": "Single sessions", "value": 33}, {"label": "Monthly unlimited", "value": 14}
         ]}]
       ]
     },
@@ -181,7 +181,7 @@
       "rows": [
         [{"kind": "record", "initials": "SK", "name": "S. K.", "meta": "Client since March 2025. 10-pack, 3 sessions left. Usually Reformer Flow at 18:00.", "action": "Offer a new pack", "tabs": ["Overview", "Bookings", "Payments", "Messages"], "active_tab": "Overview"}],
         [{"kind": "stages", "items": [{"label": "Joined", "sub": "March 2025", "state": "done"}, {"label": "First pack", "sub": "10-pack", "state": "done"}, {"label": "Regular", "sub": "Now, 2 classes a week", "state": "now"}, {"label": "Pack renewal", "sub": "Due this week", "state": "next"}]}],
-        [{"kind": "progress", "title": "This pack", "items": [{"label": "Sessions used", "pct": 70, "status": "7 of 10"}, {"label": "Evening classes", "pct": 90, "status": "9 of 10 bookings"}, {"label": "Attended as booked", "pct": 100, "status": "No no-shows"}], "footer": "Renewal offer goes out when 2 sessions are left, unless the owner turns it off for this client."},
+        [{"kind": "progress", "title": "This pack", "items": [{"label": "Sessions used", "pct": 70, "status": "7 of 10"}, {"label": "Evening classes", "pct": 86, "status": "6 of 7 bookings"}, {"label": "Attended as booked", "pct": 100, "status": "No no-shows"}], "footer": "Renewal offer goes out when 2 sessions are left, unless the owner turns it off for this client."},
          {"kind": "draft", "title": "Suggested next step", "badge": "AI draft", "note": "Written from her bookings only. Nothing is sent until you approve it.", "bullets": [{"text": "Offer the 20-pack: she books twice a week and has used 7 sessions in 5 weeks.", "cite": "7 bookings"}, {"text": "Mention Tuesday 19:00, the class she has waited for twice.", "cite": "2 waits"}], "primary": "Send the offer", "secondary": "Edit first"},
          {"kind": "feed", "title": "Recent", "rows": [{"meta": "Today 18:00 · Reformer Flow · Joe S.", "text": "Attended. Reformer R1."}, {"meta": "Tuesday · waitlist", "text": "Waited for 19:00 Power, no spot freed.", "tag": "Waitlist"}, {"meta": "Last Friday · payment", "text": "Card on file charged for a single session."}, {"meta": "3 weeks ago · message", "text": "Asked whether Sunday classes are coming.", "tag": "WhatsApp"}]}]
       ]
@@ -192,28 +192,28 @@
       "heading": "Class packs", "subheading": "September. Amounts in USD.",
       "rows": [
         [{"kind": "kpis", "items": [
-          {"value": "$10,000", "label": "Pack sales this month"},
-          {"value": "50", "label": "Packs sold"},
-          {"value": "10", "label": "Renewals due this week"},
+          {"value": "$9,240", "label": "Pack sales this month"},
+          {"value": "47", "label": "Packs sold"},
+          {"value": "11", "label": "Renewals due this week"},
           {"value": "2", "label": "Failed payments", "sub": "reminders sent"}
         ]}],
         [{"kind": "table", "w": 2, "title": "Packs and renewals", "columns": ["Client", "Pack", "Bought", "Left", "Status", ""], "rows": [
           ["S. K.", "10-pack, $200", "12 Aug", "3", {"chip": "Renewal offered", "tone": "info"}, {"action": "Open"}],
           ["D. M.", "10-pack, $200", "1 Jul", "0", {"chip": "Expired", "tone": "bad"}, {"action": "Send offer"}],
           ["P. L.", "10-pack, $200", "20 Aug", "1", {"chip": "Running low", "tone": "warn"}, {"action": "Send offer"}],
-          ["A. B.", "20-pack, $400", "2 Sep", "10", {"chip": "Active", "tone": "good"}, ""],
-          ["J. D.", "Monthly unlimited, $200", "1 Sep", "", {"chip": "Card failed", "tone": "bad"}, {"action": "Retry"}],
+          ["A. B.", "20-pack, $380", "2 Sep", "11", {"chip": "Active", "tone": "good"}, ""],
+          ["J. D.", "Monthly unlimited, $180", "1 Sep", "", {"chip": "Card failed", "tone": "bad"}, {"action": "Retry"}],
           ["K. S.", "10-pack, $200", "15 Sep", "9", {"chip": "Active", "tone": "good"}, ""]
         ], "footer": "Prices shown are examples. The pack list and prices are set by the studio."},
-         {"kind": "bars", "title": "Sales by pack type", "sub": "This month", "items": [{"label": "10-pack", "value": 4000, "display": "$4k"}, {"label": "20-pack", "value": 3000, "display": "$3k"}, {"label": "Unlimited", "value": 2000, "display": "$2k"}, {"label": "Singles", "value": 1000, "display": "$1k"}]}]
+         {"kind": "bars", "title": "Sales by pack type", "sub": "This month", "items": [{"label": "10-pack", "value": 5400, "display": "$5.4k"}, {"label": "20-pack", "value": 2280, "display": "$2.3k"}, {"label": "Unlimited", "value": 900, "display": "$900"}, {"label": "Singles", "value": 660, "display": "$660"}]}]
       ]
     },
     {
       "id": "frontdesk", "title": "Front desk AI", "module_id": "client-booking-portal",
       "caption": "The AI that answers bookings, cancellations and questions on WhatsApp and the website, day and night. It books and cancels inside the rules the owner sets, and hands anything else to a person.",
-      "heading": "Front desk AI", "subheading": "Handled 10 conversations overnight. 1 handed to you.",
+      "heading": "Front desk AI", "subheading": "Handled 12 conversations overnight. 1 handed to you.",
       "rows": [
-        [{"kind": "chat", "w": 2, "title": "Overnight, on WhatsApp", "sub": "11:40pm · new client", "messages": [
+        [{"kind": "chat", "w": 2, "title": "Overnight, on WhatsApp", "sub": "23:41 · new client", "messages": [
           {"from": "person", "text": "Hi, is there space in the 6pm class tomorrow?"},
           {"from": "agent", "text": "Tomorrow's 18:00 Reformer Flow is full, and 4 people are waiting. Thursday 18:00 has 2 reformers free, and tomorrow 16:00 Power has 2. Shall I book one of those, or add you to tomorrow's waitlist?"},
           {"from": "person", "text": "Put me on the waitlist for 6pm please, and book Thursday just in case"},
@@ -221,7 +221,7 @@
         ], "note": "It never invents a price or a policy. Where a rule is not set, it says so and hands the conversation to the front desk."},
          {"kind": "cards", "title": "What it handles alone", "items": [
           {"title": "Book a class", "text": "Into open spots, using the client's pack or a single session.", "state": "on"},
-          {"title": "Cancel and refill", "text": "Up to 10 hours before. Frees the spot to the waitlist.", "state": "on"},
+          {"title": "Cancel and refill", "text": "Up to 12 hours before. Frees the spot to the waitlist.", "state": "on"},
           {"title": "Waitlist offers", "text": "Sends the offer, reads the reply, moves on if none.", "state": "on"},
           {"title": "Refunds", "text": "Always handed to the owner.", "state": "off"},
           {"title": "Complaints", "text": "Always handed to the owner, with the thread.", "state": "off"}
@@ -234,12 +234,12 @@
       "heading": "Last 8 weeks", "subheading": "Figures are produced from bookings staff already record.",
       "rows": [
         [{"kind": "kpis", "items": [
-          {"value": "80%", "label": "Average fill", "sub": "8 of 10 spots, on average"},
+          {"value": "84%", "label": "Average fill", "sub": "363 of 432 spots a week"},
           {"value": "100%", "label": "Evening fill", "sub": "with a waitlist most days"},
-          {"value": "40", "label": "Spots refilled from the waitlist"},
-          {"value": "90%", "label": "Clients who renewed their pack"}
+          {"value": "38", "label": "Spots refilled from the waitlist"},
+          {"value": "91%", "label": "Clients who renewed their pack"}
         ]}],
-        [{"kind": "line", "w": 2, "title": "Fill by week", "sub": "Share of spots taken", "points": [{"label": "Wk 1", "value": 70, "display": "70%"}, {"label": "Wk 2", "value": 70, "display": "70%"}, {"label": "Wk 3", "value": 80, "display": "80%"}, {"label": "Wk 4", "value": 80, "display": "80%"}, {"label": "Wk 5", "value": 80, "display": "80%"}, {"label": "Wk 6", "value": 80, "display": "80%"}, {"label": "Wk 7", "value": 90, "display": "90%"}, {"label": "Wk 8", "value": 90, "display": "90%"}]},
+        [{"kind": "line", "w": 2, "title": "Fill by week", "sub": "Share of spots taken", "points": [{"label": "Wk 1", "value": 79, "display": "79%"}, {"label": "Wk 2", "value": 81, "display": "81%"}, {"label": "Wk 3", "value": 80, "display": "80%"}, {"label": "Wk 4", "value": 84, "display": "84%"}, {"label": "Wk 5", "value": 86, "display": "86%"}, {"label": "Wk 6", "value": 85, "display": "85%"}, {"label": "Wk 7", "value": 88, "display": "88%"}, {"label": "Wk 8", "value": 89, "display": "89%"}]},
          {"kind": "bars", "title": "Who waits, by class", "horizontal": true, "items": [{"label": "Mon 18:00", "value": 5}, {"label": "Tue 19:00", "value": 6}, {"label": "Wed 18:00", "value": 4}, {"label": "Thu 19:00", "value": 2}, {"label": "Fri 18:00", "value": 2}]}],
         [{"kind": "cards", "title": "Ready-made reports", "items": [
           {"title": "Weekly owner report", "text": "Fill, waitlist, renewals and no-shows.", "action": "Export PDF"},
@@ -256,11 +256,11 @@
           ["Schedule and studio floor", "Own classes, full"], ["Client names on the floor", "Initials only"], ["Client files", "No access"], ["Class packs and payments", "No access"], ["Waitlist", "Read, own classes"], ["Reports", "Own classes and hours"], ["Settings and users", "No access"]
         ]},
          {"kind": "log", "title": "Activity log, today", "rows": [
-          {"time": "4:10pm", "who": "Front desk AI", "text": "Offered R8 at 18:00 to R. A."},
-          {"time": "3:50pm", "who": "Joe S.", "text": "Checked in 10 clients for 16:00 Power."},
-          {"time": "2:05pm", "who": "Maya Haddad", "text": "Approved the renewal offer for S. K."},
+          {"time": "16:10", "who": "Front desk AI", "text": "Offered R8 at 18:00 to R. A."},
+          {"time": "15:52", "who": "Joe S.", "text": "Checked in 10 clients for 16:00 Power."},
+          {"time": "14:05", "who": "Maya Haddad", "text": "Approved the renewal offer for S. K."},
           {"time": "11:30", "who": "Rana K.", "text": "Tried to open S. K.'s payments.", "blocked": true},
-          {"time": "09:03", "who": "Front desk AI", "text": "Cancelled P. L.'s 12:00 booking, 10 hours before."}
+          {"time": "09:03", "who": "Front desk AI", "text": "Cancelled P. L.'s 12:00 booking, 14 hours before."}
         ]}]
       ]
     },
@@ -271,8 +271,8 @@
         [{"kind": "form", "title": "Booking widget on the studio website", "sub": "Try it: a booking made here appears in the schedule straight away.", "fields": [
           {"label": "Class", "type": "select", "value": "Reformer Flow, Thursday 18:00"},
           {"label": "Your name", "type": "text", "value": "Maya Salem"},
-          {"label": "Phone", "type": "text", "value": "+100 000 000"},
-          {"label": "Pay with", "type": "choice", "options": ["My pack", "Card, $20"], "selected": "My pack"}
+          {"label": "Phone", "type": "text", "value": "+961 70 000 000"},
+          {"label": "Pay with", "type": "choice", "options": ["My pack", "Card, $22"], "selected": "My pack"}
         ], "primary": "Book the class"},
          {"kind": "cards", "title": "Other software", "sub": "Connected securely. Turn any of them off here.", "items": [
           {"title": "WhatsApp", "text": "Bookings, waitlist offers and reminders, with consent.", "state": "connected"},

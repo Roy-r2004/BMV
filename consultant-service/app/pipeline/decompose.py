@@ -493,6 +493,8 @@ def decompose_business(
     if req is None:
         raise ValueError(f"Request {request_id} not found")
 
+    # listed once, here: the module calls below run in worker threads that never touch the row
+    figures_block = _known.prompt_lines(_known.known_for(req, leave_out={"registry", "roadmap"}))
     try:
         prompt = render(
             "decompose.j2",
@@ -522,7 +524,7 @@ def decompose_business(
             max_modules=settings.MAX_MODULES_PER_REQUEST,
             preflight_feedback="\n".join(f"- {f}" for f in (feedback or [])),
             # the registry is rebuilt from this decomposition, and the roadmap is written after it
-            figures_block=_known.prompt_lines(_known.known_for(req, leave_out={"registry", "roadmap"})),
+            figures_block=figures_block,
         )
         modules, business_case = ask_until_usable(
             lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=6400),
@@ -564,6 +566,7 @@ def decompose_business(
                 module_pain_point=module.get("pain_point_addressed") or "",
                 pilot_gate=json.dumps(business_case.get("pilot_gate") or "") if isinstance(business_case, dict) else '""',
                 other_modules=others,
+                figures_block=figures_block,
             )
             spec = ask_until_usable(
                 lambda: provider.chat(
@@ -608,6 +611,7 @@ def decompose_business(
                 module_purpose=module.get("purpose") or "",
                 module_spec=json.dumps(module.get("spec") or {}, indent=1),
                 other_modules=others,
+                figures_block=figures_block,
             )
             # A denser module needs a bigger budget, not a parse error. Run 59
             # asked for infrastructure modules whose data models and APIs ran

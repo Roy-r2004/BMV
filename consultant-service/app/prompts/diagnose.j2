@@ -12,12 +12,12 @@ What the owner says the problem is: {{ main_problem }}
 What the owner says they want: {{ desired_outcome }}
 Facts from their own site (verified, not self-reported): {{ site_research }}
 
-THEIR OWN NUMBERS — the claims you cite by id, in "cites"
+THEIR OWN NUMBERS — CLAIM ids (CF-, CE-, CAP-): cite them in "cites", never in a sentence
 {{ evidence }}
 
 FIGURES YOU MAY USE (id | number | whose it is | what it is)
 {{ figures_block }}
-In every sentence you write, use only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
+In every sentence you write, use only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %}, with an id from this list and never a claim id from the list above (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
 
 {% if corrections %}
 THE OWNER PUSHED BACK ON AN EARLIER DIAGNOSIS. Their words:
@@ -48,7 +48,7 @@ Rules that decide whether this is worth anything:
 
 5. For each one, state what evidence WOULD support it and what evidence WOULD refute it. Cite claim ids like CF-01 where their own numbers are relevant. If no number they gave bears on it, say so — an honest "nothing they gave tests this" is worth more than a fabricated link.
 
-6. Never invent a number. Every figure you mention must come from THEIR OWN NUMBERS above, cited by id.
+6. Never invent a number. Every figure you mention is one of the figures you may use; cite the claim ids that bear on a hypothesis in "cites".
 
 Respond with ONLY this JSON shape, no markdown fences, no commentary:
 

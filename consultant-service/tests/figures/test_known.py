@@ -504,8 +504,8 @@ def test_the_list_is_bounded_and_what_is_left_out_is_theirs_and_derived(monkeypa
             + [_ours(f"PROP-{n}", n, "USD") for n in range(1, 6)])
     lines = K.prompt_lines(FigureSet(figs)).splitlines()
     assert len(lines) == 12
-    # all five proposals stay; the room left is shared by derived and theirs, the latest of each
-    assert [l.split(" | ")[0] for l in lines[:-1]] == (["T5-1", "T6-1", "T7-1", "CAP-03", "CAP-04", "CAP-05"]
+    # all five proposals stay; the room left is shared by derived and theirs, the earliest of each
+    assert [l.split(" | ")[0] for l in lines[:-1]] == (["T1-1", "T2-1", "T3-1", "CAP-01", "CAP-02", "CAP-03"]
                                                        + [f"PROP-{n}" for n in range(1, 6)])
     assert lines[-1] == ("... and 6 more figures exist but are not listed here (4 yours, 2 worked out); "
                          "write only the numbers listed above")
@@ -523,7 +523,7 @@ def test_eighty_of_theirs_never_push_out_the_move_or_the_plans_length(monkeypatc
     ids = [l.split(" | ")[0] for l in lines]
     assert len(lines) == 60
     assert ids[-4:-1] == ["MOVE", "PROP-1", "PLAN-WEEKS"]
-    assert ids[:-4] == [f"T{n}-1" for n in range(25, 81)]            # the 56 latest of theirs
+    assert ids[:-4] == [f"T{n}-1" for n in range(1, 57)]             # the 56 earliest answers of theirs
     assert lines[-1] == ("... and 24 more figures exist but are not listed here (24 yours); "
                          "write only the numbers listed above")
     # and with derived figures in the mix, the proposals still stay
@@ -541,7 +541,48 @@ def test_more_proposals_than_half_the_room_still_leave_the_client_some(monkeypat
     ids = [l.split(" | ")[0] for l in K.prompt_lines(FigureSet([_theirs(n, n) for n in range(1, 21)] + ours)).splitlines()]
     assert len(ids) == 10
     assert ids[-5:-1] == ["MOVE", "PROP-1", "PLAN-WEEKS", "PT-01"]    # the plan's own figures first, then the rest
-    assert ids[:-5] == [f"T{n}-1" for n in range(16, 21)]             # budget 9: four proposals, five of theirs
+    assert ids[:-5] == [f"T{n}-1" for n in range(1, 6)]               # budget 9: four proposals, five of theirs
+
+
+def _theirs_id(id: str, value=22) -> Figure:
+    from app.figures.model import TheirsSource
+    return Figure(id, Decimal(value), "", None, "theirs", TheirsSource(None, None, "words", None, None), 0)
+
+
+def test_when_theirs_are_cut_the_files_cells_go_first_then_the_latest_interview_turns(monkeypatch):
+    from app.config import settings
+    form = [_theirs_id("F-business_description-1", 5), _theirs_id("F-main_problem-1", 6)]
+    turns = [_theirs_id(f"T{n}-1", n) for n in range(1, 9)]
+    files = [_theirs_id(f"E{n}-1", 100 + n) for n in range(1, 6)]
+    # the set holds the interview first, then the form, then the files, as the case file builds it
+    figs = FigureSet(turns + form + files + [_ours()])
+
+    def ids(limit):
+        monkeypatch.setattr(settings, "PROMPT_FIGURE_LINES", limit)
+        return [l.split(" | ")[0] for l in K.prompt_lines(figs).splitlines()]
+
+    # room for ten of theirs: the form and every turn; the five cells of the files are cut
+    got = ids(12)
+    assert got[:-1] == [f"T{n}-1" for n in range(1, 9)] + ["F-business_description-1", "F-main_problem-1", "PLAN-WEEKS"]
+    assert got[-1].startswith("... and 5 more figures exist")
+    # room for six: the form stays, the latest turns go, last first, and the files were already gone
+    got = ids(8)
+    assert got[:-1] == ["T1-1", "T2-1", "T3-1", "T4-1", "F-business_description-1", "F-main_problem-1", "PLAN-WEEKS"]
+    # room for twelve: the form, every turn, and the first two cells of the files
+    got = ids(14)
+    assert got[:-1] == ([f"T{n}-1" for n in range(1, 9)] + ["F-business_description-1", "F-main_problem-1"]
+                        + ["E1-1", "E2-1", "PLAN-WEEKS"])
+
+
+def test_the_roadmaps_phase_lengths_stay_at_the_default_budget(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "PROMPT_FIGURE_LINES", 60)
+    phases = [Figure(K.phase_weeks_id(n), Decimal(2), "week", None, "ours", Proposal(note="a phase"), 0)
+              for n in range(1, 7)]
+    plan = [K.plan_weeks_figure(12), Figure(K.PLAN_PHASES_ID, Decimal(6), "phases", None, "ours", Proposal(note="n"), 0)]
+    ids = [l.split(" | ")[0] for l in K.prompt_lines(
+        FigureSet([_theirs(n, n) for n in range(1, 90)] + plan + phases)).splitlines()]
+    assert len(ids) == 60 and {"PLAN-WEEKS", "PLAN-PHASES", *(K.phase_weeks_id(n) for n in range(1, 7))} <= set(ids)
 
 
 def test_derived_lends_its_room_to_theirs_and_theirs_to_derived(monkeypatch):
@@ -840,4 +881,132 @@ def test_the_diagnosis_and_its_two_reviewers_list_the_figures_the_check_reads(mo
         _shows(prompt)
     assert kinds["You are a diagnostic consultant"] == 1 and kinds["You are testing one hypothesis"] == 3
     assert kinds["You are a skeptical partner"] == 2
+    db.close()
+
+
+# -- the review's wording rulings ----------------------------------------------------------
+
+BOUND_WITH_CLAIMS = ("answer.j2", "roadmap.j2", "screens_plan.j2", "diagnose.j2", "test_hypothesis.j2", "challenge.j2",
+                     "decide.j2")
+PRINT_AS_WRITTEN = ("decompose.j2", "blueprint.j2", "technical_plan.j2", "playbook.j2", "pilot_sop.j2", "journey.j2",
+                    "governance.j2", "procedures.j2", "checklists.j2", "organization.j2", "module_spec.j2",
+                    "tech_spec.j2", "plan.j2")
+
+
+def test_a_prompt_with_a_claims_list_and_a_figures_list_says_which_ids_go_where():
+    for name in BOUND_WITH_CLAIMS:
+        text = _template(name)
+        assert "never a claim id" in text, name
+        assert "claim ids" in text.lower() or "claim id" in text, name
+    answer = _template("answer.j2")
+    assert "one of the claims above, by its claim id" in answer and "one of the figures above, by id" not in answer
+    assert "CLAIM ids (CF-, CE-, CAP-)" in _template("diagnose.j2") and "CLAIM ids" in _template("roadmap.j2")
+
+
+def test_every_prompt_whose_reply_prints_as_written_has_the_block_and_never_teaches_the_token():
+    for name in PRINT_AS_WRITTEN:
+        text = _template(name)
+        assert "FIGURES YOU MAY USE" in text and '{{ figures_block | default("none") }}' in text, name
+        assert "exactly as listed" in text and "{{F:" not in text, name
+        if name not in ("decompose.j2", "blueprint.j2", "technical_plan.j2", "playbook.j2"):
+            assert "say anything else in words" in text, name
+
+
+def test_the_decomposition_prompt_separates_the_owners_numbers_from_ours():
+    text = _template("decompose.j2")
+    assert 'tagged "yours"' in text and '"our estimate" or "reference"' in text
+    assert 'never close a calculation with "by your own figures" when it rests on one' in text
+
+
+def test_the_playbook_asks_for_week_positions_and_no_lengths_of_time():
+    text = _template("playbook.j2")
+    assert "30 days" not in text.lower() and "30 DAYS" not in text
+    assert '"week 1", "weeks 2 to 4"' in text and "never a length of time" in text
+
+
+def test_the_roadmap_prompt_reconciles_three_to_six_phases_with_a_short_plan():
+    text = _template("roadmap.j2")
+    assert "phases may share a week position and there are never more phases than weeks" in text
+    assert "the plan length is the ceiling" in text
+
+
+def test_the_hypothesis_test_shows_its_steps_with_listed_numbers_and_says_the_rest_in_words():
+    text = _template("test_hypothesis.j2")
+    assert "show your steps in one line using only the numbers listed above" in text
+    assert "is said in words" in text and "show it in one line, and cite" not in text
+
+
+def _by_template(monkeypatch, module, replies: dict) -> list:
+    """`module.render` renders the real template and remembers it; the model answers each prompt from the
+    reply for its template (an error is raised, so a stage that tolerates it goes on). Returns the
+    (template, prompt) pairs in call order."""
+    import threading
+    seen, names, lock = [], {}, threading.Lock()
+    real = getattr(module, "render")
+    real = getattr(real, "real", real)
+
+    def render_(name, **kw):
+        text = real(name, **kw)
+        with lock:
+            seen.append((name, text))
+            names[text] = name
+        return text
+
+    def chat(model, messages, **kw):
+        reply = replies[names[messages[0]["content"]]]
+        return {"choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}}
+
+    render_.real = real
+    monkeypatch.setattr(module, "render", render_)
+    monkeypatch.setattr("app.ai.provider.chat", chat)
+    return seen
+
+
+def _has_the_block_and_no_token(seen: list, wanted: set) -> None:
+    got = {name for name, _ in seen}
+    assert wanted <= got, (wanted, got)
+    for name, text in seen:
+        if name in wanted:
+            _shows(text)
+            assert "{{F:" not in text and "{{ figures_block" not in text, name
+
+
+def test_the_module_calls_and_the_plan_prompt_list_the_figures(monkeypatch):
+    from app.pipeline import decompose, plan
+    two = {"modules": [{"id": "m0", "name": "Module 0", "purpose": "Book classes"},
+                       {"id": "m1", "name": "Module 1", "purpose": "Take payment"}], "business_case": {}}
+    seen = _by_template(monkeypatch, decompose, {"decompose.j2": two, "module_spec.j2": {"features": []},
+                                                 "tech_spec.j2": {"data_model": []}})
+    db, rid = _full_row()
+    try:
+        decompose.decompose_business(db, rid, {}, {}, {})
+    except Exception:
+        pass                      # what the stage makes of these replies is not this test's business
+    _has_the_block_and_no_token(seen, {"decompose.j2", "module_spec.j2", "tech_spec.j2"})
+    assert [n for n, _ in seen].count("module_spec.j2") == 2 and [n for n, _ in seen].count("tech_spec.j2") == 2
+    db.close()
+
+    seen = _by_template(monkeypatch, plan, {"plan.j2": {"concept_name": "Halo", "roles": []}})
+    db, rid = _full_row()
+    try:
+        plan.plan_integration(db, rid, {"consulting_summary": "Fill the quiet hours."})
+    except Exception:
+        pass
+    _has_the_block_and_no_token(seen, {"plan.j2"})
+    db.close()
+
+
+def test_the_consultancy_layers_prompts_list_the_figures(monkeypatch):
+    from app.pipeline import extras
+    seen = _by_template(monkeypatch, extras, {n: {} for n in (
+        "pilot_sop.j2", "journey.j2", "governance.j2", "procedures.j2", "checklists.j2", "organization.j2")})
+    db, rid = _full_row()
+    decomposition = {"modules": [{"id": "m0", "name": "Module 0", "purpose": "Book classes", "spec": {}}],
+                     "business_case": {"pilot_gate": {"duration": "4 weeks"}}, "registry": {}}
+    try:
+        extras.build_extras(db, rid, {}, decomposition)
+    except Exception:
+        pass
+    _has_the_block_and_no_token(seen, {"pilot_sop.j2", "journey.j2", "governance.j2", "procedures.j2",
+                                       "checklists.j2", "organization.j2"})
     db.close()
