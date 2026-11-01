@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app import auth_client, mailer, produced
 from app.config import settings
 from app.database import get_db
+from app.figures import casefile
 from app.models import AiUsageEvent, Request
 from app.pipeline import compositing, decide, evidence, export_pdf, export_pptx, orchestrator, screen_story, what_this_is
 from app.pipeline import action_plan as plan_stage
@@ -138,11 +139,20 @@ def _teaser_payload(req: Request) -> dict:
     }
 
 
+#: The longest question id kept with an answer. The interview's ids are cut to
+#: the same length where it quotes them back (discovery.casefile_sources).
+QUESTION_ID_MAX = 40
+
+
 def _sanitize_ops_numbers(raw: str | None) -> str | None:
     """The discovery answers arrive as client-built JSON — keep only
     well-formed {question, answer} pairs with real content, bounded in
     count and length. Malformed input stores None, never a 500: the
     numbers are optional garnish on the request, not a precondition.
+
+    The id of the question the page sent with the answer is kept (trimmed and
+    cut to QUESTION_ID_MAX), so the case file can say which question a figure
+    answers; a pair that came with none stores none.
 
     The count bound tracks what the interview can actually collect. It was a
     flat 8, from when one fixed round asked at most 6; an adaptive interview
@@ -166,7 +176,11 @@ def _sanitize_ops_numbers(raw: str | None) -> str | None:
         question = str(p.get("question") or "").strip()[:300]
         answer = str(p.get("answer") or "").strip()[:300]
         if question and answer:
-            cleaned.append({"question": question, "answer": answer})
+            raw_id = p.get("id")
+            has_id = isinstance(raw_id, (str, int)) and not isinstance(raw_id, bool)
+            qid = str(raw_id).strip()[:QUESTION_ID_MAX] if has_id else ""
+            cleaned.append({"id": qid, "question": question, "answer": answer} if qid
+                           else {"question": question, "answer": answer})
     return json.dumps(cleaned) if cleaned else None
 
 
@@ -236,6 +250,18 @@ def _sanitize_unknowns(raw: str | None) -> list[str]:
     return out
 
 
+def _stage_case_file(db: Session, req: Request) -> None:
+    """Put the case file on the row, to be committed with the write that changes
+    what it describes. A courtesy to the stages after it, not a precondition of
+    the engagement: if it cannot be built the row is stored without one and the
+    case file is built from the row on read, as it is for a row from before it
+    existed."""
+    try:
+        casefile.save(db, req)
+    except Exception:
+        logger.warning("the case file could not be built; the row goes without one", exc_info=True)
+
+
 def _brief(req: Request) -> dict | None:
     try:
         data = json.loads(req.brief_json) if getattr(req, "brief_json", None) else None
@@ -296,12 +322,12 @@ def create_request(
     unknown_labels = _sanitize_unknowns(unknowns)
     if unknown_labels:
         business_description = (
-            f"{business_description}\n\nFigures the client did not know — estimate these, and label "
+            f"{business_description}\n\n{casefile.UNKNOWNS_NOTE} — estimate these, and label "
             f"every estimate as ours, never as theirs:\n"
             + "\n".join(f"- {label}" for label in unknown_labels))
     question = (scope or {}).get("question") or ""
     if question:
-        business_description = f"{business_description}\n\nThe question this engagement answers: {question}"
+        business_description = f"{business_description}\n\n{casefile.QUESTION_NOTE} {question}"
         if not (desired_outcome or "").strip():
             desired_outcome = question
 
@@ -347,6 +373,7 @@ def create_request(
             raise HTTPException(status_code=422, detail=f"{name} is larger than 8 MB.")
         uploads.append((name, data))
 
+    _stage_case_file(db, req)   # what they told us, as figures, in the commit that writes the row
     db.add(req)
     db.commit()
     db.refresh(req)
@@ -917,6 +944,7 @@ def revise_decision(request_ref: str, note: str = Form(...),
     existing = req.business_description or ""
     marker = "" if CORRECTIONS_MARKER in existing else f"\n\n{CORRECTIONS_MARKER}"
     req.business_description = f"{existing}{marker}\n- {text[:1000]}"
+    _stage_case_file(db, req)   # what they add here is in their words too
     db.commit()
 
     threading.Thread(target=orchestrator.run, args=(req.id,), daemon=True).start()

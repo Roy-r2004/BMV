@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures import casefile
 from app.models import Request
 from app.pipeline._shared import extract_json_from_text, log_usage
 from app.templating import render
@@ -344,4 +345,9 @@ def ingest_pending(db: Session, request_id: int) -> list[tuple[str, int]]:
 
 def save(db: Session, req: Request, claims: list[dict]) -> None:
     req.evidence_json = json.dumps(claims) if claims else None
+    # The case file holds the figures in these claims too, so it moves with
+    # them: every write of the claims (the upload and delete routes, and the
+    # files read at the start of a diagnosis) lands here, and the case file is
+    # staged in the same commit.
+    casefile.save(db, req)
     db.commit()

@@ -80,6 +80,12 @@ class Request(Base):
     # cell it was cited from (app/pipeline/evidence.py). Same claim shape as
     # the discovery answers, so a hypothesis cites both the same way.
     evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What the client told us, as typed figures (app/figures/casefile.py): a JSON
+    # list of "theirs" Figures, each with the interview answer, form field or file
+    # cell it came from. Written in the commit that writes the row and again when
+    # their files change. Null on rows made before this column existed: the case
+    # file is then built from the row's other columns on read, and not written.
+    case_file_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The diagnosis narrated as it happens, append-only, purely for the client
     # to watch. `emit` carries one row of CURRENT state and overwrites itself,
     # so a poller only ever sees the latest line; this keeps the whole trail.
