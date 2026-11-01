@@ -29,7 +29,8 @@ so there is one way in and the case file cannot drift from the claims.
 
 How many figures one text and one request may hold is bounded in `app/config.py`
 (`CASE_FILE_FIGURES_PER_TEXT`, `CASE_FILE_FIGURES_PER_REQUEST`); a build stops at
-the bound, in the order the texts are read.
+the bound, in the order the texts are read. The files' figures are counted first,
+up to half the request bound, so a long interview cannot starve them.
 
 Only the client's words are read: the interview answers (never the questions,
 which we wrote), the free-text columns, and the values of the claims read out of
@@ -55,7 +56,7 @@ from decimal import Decimal
 from typing import Iterable
 
 from app.config import settings
-from app.figures.model import Figure, FigureSet, TheirsSource, as_json, from_json
+from app.figures.model import _TIME_UNITS, Figure, FigureSet, TheirsSource, as_json, from_json
 from app.figures.read import Mention, mentions
 
 #: Characters of one text that are read for numbers. A bound on work, far above
@@ -83,9 +84,21 @@ _ELLIPSIS = "\u2026"
 # dots is retried from every position and takes quadratic time (50,000 dots took a minute).
 _SENTENCE_END = re.compile(r"(?<![.!?])[.!?]+[\"')\u201d\u2019]*(?=\s+[^a-z\s])|\n+")
 _TRAILING_NUMBER = re.compile(r"(\d+)\s*$")
-# A currency code the amount is written with ("$50 AUD", "CAD 100"): the reader keeps it in
-# the mention's text.
+# A currency code the amount is written with ("CAD 100", "AUD50", "$50 AUD"). Whether the
+# reader keeps a code after the amount in the mention's text has changed before, so the
+# few characters after the mention are looked at too.
 _CODE_IN = re.compile(r"(?<![A-Za-z])[A-Z]{3}(?![A-Za-z])")
+_CODE_AFTER = re.compile(r"[ 	]{0,2}([A-Z]{3})(?![A-Za-z])")
+_AFTER_CHARS = 16   # room for "milliseconds" and the space before it
+# The time word a number is directly followed by ("12 weeks", "3-month", "8hrs"). The words
+# are the model's closed table, said by what they stand for (hrs is hour); the extra
+# spellings are the ones clients type. "8 hrs a week" is hours: the rate phrase after the
+# word does not change what was counted.
+_TIME_CANON = {word: one for one, many in _TIME_UNITS for word in (one, many)}
+_TIME_CANON.update({"sec": "second", "secs": "second", "min": "minute", "mins": "minute", "hr": "hour",
+                    "hrs": "hour", "wk": "week", "wks": "week", "mo": "month", "mos": "month",
+                    "yr": "year", "yrs": "year"})
+_TIME_WORD_AFTER = re.compile(r"(?:-|[^\S\r\n]*)([A-Za-z]+)")
 
 
 # -- reading the row -------------------------------------------------------------------
@@ -147,14 +160,15 @@ def _precision(value: Decimal) -> int:
     return max(0, shown)
 
 
-def _currency(text: str) -> str:
-    """The unit of a money mention, from how it was written. Only a currency it
-    names is returned: a code written with the amount ("$50 AUD", "CAD 100") is
-    that currency whatever sign is beside it, and A$ and NZ$ are not US dollars. A
-    bare figure is not given a currency it does not carry."""
-    named = _CODE_IN.search(text)
+def _currency(text: str, after: str = "") -> str:
+    """The unit of a money mention, from how it was written (`after` is the few
+    characters that follow it). Only a currency it names is returned: a code
+    written with the amount ("$50 AUD", "CAD 100") is that currency whatever sign
+    is beside it, and A$ and NZ$ are not US dollars. A bare figure is not given a
+    currency it does not carry."""
+    named = _CODE_IN.search(text) or _CODE_AFTER.match(after)
     if named:
-        return named.group()
+        return named.group(named.lastindex or 0)
     upper = text.upper()
     if "\u20ac" in text or "EUR" in upper:
         return "EUR"
@@ -165,16 +179,28 @@ def _currency(text: str) -> str:
     return "USD" if "USD" in upper or "DOLLAR" in upper else ""
 
 
-def _unit(m: Mention) -> str:
+def _time_unit(after: str) -> str:
+    """The time unit of the number just before `after` ("week" for "12 weeks"), or ""."""
+    word = _TIME_WORD_AFTER.match(after)
+    return _TIME_CANON.get(word.group(1).lower(), "") if word else ""
+
+
+def _unit(m: Mention, after: str) -> str:
     # a fraction is read as the percent number ("a third" is 33.3333), so it prints with its sign
     if m.form in ("percent", "fraction"):
         return "percent"
-    return _currency(m.text) if m.form == "money" else ""
+    if m.form == "money":
+        return _currency(m.text, after)
+    # a count of something else (reformers, classes) has no unit; a position ("the 3rd
+    # week") or a multiplier ("3x") is not a length of time
+    return _time_unit(after) if m.form in ("digit", "word", "range") else ""
 
 
-def _figure(id: str, m: Mention, source: TheirsSource) -> Figure | None:
+def _figure(id: str, m: Mention, source: TheirsSource, text: str) -> Figure | None:
+    """The figure for mention `m` of `text`."""
     try:
-        return Figure(id=id, value=m.value, unit=_unit(m), period=None, kind="theirs", source=source,
+        return Figure(id=id, value=m.value, unit=_unit(m, text[m.end:m.end + _AFTER_CHARS]), period=None,
+                      kind="theirs", source=source,
                       precision=_precision(m.value))
     except ValueError:   # a number too long for the figure to hold
         return None
@@ -196,7 +222,7 @@ def _text_figures(text: str, prefix: str, *, turn: int | None, field: str | None
             continue
         n += 1
         figure = _figure(f"{prefix}-{n}", m, TheirsSource(
-            turn=turn, field=field, quote=_quote(text, spans, starts, m), file=None, cell=None))
+            turn=turn, field=field, quote=_quote(text, spans, starts, m), file=None, cell=None), text)
         if figure:
             out.append(figure)
     return out
@@ -250,10 +276,12 @@ def _claim_figures(claims: Iterable, limit: int) -> list[Figure]:
         number = str(int(tail.group(1))) if tail else str(position)
         n = 0
         for m in mentions(value):
+            if len(out) >= limit:   # a hard bound: a claim with several numbers stops mid-claim
+                break
             if m.form in _NOT_STORED_FORMS:
                 continue
             n += 1
-            figure = _figure(f"E{number}-{n}", m, source)
+            figure = _figure(f"E{number}-{n}", m, source, value)
             if figure:
                 out.append(figure)
     return out
@@ -279,9 +307,16 @@ def _place(known: dict[str, Figure], figure: Figure) -> None:
 def build(req) -> list[Figure]:
     """Every theirs figure in the row's interview answers, free-text columns and
     evidence claims, in that order. Reads only; never touches the column. It stops
-    at the bounds in `settings`: so many figures from one text, so many in all."""
+    at the bounds in `settings`: so many figures from one text, so many in all.
+
+    The files' figures are counted against the bound first, up to half of it, so a
+    long interview cannot starve them; they are still listed last. What the files
+    do not use is left to the client's typed words, so neither side can take more
+    than its share from the other."""
     figures: dict[str, Figure] = {}
     per_text, per_request = settings.CASE_FILE_FIGURES_PER_TEXT, settings.CASE_FILE_FIGURES_PER_REQUEST
+    from_files = _claim_figures(_loads_list(getattr(req, "evidence_json", None)), limit=per_request // 2)
+    per_request -= len(from_files)
 
     for turn, pair in enumerate(_loads_list(getattr(req, "ops_numbers_json", None)), 1):
         answer = pair.get("answer") if isinstance(pair, dict) else None
@@ -308,8 +343,7 @@ def build(req) -> list[Figure]:
                                     limit=min(per_text, per_request - len(figures))):
             _place(figures, figure)
 
-    for figure in _claim_figures(_loads_list(getattr(req, "evidence_json", None)),
-                                 limit=per_request - len(figures)):
+    for figure in from_files:
         _place(figures, figure)
     return list(figures.values())
 

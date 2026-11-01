@@ -750,7 +750,9 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
         out["their_words"] = words if words and figures.quoted(words, their_text) else ""
         fix = raw.get("their_fix")
         fix = str(fix).strip().rstrip(".")[:80] if fix else ""
-        out["their_fix"] = fix if fix and not figures.unsupported(fix, figures.given(all_text), hours=hours) else None
+        # their fix is in their words: what our question suggested ("a 3-month app") is not
+        out["their_fix"] = fix if fix and not figures.unsupported(
+            fix, figures.given(their_text), hours=figures.given_hours(their_text)) else None
     return out
 
 

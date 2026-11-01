@@ -353,7 +353,7 @@ def save(db: Session, req: Request, claims: list[dict]) -> None:
     # is left empty, which makes it build again from the row when it is read.
     try:
         casefile.save(db, req)
-    except Exception:
-        logger.warning("the case file could not be built; the claims are saved without it", exc_info=True)
+    except Exception as exc:
+        logger.warning("the case file could not be built; the claims are saved without it: %s", str(exc)[:200])
         req.case_file_json = None
     db.commit()

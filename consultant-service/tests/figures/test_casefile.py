@@ -164,6 +164,38 @@ def test_a_fraction_is_stored_as_a_percent_so_it_prints_with_its_sign():
     assert display(fig).endswith("%")
 
 
+def _units(text: str) -> list:
+    return [(f.value, f.unit) for f in casefile.build(_req(main_problem=text))]
+
+
+def test_a_number_directly_followed_by_a_time_word_carries_that_unit():
+    assert _units("Onboarding takes twelve weeks.") == [(Decimal(12), "week")]
+    assert _units("We lose 8 hrs a week.") == [(Decimal(8), "hour")]   # the rate phrase does not change it
+    assert _units("The lease has 3 months left.") == [(Decimal(3), "month")]
+    assert _units("A 6-month trial, 5hrs, 2 yrs, 4 mos, 9 min and 1 wk.") == [
+        (Decimal(6), "month"), (Decimal(5), "hour"), (Decimal(2), "year"), (Decimal(4), "month"),
+        (Decimal(9), "minute"), (Decimal(1), "week")]
+    [fig] = casefile.build(_req(main_problem="Onboarding takes twelve weeks."))
+    assert display(fig) == "12 weeks"
+
+
+def test_other_nouns_and_positions_stay_without_a_unit():
+    assert _units("We have 12 reformers and 6 classes a day.") == [(Decimal(12), ""), (Decimal(6), "")]
+    assert _units("We have 12 weekend slots.") == [(Decimal(12), "")]   # weekend is not week
+    assert _units("It was the 3rd week, and 4x weeks.") == [(Decimal(3), ""), (Decimal(4), "")]   # a place, a factor
+    assert _units("Open 7\n\nweeks") == [(Decimal(7), "")]   # not directly followed
+
+
+def test_money_and_percent_keep_their_units_beside_a_time_word():
+    assert _units("It is $80 a month, 70% a year and $9 per week.") == [
+        (Decimal(80), "USD"), (Decimal(70), "percent"), (Decimal(9), "USD")]
+
+
+def test_a_files_value_with_a_time_word_carries_it_too():
+    [fig] = casefile.build(_req(evidence_json=json.dumps([_claim(1, "12 weeks")])))
+    assert (fig.value, fig.unit) == (Decimal(12), "week")
+
+
 def test_a_figure_prints_the_value_they_gave_without_the_zeros_a_magnitude_adds():
     req = _req(main_problem="We make 1.5k a month; the best day was $1,240.00; fill is 12.50%; and twelve staff.")
     assert [display(f) for f in casefile.build(req)] == ["1,500", "$1,240", "12.5%", "12"]
@@ -657,6 +689,35 @@ def test_a_number_only_in_our_question_is_not_theirs():
     assert len(discovery.shape_casefile(old, lines.sources, False)["figures"]) == 1
 
 
+def test_the_playback_quotes_their_words_and_their_fix_from_their_answer_not_our_question():
+    from app.routers import discovery
+
+    question = "Would a 3-month booking app fix this?"
+
+    def played_back(answer, **raw):
+        lines = discovery.casefile_lines(None, json.dumps([{"id": "q1", "question": question, "answer": answer}]), "{}")
+        return discovery.shape_casefile({"figures": [], **raw}, lines.sources, True, None, lines.origins, lines.theirs)
+
+    # the model repeats our suggestion as if it were theirs: neither passes
+    out = played_back("Yes, I think so.", their_fix="a 3-month booking app", their_words="a 3-month booking app")
+    assert out["their_fix"] is None and out["their_words"] == ""
+    # the same words in their own answer are theirs
+    out = played_back("Yes, a 3-month booking app would fix it.",
+                      their_fix="a 3-month booking app", their_words="a 3-month booking app would fix it")
+    assert out["their_fix"] == "a 3-month booking app" and out["their_words"] == "a 3-month booking app would fix it"
+    # a time only our question mentions is not a time they gave
+    ops = [{"id": "q1", "question": "Is 6pm the best time?", "answer": "Yes, evenings."}]
+    lines = discovery.casefile_lines(None, json.dumps(ops), "{}")
+    out = discovery.shape_casefile({"their_fix": "booking from 6pm"}, lines.sources, True, None, lines.origins,
+                                   lines.theirs)
+    assert out["their_fix"] is None
+    ops[0]["answer"] = "Yes, 6pm."
+    lines = discovery.casefile_lines(None, json.dumps(ops), "{}")
+    out = discovery.shape_casefile({"their_fix": "booking from 6pm"}, lines.sources, True, None, lines.origins,
+                                   lines.theirs)
+    assert out["their_fix"] == "booking from 6pm"
+
+
 def test_the_interview_route_does_not_call_a_number_from_our_question_theirs(client, monkeypatch):
     from app.pipeline import capacity
     from app.routers import discovery
@@ -735,16 +796,43 @@ def test_the_request_bound_stops_a_build_in_the_order_the_texts_are_read(monkeyp
     req = _req(ops_numbers_json=_pairs({"question": "a", "answer": "1 " * 25}), main_problem="2 " * 100,
                revenue_today="3 " * 5, evidence_json=json.dumps([_claim(1)]))
     ids = [f.id for f in casefile.build(req)]
-    assert ids == [f"T1-{i}" for i in range(1, 21)] + [f"F-main_problem-{i}" for i in range(1, 11)]
+    # the one file figure is counted first, so the typed words get 29 of the 30; it is still listed last
+    assert ids == ([f"T1-{i}" for i in range(1, 21)] + [f"F-main_problem-{i}" for i in range(1, 10)] + ["E1-1"])
 
 
-def test_the_evidence_figures_stop_at_the_request_bound_too(monkeypatch):
+def test_a_long_interview_cannot_starve_the_figures_from_their_files(monkeypatch):
     from app.config import settings
 
-    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_REQUEST", 3)
-    claims = [_claim(n, 100 + n, cell=f"B{n}") for n in range(1, 9)]
-    req = _req(main_problem="8 hours", evidence_json=json.dumps(claims))
-    assert [f.id for f in casefile.build(req)] == ["F-main_problem-1", "E1-1", "E2-1"]
+    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_TEXT", 40)
+    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_REQUEST", 100)
+    pairs = [{"question": f"q{i}", "answer": "1 " * 40} for i in range(10)]   # 400 numbers
+    claims = [_claim(n, 100 + n, cell=f"B{n}") for n in range(1, 31)]
+    ids = [f.id for f in casefile.build(_req(ops_numbers_json=_pairs(*pairs), evidence_json=json.dumps(claims)))]
+    assert len(ids) == 100
+    assert [i for i in ids if i.startswith("E")] == [f"E{n}-1" for n in range(1, 31)]   # every file figure is in
+    assert ids[-30:] == [f"E{n}-1" for n in range(1, 31)]   # listed after the typed ones
+    assert len([i for i in ids if i.startswith("T")]) == 70
+
+
+def test_the_files_take_no_more_than_half_of_the_bound_from_their_typed_words(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_REQUEST", 100)
+    claims = [_claim(n, 100 + n, cell=f"B{n}") for n in range(1, 81)]
+    req = _req(main_problem="2 " * 100, evidence_json=json.dumps(claims))
+    ids = [f.id for f in casefile.build(req)]
+    assert len(ids) == 100
+    assert len([i for i in ids if i.startswith("E")]) == 50 and len([i for i in ids if i.startswith("F")]) == 50
+
+
+def test_a_claim_with_several_numbers_stops_at_the_bound_not_after_it(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_REQUEST", 100)   # 50 for the files
+    claims = [_claim(n, 100 + n, cell=f"B{n}") for n in range(1, 50)] + [_claim(50, "7 8 9 10 11", cell="B50")]
+    figures = casefile.build(_req(evidence_json=json.dumps(claims)))
+    assert len(figures) == 50   # 49 single numbers, then the first of the five in the last claim
+    assert figures[-1].id == "E50-1"
 
 
 def test_the_bounds_are_held_to_their_ranges():
