@@ -186,7 +186,12 @@ def test_the_roadmap_registers_its_lengths_as_ours_and_its_prose_binds_to_them()
     from app.figures.model import from_json
     from app.pipeline import action_plan
     plan, problems = action_plan.shape(_roadmap(), K.known_for_texts(HALO))
-    assert not problems and plan["summary"] == "We do this in 2 phases over 4 weeks."
+    # "over four weeks" is a limit: it binds only on the figure's exact value (PLAN-WEEKS
+    # is 4) and is never rewritten, so the model's wording stays; "two phases" is a count
+    assert not problems and plan["summary"] == "We do this in 2 phases over four weeks."
+    # a limit that is not the figure's exact value names nothing, and the summary goes
+    plan, problems = action_plan.shape(_roadmap(summary="We do this over five weeks."), K.known_for_texts(HALO))
+    assert plan["summary"] == "" and any("five" in p for p in problems)
     figures = {f.id: f for f in map(from_json, plan["figures"])}
     assert {i: (f.value, f.unit, f.kind) for i, f in figures.items()} == {
         "PLAN-WEEKS": (4, "week", "ours"), "PLAN-PHASE-1-WEEKS": (2, "week", "ours"),
@@ -262,9 +267,14 @@ def test_screens_captions_and_story_are_bound_and_an_unmatched_item_is_dropped()
                                                             {"title": "Nine a day", "text": "x"}]}},
                                   known, set())
     assert story["headline"] == "12 reformers, full"
-    assert story["needs"] == ["A list of your 12 regulars"]
+    # a count carries its noun: "12 reformers" does not back "12 regulars"
+    assert story["needs"] == []
     assert story["comparison"]["rows"] == [{"label": "Reformers", "cells": ["12", "12"]}]
     assert [p["title"] for p in story["ambition"]["pillars"]] == ["6 a day"]
+    # when her own words give "12 regulars", the need stands
+    theirs = K.known_for_texts([*HALO, "We have 12 regulars."])
+    assert generate._check_story({"needs": ["A list of your 12 regulars"]}, theirs, set())["needs"] == [
+        "A list of your 12 regulars"]
 
 
 # -- review fixes ----------------------------------------------------------------------------
