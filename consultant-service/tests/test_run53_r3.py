@@ -59,7 +59,7 @@ def test_release_states_and_the_bmv_statement():
     assert "CLIENT APPROVED" in cover2
     row.qa_report_json = json.dumps({"checks": [], "findings": [_finding("x", "open finding")]})
     cover3 = " ".join(getattr(f, "text", "") for f in ep._cover("blueprint", "The Blueprint", "Volume I", row))
-    assert "DRAFT — REQUIRES VALIDATION" in cover3 and ep.BMV_STATEMENT not in cover3
+    assert "DRAFT" in cover3 and "REQUIRES VALIDATION" not in cover3 and ep.BMV_STATEMENT not in cover3
 
 
 def test_release_record_carries_parent_revision_and_cumulative_corrections(client, tmp_path, monkeypatch):

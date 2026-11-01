@@ -1069,7 +1069,7 @@ def test_draft_watermark_follows_open_high_findings(client, tmp_path, monkeypatc
         finally:
             doc.close()
 
-    assert "DRAFT — REQUIRES VALIDATION" in pdf_text(dirty)
+    assert "DRAFT" in pdf_text(dirty) and "REQUIRES VALIDATION" not in pdf_text(dirty)
     assert "DRAFT" not in pdf_text(clean)
     db.close()
 

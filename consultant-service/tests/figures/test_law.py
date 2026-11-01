@@ -389,7 +389,9 @@ def test_a_verified_financial_line_passes_and_an_unverified_one_is_flagged(db):
     path = ep.build_pdf(row, "blueprint")
     found = law.recorded(row)["Volume I"]
     assert [f.number for f in found] == ["$9,000"]
-    assert found[0].page == _pages_holding(path, "$9,000")[0]
+    # The cover quotes the check, so the number is also on the cover. The
+    # recorded page is the one in the body, and it is one of the pages that show it.
+    assert found[0].page in _pages_holding(path, "$9,000")
     assert _pages_holding(path, "$14,820")            # the verified line printed, and passed
 
 

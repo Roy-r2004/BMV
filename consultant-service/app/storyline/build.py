@@ -23,7 +23,7 @@ def build(req) -> Storyline | None:
     """The storyline, or None when the run has no answer to open with."""
     if not isinstance(_loads(getattr(req, "answer_json", None)), dict):
         return None
-    return Storyline(answer_page(req), _register(req), (), _builds(req))
+    return Storyline(answer_page(req), _register(req), _sections(req), _builds(req))
 
 
 def answer_page(req) -> AnswerPage:
@@ -41,6 +41,33 @@ def answer_page(req) -> AnswerPage:
         would_not=_would_not(req),
         rests_on=_rests_on(req, known),
     )
+
+
+def _sections(req) -> tuple:
+    """The proof sections the stage stored. A section with nothing to draw
+    has no exhibit. A stored list that is not a list is no sections."""
+    raw = _loads(getattr(req, "storyline_json", None))
+    items = raw.get("sections") if isinstance(raw, dict) else None
+    if not isinstance(items, list):
+        return ()
+    from app.storyline.exhibits import for_section
+    from app.storyline.model import Section
+
+    out = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        sid = item.get("id") if isinstance(item.get("id"), str) else ""
+        title = item.get("title") if isinstance(item.get("title"), str) else ""
+        if not sid or not title:
+            continue
+        takeaway = item.get("takeaway") if isinstance(item.get("takeaway"), str) else None
+        try:
+            exhibit = for_section(req, sid)
+        except Exception:
+            exhibit = None
+        out.append(Section(sid, title, takeaway, exhibit, (), None, (), None))
+    return tuple(out)
 
 
 def _register(req):

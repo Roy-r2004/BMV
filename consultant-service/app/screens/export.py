@@ -49,8 +49,22 @@ def _proposal(req: Request, system: dict) -> tuple[str, list]:
             system, business_name=req.business_name or "your business", journey_stages=stages,
             answer=answer_stage.load(req), roadmap=roadmap if roadmap.get("status") == plan_stage.READY else None,
         )
-        html = render.proposal_html(system, ctx)
+        html = _answer_first(req) + render.proposal_html(system, ctx)
     return html, found.findings
+
+
+def _answer_first(req: Request) -> str:
+    """The answer, as the first printed page, when the run has one."""
+    from app.storyline.build import build as build_story
+
+    story = build_story(req)
+    if story is None or not story.answer.question:
+        return ""
+    rests = story.answer.rests_on
+    line = (f"What this rests on: {rests.theirs} figures are yours, {rests.derived} worked out, "
+            f"{rests.reference} references with sources, {rests.checks_passed} checks passed.")
+    question = html_lib.escape(story.answer.question)
+    return f'<section class="page"><h1>{question}</h1><p>{html_lib.escape(line)}</p></section>'
 
 
 def page_texts(html: str) -> list[str]:

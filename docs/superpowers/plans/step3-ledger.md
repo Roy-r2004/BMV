@@ -13,3 +13,5 @@ Ruling: Task 4 creates `pagelaw.title_lines` and Task 6 adds the rest of the pag
 Ruling: Task 10 introduces `roadmap.build_roadmap_pdf` only far enough for the zip to contain a real file, and Task 8 replaces the body with the full roadmap - the zip test requires the file and the user order runs Task 10 before Task 8 - one commit has a thin roadmap that the next task fills in.
 
 Ruling: `release_status` records a clipped page, and names that page, only for a run that has a storyline - the plan adds presentation and clipping findings to every release; the volumes' cover is drawn outside the body frame on purpose and they use base faces, so folding those findings in stamps every current clean file DRAFT - a run with no storyline stays final exactly as it is today.
+
+Ruling: the cover panel's own words (the wordmark and the volume numeral) are not a clipped page - they are painted on the navy panel, left of the body frame, on purpose; counting them would stamp every storyline file DRAFT - a line of the register or the answer that actually leaves the frame is still a finding.

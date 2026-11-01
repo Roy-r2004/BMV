@@ -73,13 +73,15 @@ def inspect(path: str, expect: str | None = None, concept: str | None = None,
     if numbered == 0:
         failures.append("no footer page numbers found")
 
-    drafted = "DRAFT — REQUIRES VALIDATION" in full
+    # The stamp is the word DRAFT. The older line "DRAFT — REQUIRES VALIDATION"
+    # still counts, because it contains that word.
+    drafted = re.search(r"\bDRAFT\b", full) is not None
     if expect == "draft" and not drafted:
         failures.append("expected DRAFT watermark, none present")
     if expect == "final" and drafted:
         failures.append("final package still carries the DRAFT watermark")
 
-    stamped = sum(1 for t in page_texts if "DRAFT — REQUIRES VALIDATION" in t)
+    stamped = sum(1 for t in page_texts if re.search(r"\bDRAFT\b", t))
     if expect == "draft" and drafted and stamped != n:
         failures.append(f"DRAFT stamp on {stamped} of {n} pages — every page must carry it")
 

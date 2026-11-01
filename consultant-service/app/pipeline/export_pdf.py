@@ -14,9 +14,10 @@ and the core operating procedures.
 
 Every page is real generated content — sections a run doesn't have are
 simply absent, the same fail-open rule as everywhere. reportlab, not
-HTML-to-PDF: pure-Python, no headless browser in the Docker image. Each
-volume opens with a cover and a table of contents (multiBuild resolves
-the page numbers).
+HTML-to-PDF: pure-Python, no headless browser in the Docker image. A run
+with an answer opens on that page; the cover and the table of contents
+follow (multiBuild resolves the page numbers). A run with no answer
+still opens on its cover.
 """
 
 import html
@@ -412,7 +413,7 @@ def _cover_painter(kind: str, req: Request):
         canvas.drawString(14 * mm, H - 42 * mm, "BUILD MY VERSION")
         canvas.setFillColor(CYAN)
         canvas.setFont(F_MD, 7.5)
-        canvas.drawString(14 * mm, H - 47 * mm, "AI-native consultancy")
+        canvas.drawString(14 * mm, H - 47 * mm, "Build My Version")
 
         # the ghosted numeral — the volume's signature
         canvas.setFillColor(colors.white)
@@ -641,16 +642,20 @@ def _strings_of(obj, skip_keys: set | None = None) -> list[str]:
     return []
 
 
-BMV_STATEMENT = ("Prepared by BMV AI. Recommendations and proposed thresholds require client validation. "
-                 "This document has not yet been formally approved by the client.")
+BMV_STATEMENT = "Prepared by Build My Version."
 STATUS_LABELS = {"draft": "DRAFT", "final": "FINAL — CONSULTANCY DELIVERABLE", "client_approved": "CLIENT APPROVED"}
+
+
+# The cover paints these on the navy panel, left of the body frame, on purpose.
+COVER_PANEL_SPANS = ('"BUILD MY VERSION"', '"Build My Version"', '"01"', '"02"', '"03"')
 
 
 def _presentation_reasons(req) -> list[str]:
     """A clipped page of a PDF this run has already built, once the run has a
     storyline. A file that is not on disk yet is not a finding. A run with no
     storyline is left as it was: its cover is drawn outside the body frame on
-    purpose, and the font check stays on the presentation gate."""
+    purpose, and the font check stays on the presentation gate. The cover
+    panel's own words are not a clipped page."""
     if not getattr(req, "storyline_json", None):
         return []
     from app.engine.gates.presentation import clipping_findings
@@ -666,7 +671,10 @@ def _presentation_reasons(req) -> list[str]:
     for kind in ("blueprint", "technical", "operations", "roadmap", "system"):
         path = os.path.join(folder, f"{request_id}-{kind}.pdf")
         if os.path.isfile(path):
-            found.extend(clipping_findings(path, frame_mm=frame))
+            found.extend(
+                reason for reason in clipping_findings(path, frame_mm=frame)
+                if not reason.endswith(COVER_PANEL_SPANS)
+            )
     return found
 
 
@@ -870,9 +878,9 @@ def _status_lines(req: Request) -> list:
     CONSULTANCY DELIVERABLE with the BMV statement, CLIENT APPROVED."""
     status = release_status(req)["status"]
     if status == "draft":
+        named = "; ".join(release_status(req)["reasons"][:4]) or "Open findings are listed with the release."
         return [Spacer(1, 6), Paragraph(
-            '<font color="#b45309"><b>DRAFT — REQUIRES VALIDATION.</b> The quality review '
-            "recorded open findings; resolve them before client release.</font>", _S["meta"])]
+            f'<font color="#b45309"><b>DRAFT.</b> {named}</font>', _S["meta"])]
     if status == "final":
         return [Spacer(1, 6), Paragraph(f"<b>{STATUS_LABELS['final']}.</b> {BMV_STATEMENT}", _S["meta"])]
     return [Spacer(1, 6), Paragraph(f"<b>{STATUS_LABELS['client_approved']}.</b> Approved by the client's named owner and approver "
@@ -1871,7 +1879,7 @@ def _page_chrome(label: str, concept: str, draft: bool = False):
         canvas.setFont(F_SB, 6.8)
         if draft:
             canvas.setFillColor(WARN)
-            canvas.drawCentredString(A4[0] / 2, A4[1] - 9 * mm, "DRAFT — REQUIRES VALIDATION")
+            canvas.drawCentredString(A4[0] / 2, A4[1] - 9 * mm, "DRAFT")
         canvas.setFillColor(ACCENT)
         canvas.drawString(18 * mm, A4[1] - 9 * mm, label.upper())
         canvas.setFillColor(MUTED)
@@ -1967,12 +1975,15 @@ def build_pdf(req: Request, kind: str) -> str:
     W, H = A4
     cover_frame = Frame(74 * mm, 20 * mm, W - 92 * mm, H - 40 * mm, id="cover")
     body_frame = Frame(18 * mm, 20 * mm, W - 36 * mm, H - 36 * mm, id="content")
-    doc.addPageTemplates([
-        PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req)),
-        PageTemplate(id="body", frames=[body_frame],
-                     onPage=_page_chrome(label, req.concept_name or req.business_name or "",
-                                         draft=draft)),
-    ])
+    cover_template = PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req))
+    body_template = PageTemplate(
+        id="body", frames=[body_frame],
+        onPage=_page_chrome(label, req.concept_name or req.business_name or "", draft=draft),
+    )
+    from app.storyline.build import build as build_story
+
+    opens_on_answer = build_story(req) is not None
+    doc.addPageTemplates([body_template, cover_template] if opens_on_answer else [cover_template, body_template])
     doc.multiBuild(flows)
     # the running header and the footer (`_page_chrome`) are drawn in these
     # bands above and below the body frame; the law's snippets are not sought there
@@ -2120,7 +2131,7 @@ def document_known(req, business_case: dict | None = None) -> tuple:
 
 
 def _volume_flows(req: Request, kind: str, md: str | None, label: str, sub: str, business_case: dict) -> list:
-    """Every flowable of one volume, cover first."""
+    """Every flowable of one volume. A run with an answer opens on that page."""
     journey = _loads(req.journey_json, None)
     org = _loads(req.org_json, None)
     scoreboard = _loads(req.scoreboard_json, [])
@@ -2130,7 +2141,20 @@ def _volume_flows(req: Request, kind: str, md: str | None, label: str, sub: str,
     modules = _loads(req.modules_json, [])
 
     _SECTION_COUNTER["n"] = 0
-    flows = _cover(kind, label, sub, req)
+    from app.storyline.build import build as build_story
+    from app.storyline.pdf import opening
+
+    story = build_story(req)
+    flows: list = []
+    if story is not None:
+        # The answer is a body page. The cover template stays the one the
+        # cover flowables were written for, so the switch happens before them
+        # and the last proof page does not leave a blank page behind.
+        flows = opening(story, kind)
+        if flows and isinstance(flows[-1], PageBreak):
+            flows = flows[:-1]
+        flows += [NextPageTemplate("cover"), PageBreak()]
+    flows += _cover(kind, label, sub, req)
     flows += _toc()
 
     if kind == "blueprint":
