@@ -38,8 +38,9 @@ their files. A brief fact's value (`brief_json`) is the interview's summary and 
 never read. Text the intake adds to the description (the facts they did not know,
 the question the engagement answers) is ours and is cut out before reading.
 
-Units, from how the number was written: money in its currency (USD, EUR, GBP or the
-code written with it), a percent or a fraction as "percent", a count followed by a
+Units, from how the number was written: money in its currency (a code the reader
+knows written with it, else the sign as the binder reads it: $ and US$ are USD, A$
+AUD, NZ$ NZD, the euro and pound signs EUR and GBP), a percent or a fraction as "percent", a count followed by a
 time word in that time unit (12 weeks, 8 hrs a week: "week", "hour"), and any other
 plain count in the noun after it, as typed in lower case ("twelve reformers" is
 12 "reformers"). A count with no noun straight after it ("12 of 40 members" is 12
@@ -49,8 +50,10 @@ A clock time and a date are not stored. `read.supported` passes them by their
 form (a time against the hours the client gave), and a figure made from "6pm"
 would hold the value 18 and vouch for "18 reformers".
 
-This module imports no model and no pipeline code, so `app.pipeline.evidence` can
-call it. A request is anything with the columns named here.
+This module imports the figure model, the reader and the binder's word tables (so a
+currency sign or a time word means here what it means to the binder), and no stage or
+pipeline code, so `app.pipeline.evidence` can call it. A request is anything with the
+columns named here.
 """
 from __future__ import annotations
 
@@ -63,9 +66,10 @@ from decimal import Decimal
 from typing import Iterable, Iterator, NamedTuple
 
 from app.config import settings
-from app.figures.bind import _FUNCTION_WORDS
-from app.figures.model import _TIME_UNITS, Figure, FigureSet, TheirsSource, as_json, from_json
-from app.figures.read import Mention, mentions
+from app.figures.bind import _FUNCTION_WORDS, _SIGN_CURRENCY, _WORD_CURRENCY
+from app.figures.model import Figure, FigureSet, TheirsSource, as_json, from_json
+from app.figures.read import _CURRENCY_CODES, Mention, mentions
+from app.figures.words import TIME_CANON as _TIME_CANON
 
 #: Characters of one text that are read for numbers. A bound on work, far above
 #: anything a form takes; text past it is not read.
@@ -77,8 +81,14 @@ QUOTE_MAX = 240
 UNKNOWNS_NOTE = "Figures the client did not know"
 QUESTION_NOTE = "The question this engagement answers:"
 
-#: The columns the client typed into, in the order they are read.
-FREE_TEXT_COLUMNS = ("business_description", "main_problem", "desired_outcome", "revenue_today")
+#: The columns the client typed into, in the order they are read: every intake text
+#: field a prompt shows the model (analyze, diagnose, playbook, the roadmap, the bridge
+#: read target_customers, what_you_like, industry, timeline and budget_range), so a
+#: number the model is shown in their words is theirs. New columns go at the end, so
+#: the ids of the columns read before them do not move. The business name is a name,
+#: not a statement of figures, and is not read.
+FREE_TEXT_COLUMNS = ("business_description", "main_problem", "desired_outcome", "revenue_today",
+                     "target_customers", "what_you_like", "industry", "timeline", "budget_range")
 
 _NOT_STORED_FORMS = frozenset({"time", "date"})
 _OUR_NOTES = re.compile(
@@ -92,20 +102,24 @@ _ELLIPSIS = "\u2026"
 # dots is retried from every position and takes quadratic time (50,000 dots took a minute).
 _SENTENCE_END = re.compile(r"(?<![.!?])[.!?]+[\"')\u201d\u2019]*(?=\s+[^a-z\s])|\n+")
 _TRAILING_NUMBER = re.compile(r"(\d+)\s*$")
-# A currency code the amount is written with ("CAD 100", "AUD50", "$50 AUD"). Whether the
-# reader keeps a code after the amount in the mention's text has changed before, so the
-# few characters after the mention are looked at too.
-_CODE_IN = re.compile(r"(?<![A-Za-z])[A-Z]{3}(?![A-Za-z])")
-_CODE_AFTER = re.compile(r"[ 	]{0,2}([A-Z]{3})(?![A-Za-z])")
+# A currency code the amount is written with ("CAD 100", "AUD50", "$50 AUD"): only the
+# codes the reader knows (read._CURRENCY_CODES), so "$50 FOR a class" is dollars, not a
+# currency called FOR. Whether the reader keeps a code after the amount in the mention's
+# text has changed before, so the few characters after the mention are looked at too.
+_CODES = "|".join(sorted(map(re.escape, _CURRENCY_CODES), key=len, reverse=True))
+_CODE_IN = re.compile(rf"(?<![A-Za-z])(?:{_CODES})(?![A-Za-z])")
+_CODE_AFTER = re.compile(rf"[ \t]{{0,2}}({_CODES})(?![A-Za-z])")
+# a sign before the amount, with the letters that say which dollar it is (A$, NZ$, US$);
+# what each stands for is the binder's one table (bind._SIGN_CURRENCY)
+_SIGN = re.compile(r"[A-Z]{0,3}\$|[€£]")
+_WORD = re.compile(r"[A-Za-z]+")
 _AFTER_CHARS = 80   # room for a time word or a noun (NOUN_MAX) behind a few skipped words
 # The time word a number is directly followed by ("12 weeks", "3-month", "8hrs"). The words
 # are the model's closed table, said by what they stand for (hrs is hour); the extra
 # spellings are the ones clients type. "8 hrs a week" is hours: the rate phrase after the
 # word does not change what was counted.
-_TIME_CANON = {word: one for one, many in _TIME_UNITS for word in (one, many)}
-_TIME_CANON.update({"sec": "second", "secs": "second", "min": "minute", "mins": "minute", "hr": "hour",
-                    "hrs": "hour", "wk": "week", "wks": "week", "mo": "month", "mos": "month",
-                    "yr": "year", "yrs": "year"})
+# The time words are the shared table (words.TIME_CANON), the one the binder is to read
+# with too, so a time word the case file reads is one the binder reads the same way.
 _TIME_WORD_AFTER = re.compile(r"(?:-|[^\S\r\n]*)([A-Za-z]+)")
 #: The longest noun kept as a count's unit.
 NOUN_MAX = 30
@@ -237,14 +251,11 @@ def _currency(text: str, after: str = "") -> str:
     named = _CODE_IN.search(text) or _CODE_AFTER.match(after)
     if named:
         return named.group(named.lastindex or 0)
-    upper = text.upper()
-    if "\u20ac" in text or "EUR" in upper:
-        return "EUR"
-    if "\u00a3" in text or "GBP" in upper:
-        return "GBP"
-    if "$" in text:
-        return "USD" if text[:text.index("$")].lstrip("-\u2212").strip() in ("", "US") else ""
-    return "USD" if "USD" in upper or "DOLLAR" in upper else ""
+    sign = _SIGN.search(text)
+    if sign:
+        # the binder's table: $ and US$ are USD, A$ and AU$ AUD, NZ$ NZD...; a sign it does not list names none
+        return _SIGN_CURRENCY.get(sign.group(), "")
+    return next((_WORD_CURRENCY[w.lower()] for w in _WORD.findall(text) if w.lower() in _WORD_CURRENCY), "")
 
 
 def _time_unit(after: str) -> str:
@@ -287,10 +298,16 @@ def _unit(m: Mention, after: str) -> str:
     return _counted_unit(after) if m.form in ("digit", "word", "range") else ""
 
 
+def unit_of(m: Mention, text: str) -> str:
+    """The unit the case file gives mention `m` of `text`, from how it was written:
+    a currency, "percent", a time unit, the noun it counts, or ""."""
+    return _unit(m, text[m.end:m.end + _AFTER_CHARS])
+
+
 def _figure(id: str, m: Mention, source: TheirsSource, text: str) -> Figure | None:
     """The figure for mention `m` of `text`."""
     try:
-        return Figure(id=id, value=m.value, unit=_unit(m, text[m.end:m.end + _AFTER_CHARS]), period=None,
+        return Figure(id=id, value=m.value, unit=unit_of(m, text), period=None,
                       kind="theirs", source=source,
                       precision=_precision(m.value))
     except ValueError:   # a number too long for the figure to hold

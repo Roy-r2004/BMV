@@ -447,6 +447,107 @@ def test_the_shortest_plan_may_not_pass_the_longest(caplog):
     assert out.stdout.split() == ["5", "5"]
 
 
+# -- whole-branch review: a roadmap loses sentences, not phases --------------------------------
+
+REALISTIC = [
+    {"when": "Weeks 1 to 2", "title": "Win back the regulars", "by": "us",
+     "do": "We message your 200 regulars about the evening slots. We set up the waiting list for you.",
+     "you": "A 1-hour session"},
+    {"when": "Weeks 3 to 4", "title": "Fill the gaps", "by": "us",
+     "do": "We answer every enquiry within 15 minutes. We put the 48 empty spots on the booking page. "
+           "We watch the evenings with you each week."},
+]
+
+
+def test_a_phase_with_unowned_operational_numbers_keeps_its_other_sentences():
+    plan, problems = _plan(REALISTIC)
+    assert [p["title"] for p in plan["phases"]] == ["Win back the regulars", "Fill the gaps"]
+    assert plan["phases"][0]["do"] == "We set up the waiting list for you."
+    assert plan["phases"][0]["you"] == ""                       # "a 1-hour session" names nothing
+    assert plan["phases"][1]["do"] == "We watch the evenings with you each week."
+    # the retry is told exactly what went
+    for gone in ("200 regulars", "within 15 minutes", "48 empty spots", "1-hour session"):
+        assert any(gone in p for p in problems), gone
+
+
+def test_a_phase_whose_whole_do_is_unowned_or_whose_title_is_goes_and_too_few_still_fail():
+    from app.pipeline import action_plan
+    bare = [dict(REALISTIC[0], do="We message your 200 regulars."), dict(REALISTIC[1], title="Fill 48 spots")]
+    plan, problems = _plan(bare)
+    assert plan is None and "fewer than two usable phases" in problems
+    assert any("nothing left" in p for p in problems)
+    assert action_plan.shape(_roadmap(phases=bare), K.known_for_texts(HALO))[0] is None
+
+
+def test_a_roadmap_that_cleans_down_to_one_phase_is_retried_then_stops_the_run(monkeypatch):
+    from app.database import Base, SessionLocal, engine
+    from app.pipeline import action_plan
+    from app.pipeline.failure import StageFailed
+
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    row = Request(business_name="Halo", business_description="A pilates studio.", email="o@example.com",
+                  ops_numbers_json=_pairs(("What do you charge?", "$22 a class")))
+    db.add(row)
+    db.commit()
+    calls = []
+
+    def reply(call, parse, record):
+        calls.append(1)
+        return _roadmap(phases=[dict(REALISTIC[0], do="We message your 200 regulars."), REALISTIC[1]])
+
+    monkeypatch.setattr(action_plan, "ask_until_usable", reply)
+    try:
+        with pytest.raises(StageFailed) as stopped:
+            action_plan.write(db, row.id)
+        assert stopped.value.stage == "roadmap" and "fewer than two usable phases" in str(stopped.value.cause)
+        assert len(calls) == 2
+        db.refresh(row)
+        assert json.loads(row.action_plan_json) == {"status": "failed"}
+    finally:
+        db.close()
+
+
+def test_a_decision_keeps_its_question_and_the_options_that_name_no_unowned_price():
+    plan, problems = action_plan_shape(decisions=[
+        {"question": "Which evening price?", "detail": "Daytime stays at $22. The studio down the road charges $35.",
+         "options": ["Keep $22", "Raise to $40", "Not yet"]},
+        {"question": "Charge $40 at weekends?", "options": ["Yes", "No"]},
+        {"question": "Go ahead?", "options": ["Raise to $40", "Yes"]}])
+    assert [d["question"] for d in plan["decisions"]] == ["Which evening price?"]
+    assert plan["decisions"][0]["options"] == ["Keep $22", "Not yet"]
+    assert plan["decisions"][0]["detail"] == "Daytime stays at $22."
+
+
+def action_plan_shape(**over):
+    from app.pipeline import action_plan
+    return action_plan.shape(_roadmap(**over), K.known_for_texts(HALO))
+
+
+def test_a_number_the_roadmap_labels_as_our_proposal_is_ours_and_binds():
+    from app.figures.model import from_json
+    plan, _ = action_plan_shape(decisions=[
+        {"question": "Which evening price?", "options": ["$26 (proposed)", "Keep $22"]},
+        {"question": "How long a trial?", "options": ["4 weeks (our proposal)", "Not yet"]}],
+        summary="We trial $26 (proposed) evenings. We also try $30 with no label.")
+    assert plan["decisions"][0]["options"] == ["$26 (proposed)", "Keep $22"]
+    assert plan["decisions"][1]["options"] == ["4 weeks (our proposal)", "Not yet"]
+    assert plan["summary"] == "We trial $26 (proposed) evenings."      # an unlabelled price still goes
+    figures = {f.id: f for f in map(from_json, plan["figures"])}
+    assert (figures["PLAN-PROP-1"].value, figures["PLAN-PROP-1"].unit, figures["PLAN-PROP-1"].kind) == (26, "USD", "ours")
+    assert figures["PLAN-PROP-1"].source.note == "proposed in the roadmap"
+    assert (figures["PLAN-PROP-2"].value, figures["PLAN-PROP-2"].unit) == (4, "week")
+
+
+def test_the_proposals_a_roadmap_may_label_are_bounded(monkeypatch):
+    from app.config import settings
+    from app.pipeline import action_plan
+    monkeypatch.setattr(settings, "PLAN_PROPOSED_FIGURES_MAX", 2)
+    raw = _roadmap(summary="We try $24 (proposed), $25 (proposed) and $26 (proposed). Again $24 (proposed).")
+    got = action_plan.proposed_figures(raw)
+    assert [f.value for f in got] == [24, 25]
+
+
 # -- the set, as a prompt shows it -------------------------------------------------------
 
 def _theirs(n: int, value=22, unit="USD", quote="I charge $22 a class") -> Figure:

@@ -145,9 +145,43 @@ def test_the_unit_comes_from_how_the_number_was_written_and_never_claims_a_curre
             "we have 75 staff.")
     req = _req(main_problem=text)
     units = {f.value: f.unit for f in casefile.build(req)}
-    assert units == {Decimal(35): "USD", Decimal(40): "EUR", Decimal(45): "GBP", Decimal(50): "",
+    # A$ is Australian dollars, as the binder reads it (one table, bind._SIGN_CURRENCY)
+    assert units == {Decimal(35): "USD", Decimal(40): "EUR", Decimal(45): "GBP", Decimal(50): "AUD",
                      Decimal(55): "USD", Decimal(60): "USD", Decimal(65): "USD",
                      Decimal(70): "percent", Decimal(75): "staff"}
+
+
+def test_only_a_currency_code_the_reader_knows_is_a_currency_and_every_dollar_sign_is_the_binders():
+    from app.figures.bind import bind
+    req = _req(main_problem="We charge $50 FOR a class. Online it is A$60, NZ$70, C$80, S$90 or HK$95.")
+    units = {f.value: f.unit for f in casefile.build(req)}
+    assert units == {Decimal(50): "USD", Decimal(60): "AUD", Decimal(70): "NZD", Decimal(80): "CAD",
+                     Decimal(90): "SGD", Decimal(95): "HKD"}
+    # so the client's own $50 and A$60 bind in prose
+    r = bind("You charge $50 a class, or A$60 online.", casefile.load(req))
+    assert not r.unresolved
+
+
+def test_a_time_word_reads_as_the_shared_table_says():
+    from app.figures.words import TIME_CANON
+    assert TIME_CANON["mos"] == "month" and TIME_CANON["hrs"] == "hour"
+    req = _req(main_problem="We have run for 4 mos, about 8 hrs a week.")
+    assert [f.unit for f in casefile.build(req)] == ["month", "hour"]
+
+
+def test_every_intake_text_field_the_prompts_show_is_read_and_an_old_row_still_builds():
+    req = _req(main_problem="Bookings are slow.", target_customers="Women 28-45 nearby",
+               what_you_like="Their app lets you book 3 classes at once", industry="Fitness",
+               timeline="Live within 6 weeks", budget_range="Up to $5,000")
+    got = {f.id: (f.value, f.unit) for f in casefile.build(req)}
+    assert got["F-target_customers-1"][0] == 28 and got["F-target_customers-2"][0] == 45
+    assert got["F-what_you_like-1"] == (Decimal(3), "classes")
+    assert got["F-timeline-1"] == (Decimal(6), "week")
+    assert got["F-budget_range-1"] == (Decimal(5000), "USD")
+    # the earlier columns keep their ids, and a row with none of the new fields builds as before
+    old = _req(main_problem="We have 12 reformers.")
+    assert [f.id for f in casefile.build(old)] == ["F-main_problem-1"]
+    assert [f.id for f in casefile.load(old)] == ["F-main_problem-1"]
 
 
 def test_a_currency_code_written_with_the_amount_beats_the_sign_beside_it():

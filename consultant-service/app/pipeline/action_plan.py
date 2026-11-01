@@ -13,8 +13,13 @@ with answers they can tap. No tasks, no tracking.
 
 Every number in the prose is bound the way the answer's is: against what the
 request knows (`app.figures.known`), with no leniency, so "twelve" and "3" need
-a figure as much as "$35" does. A phase, a decision or an assumption holding a
-number that names no figure is dropped; a summary holding one is left empty.
+a figure as much as "$35" does. What goes is the sentence, not the phase: each
+sentence of the prose (what we do, the summary, a detail, an assumption, each
+option) holding a number that names no figure is removed and named for the retry.
+A phase goes only when its title or its "when" names nothing or nothing of what we
+do is left; a decision only when its question names nothing or fewer than two
+options are left. A number the roadmap labels "(proposed)" or "(our proposal)" is
+ours (PLAN-PROP-n, bounded by `settings.PLAN_PROPOSED_FIGURES_MAX`) and stays.
 
 The lengths the roadmap proposes are ours, and it says so: each phase whose
 "when" is a span of weeks ("Weeks 3 to 6") has its length as a figure
@@ -40,7 +45,7 @@ from app.ai import provider
 from app.config import settings
 from app.database import SessionLocal
 from app.figures import known as _known
-from app.figures.bind import bind
+from app.figures.bind import bind, clean_sentences
 from app.figures.model import Figure, FigureSet, Proposal, as_json
 from app.models import Request
 from app.pipeline import answer as _answer
@@ -78,6 +83,54 @@ def _ours(fid: str, value: int, unit: str, note: str) -> Figure:
     return Figure(fid, Decimal(value), unit, None, "ours", Proposal(note=note), 0)
 
 
+# "$26 (proposed)", "4 weeks (our proposal)": a number the roadmap labels as ours
+_PROPOSED_LABEL = re.compile(r"(?:[ \t]+[A-Za-z]+){0,2}?[ \t]*\((?:proposed|our proposal)\)", re.I)
+_NOT_PROPOSED_FORMS = frozenset({"time", "date"})
+
+
+def _plan_texts(raw: dict) -> list[str]:
+    """Every piece of text the roadmap wrote, in order."""
+    texts = [raw.get("summary")]
+    for p in raw.get("phases") or []:
+        if isinstance(p, dict):
+            texts += [p.get("when"), p.get("title"), p.get("do"), p.get("you")]
+    for d in raw.get("decisions") or []:
+        if isinstance(d, dict):
+            texts += [d.get("question"), d.get("detail"), *(d.get("options") or [])]
+    texts += list(raw.get("assumptions") or [])
+    return [t for t in (_text(x, 400) for x in texts) if t]
+
+
+def proposed_figures(raw: dict) -> list[Figure]:
+    """The numbers the roadmap labels as our proposal, as ours figures (PLAN-PROP-n),
+    each in the unit it was written in (a currency, a percent, a time word, the noun
+    it counts). The label stays in the printed text; a number without it is held to
+    the known set like any other. At most `settings.PLAN_PROPOSED_FIGURES_MAX`; the
+    same number in the same unit is one figure."""
+    from app.figures.casefile import unit_of
+    from app.figures.read import mentions
+
+    out: list[Figure] = []
+    seen: set = set()
+    for text in _plan_texts(raw):
+        for m in mentions(text):
+            if m.form in _NOT_PROPOSED_FORMS or not _PROPOSED_LABEL.match(text, m.end):
+                continue
+            unit = unit_of(m, text)
+            if (m.value, unit) in seen:
+                continue
+            if len(out) >= settings.PLAN_PROPOSED_FIGURES_MAX:
+                return out
+            try:
+                out.append(Figure(f"PLAN-PROP-{len(out) + 1}", m.value, unit, None, "ours",
+                                  Proposal(note="proposed in the roadmap"),
+                                  max(0, -m.value.normalize().as_tuple().exponent)))
+            except (TypeError, ValueError):
+                continue
+            seen.add((m.value, unit))
+    return out
+
+
 def shape(raw: dict, known: FigureSet, hours: set[int] | None = None,
           plan_weeks: Figure | None = None) -> tuple[dict | None, list[str]]:
     """(roadmap, problems). Pure. `known` is what the request knows
@@ -88,13 +141,26 @@ def shape(raw: dict, known: FigureSet, hours: set[int] | None = None,
     problems: list[str] = []
 
     def checked(text: str, what: str, against: FigureSet) -> str | None:
-        """The text bound to the figures, or None when a number in it names none."""
+        """A short field (a title, a question) bound to the figures, or None when a
+        number in it names none: it has no sentence to spare."""
         r = bind(text, against, hours=hours)
         if r.unresolved:
             problems.append(f"{what} uses numbers they never gave: " + ", ".join(u.text for u in r.unresolved))
             return None
         return r.text
 
+    def cleaned(text: str, what: str, against: FigureSet) -> str:
+        """Prose bound to the figures, with each sentence that holds a number naming
+        none removed (and named in the problems, for the retry); "" when none is left."""
+        if not text:
+            return ""
+        kept, removed = clean_sentences(text, against, hours=hours)
+        problems.extend(f"{what}: removed \"{s}\", whose numbers they never gave" for s in removed)
+        return kept.strip()
+
+    # A number the roadmap itself labels as ours ("$26 (proposed)") is a figure of ours.
+    proposed = proposed_figures(raw)
+    known = _known.with_extra(known, proposed)
     base = [plan_weeks] if plan_weeks is not None else []
     # No phase runs past the plan: its length when the answer proposed one, else the longest plan we make.
     last_week = int(plan_weeks.value) if plan_weeks is not None else settings.PLAN_WEEKS_MAX
@@ -116,43 +182,52 @@ def shape(raw: dict, known: FigureSet, hours: set[int] | None = None,
                       f"how long phase {len(phases) + 1} takes")] if span else [])
         against = _known.with_extra(known, base + own)
         # A span of weeks is the field's whole text and was held to the plan above; any
-        # other "when" is bound, so a quantity in it ("When revenue hits $10k") must name a figure
-        bound = [when if span else checked(when, f"phase {i + 1}", against),
-                 *(checked(t, f"phase {i + 1}", against) for t in (title, do, you))]
-        if any(b is None for b in bound):
+        # other "when" is bound, so a quantity in it ("When revenue hits $10k") must name a figure.
+        # The title and the when have no sentence to spare: a number naming nothing drops the phase.
+        what = f"phase {i + 1}"
+        head = [when if span else checked(when, what, against), checked(title, what, against)]
+        if any(h is None for h in head):
             continue
-        phases.append({"when": bound[0], "title": bound[1], "do": bound[2],
-                       "by": "together" if by == "together" else "us", "you": bound[3]})
+        # What we do is prose: a sentence holding an operational number nobody owns ("within
+        # 15 minutes") goes, and the phase stays while any of it is left.
+        done = cleaned(do, what, against)
+        if not done:
+            problems.append(f"{what} had nothing left to say once its unowned numbers were removed")
+            continue
+        phases.append({"when": head[0], "title": head[1], "do": done,
+                       "by": "together" if by == "together" else "us", "you": cleaned(you, what, against)})
         spans.append(span)
         figures += own
 
     if plan_weeks is None and phases and all(spans):
         plan_weeks = _ours(_known.PLAN_WEEKS_ID, max(s[1] for s in spans), "week",
                            "the length of the plan we propose")
-    figures = ([plan_weeks] if plan_weeks is not None else []) + figures
+    figures = ([plan_weeks] if plan_weeks is not None else []) + figures + proposed
     if phases:
         figures.append(_ours(_known.PLAN_PHASES_ID, len(phases), "phases", "the phases we propose"))
     against = _known.with_extra(known, figures)
 
-    summary = _text(raw.get("summary"), 400)
-    summary = (checked(summary, "the summary", against) or "") if summary else ""
+    summary = cleaned(_text(raw.get("summary"), 400), "the summary", against)
 
     decisions = []
     for i, d in enumerate(list(raw.get("decisions") or [])[:4]):
         if not isinstance(d, dict):
             continue
+        what = f"decision {i + 1}"
         question = _text(d.get("question"), 90)
-        detail = _text(d.get("detail"), 160)
         options = [o for o in (_text(x, 36) for x in (d.get("options") or [])[:4]) if o]
         if not question or len(options) < 2:
             continue
-        bound = [checked(t, f"decision {i + 1}", against) for t in (question, detail, *options)]
-        if any(b is None for b in bound):
+        question = checked(question, what, against)
+        # each option is a sentence of its own: one naming a price nobody owns goes,
+        # the others keep their words; a decision needs its question and two options
+        options = [o for o in (cleaned(x, what, against) for x in options) if o]
+        if question is None or len(options) < 2:
             continue
-        decisions.append({"id": f"d{len(decisions) + 1}", "question": bound[0],
-                          "detail": bound[1], "options": bound[2:]})
+        decisions.append({"id": f"d{len(decisions) + 1}", "question": question,
+                          "detail": cleaned(_text(d.get("detail"), 160), what, against), "options": options})
 
-    assumptions = [b for b in (checked(a, "an assumption", against)
+    assumptions = [b for b in (cleaned(a, "an assumption", against)
                                for a in (_text(x, 240) for x in (raw.get("assumptions") or [])[:5]) if a) if b]
 
     if len(phases) < 2:

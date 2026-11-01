@@ -110,13 +110,17 @@ class Settings:
     # 1..12, the longest 4..104.
     PLAN_WEEKS_DEFAULT: int = _env_int_within("PLAN_WEEKS_DEFAULT", 6, 2, 26)
     PLAN_WEEKS_MAX: int = _env_int_within("PLAN_WEEKS_MAX", 12, 4, 104)
+    # How many numbers a roadmap may label as our proposal ("$26 (proposed)") and have
+    # registered as ours (app/pipeline/action_plan.py). Held to 1..30.
+    PLAN_PROPOSED_FIGURES_MAX: int = _env_int_within("PLAN_PROPOSED_FIGURES_MAX", 8, 1, 30)
     # the shortest may not pass the longest (both are set from the environment)
     PLAN_WEEKS_MIN: int = _at_most("PLAN_WEEKS_MIN", _env_int_within("PLAN_WEEKS_MIN", 2, 1, 12),
                                    "PLAN_WEEKS_MAX", PLAN_WEEKS_MAX)
     # How many figures a prompt lists under "Figures you may use"
-    # (app/figures/known.py prompt_lines). Theirs and derived come first; the rest
-    # are counted in one closing line. A prompt cannot grow with a pasted
-    # spreadsheet. Held to 10..200.
+    # (app/figures/known.py prompt_lines). They are listed theirs first, but when
+    # they do not all fit our proposals and the references are the ones kept, and
+    # what is left out (theirs and derived, the files' cells first) is counted in
+    # one closing line. A prompt cannot grow with a pasted spreadsheet. Held to 10..200.
     PROMPT_FIGURE_LINES: int = _env_int_within("PROMPT_FIGURE_LINES", 60, 10, 200)
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
@@ -152,7 +156,9 @@ class Settings:
     PORT: int = int(_env_or("PORT", "8002"))
     FRONTEND_ORIGIN: str = _env_or("FRONTEND_ORIGIN", "http://localhost:5173")
 
-    UPLOADS_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+    # The folder files and exports are kept in. An environment variable moves
+    # it (the test suite points every run, subprocesses included, at a temp folder).
+    UPLOADS_DIR: str = _env_or("UPLOADS_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads"))
 
     # -- Universal engine bounds (ENGINE_*) --------------------------------
     # Same rule as the role/module bounds above: never a fixed count of
