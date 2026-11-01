@@ -18,22 +18,32 @@ answer this stage's finding, and `analyze`'s single story is not a stand-in
 for it. What may fall short is only what is reported as having fallen short:
 one test that crashed on our side stays in the diagnosis marked `not_tested`,
 and a skeptic that never ran is recorded as such.
+
+Every sentence the model writes for the client (the statements, the tests' reasons
+and what they would need, the reviewers' objections) is checked against the figures
+the request knows: a sentence holding a number nobody owns is dropped, its
+neighbours kept. An explanation left with no statement is unusable like one that
+never had one, so a reply made of them is asked for again, and then stops the run.
+The claim ids a statement cites and the thinking trail's own counts are not prose.
 """
 
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from typing import Callable
 
 from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures.known import hours_for, known_for
 from app.models import Request
 from app.pipeline._shared import (
     ask_until_usable, briefing_corrections, build_engagement_register, extract_json_from_text, ledger,
     log_usage, reply_json,
 )
 from app.pipeline import evidence
+from app.pipeline.analyze import clean_prose
 from app.pipeline.failure import StageFailed
 from app.pipeline.registry import client_fact_claims
 from app.templating import render
@@ -42,6 +52,15 @@ logger = logging.getLogger("consultant.diagnose")
 
 MIN_HYPOTHESES = 2
 MAX_HYPOTHESES = 5
+
+#: What a row can hold at the moment `diagnose` runs that is not about this run: the
+#: answer, the registry and the roadmap are written after it. (The capacity picture
+#: was read just before, and is kept: a hypothesis may cite it.)
+STALE_AT_DIAGNOSIS = frozenset({"answer", "registry", "roadmap"})
+
+#: Checks the text of one model-written field: binds its numbers to the figures
+#: the request knows and takes out each sentence that holds one nobody owns.
+Clean = Callable[[str], str]
 
 #: The two angles the skeptics attack from. Distinct on purpose: two
 #: reviewers given the same brief agree with each other, which reads as
@@ -137,14 +156,17 @@ def _ask(prompt: str, model: str, max_tokens: int, use, record):
     )
 
 
-def _enough_explanations(known_ids: set[str]):
+def _enough_explanations(known_ids: set[str], clean: Clean):
     """The `use` for the diagnostician's reply: its usable explanations, or a
     ValueError when there are fewer than `MIN_HYPOTHESES`. One explanation is
     not a diagnosis, it is an opinion, and dressing a single guess up as a
-    tested conclusion is the thing this stage exists to prevent."""
+    tested conclusion is the thing this stage exists to prevent.
+
+    An explanation whose every sentence held a number nobody owns has no
+    statement left and is not usable, so a reply made of them is asked for again."""
 
     def use(raw: dict) -> list[dict]:
-        hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids)
+        hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids, clean)
         if len(hypotheses) < MIN_HYPOTHESES:
             raise ValueError(
                 f"the model gave {len(hypotheses)} usable explanation{'' if len(hypotheses) == 1 else 's'}, "
@@ -154,25 +176,30 @@ def _enough_explanations(known_ids: set[str]):
     return use
 
 
-def _sanitize_hypotheses(raw: list, known_ids: set[str]) -> list[dict]:
+def _sanitize_hypotheses(raw: list, known_ids: set[str], clean: Clean) -> list[dict]:
     """Keep the shape honest and drop citations to claims that do not exist.
 
     A fabricated id is worse than no id: downstream it reads exactly like a
     real one, and the client is shown a conclusion resting on a number they
-    never gave.
+    never gave. The same goes for a number in the prose: each text is cut to the
+    length stored and then checked (`clean`), so the check sees what is kept, and
+    an explanation with no statement left is dropped like one that had none.
     """
     out = []
     for i, h in enumerate(raw or [], start=1):
         if not isinstance(h, dict) or not str(h.get("statement") or "").strip():
             continue
+        statement = clean(str(h["statement"])[:400])
+        if not statement.strip():
+            continue
         cites = [c for c in (h.get("cites") or []) if isinstance(c, str) and c in known_ids]
         out.append({
             "id": str(h.get("id") or f"H{i}")[:8],
-            "statement": str(h["statement"])[:400],
+            "statement": statement,
             "area": str(h.get("area") or "other")[:40],
             "software_can_fix": bool(h.get("software_can_fix")),
-            "would_support": str(h.get("would_support") or "")[:300],
-            "would_refute": str(h.get("would_refute") or "")[:300],
+            "would_support": clean(str(h.get("would_support") or "")[:300]),
+            "would_refute": clean(str(h.get("would_refute") or "")[:300]),
             "cites": cites,
             "from_owner": bool(h.get("from_owner")),
         })
@@ -242,6 +269,15 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
 
     evidence, claims = _evidence_lines(req)
     known_ids = {c["id"] for c in claims}
+    # Every sentence the model writes for the client is checked against the figures
+    # the request knows: theirs, and their week as it was just worked out.
+    known = known_for(req, leave_out=STALE_AT_DIAGNOSIS)
+    hours = hours_for(req)
+    removed: list[str] = []
+
+    def clean(text: str) -> str:
+        return clean_prose(text, known, hours, removed)
+
     register = build_engagement_register(
         req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
         req.business_description,
@@ -275,7 +311,7 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
                 corrections=corrections,
                 objections=objections,
                 **context,
-            ), settings.REASONING_MODEL, DIAGNOSE_TOKENS, _enough_explanations(known_ids),
+            ), settings.REASONING_MODEL, DIAGNOSE_TOKENS, _enough_explanations(known_ids, clean),
                 ledger(db, request_id, model=settings.REASONING_MODEL, purpose=f"diagnose:{attempt}"))
         except Exception as exc:
             # a failed call, or replies too thin to be a diagnosis every time
@@ -295,10 +331,12 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
                     software=h["software_can_fix"], theirs=h["from_owner"])
 
         result = _test_and_challenge(db, request_id, hypotheses, context, known_ids,
-                                     main_problem, narrator=(db, request_id))
+                                     main_problem, clean=clean, narrator=(db, request_id))
         if result["status"] != "killed" or attempt == 2:
             result["attempts"] = attempt
             result["evidence"] = claims
+            if removed:
+                logger.info("took %d sentence(s) holding a number nobody gave out of the diagnosis", len(removed))
             return result
 
         objections = "\n".join(
@@ -310,13 +348,15 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
 
 def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
                         context: dict, known_ids: set[str], main_problem: str,
-                        narrator: tuple | None = None) -> dict:
+                        *, clean: Clean, narrator: tuple | None = None) -> dict:
     """One pass: test every hypothesis, then attack whichever leads.
 
     `narrator` is the (session, id) to write the client-facing trail to, and
     is used only BETWEEN the parallel phases — never inside a worker, where
     touching this session is the bug that once made every skeptic look as
-    though it had never run.
+    though it had never run. `clean` is used only there as well, since it
+    appends to a list the workers must not share: they return their text as
+    written, and it is checked once they have all returned.
     """
     def say(kind: str, text: str, **extra) -> None:
         if narrator:
@@ -349,6 +389,8 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
     with ThreadPoolExecutor(max_workers=MAX_HYPOTHESES) as pool:
         tested = list(pool.map(test, hypotheses))
     for h, (result, calls, error) in zip(hypotheses, tested):
+        result["because"] = clean(result["because"])
+        result["would_need"] = clean(result["would_need"])
         h["test"] = result
         for usage, call_error in calls or [(None, error)]:
             log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
@@ -406,6 +448,8 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
         attacked = list(pool.map(attack, CHALLENGE_ANGLES))
     challenges = []
     for result, usage, error in attacked:
+        for field in ("because", "weakness", "better_explanation"):
+            result[field] = clean(result[field])
         challenges.append(result)
         log_usage(db, request_id, provider="openrouter", model=settings.QA_MODEL,
                   purpose=f"challenge:{result['angle']}", usage=usage,

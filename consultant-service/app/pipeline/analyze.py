@@ -1,13 +1,64 @@
 import json
+import logging
 
 from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures.bind import clean_sentences
+from app.figures.known import hours_for, known_for
+from app.figures.model import FigureSet
 from app.models import Request
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline.failure import StageFailed
 from app.templating import render
+
+logger = logging.getLogger("consultant.analyze")
+
+#: What a row can hold at the moment `analyze` runs that is not about this run: the
+#: capacity picture is read after this stage, and the answer, the registry and the
+#: roadmap are written after it, so on the row they are from an earlier run (if any).
+STALE_AT_START = frozenset({"capacity", "answer", "registry", "roadmap"})
+
+#: The model-written text of the analysis a client reads on the web.
+PROSE_KEYS = ("target_customer_profile", "pain_points", "growth_opportunity")
+
+
+def has_text(value) -> bool:
+    """Whether a string, or a list or dict holding strings, has any text in it."""
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return any(has_text(v) for v in value)
+    if isinstance(value, dict):
+        return any(has_text(v) for v in value.values())
+    return False
+
+
+def clean_prose(value, known: FigureSet, hours: set[int], removed: list[str]):
+    """Model-written text with every number checked: each string is bound to the
+    figures and loses each sentence that holds a number nobody owns
+    (`bind.clean_sentences`); a list or dict is walked, and a list item that had
+    text and has none left is dropped. Anything else is returned as it is. The
+    sentences taken out are appended to `removed`, for the caller to log.
+
+    The three stages that write the analysis, the decision and the diagnosis share
+    this walk; each decides which of its fields are prose."""
+    if isinstance(value, str):
+        text, gone = clean_sentences(value, known, hours=hours)
+        removed.extend(gone)
+        return text
+    if isinstance(value, list):
+        kept = []
+        for item in value:
+            cleaned = clean_prose(item, known, hours, removed)
+            if has_text(item) and not has_text(cleaned):
+                continue
+            kept.append(cleaned)
+        return kept
+    if isinstance(value, dict):
+        return {k: clean_prose(v, known, hours, removed) for k, v in value.items()}
+    return value
 
 
 def _format_site_research(req: Request) -> str:
@@ -33,8 +84,19 @@ def _format_site_research(req: Request) -> str:
     return "; ".join(parts) if parts else "none given"
 
 
-def _analysis(body: dict) -> dict:
+def _analysis(body: dict, known: FigureSet, hours: set[int]) -> dict:
+    """The analysis in a reply, its prose checked against what the client gave.
+
+    Nothing in it is required beyond a JSON object, as before: a field whose every
+    sentence held a number nobody owns is left empty, exactly as one the model did
+    not write."""
     result = reply_json(body)
+    removed: list[str] = []
+    for key in PROSE_KEYS:
+        if key in result:
+            result[key] = clean_prose(result[key], known, hours, removed)
+    if removed:
+        logger.info("took %d sentence(s) holding a number nobody gave out of the analysis", len(removed))
     result.setdefault("business_model", "Unknown")
     result.setdefault("pain_points", [])
     return result
@@ -47,6 +109,9 @@ def analyze_business(db: Session, request_id: int) -> dict:
         raise ValueError(f"Request {request_id} not found")
 
     try:
+        # Only the client's own figures are known here: the model has been shown nothing else.
+        known = known_for(req, leave_out=STALE_AT_START)
+        hours = hours_for(req)
         prompt = render(
             "analyze.j2",
             business_name=req.business_name or "",
@@ -64,7 +129,7 @@ def analyze_business(db: Session, request_id: int) -> dict:
         )
         result = ask_until_usable(
             lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}]),
-            _analysis,
+            lambda body: _analysis(body, known, hours),
             ledger(db, request_id, model=settings.ANALYSIS_MODEL, purpose="analyze"),
         )
     except Exception as exc:
