@@ -3,7 +3,7 @@
  *
  * The answer is a pyramid: the governing thought first, then the few points
  * that hold it up, each with its arithmetic shown in small type underneath.
- * What we estimated or could not check is boxed in amber, because it is marked
+ * What rests on our estimates is boxed in amber, because it is marked
  * the same way in every plan. On the right, the plans write themselves while
  * they read; nothing waits on a button. Pushing back is always one click away.
  */
@@ -229,7 +229,7 @@ export default function Answer({
 
           {unverified.length ? (
             <div className="cx-estd">
-              <b>What we estimated or couldn't check.</b> Each is marked in every plan.
+              <b>What rests on our estimates.</b> Each is marked in every plan.
               <ul>
                 {unverified.map((u) => (
                   <li key={u}>• {u}</li>
@@ -352,7 +352,7 @@ export default function Answer({
             </div>
           ) : null}
           <div className="cx-card" style={{ padding: 28 }}>
-            <h2 className="cx-h3">What we couldn't check</h2>
+            <h2 className="cx-h3">What rests on our estimates</h2>
             {unverified.length ? (
               <ul style={{ marginTop: 14, display: 'grid', gap: 8 }}>
                 {unverified.map((u) => (

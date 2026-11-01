@@ -4,12 +4,11 @@
  * A shelf of documents first (only the ones that exist), then how it gets
  * done — the implementation roadmap, with who does each phase — beside the
  * few calls only the owner can make. We do the work; they make the calls.
- * Last, the screens and the honest box: what we estimated, marked in every
- * plan rather than left in the fine print.
+ * Last, the screens and the box that names what rests on our estimates.
  */
 import { useState } from 'react';
 
-import type { DecisionState, FigureMap, Roadmap, StudioAnswer, StudioExportKind, SystemPayload } from '../../api/consultant';
+import type { DecisionState, FigureMap, PackageFile, Roadmap, StudioAnswer, StudioExportKind, SystemPayload } from '../../api/consultant';
 import { shortName } from '../../utils/names';
 import { FigTags, Segments } from './Fig';
 import SystemViewer from './SystemViewer';
@@ -142,6 +141,24 @@ function Book({ cover, title, body, action, extra, meta }: {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+const SHELF_COVER: Record<string, string> = {
+  blueprint: '',
+  technical: 'c2',
+  operations: 'c3',
+  system: 'c4',
+  deck: 'c5',
+  roadmap: 'c6',
+};
+
+const SHELF_BODY: Record<string, string> = {
+  blueprint: 'The decision, the financial case, every module, the org chart, the scoreboard, and what could make it fail.',
+  technical: 'How the system works, the data model, each AI agent\'s tools and guardrails, the APIs, security and build order.',
+  operations: 'How the work runs, day to day, once it\'s live: routines, checklists and who does what.',
+  roadmap: 'Who does what, phase by phase, for as long as the plan runs.',
+  system: 'Every screen your team and customers will use.',
+  deck: 'The same story, one slide at a time.',
+};
+
 // The roadmap's own figures, as the server lists them with the roadmap: each phase's
 // length (the phase's number is in its id) and the length of the whole plan.
 const PHASE_WEEKS = /^PLAN-PHASE-(\d+)-WEEKS$/;
@@ -167,6 +184,7 @@ export default function Package({
   screens,
   system,
   docs,
+  files,
   stats,
   onDownload,
   onShare,
@@ -191,6 +209,9 @@ export default function Package({
   /** The navigable system. Replaces the screens when it is available. */
   system?: SystemPayload | null;
   docs: { blueprint: boolean; technical: boolean; operations: boolean };
+  /** The shelf, as the server lists it. Absent on an older payload, which
+   *  keeps the three books it always had. */
+  files?: PackageFile[];
   stats?: { modules?: number; agents?: number; screens?: number };
   onDownload: (k: StudioExportKind) => Promise<void>;
   onShare?: () => Promise<string>;
@@ -269,74 +290,89 @@ export default function Package({
                 )}{' '}
               </>
             ) : null}
-            Every figure in these plans is one you gave us, arithmetic on those figures, or an estimate marked as ours.
+            What was checked: every figure is one you gave us, arithmetic on those figures, or an estimate marked as ours.
           </p>
         </div>
         {!readOnly && onShare && onUnshare ? <ShareButton onShare={onShare} onUnshare={onUnshare} /> : null}
       </div>
 
       <div className="cx-shelf">
-        {docs.blueprint ? (
-          <Book
-            cover=""
-            title="The blueprint"
-            body="The decision, the financial case, every module, the org chart, the scoreboard, and what could make it fail."
-            action={{ label: 'Download', run: () => onDownload('blueprint') }}
-            meta={stats?.modules ? plural(stats.modules, 'module', 'modules') : undefined}
-          />
-        ) : null}
-        {docs.technical ? (
-          <Book
-            cover="c2"
-            title="The technical plan"
-            body="How the system works, the data model, each AI agent's tools and guardrails, the APIs, security and build order."
-            action={{ label: 'Download', run: () => onDownload('technical') }}
-          />
-        ) : null}
-        {docs.operations ? (
-          <Book
-            cover="c3"
-            title="The operations manual"
-            body="How the work runs, day to day, once it's live: routines, checklists and who does what."
-            action={{ label: 'Download', run: () => onDownload('operations') }}
-          />
-        ) : null}
-        {sys ? (
-          <Book
-            cover="c4"
-            title="Your system, screen by screen"
-            body={`Every screen your team and customers will use, drawn for ${short}. Navigate it here, or take the PDF.`}
-            action={{ label: 'View', run: () => scrollTo('cx-system') }}
-            extra={sys.pdf_available ? { label: 'Download as PDF', run: () => onDownload('system') } : undefined}
-            meta={plural(sys.screens.length, 'screen', 'screens')}
-          />
-        ) : screens.length ? (
-          <Book
-            cover="c4"
-            title="Your product screens"
-            body={`The screens your team and customers will use, drawn for ${short}.`}
-            action={{ label: 'View', run: () => scrollTo('cx-screens') }}
-            meta={plural(screenCount, 'screen', 'screens')}
-          />
-        ) : null}
-        {agents > 0 ? (
-          <Book
-            cover="c5"
-            title="Your AI team"
-            body="What each agent decides alone, and where it hands over to a person. In the blueprint."
-            action={docs.blueprint ? { label: 'Read', run: () => onDownload('blueprint') } : undefined}
-            meta={plural(agents, 'agent', 'agents')}
-          />
-        ) : null}
-        {ready && phases.length ? (
-          <Book
-            cover="c6"
-            title="The implementation roadmap"
-            body="Who does what, phase by phase, from go-ahead to running on the new system."
-            action={{ label: 'Read', run: () => scrollTo('cx-roadmap') }}
-            meta={plural(phases.length, 'phase', 'phases')}
-          />
-        ) : null}
+        {files ? (
+          files.filter((file) => file.key !== 'zip').map((file) => (
+            <Book
+              key={file.key}
+              cover={SHELF_COVER[file.key] ?? ''}
+              title={file.title}
+              body={file.state === 'absent' && file.reason ? file.reason : SHELF_BODY[file.key] ?? file.filename}
+              action={file.state === 'ready' ? { label: 'Download', run: () => onDownload(file.key) } : undefined}
+              meta={file.state === 'writing' ? 'Still being written' : file.state === 'absent' ? 'Not in this package' : undefined}
+            />
+          ))
+        ) : (
+          <>
+            {docs.blueprint ? (
+              <Book
+                cover=""
+                title="The blueprint"
+                body="The decision, the financial case, every module, the org chart, the scoreboard, and what could make it fail."
+                action={{ label: 'Download', run: () => onDownload('blueprint') }}
+                meta={stats?.modules ? plural(stats.modules, 'module', 'modules') : undefined}
+              />
+            ) : null}
+            {docs.technical ? (
+              <Book
+                cover="c2"
+                title="The technical plan"
+                body="How the system works, the data model, each AI agent's tools and guardrails, the APIs, security and build order."
+                action={{ label: 'Download', run: () => onDownload('technical') }}
+              />
+            ) : null}
+            {docs.operations ? (
+              <Book
+                cover="c3"
+                title="The operations manual"
+                body="How the work runs, day to day, once it's live: routines, checklists and who does what."
+                action={{ label: 'Download', run: () => onDownload('operations') }}
+              />
+            ) : null}
+            {sys ? (
+              <Book
+                cover="c4"
+                title="Your system, screen by screen"
+                body={`Every screen your team and customers will use, drawn for ${short}. Navigate it here, or take the PDF.`}
+                action={{ label: 'View', run: () => scrollTo('cx-system') }}
+                extra={sys.pdf_available ? { label: 'Download as PDF', run: () => onDownload('system') } : undefined}
+                meta={plural(sys.screens.length, 'screen', 'screens')}
+              />
+            ) : screens.length ? (
+              <Book
+                cover="c4"
+                title="Your product screens"
+                body={`The screens your team and customers will use, drawn for ${short}.`}
+                action={{ label: 'View', run: () => scrollTo('cx-screens') }}
+                meta={plural(screenCount, 'screen', 'screens')}
+              />
+            ) : null}
+            {agents > 0 ? (
+              <Book
+                cover="c5"
+                title="Your AI team"
+                body="What each agent decides alone, and where it hands over to a person. In the blueprint."
+                action={docs.blueprint ? { label: 'Read', run: () => onDownload('blueprint') } : undefined}
+                meta={plural(agents, 'agent', 'agents')}
+              />
+            ) : null}
+            {ready && phases.length ? (
+              <Book
+                cover="c6"
+                title="The implementation roadmap"
+                body="Who does what, phase by phase, from go-ahead to running on the new system."
+                action={{ label: 'Read', run: () => scrollTo('cx-roadmap') }}
+                meta={plural(phases.length, 'phase', 'phases')}
+              />
+            ) : null}
+          </>
+        )}
       </div>
 
       <div className="cx-plan-grid">
@@ -428,7 +464,7 @@ export default function Package({
               </button>
             ) : null}
             {goError ? <p className="cx-error" role="alert">{goError}</p> : null}
-            {docs.blueprint || docs.technical || docs.operations ? (
+            {(files ? files.some((file) => file.key === 'zip' && file.available) : docs.blueprint || docs.technical || docs.operations) ? (
               <button type="button" className="cx-btn cx-btn--ghost" onClick={downloadAll} disabled={zipBusy}>
                 {zipBusy ? 'Preparing…' : 'Download everything'}
               </button>
@@ -468,7 +504,7 @@ export default function Package({
         <div className="cx-assume">
           <div className="cx-row" style={{ justifyContent: 'space-between' }}>
             <p style={{ margin: 0 }}>
-              <b>We estimated {plural(assumptions.length, 'thing', 'things')}.</b> Each is marked in every plan.
+              <b>What rests on our estimates.</b> Each is marked in every plan.
             </p>
             <button type="button" className="cx-link cx-small" onClick={() => setShowAssumptions((v) => !v)} aria-expanded={showAssumptions}>
               {showAssumptions ? 'Hide them' : 'See what they are'}

@@ -24,6 +24,8 @@ import Interview from '../components/consult/Interview';
 import Thinking from '../components/consult/Thinking';
 import Answer from '../components/consult/Answer';
 import Package, { type PackageScreen } from '../components/consult/Package';
+import AnswerPage from '../components/consult/AnswerPage';
+import Register from '../components/consult/Register';
 import SystemViewer from '../components/consult/SystemViewer';
 import '../styles/consult.css';
 import SiteFooter from '../components/SiteFooter';
@@ -2729,6 +2731,12 @@ export default function StudioPage() {
 
             {act === 'reveal' && preview && (
               <motion.section key="reveal" {...fade} transition={{ duration: 0.5 }}>
+                {preview.answer_page ? (
+                  <AnswerPage page={preview.answer_page} figures={{ ...preview.figures, ...revealFigures }} readOnly={Boolean(reviewToken)} />
+                ) : null}
+                {preview.register ? (
+                  <Register register={preview.register} figures={{ ...preview.figures, ...revealFigures }} />
+                ) : null}
                 <Package
                   businessName={preview.business_name}
                   answer={preview.answer ?? null}
@@ -2744,6 +2752,7 @@ export default function StudioPage() {
                     technical: Boolean(preview.technical_plan),
                     operations: preview.procedures.length > 0 || Boolean(preview.organization) || Boolean(preview.checklists),
                   }}
+                  files={preview.files}
                   onDownload={download}
                   onShare={share}
                   onUnshare={unshare}
@@ -2875,9 +2884,6 @@ export default function StudioPage() {
                                   <p className="studio-ai-headline">{story.ai.headline}</p>
                                   {story.ai.rationale && (
                                     <p className="studio-ai-why">{story.ai.rationale}</p>
-                                  )}
-                                  {story.ai.confidence && (
-                                    <p className="studio-ai-conf">{story.ai.confidence}</p>
                                   )}
                                   {story.ai.chips.length > 0 && (
                                     <div className="studio-ai-chips">

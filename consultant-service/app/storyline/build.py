@@ -191,6 +191,59 @@ def _hypotheses(req) -> list[dict]:
     return [h for h in rows if isinstance(h, dict)] if isinstance(rows, list) else []
 
 
+def for_web(req) -> dict:
+    """The answer page and the register, as the screens read them.
+
+    None when the run has no answer. A register that does not check out is
+    absent, not filled.
+    """
+    story = build(req)
+    if story is None:
+        return {"answer_page": None, "register": None}
+    from app.storyline.pdf import rests_line
+
+    page = story.answer
+    return {
+        "answer_page": {
+            "question": page.question,
+            "answer_lines": list(page.answer_lines),
+            "numbers": [
+                {"figure_id": number.figure_id, "display": number.display, "tag": number.tag}
+                for number in page.numbers
+            ],
+            "believed": page.believed,
+            "tested": page.tested,
+            "monday": page.monday,
+            "would_not": list(page.would_not or ()),
+            "rests_on": rests_line(page.rests_on),
+        },
+        "register": _register_web(req, story.register),
+    }
+
+
+def _register_web(req, register) -> dict | None:
+    if register is None:
+        return None
+    known = figures_known.known_for(req)
+    rows = []
+    for row in register.rows:
+        ends = {}
+        for name in ("low", "mid", "high"):
+            figure = known.get(f"REG-{row.id}-{name.upper()}")
+            ends[name] = None if figure is None else {
+                "figure_id": figure.id, "display": display(figure), "tag": tag_word(figure.kind),
+            }
+        rows.append({
+            "recommendation": row.recommendation,
+            "changes": row.changes,
+            "when": row.when,
+            "owner": row.owner,
+            "depends_on": list(row.depends_on),
+            **ends,
+        })
+    return {"rows": rows, "footnotes": list(register.footnotes)}
+
+
 def _text(value) -> str | None:
     if not isinstance(value, str):
         return None

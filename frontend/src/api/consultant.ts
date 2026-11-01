@@ -400,6 +400,8 @@ export interface StudioProgress {
   /** Which documents the run has written so far and which are still being
    *  written. */
   documents?: { key: string; title: string; state: 'ready' | 'writing' }[];
+  /** The shelf: the same list the finished package offers. */
+  files?: PackageFile[];
   updated_at: string | null;
   /** Seconds since the run started, measured server-side — see the route's
    *  comment. Never derive this from a timestamp in the browser. */
@@ -695,6 +697,9 @@ export interface SharedPackage {
   summary: string | null;
   unverified: string[];
   documents: { blueprint: boolean; technical: boolean; operations: boolean };
+  files?: PackageFile[];
+  answer_page?: StudioAnswerPage | null;
+  register?: StudioRegister | null;
   screens: { role_label: string; image_url: string; hero_url: string | null; story: StudioStory | null }[];
 }
 
@@ -910,6 +915,9 @@ export interface StudioPreview {
   unverified?: string[];
   /** Whether a partner link exists right now. */
   shared?: boolean;
+  files?: PackageFile[];
+  answer_page?: StudioAnswerPage | null;
+  register?: StudioRegister | null;
 }
 
 /** What a pending run shows the waiting client: real counts and names,
@@ -1037,7 +1045,51 @@ export function studioZipUrl(ref: StudioRef): string {
 /** What can be downloaded. 'system' is the proposal PDF: every screen of the
  *  rendered system printed with its caption, served at
  *  /export/pdf/system (owner) and /export/system (shared link). */
-export type StudioExportKind = 'zip' | 'pptx' | 'blueprint' | 'technical' | 'operations' | 'system';
+/** A file on the shelf. `state` is ready, writing, or absent. */
+export interface PackageFile {
+  key: string;
+  title: string;
+  filename: string;
+  kind: 'pdf' | 'pptx' | 'zip';
+  available: boolean;
+  reason: string | null;
+  state: 'ready' | 'writing' | 'absent';
+}
+
+/** The opening page of a finished result. */
+export interface StudioAnswerPage {
+  question: string | null;
+  answer_lines: string[];
+  numbers: { figure_id: string; display: string; tag: string }[];
+  believed: string | null;
+  tested: string | null;
+  monday: string | null;
+  would_not: string[];
+  rests_on: string | null;
+}
+
+/** One end of a register range, already a figure the number law accepts. */
+export interface RegisterEnd {
+  figure_id: string;
+  display: string;
+  tag: string;
+}
+
+export interface StudioRegister {
+  rows: {
+    recommendation: string;
+    changes: string;
+    when: string;
+    owner: string;
+    depends_on: number[];
+    low: RegisterEnd | null;
+    mid: RegisterEnd | null;
+    high: RegisterEnd | null;
+  }[];
+  footnotes: string[];
+}
+
+export type StudioExportKind = string;
 
 /** Fetch an export with the caller's session attached and hand it to the
  *  browser as a saved file. The export routes are auth-gated, and a plain
@@ -1053,7 +1105,7 @@ export async function downloadStudioExport(
       ? `/api/requests/${ref}/export/zip`
       : kind === 'pptx'
         ? `/api/requests/${ref}/export/pptx`
-        : `/api/requests/${ref}/export/pdf/${kind}`;
+        : `/api/requests/${ref}/export/${kind}`;
   const suffix = reviewToken ? `?review_token=${encodeURIComponent(reviewToken)}` : '';
   const { data, headers } = await consultantClient.get<Blob>(path + suffix, {
     responseType: 'blob',

@@ -1135,7 +1135,15 @@ def get_preview(request_ref: str, review_token: str | None = None,
         "unverified": recommendations.get("unverified") or [],
         "shared": bool(req.share_token),
         "files": produced.package_files(req),
+        **_storyline_web(req),
     }
+
+
+def _storyline_web(req) -> dict:
+    """The answer page and the register for the screens."""
+    from app.storyline.build import for_web
+
+    return for_web(req)
 
 
 @router.get("/{request_ref}/admin")

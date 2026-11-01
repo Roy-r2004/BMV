@@ -525,6 +525,28 @@
   .cx-sys-over-bar .cx-sys-tools { width: auto; }
 }
 
+.cx-answer-page { margin-bottom: 8px; }
+.cx-answer-page .cx-title { margin-bottom: 12px; }
+.cx-answer-page .cx-lede { max-width: 46em; }
+.cx-plain-list { margin: 8px 0 0; padding-left: 1.2em; }
+.cx-plain-list li { margin: 4px 0; overflow-wrap: anywhere; }
+.cx-register { margin-top: 8px; min-width: 0; max-width: 100%; }
+.cx-reg-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.cx-reg-table th, .cx-reg-table td {
+  text-align: left; vertical-align: top; padding: 10px 8px;
+  border-bottom: 1px solid var(--cx-line); overflow-wrap: anywhere; font-size: 14px;
+}
+.cx-reg-table th { font-size: 12px; font-weight: 600; color: var(--cx-txt2); }
+.cx-reg-notes { margin: 14px 0 0; padding-left: 1.2em; color: var(--cx-txt2); font-size: 14px; }
+.cx-reg-notes li { margin: 4px 0; overflow-wrap: anywhere; }
+@media (max-width: 800px) {
+  .cx-reg-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .cx-reg-table, .cx-reg-table tbody, .cx-reg-table tr, .cx-reg-table td { display: block; width: 100%; }
+  .cx-reg-table tr { margin: 0 0 14px; border: 1px solid var(--cx-line); border-radius: 14px; padding: 10px 14px; }
+  .cx-reg-table td { border: 0; padding: 6px 0; }
+  .cx-reg-table td::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600; color: var(--cx-txt2); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cx *, .cx *::before, .cx *::after { animation: none !important; transition: none !important; }
 }

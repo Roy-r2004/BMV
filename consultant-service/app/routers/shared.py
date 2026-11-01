@@ -80,6 +80,7 @@ def shared_package(token: str, db: Session = Depends(get_db)):
         "documents": _document_flags(req),
         "files": produced.package_files(req),
         "screens": screens,
+        **_storyline_web(req),
     }
 
 
@@ -89,6 +90,12 @@ def shared_system(token: str, db: Session = Depends(get_db)):
     from app.screens import generate as screens_stage
 
     return screens_stage.payload(_load(token, db))
+
+
+def _storyline_web(req) -> dict:
+    from app.storyline.build import for_web
+
+    return for_web(req)
 
 
 def _document_flags(req: Request) -> dict:

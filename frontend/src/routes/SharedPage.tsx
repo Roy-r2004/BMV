@@ -19,7 +19,9 @@ import {
   type SystemPayload,
 } from '../api/consultant';
 import Chrome from '../components/consult/Chrome';
+import AnswerPage from '../components/consult/AnswerPage';
 import Package, { type PackageScreen } from '../components/consult/Package';
+import Register from '../components/consult/Register';
 import '../styles/consult.css';
 
 export default function SharedPage() {
@@ -76,6 +78,8 @@ export default function SharedPage() {
         ) : (
           <>
             <p className="cx-faint pt-6 text-[15px]">Shared with you, read-only. Prepared by Build My Version for {data.business_name}.</p>
+            {data.answer_page ? <AnswerPage page={data.answer_page} figures={data.figures} readOnly /> : null}
+            {data.register ? <Register register={data.register} figures={data.figures} /> : null}
             <Package
               businessName={data.business_name}
               answer={data.answer}
@@ -87,6 +91,7 @@ export default function SharedPage() {
               screens={screens}
               system={system}
               docs={data.documents}
+              files={data.files}
               onDownload={(k) => downloadSharedExport(token, k)}
               readOnly
               onOpenScreen={setZoom}
