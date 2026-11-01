@@ -143,6 +143,10 @@ class Scope:
     #: what an earlier pass over the same document found, for a release gate
     #: consulted while this pass draws the cover (see `recorded`)
     pending: list[Finding] | None = None
+    #: exact phrases our own code prints for a registered figure in a form the
+    #: binder has no figure for ("5 percentage points": a change between two
+    #: percents is never a percent), each declared by the code that registers it
+    phrases: tuple[str, ...] = ()
     _found: list[Finding] = field(default_factory=list)
 
     @property
@@ -162,15 +166,18 @@ def active() -> Scope | None:
 
 @contextmanager
 def scope(known: FigureSet, *, where: str, hours: set[int] | None = None, request_id: object = None,
-          pending: Sequence[Finding] | None = None) -> Iterator[Scope]:
+          pending: Sequence[Finding] | None = None, phrases: Iterable[str] = ()) -> Iterator[Scope]:
     """Hold `known` as the figures every `check` binds against while the block
     runs, and collect what it finds. `where` names the document ("Volume I").
     `hours` are the hours of the day the client gave; a clock time outside them
     is a finding (None: times are not checked). `request_id` ties the scope to
     one request, so the release gate can tell a build of that request is under
-    way. `pending` is what an earlier pass of the same build found."""
+    way. `pending` is what an earlier pass of the same build found. `phrases`
+    are exact phrases our code prints for a registered figure the binder cannot
+    bind (see `Scope.phrases`): a number inside one of them is that figure."""
     s = Scope(known if isinstance(known, FigureSet) else FigureSet(), str(where or ""), hours, request_id,
-              list(pending) if pending is not None else None)
+              list(pending) if pending is not None else None,
+              tuple(p for p in dict.fromkeys(phrases or ()) if isinstance(p, str) and p.strip()))
     token = _ACTIVE.set(s)
     unread = _UNREAD.set(0)
     try:
@@ -245,6 +252,16 @@ def _finding(s: Scope, number: str, text: str, start: int, end: int, region: str
                    page if isinstance(page, int) and not isinstance(page, bool) else None)
 
 
+def _phrase_spans(text: str, phrases: Sequence[str]) -> list[tuple[int, int]]:
+    """Where each declared phrase stands in `text`, matched exactly and as whole
+    words (a phrase is never found inside a longer number)."""
+    spans = []
+    for p in phrases:
+        for m in re.finditer(r"(?<![\w.,])" + re.escape(p) + r"(?![\w])", text):
+            spans.append((m.start(), m.end()))
+    return spans
+
+
 def _exempt(m, known: FigureSet, constants: frozenset, fractions_as_percent: bool) -> bool:
     """Whether an unresolved number in a working is one of the working's own
     constants, or a share written as a fraction of a percent figure we hold
@@ -290,8 +307,10 @@ def check(text, *, region: str | None = None, page: int | None = None,
         from app.figures.bind import bind
 
         r = bind(text, s.known, hours=s.hours)
+        declared = _phrase_spans(r.text, s.phrases)
         found = [_finding(s, u.text, r.text, u.start, u.end, region, page) for u in r.unresolved
-                 if not _exempt(u, s.known, allowed, fractions_as_percent)]
+                 if not _exempt(u, s.known, allowed, fractions_as_percent)
+                 and not any(a <= u.start and u.end <= b for a, b in declared)]
         s._found.extend(found)
         return r.text
     except Exception as exc:                                   # a law that raises stops a build

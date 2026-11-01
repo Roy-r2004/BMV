@@ -184,8 +184,31 @@ def registry_figures(registry: object) -> list[Figure]:
         except (TypeError, ValueError):
             continue
         if f.kind in ("derived", "ours"):
-            out.append(f)
+            out.append(_unit_from_text(f, c))
     return out
+
+
+#: Units the registry gives a claim when it could not tell what was counted
+#: (`registry._infer_unit` falls back to "count").
+_UNKNOWN_UNITS = ("", "count")
+
+
+def _unit_from_text(f: Figure, c: dict) -> Figure:
+    """The figure in the unit its own claim text shows, where the registry's
+    unit says nothing: a scenario impact stored as "count" whose text reads
+    "~$14,191" is a dollar amount. The text is read as the case file reads a
+    sentence, and only a reading of this very value in a currency is taken."""
+    if f.unit not in _UNKNOWN_UNITS or f.kind not in ("derived", "ours"):
+        return f
+    text = str(c.get("text") or "")
+    try:
+        read = casefile.read_text(text, "U", limit=settings.CASE_FILE_FIGURES_PER_TEXT) if text else []
+    except Exception:
+        return f
+    for m, g in read:
+        if m.form == "money" and g.unit and g.value == f.value:
+            return Figure(f.id, f.value, g.unit, f.period, f.kind, f.source, f.precision)
+    return f
 
 
 def proposal_unit(label: str) -> str:

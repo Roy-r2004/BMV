@@ -1920,10 +1920,12 @@ def build_pdf(req: Request, kind: str) -> str:
     if kept is not None:
         pending = kept["findings"]
     else:
-        with law.scope(known, where=where, hours=hours, request_id=req.id) as first:
+        with law.scope(known, where=where, hours=hours, request_id=req.id,
+                       phrases=document_phrases(req, business_case)) as first:
             _volume_flows(req, kind, md, label, sub, business_case)
         pending = first.findings
-    with law.scope(known, where=where, hours=hours, request_id=req.id, pending=pending) as final:
+    with law.scope(known, where=where, hours=hours, request_id=req.id, pending=pending,
+                   phrases=document_phrases(req, business_case)) as final:
         flows = _volume_flows(req, kind, md, label, sub, business_case)
         stamped = release_status(req)["status"]
     draft = stamped == "draft"
@@ -1987,7 +1989,8 @@ def check_volume(req: Request, kind: str) -> None:
     business_case = _loads(req.business_case_json, {})
     known, hours = document_known(req, business_case)
     try:
-        with law.scope(known, where=where, hours=hours, request_id=req.id) as found:
+        with law.scope(known, where=where, hours=hours, request_id=req.id,
+                       phrases=document_phrases(req, business_case)) as found:
             _volume_flows(req, kind, md, label, sub, business_case)
     except ValueError:                                  # "operations manual not ready"
         law.save(req.id, where, [], built_at=started, absent=True)
@@ -2035,6 +2038,21 @@ def gate_figures(gate: dict | None) -> list:
             out.append(Figure(f.id, f.value, f.unit, f.period, "ours",
                               Proposal(note="a guardrail of the pilot gate, proposed for approval"), f.precision))
     return out
+
+
+def document_phrases(req, business_case: dict | None = None) -> list[str]:
+    """Exact phrases our own code prints for a registered figure the binder has
+    no form for, declared to the release law (`law.scope(phrases=...)`): the
+    pilot gate's target when it is a change in percentage points
+    (`pilot_gate.target_phrases`). Never raises."""
+    try:
+        from app.pipeline import pilot_gate as _pg
+
+        bc = business_case if isinstance(business_case, dict) else _loads(getattr(req, "business_case_json", None), {})
+        gate = bc.get("pilot_gate") if isinstance(bc, dict) else None
+        return _pg.target_phrases(gate if isinstance(gate, dict) else None)
+    except Exception:
+        return []
 
 
 def document_known(req, business_case: dict | None = None) -> tuple:

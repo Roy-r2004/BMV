@@ -37,9 +37,9 @@ def test_outside_a_scope_check_reads_nothing_and_finds_nothing():
 def test_check_binds_what_it_knows_and_records_what_it_does_not():
     with law.scope(KNOWN, where="Volume I") as s:
         out = law.check("You have twelve reformers at $22 a class and lose 37 calls a week.")
-    # how a bound number prints is the binder's rule ("12" or "twelve"); the law
-    # records only the number nobody owns
-    assert "$22 a class" in out and "37 calls a week" in out
+    # a supported number word is bound and stays a word (the binder's ruling);
+    # the law records only the number nobody owns
+    assert out == "You have twelve reformers at $22 a class and lose 37 calls a week."
     assert [(f.number, f.region, f.page) for f in s.findings] == [("37", "Volume I", None)]
     assert "37 calls a week" in s.findings[0].snippet
 
@@ -462,7 +462,8 @@ PAYBACK = ("Payback cannot yet be calculated: it is the build cost ÷ the Expect
            "hard-dollar savings (annual ÷ 365 × 30), and no verified dollar saving or build cost exists yet.")
 
 
-def test_a_package_with_a_gate_and_a_financial_model_whose_prose_is_clean_is_final(db):
+@pytest.mark.parametrize("change_kind", ["relative", "percentage_point"])
+def test_a_package_with_a_gate_and_a_financial_model_whose_prose_is_clean_is_final(db, change_kind):
     """Review B: our own code's text (the randomized 50/50 split, the payback
     rule's 365 and 30, a guardrail's "3 complaints a week") must not hold a
     package back; with clean model prose the package reaches FINAL."""
@@ -470,7 +471,8 @@ def test_a_package_with_a_gate_and_a_financial_model_whose_prose_is_clean_is_fin
 
     scenario = {"name": "Expected", "assumption": "25% of no-shows recovered", "impact": "$3,705/year",
                 "impact_verified": True}
-    bc = {"pilot_gate": GATE,
+    gate = dict(GATE, change_kind=change_kind)
+    bc = {"pilot_gate": gate,
           "financial_model": {"lines": [VERIFIED], "scenarios": [scenario], "payback_note": PAYBACK}}
     row = _seed(db, mvp_blueprint=CLEAN_MD, business_case_json=json.dumps(bc))
     path = ep.build_pdf(row, "blueprint")
@@ -479,6 +481,42 @@ def test_a_package_with_a_gate_and_a_financial_model_whose_prose_is_clean_is_fin
     assert status["status"] == "final", status["reasons"]
     for printed in ("50/50", "365", "3 complaints a week", "$3,705"):
         assert _pages_holding(path, printed), printed
+    if change_kind == "percentage_point":
+        assert _pages_holding(path, "5 percentage points")       # the gate's own target, as it prints
+
+
+def test_a_points_change_the_gate_does_not_register_is_still_a_finding(db):
+    """The gate's own target phrase is declared; any other change in
+    percentage points the model writes is a number nobody owns."""
+    from app.pipeline import export_pdf as ep
+
+    md = CLEAN_MD + "\nWe expect the rate to fall by 7 percentage points.\n"
+    bc = {"pilot_gate": dict(GATE, change_kind="percentage_point")}
+    row = _seed(db, mvp_blueprint=md, business_case_json=json.dumps(bc))
+    ep.build_pdf(row, "blueprint")
+    assert [f.number for f in law.recorded(row)["Volume I"]] == ["7 percentage points"]
+
+
+def _claim(cid, ctype, value, unit, text, provenance="consultant_proposed"):
+    approval = ("consultant_proposed \u2014 client approval required" if provenance == "consultant_proposed"
+                else "machine_verified")
+    return {"id": cid, "type": ctype, "value": value, "unit": unit, "time_basis": "year", "population": "n/a",
+            "scope": "engagement", "phase": "all", "provenance": provenance, "approval_status": approval,
+            "source": "s", "allowed_sections": ["*"], "text": text}
+
+
+def test_registered_proposals_and_impacts_bind_where_the_document_prints_them():
+    from app.figures.known import registry_figures
+
+    registry = {"claims": [_claim("TH-x-01", "performance_target", 0.999, "%", "99.9 %"),
+                           _claim("SI-01-1", "scenario_impact", 864.0, "count", "~$864",
+                                  provenance="machine_computed")]}
+    known = FigureSet(registry_figures(registry))
+    assert known.get("SI-01-1").unit == "USD"           # its own text says dollars, not "count"
+    with law.scope(known, where="Volume II") as s:
+        law.check("Uptime of 99.9% (proposed \u2014 client approval required).")
+        law.check("The expected impact is ~$864 a year.")
+    assert s.findings == []
 
 
 def test_a_rebuild_replaces_stale_findings(db):

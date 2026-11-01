@@ -410,6 +410,17 @@ def _metric_short(g: dict) -> str:
     return re.sub(r"\s+rate$", "", m)
 
 
+def target_phrases(g: dict | None) -> list[str]:
+    """The phrases this module (and the gate table) prints for the typed target
+    when it is a change in percentage points ("5 percentage points"). No figure
+    can hold such a change for the binder (it is never a percent), so the
+    renderers declare these exact phrases to the release law as the gate's own
+    registered target (`export_pdf.document_phrases`)."""
+    if not g or g.get("change_kind") != "percentage_point" or g.get("target_value") is None:
+        return []
+    return [f"{_fmt(g.get('target_value'))} {_unit_words(g)}"]
+
+
 def canonical_sentence(g: dict | None) -> str:
     """THE short reference. Every restatement of the gate outside the gate
     box is this string verbatim; sections may explain around it, never

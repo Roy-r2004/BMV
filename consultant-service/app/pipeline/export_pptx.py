@@ -339,12 +339,13 @@ def build_presentation(
     passes `_add_text`/`_add_bullets`, each number not owned by a figure of the
     request is recorded with its slide number, and the findings are kept for
     the release gate (`law.save`, read by `export_pdf.release_status`)."""
-    from app.pipeline.export_pdf import document_known
+    from app.pipeline.export_pdf import document_known, document_phrases
 
     started = datetime.utcnow()
     known, hours = document_known(req)
     request_id = getattr(req, "id", None)
-    with law.scope(known, where="The deck", hours=hours, request_id=request_id) as found:
+    with law.scope(known, where="The deck", hours=hours, request_id=request_id,
+                   phrases=document_phrases(req)) as found:
         prs = _build_presentation(req, analysis, consult_result, plan_result, images)
     law.save(request_id, "The deck", found.findings, built_at=started)
     return prs

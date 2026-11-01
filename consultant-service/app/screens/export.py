@@ -41,10 +41,10 @@ def _proposal(req: Request, system: dict) -> tuple[str, list]:
         journey = {}
     stages = [str(s.get("stage")) for s in (journey.get("stages") or []) if isinstance(s, dict) and s.get("stage")]
     roadmap = plan_stage.load(req) or {}
-    from app.pipeline.export_pdf import document_known
+    from app.pipeline.export_pdf import document_known, document_phrases
 
     known, hours = document_known(req)
-    with law.scope(known, where=WHERE, hours=hours, request_id=req.id) as found:
+    with law.scope(known, where=WHERE, hours=hours, request_id=req.id, phrases=document_phrases(req)) as found:
         ctx = render.proposal_context(
             system, business_name=req.business_name or "your business", journey_stages=stages,
             answer=answer_stage.load(req), roadmap=roadmap if roadmap.get("status") == plan_stage.READY else None,
