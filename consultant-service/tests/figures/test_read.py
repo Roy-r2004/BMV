@@ -1489,11 +1489,19 @@ def test_halve_is_a_multiplier_of_a_half(text, span):
 
 @pytest.mark.parametrize("text", [
     "ISO 27001", "SOC 2", "GDPR Article 5", "TLS 1.3", "OAuth 2.0", "WCAG 2.1", "Python 3.12", "PostgreSQL 16",
-    "React 19", "HTTP 429", "Port 5432", "PHP 8.2", "(Python 3.12)", "Wi-Fi 6", "Next.js 14", "iso 9001",
+    "React 19", "HTTP 429", "Port 5432", "PHP 8.2", "(Python 3.12)", "Wi-Fi 6", "Next.js 14", "Office 365", "Excel 2019",
     "2FA", "3D", "B2B", "B2C", "Use 2FA and B2B billing",
 ])
 def test_a_technical_name_and_its_number_are_not_a_quantity(text):
     assert mentions(text) == []
+
+
+@pytest.mark.parametrize("text,want", [
+    ("our office 2 blocks away", ["2"]), ("the node 5 times", ["5"]), ("a java 8 pack", ["8"]),
+    ("iso 9001", ["9001"]), ("port 5432", ["5432"]),
+])
+def test_a_technical_name_matches_only_in_its_written_case(text, want):
+    assert [m.text for m in mentions(text)] == want
 
 
 def test_a_quantity_after_a_technical_name_is_read():
@@ -1504,7 +1512,8 @@ def test_a_quantity_after_a_technical_name_is_read():
 # 6. a markdown heading's own number is structure
 
 @pytest.mark.parametrize("text,want", [
-    ("## 2. Diagnosis", []), ("### 3.1 Plan", []), ("# 1 Intro", []), ("Text\n## 3. Plan", []),
+    ("## 2. Diagnosis", []), ("### 3.1 Plan", []), ("## 3: Plan", []), ("Text\n## 3. Plan", []),
+    ("# 1 Intro", ["1"]), ("## 3 Quick Wins", ["3"]),   # a bare heading number is read (false flag accepted)
     ("## 2. Diagnosis: 12 members", ["12"]), ("#1 rule", ["1"]), ("We are #2", ["2"]),
 ])
 def test_a_heading_number_is_structure(text, want):

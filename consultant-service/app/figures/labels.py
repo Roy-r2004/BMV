@@ -20,12 +20,12 @@ LABEL_WORDS: tuple[str, ...] = (
 # 5432". The number (or dotted version) right after one of these is an
 # identifier; a quantity after it is still read ("ISO 27001 costs $5,000"). The
 # list is closed like LABEL_WORDS: every name on it is a place a stray digit can
-# hide, so add one only for the technical volume's own vocabulary. Matched case
-# insensitively.
+# hide, so add one only for the technical volume's own vocabulary. Matched in the
+# case written here, so "Office 365" is a name and "our office 2 blocks away" a count.
 TECH_NAMES: tuple[str, ...] = (
-    "iso", "iec", "soc", "gdpr", "article", "annex", "hipaa", "pci", "dss", "nist", "rfc", "tls", "ssl",
-    "oauth", "oidc", "saml", "wcag", "http", "https", "port", "ipv", "python", "postgresql", "mysql",
-    "sqlite", "react", "node", "java", "django", "rails", "linux", "ubuntu", "debian", "ios", "android",
-    "windows", "macos", "php", "excel", "office", "ecmascript", "html", "css", "wi-fi", "bluetooth", "usb",
-    "docker", "kubernetes", "postgres", "redis", "vue", "angular", "next.js", "tailwind",
+    "ISO", "IEC", "SOC", "GDPR", "Article", "Annex", "HIPAA", "PCI", "DSS", "NIST", "RFC", "TLS", "SSL",
+    "OAuth", "OIDC", "SAML", "WCAG", "HTTP", "HTTPS", "Port", "IPv", "Python", "PostgreSQL", "MySQL",
+    "SQLite", "React", "Node", "Java", "Django", "Rails", "Linux", "Ubuntu", "Debian", "iOS", "Android",
+    "Windows", "macOS", "PHP", "Excel", "Office", "ECMAScript", "HTML", "CSS", "Wi-Fi", "Bluetooth", "USB",
+    "Docker", "Kubernetes", "Postgres", "Redis", "Vue", "Angular", "Next.js", "Tailwind",
 )

@@ -334,10 +334,9 @@ _WORD_LABEL_END = _ITEM_END
 _LIST_MARKER = re.compile(rf"\d+[.)]{_SP}")
 # a markdown heading's own number ("## 2. Diagnosis", "### 3.1 Plan") is structure too
 _HEADING_LEAD = re.compile(rf"(?:^|[\r\n]){_SP}*#{{1,6}}{_SP}+$")
-# ... when it is numbered like a section: "2.", "2)", "3.1", or a bare number before
-# a capitalised title ("# 1 Intro"). "## 3 quick wins" holds a count and is read.
-_HEADING_NUMBER = re.compile(
-    rf"(?:\d+(?:\.\d+)+\.?|\d+[.)])(?={_SP}|[\r\n]|$)|\d+(?={_SP}+[A-Z])")
+# ... when it is numbered like a section: "2.", "2)", "3:", "3.1". A bare number is
+# read ("## 3 Quick Wins", and "# 1 Intro" as a false flag).
+_HEADING_NUMBER = re.compile(rf"(?:\d+(?:\.\d+)+\.?|\d+[.):])(?={_SP}|[\r\n]|$)")
 
 # technical names whose number is part of the name ("ISO 27001", "TLS 1.3")
 _TECH = frozenset(TECH_NAMES)
@@ -566,7 +565,7 @@ def _read_label(text: str, pos: int) -> Read | None:
 
 def _token_before(text: str, start: int) -> str:
     """The token (letters, digits, dots, hyphens) right before `start` after
-    spaces, in lower case without brackets or emphasis; "" when there is none or
+    spaces, as written, without brackets or emphasis; "" when there is none or
     it is longer than any technical name. The walk is bounded."""
     j = start
     while j > 0 and text[j - 1] in _SPACES:
@@ -578,7 +577,7 @@ def _token_before(text: str, start: int) -> str:
         k -= 1
     if k == limit and k > 0 and not text[k - 1].isspace():
         return ""
-    return text[k:j].strip(_TOKEN_EDGE).lower()
+    return text[k:j].strip(_TOKEN_EDGE)
 
 
 def _read_tech(text: str, pos: int) -> Read | None:
