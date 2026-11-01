@@ -1,0 +1,303 @@
+"""Exhibits drawn from figures. The model never picks a chart or writes a number.
+
+Which chart a section gets depends on the data the run stored. A section with
+nothing to draw has no exhibit. When a chart would have more rows than the
+bound, the rest are one group, "Other classes (n)", whose figure is their sum.
+"""
+from __future__ import annotations
+
+import json
+from decimal import Decimal
+
+from reportlab.graphics.shapes import Drawing, Rect, String
+from reportlab.pdfbase.pdfmetrics import stringWidth
+
+from app.config import settings
+from app.figures.calc import places_of
+from app.figures.model import Figure, Proposal, Working, display, tag_word
+from app.storyline.flex import flexed
+from app.storyline.model import Exhibit
+
+_FONT = "Helvetica"
+_SIZE = 8
+_SECTIONS = ("week", "prize", "grid", "plan", "scoreboard")
+
+
+def for_section(req, section_id: str) -> Exhibit | None:
+    """The exhibit for this section, or None when the run has nothing to draw."""
+    exhibit, _ = _built(req, section_id)
+    return exhibit
+
+
+def figures_for(req) -> list[Figure]:
+    """Every figure an exhibit derives, so the known set owns the numbers it draws."""
+    figures: list[Figure] = []
+    for section_id in _SECTIONS:
+        _, made = _built(req, section_id)
+        figures.extend(made)
+    return figures
+
+
+def draw_pdf(exhibit: Exhibit, width: float, height: float) -> Drawing:
+    """The exhibit as a drawing that stays inside the box. The type size is fixed."""
+    drawing = Drawing(width, height)
+    rows = list(exhibit.data.get("rows") or [])
+    if not rows:
+        return drawing
+    top = height - 4
+    row_h = (top - 4) / len(rows)
+    largest = max((_decimal(row.get("value")) for row in rows), default=Decimal(1))
+    if largest <= 0:
+        largest = Decimal(1)
+    bar_max = width - 16
+    for index, row in enumerate(rows):
+        base = 4 + (len(rows) - 1 - index) * row_h
+        bar_h = min(row_h * 0.45, 10.0)
+        value = _decimal(row.get("value"))
+        bar_w = float(value / largest) * float(bar_max)
+        bar_w = min(max(bar_w, 1), bar_max)
+        drawing.add(Rect(8, float(base), bar_w, float(bar_h), fillColor=None, strokeColor=None))
+        label = _fit(str(row.get("drawn") or row.get("label") or ""), bar_max)
+        shown = _fit(str(row.get("display") or ""), bar_max)
+        tag = str(row.get("tag") or "")
+        drawing.add(String(8, float(base) + float(bar_h) + 1, label, fontName=_FONT, fontSize=_SIZE))
+        drawing.add(String(8, float(base) + 1, f"{shown} {tag}".strip(), fontName=_FONT, fontSize=_SIZE))
+    return drawing
+
+
+def draw_slide(exhibit: Exhibit, slide, box) -> None:
+    """The same words, in the box the deck gives. The type size is not shrunk."""
+    from pptx.util import Emu, Pt
+
+    left, top, width, height = box
+    shape = slide.shapes.add_textbox(Emu(left), Emu(top), Emu(width), Emu(height))
+    frame = shape.text_frame
+    frame.word_wrap = True
+    lines = [exhibit.caption] if exhibit.caption else []
+    for row in exhibit.data.get("rows") or []:
+        lines.append(" ".join(part for part in (row.get("label"), row.get("display"), row.get("tag")) if part))
+    frame.text = lines[0] if lines else ""
+    for line in lines[1:]:
+        frame.add_paragraph().text = line
+    for paragraph in frame.paragraphs:
+        for run in paragraph.runs:
+            run.font.size = Pt(_SIZE)
+            run.font.name = "Calibri"
+
+
+def _built(req, section_id: str) -> tuple[Exhibit | None, list[Figure]]:
+    if section_id == "week":
+        return _bars(req)
+    if section_id == "prize":
+        return _waterfall(req)
+    if section_id == "grid":
+        return _grid(req)
+    if section_id == "plan":
+        return _plan(req)
+    if section_id == "scoreboard":
+        return _scoreboard(req)
+    return None, []
+
+
+def _bars(req) -> tuple[Exhibit | None, list[Figure]]:
+    grid = _capacity(req)
+    slots = _classes(grid)
+    if not slots:
+        return None, []
+    bound = settings.EXHIBIT_ROWS_MAX
+    shown, grouped = slots[:bound], []
+    if len(slots) > bound:
+        shown, grouped = slots[: bound - 1], slots[bound - 1:]
+    figures: list[Figure] = []
+    rows = []
+    for index, (label, value) in enumerate(shown, 1):
+        figure = _count(f"EX-WEEK-{index}", value, "spots", "the spots taken in this class")
+        figures.append(figure)
+        rows.append(_row(label, figure))
+    if grouped:
+        total = sum((value for _, value in grouped), Decimal(0))
+        figure = _count("EX-WEEK-GROUP", total, "spots", "the spots taken in the other classes")
+        count = _count("EX-WEEK-COUNT", Decimal(len(grouped)), "classes", "how many classes are grouped")
+        figures.append(figure)
+        figures.append(count)
+        row = _row(f"Other classes ({len(grouped)})", figure)
+        # The name keeps the count. The drawn line says it as the figure prints,
+        # so the number is one the law can see ("3 classes", not a bare 3).
+        row["drawn"] = f"Other classes, {display(count)}"
+        rows.append(row)
+    exhibit = Exhibit("1.1", "bar", "How full each class is", "The classes, and how full each one is.",
+                      {"rows": rows}, "Her week")
+    return exhibit, figures
+
+
+def _waterfall(req) -> tuple[Exhibit | None, list[Figure]]:
+    move = _move(req)
+    terms = move.get("terms") if isinstance(move, dict) else None
+    if not isinstance(terms, list) or not terms:
+        return None, []
+    running = Decimal(0)
+    product = Decimal(1)
+    figures: list[Figure] = []
+    steps = []
+    rows = []
+    ours_from = None
+    for index, term in enumerate(terms, 1):
+        if not isinstance(term, dict):
+            return None, []
+        try:
+            factor = flexed([term], 0)[1]
+        except Exception:
+            return None, []
+        product *= factor
+        amount = product - running
+        running = product
+        kind = "ours" if term.get("kind") == "proposed" or _proposed(term) else (
+            "theirs" if term.get("kind") == "claim" else "derived")
+        if kind == "ours":
+            ours_from = index
+        if ours_from is not None:
+            kind = "ours"
+        figure = _money(f"EX-PRIZE-{index}", running, kind)
+        figures.append(figure)
+        label = term.get("label") if isinstance(term.get("label"), str) and term.get("label") else f"Step {index}"
+        step = {"label": label, "amount": format(amount, "f"), "value": format(running, "f"),
+                "figure_id": figure.id, "display": display(figure), "tag": tag_word(kind)}
+        steps.append(step)
+        rows.append({"label": label, "value": format(running, "f"), "figure_id": figure.id,
+                     "display": display(figure), "tag": tag_word(kind)})
+    exhibit = Exhibit("1.1", "waterfall", "Where the prize comes from",
+                      "Each step is the prize once that part is counted.",
+                      {"rows": rows, "steps": steps}, "The move")
+    return exhibit, figures
+
+
+def _grid(req) -> tuple[Exhibit | None, list[Figure]]:
+    return _bars(req)[0] and _as_kind(_bars(req), "week_grid") or (None, [])
+
+
+def _plan(req) -> tuple[Exhibit | None, list[Figure]]:
+    plan = _loads(getattr(req, "action_plan_json", None))
+    phases = plan.get("phases") if isinstance(plan, dict) else None
+    if not isinstance(phases, list) or not phases:
+        return None, []
+    rows = []
+    for phase in phases:
+        if not isinstance(phase, dict):
+            continue
+        title = phase.get("title") if isinstance(phase.get("title"), str) else ""
+        if title and not any(ch.isdigit() for ch in title):
+            rows.append({"label": title, "value": "0", "figure_id": "", "display": "", "tag": ""})
+    if not rows:
+        return None, []
+    return Exhibit("1.1", "plan_chart", "The plan", "The phases, in order.", {"rows": rows}, "The plan"), []
+
+
+def _scoreboard(req) -> tuple[Exhibit | None, list[Figure]]:
+    board = _loads(getattr(req, "scoreboard_json", None))
+    if not isinstance(board, list) or not board:
+        return None, []
+    rows = []
+    for item in board:
+        if not isinstance(item, dict):
+            continue
+        metric = item.get("metric") if isinstance(item.get("metric"), str) else ""
+        if metric and not any(ch.isdigit() for ch in metric):
+            rows.append({"label": metric, "value": "0", "figure_id": "", "display": "", "tag": ""})
+    if not rows:
+        return None, []
+    return Exhibit("1.1", "kpi_table", "From where it is to where it should be",
+                   "Each measure, from today to the aim.", {"rows": rows}, "The scoreboard"), []
+
+
+def _as_kind(built, kind: str):
+    exhibit, figures = built
+    if exhibit is None:
+        return None, []
+    return Exhibit(exhibit.id, kind, exhibit.caption, exhibit.takeaway, exhibit.data, exhibit.source), figures
+
+
+def _classes(grid: dict | None) -> list[tuple[str, Decimal]]:
+    if not isinstance(grid, dict):
+        return []
+    days = grid.get("grid") if isinstance(grid.get("grid"), list) else []
+    totals: list[tuple[str, Decimal]] = []
+    width = max((len(day.get("slots") or []) for day in days if isinstance(day, dict)), default=0)
+    for index in range(width):
+        taken = Decimal(0)
+        label = ""
+        seen = False
+        for day in days:
+            if not isinstance(day, dict):
+                continue
+            slots = day.get("slots") if isinstance(day.get("slots"), list) else []
+            if index >= len(slots) or not isinstance(slots[index], dict):
+                continue
+            slot = slots[index]
+            number = slot.get("taken")
+            if isinstance(number, bool) or not isinstance(number, (int, Decimal)):
+                continue
+            taken += Decimal(number)
+            seen = True
+            if not label and isinstance(slot.get("time"), str):
+                label = slot["time"]
+        if seen:
+            totals.append((label or f"Class {index + 1}", taken))
+    return totals
+
+
+def _count(fid: str, value: Decimal, unit: str, working: str) -> Figure:
+    return Figure(fid, value, unit, None, "derived", Working((), "total", working), places_of(value))
+
+
+def _money(fid: str, value: Decimal, kind: str) -> Figure:
+    source = Proposal(note="our part of the prize") if kind == "ours" else Working((), "product", "the prize so far")
+    if kind == "theirs":
+        from app.figures.model import TheirsSource
+        source = TheirsSource(None, None, "a term of the move", None, None)
+    return Figure(fid, value, "USD", None, kind, source, places_of(value))
+
+
+def _row(label: str, figure: Figure) -> dict:
+    return {"label": label, "value": format(figure.value, "f"), "figure_id": figure.id,
+            "display": display(figure), "tag": tag_word(figure.kind)}
+
+
+def _proposed(term: dict) -> bool:
+    parts = term.get("parts")
+    if not isinstance(parts, list):
+        return False
+    return any(isinstance(part, dict) and (part.get("kind") == "proposed" or _proposed(part)) for part in parts)
+
+
+def _capacity(req) -> dict | None:
+    data = _loads(getattr(req, "capacity_json", None))
+    return data if isinstance(data, dict) else None
+
+
+def _move(req) -> dict | None:
+    answer = _loads(getattr(req, "answer_json", None))
+    move = answer.get("move") if isinstance(answer, dict) else None
+    return move if isinstance(move, dict) else None
+
+
+def _fit(text: str, width: float) -> str:
+    """The whole text. A line that does not fit is still the whole text: the
+    drawing is asked for a box, and the caller widens the page rather than
+    cutting the words."""
+    return text
+
+
+def _decimal(value) -> Decimal:
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return Decimal(0)
+
+
+def _loads(raw):
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return None

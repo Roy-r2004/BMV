@@ -52,7 +52,7 @@ from app.figures.read import Mention, mentions
 logger = logging.getLogger("consultant.figures.known")
 
 #: The parts of a request's known set, in the order they are added.
-PARTS = ("case_file", "capacity", "registry", "answer", "roadmap", "register")
+PARTS = ("case_file", "capacity", "registry", "answer", "roadmap", "register", "exhibits")
 
 #: The client's own claim ids in the registry; the case file holds their numbers.
 _CLIENT_CLAIM_PREFIXES = ("CF-", "CE-")
@@ -312,6 +312,17 @@ def with_extra(known: FigureSet, figures: Iterable[Figure]) -> FigureSet:
     return FigureSet([*(f for f in known if f.id not in ids), *fresh])
 
 
+def _exhibit_figures(req) -> list[Figure]:
+    """Figures the exhibits derive (a grouped class, a waterfall step). Empty when
+    there is nothing to draw."""
+    try:
+        from app.storyline.exhibits import figures_for
+        return figures_for(req)
+    except Exception:
+        logger.info("the exhibit figures could not be read", exc_info=True)
+        return []
+
+
 def _register_figures(req) -> list[Figure]:
     """The register's range numbers, when a storyline is stored. A storyline that
     does not assemble is not a figure: the set simply lacks them."""
@@ -346,6 +357,8 @@ def known_for(req, extra: Iterable[Figure] = (), *, leave_out: Iterable[str] = (
         _add_kept(known, roadmap_figures(_loads(getattr(req, "action_plan_json", None))))
     if "register" not in skip:
         _add_kept(known, _register_figures(req))
+    if "exhibits" not in skip:
+        _add_kept(known, _exhibit_figures(req))
     extra = list(extra)
     return with_extra(known, extra) if extra else known
 
