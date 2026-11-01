@@ -103,8 +103,10 @@ class Figure:
     precision: int
 
     def __post_init__(self) -> None:
-        if not isinstance(self.id, str) or not self.id:
-            raise TypeError("a figure needs a non-empty string id")
+        if not isinstance(self.id, str):
+            raise TypeError("a figure's id must be a string")
+        if not self.id:
+            raise ValueError("a figure needs a non-empty id")
         if not isinstance(self.value, Decimal):
             raise TypeError(f"figure {self.id}: value must be a Decimal, not {type(self.value).__name__}; "
                             "build it from the digits written (Decimal('0.07')), never from a float")
@@ -133,8 +135,12 @@ class Figure:
 
 # -- display -----------------------------------------------------------------------
 
-# How a figure prints, by unit: (prefix, suffix for one, suffix for many).
-# This table is the only place that knows. A unit not in it prints the number,
+# How a figure prints, by unit: (prefix, suffix for one, suffix for many, fewest
+# digits after the point once any are shown). This table is the only place that
+# knows. Money shows cents or nothing: $22, $22.50, never $22.5. The suffix for
+# "one" is used whenever the number shown equals 1, at any precision ("1 week",
+# "1.0 week"); every other number, 0.5 and 1.5 included, takes the plural. A unit
+# not in the table prints the number,
 # a space, and the unit word as given ("12 reformers", "24 GB", "30 tokens/sec"),
 # which is right for every hardware unit the registry emits
 # (registry._CAPACITY_CANON) and for any word a client used.
@@ -146,15 +152,15 @@ _TIME_UNITS = (("ms", "ms"), ("millisecond", "milliseconds"), ("second", "second
                ("month", "months"), ("year", "years"))
 
 
-def _unit_styles() -> dict[str, tuple[str, str, str]]:
+def _unit_styles() -> dict[str, tuple[str, str, str, int]]:
     table = {
-        "USD": ("$", "", ""),
-        "percent": ("", "%", "%"),
-        "count": ("", "", ""),
-        "": ("", "", ""),
+        "USD": ("$", "", "", 2),
+        "percent": ("", "%", "%", 0),
+        "count": ("", "", "", 0),
+        "": ("", "", "", 0),
     }
     for one, many in _TIME_UNITS:
-        table[one] = table[many] = ("", f" {one}", f" {many}")
+        table[one] = table[many] = ("", f" {one}", f" {many}", 0)
     return table
 
 
@@ -168,9 +174,10 @@ _APPROXIMATE_KINDS = ("derived", "ours")
 def display(f: Figure) -> str:
     """The figure as a client reads it: "$22", "25%", "~45,000", "6 weeks"."""
     rounded = _rounded(f.value, f.precision)
-    prefix, one, many = _UNIT_STYLE.get(f.unit, ("", f" {f.unit}", f" {f.unit}"))
+    prefix, one, many, fewest = _UNIT_STYLE.get(f.unit, ("", f" {f.unit}", f" {f.unit}", 0))
     magnitude = rounded.copy_abs()
-    number = format(magnitude, f",.{max(f.precision, 0)}f")
+    digits = max(f.precision, fewest) if f.precision > 0 else 0
+    number = format(magnitude, f",.{digits}f")
     sign = "-" if rounded < 0 else ""
     approx = "~" if f.kind in _APPROXIMATE_KINDS and rounded != f.value else ""
     return f"{approx}{sign}{prefix}{number}{one if magnitude == 1 else many}"
@@ -206,32 +213,56 @@ def as_json(f: Figure) -> dict:
             "kind": f.kind, "source": _source_json(f.source), "precision": f.precision}
 
 
-def _source_from_json(kind: str, s: dict) -> Source:
+def _field(d: dict, key: str, want: type, what: str, *, null: bool = False) -> object:
+    """d[key], which must be present and a `want` (an int is never a bool here);
+    None is allowed only when `null`. Anything else is a ValueError in plain words."""
+    if key not in d:
+        raise ValueError(f"{what} is missing '{key}'")
+    v = d[key]
+    if v is None and null:
+        return None
+    if not isinstance(v, want) or (want is int and isinstance(v, bool)):
+        article = "a whole number" if want is int else "text"
+        raise ValueError(f"{what}: '{key}' must be {article}{' or null' if null else ''}")
+    return v
+
+
+def _source_from_json(kind: str, s: object) -> Source:
     if not isinstance(s, dict):
         raise ValueError("a figure's source is a JSON object")
+    what = f"a {kind} figure's source"
     if kind == "theirs":
-        return TheirsSource(turn=s["turn"], field=s["field"], quote=s["quote"], file=s["file"], cell=s["cell"])
+        return TheirsSource(
+            turn=_field(s, "turn", int, what, null=True), field=_field(s, "field", str, what, null=True),
+            quote=_field(s, "quote", str, what), file=_field(s, "file", str, what, null=True),
+            cell=_field(s, "cell", str, what, null=True))
     if kind == "derived":
-        return Working(inputs=tuple(s["inputs"]), op=s["op"], text=s["text"])
+        inputs = s.get("inputs")
+        if not isinstance(inputs, (list, tuple)) or not all(isinstance(i, str) for i in inputs):
+            raise ValueError(f"{what}: 'inputs' must be a list of figure ids")
+        return Working(inputs=tuple(inputs), op=_field(s, "op", str, what), text=_field(s, "text", str, what))
     if kind == "ours":
-        return Proposal(note=s["note"])
+        return Proposal(note=_field(s, "note", str, what))
     if kind == "reference":
-        return Reference(publication=s["publication"], year=s["year"], population=s["population"], url=s["url"])
+        return Reference(publication=_field(s, "publication", str, what), year=_field(s, "year", int, what),
+                         population=_field(s, "population", str, what), url=_field(s, "url", str, what))
     raise ValueError(f"unknown figure kind {kind!r}")
 
 
 def from_json(d: dict) -> Figure:
-    """Inverse of `as_json`. Anything that is not a figure raises ValueError."""
+    """Inverse of `as_json`. Anything that is not a figure, at any depth, raises
+    ValueError with a plain message."""
     if not isinstance(d, dict):
         raise ValueError("a figure is a JSON object")
+    what = "a figure"
+    kind = _field(d, "kind", str, what)
     try:
-        raw = d["value"]
-        if not isinstance(raw, str):
-            raise ValueError("a figure's value is a string")
-        return Figure(id=d["id"], value=Decimal(raw), unit=d["unit"], period=d["period"], kind=d["kind"],
-                      source=_source_from_json(d["kind"], d["source"]), precision=d["precision"])
-    except (KeyError, TypeError, InvalidOperation) as exc:
-        raise ValueError(f"not a figure: {exc!r}") from exc
+        value = Decimal(_field(d, "value", str, what))
+    except InvalidOperation:
+        raise ValueError("a figure's 'value' must be a number written as text") from None
+    return Figure(id=_field(d, "id", str, what), value=value, unit=_field(d, "unit", str, what),
+                  period=_field(d, "period", str, what, null=True), kind=kind,
+                  source=_source_from_json(kind, d.get("source")), precision=_field(d, "precision", int, what))
 
 
 # -- the pipeline's claims ---------------------------------------------------------
@@ -240,7 +271,7 @@ def from_json(d: dict) -> Figure:
 # registry, checked against it by tests/figures/test_model.py:
 
 # registry.py:94-95 (APPROVAL); the em dash is written as an escape to keep this file ASCII
-_APPROVAL_PROPOSED = "consultant_proposed — client approval required"
+_APPROVAL_PROPOSED = "consultant_proposed \u2014 client approval required"
 _APPROVAL_REJECTED = "rejected"
 
 # registry.py:93 (PROVENANCE): client_input is theirs, machine_computed is derived,
@@ -271,7 +302,7 @@ _THEIRS_CLAIM_TYPE = "client_fact"
 # the source strings the producers write (registry.py:339/348, evidence.py:279)
 _DISCOVERY_PREFIX = "discovery: "
 _BRIEF_SOURCE = "client brief"
-_FILE_SEP = " · "   # "<file> . <sheet> . <CELL>", a middle dot
+_FILE_SEP = " \u00b7 "   # "<file> . <sheet> . <CELL>", a middle dot
 
 
 def _kind_of(c: dict) -> Kind:
@@ -288,14 +319,17 @@ def _kind_of(c: dict) -> Kind:
 
 
 def _decimal_of(value: object, cid: str) -> Decimal:
-    """The digits of the claim's number: built from the float's repr, so 0.07 is
-    Decimal('0.07'), and a whole number carries no trailing '.0'."""
+    """The digits of the claim's number. A float is first taken to 15 significant
+    digits (DBL_DIG, what a float reliably holds), then built from its repr: 0.07 is
+    Decimal('0.07'), and the registry's division noise goes (a claim of
+    0.33299999999999996 for 33.3 percent is 0.333). Any number a client typed with
+    15 digits or fewer survives exactly. A whole number carries no trailing '.0'."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"claim {cid} has no numeric value")
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError(f"claim {cid} has no finite value")
-        d = Decimal(repr(value))
+        d = Decimal(repr(float(format(value, ".15g"))))
     else:
         d = Decimal(value)
     if d == d.to_integral_value():
@@ -353,14 +387,32 @@ def from_claim(c: dict) -> Figure:
 
 
 def to_claim(f: Figure) -> dict:
-    """A registry-valid claim dict for the figure (it passes validate_registry).
+    """A claim dict rebuilt from what the Figure holds. It is NOT the claim the
+    Figure was read from, and it is not a stand-in for one.
 
     The kind sets provenance and approval; "percent" goes back to a fraction with
-    unit "%". It restores what the Figure holds, not what it never knew: the
-    claim's extra keys (event, item, formula, scenario) are gone, a canonical_gate
-    claim comes back under its kind's provenance, a "ratio" comes back as "%", and
-    the text of a derived claim is its display. A reference figure has no
-    provenance in the registry's closed set, so it raises ValueError."""
+    unit "%". What it loses:
+      - type collapses to five: client_fact, derived_value, time_basis_conversion,
+        scenario_impact and proposed_threshold. A module_kpi, scenario_assumption,
+        performance_target or any other proposed claim comes back as
+        proposed_threshold; a pilot_gate or historical_fact claim comes back as
+        client_fact, derived_value or proposed_threshold, by its kind.
+      - scope, phase, population and allowed_sections are reset to their defaults
+        ("engagement", "all", "n/a", ["*"]); `accepted` is dropped; so are event,
+        item, formula and scenario.
+      - a canonical_gate claim comes back under its kind's provenance, a "ratio"
+        comes back as "%", the text of a derived claim is its display, and the
+        value is a float again, so it loses digits past about 17.
+    Do not feed the result to claim_values, or to anything else that tells an
+    unaccepted module_kpi from other proposals: a proposal comes back with no
+    `accepted` and no module_kpi type, so that distinction is gone.
+
+    It passes validate_registry for any figure read by from_claim from a claim
+    that was itself valid. It does not for every figure: a hand-built derived
+    figure whose op is time_basis_conversion and whose period is not one of the
+    canonical bases (day, week, operating_30_day_month, year) fails, because the
+    registry demands one. A reference figure has no provenance in the registry's
+    closed set, so it raises ValueError."""
     if f.kind == "reference":
         raise ValueError(f"figure {f.id} is a published reference; the registry has no claim for it")
     provenance, approval = _KIND_CLAIM[f.kind]
@@ -397,7 +449,10 @@ _TOLERANCE = Decimal("0.005")
 
 
 def _within(a: Decimal, b: Decimal) -> bool:
-    return a == b or (a - b).copy_abs() <= _TOLERANCE * max(a.copy_abs(), b.copy_abs())
+    if a == b:
+        return True
+    gap = _CTX.subtract(a, b).copy_abs()
+    return gap <= _CTX.multiply(_TOLERANCE, max(a.copy_abs(), b.copy_abs()))
 
 
 class FigureSet:

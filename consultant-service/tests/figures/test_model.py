@@ -28,7 +28,7 @@ from app.figures.model import (
 from app.pipeline import capacity, registry as R
 
 D = Decimal
-PROPOSED = "consultant_proposed — client approval required"
+PROPOSED = "consultant_proposed \u2014 client approval required"
 FIGURES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                            "app", "figures")
 
@@ -74,7 +74,7 @@ def claims_from_producers():
     ce = [{"id": "CE-01", "type": "client_fact", "value": 38, "unit": "", "time_basis": "week",
            "population": "n/a", "scope": "engagement", "phase": "all",
            "provenance": "client_input", "approval_status": "client_stated",
-           "source": "bookings.xlsx · Sheet1 · B7", "allowed_sections": ["*"],
+           "source": "bookings.xlsx \u00b7 Sheet1 \u00b7 B7", "allowed_sections": ["*"],
            "text": "classes taught last week", "origin": "file", "cell": "B7", "file": "bookings.xlsx"}]
     return {c["id"]: c for c in cf + dv + cap + ce}
 
@@ -255,11 +255,36 @@ def test_the_value_is_a_decimal_built_from_the_floats_repr():
     assert isinstance(f.value, Decimal) and not isinstance(f.value, float)
     assert f.value == D("0.1")
     assert f.precision == 1
-    assert from_claim(claim(value=0.30000000000000004, unit="count")).value == D("0.30000000000000004")
+    # 0.1 + 0.2 in a float is 0.30000000000000004: arithmetic noise past the 15 digits
+    # a float reliably holds. It is cleaned to 0.3, not shown to a client as 17 digits.
+    assert from_claim(claim(value=0.30000000000000004, unit="count")).value == D("0.3")
+    assert from_claim(claim(value=1.1000000000000001, unit="count")).value == D("1.1")
     assert from_claim(claim(value=61.55, unit="USD")).value == D("61.55")
     assert from_claim(claim(value=44928.0, unit="USD")).precision == 0
     assert from_claim(claim(value=1200000.0, unit="count")).precision == 0
     assert from_claim(claim(value=12, unit="count")).value == D("12")      # an int claim value
+
+
+def test_a_number_with_fifteen_digits_or_fewer_survives_exactly():
+    for text in ("0.123456789012345", "123456789012345", "12345.6789012345", "0.07", "61.55", "1e-07", "1e+22"):
+        assert from_claim(claim(value=float(text), unit="count")).value == D(text), text
+    big = from_claim(claim(value=1e22, unit="count"))
+    assert big.value == D(10 ** 22) and big.precision == 0
+    assert from_claim(claim(value=12, unit="count")).value == D("12")      # an int is taken as it is
+
+
+@pytest.mark.parametrize("answer, shown, as_float", [("33.3%", "33.3%", 0.333), ("1.1%", "1.1%", 0.011),
+                                                     ("7.7%", "7.7%", 0.077), ("64.2 percent", "64.2%", 0.642)])
+def test_registry_division_noise_does_not_reach_the_display(answer, shown, as_float):
+    # registry._numbers divides the typed number by 100.0, which leaves
+    # 0.33299999999999996 for 33.3 and 0.011000000000000001 for 1.1
+    [c] = R.client_fact_claims([{"question": "What share of orders arrive late?", "answer": answer}], [])
+    if answer in ("33.3%", "1.1%"):
+        assert c["value"] != as_float                    # the noise really is in the claim
+    f = from_claim(c)
+    assert display(f) == shown
+    assert f.unit == "percent" and f.precision == 1
+    assert to_claim(f)["value"] == as_float
 
 
 def test_cf_maps_to_theirs_with_the_question_and_the_text():
@@ -535,3 +560,132 @@ def test_the_approval_and_provenance_words_match_the_registry():
         assert word in R.PROVENANCE
     assert set(M._DERIVED_CLAIM_TYPES) <= R.CLAIM_TYPES
     assert M._PROPOSED_CLAIM_TYPE in R.CLAIM_TYPES
+
+
+def test_the_model_files_are_ascii():
+    for module in ("__init__.py", "model.py", "labels.py"):
+        text = open(os.path.join(FIGURES_DIR, module), encoding="utf-8").read()
+        assert all(ord(ch) < 128 for ch in text), module
+
+
+# -- money, singular words, ids, JSON depth, decimal context -------------------------
+
+def test_money_with_a_fractional_part_shows_cents():
+    assert display(theirs(value="22.5", precision=1)) == "$22.50"
+    assert display(theirs(value="22.50", precision=2)) == "$22.50"
+    assert display(theirs(value="22.125", precision=3)) == "$22.125"
+    assert display(theirs(value="1250.5", precision=1)) == "$1,250.50"
+    assert display(theirs(value="22", precision=1)) == "$22.00"
+    assert display(theirs(value="22", precision=0)) == "$22"
+    assert display(derived(value="-22.5", unit="USD", precision=1)) == "-$22.50"
+    assert display(derived(value="22.54", unit="USD", precision=1)) == "~$22.50"
+    assert display(derived(value="3692.71", unit="USD", precision=2)) == "$3,692.71"
+    # only money has cents: other units show exactly the digits of their precision
+    assert display(theirs(value="22.5", unit="count", precision=1)) == "22.5"
+    assert display(theirs(value="33.3", unit="percent", precision=1)) == "33.3%"
+    assert display(theirs(value="1.5", unit="weeks", precision=1)) == "1.5 weeks"
+
+
+def test_a_unit_word_is_singular_exactly_when_the_number_shown_is_one():
+    assert display(theirs(value="1", unit="weeks")) == "1 week"
+    assert display(theirs(value="1", unit="week")) == "1 week"
+    assert display(theirs(value="1.0", unit="weeks", precision=1)) == "1.0 week"      # any precision
+    assert display(derived(value="1.04", unit="weeks", precision=0)) == "~1 week"     # the number shown is 1
+    assert display(theirs(value="-1", unit="days")) == "-1 day"
+    for plural in ("0", "0.5", "1.5", "2", "12"):
+        assert display(theirs(value=plural, unit="weeks", precision=len(plural.partition(".")[2]))) \
+            == f"{plural} weeks"
+
+
+def test_a_figure_id_must_be_a_string_and_not_empty():
+    w = Working((), "mul", "t")
+    with pytest.raises(ValueError):
+        Figure("", D("1"), "count", None, "derived", w, 0)
+    with pytest.raises(TypeError):
+        Figure(7, D("1"), "count", None, "derived", w, 0)
+
+
+def test_a_two_decimal_quantity_is_not_refused_as_theirs():
+    # the engine's Quantity defaults to two decimals; a client's cents must go through
+    from app.engine.types import Quantity, UnitFamily
+
+    q = Quantity(value=D("1250.5"), unit="USD", unit_family=UnitFamily.MONEY)
+    f = Figure("CF-01", q.value, q.unit, None, "theirs",
+               TheirsSource(None, "price", "$1,250.50", None, None), q.precision)
+    assert display(f) == "$1,250.50"
+    whole = Quantity(value=D("22"), unit="USD", unit_family=UnitFamily.MONEY)
+    g = Figure("CF-02", whole.value, whole.unit, None, "theirs",
+               TheirsSource(None, "price", "$22", None, None), whole.precision)
+    assert display(g) == "$22.00"
+    # what is refused is a value with digits the precision would drop
+    with pytest.raises(ValueError):
+        Figure("CF-03", D("1250.555"), "USD", None, "theirs", TheirsSource(None, None, "q", None, None), q.precision)
+
+
+def _bad(figure, path, value):
+    """as_json(figure) with one nested entry replaced."""
+    d = json.loads(json.dumps(as_json(figure)))
+    node = d
+    for key in path[:-1]:
+        node = node[key]
+    node[path[-1]] = value
+    return d
+
+
+@pytest.mark.parametrize("figure, path, value", [
+    (derived(), ("source", "inputs"), "CF-01"),
+    (derived(), ("source", "inputs"), [1]),
+    (derived(), ("source", "inputs"), None),
+    (derived(), ("source", "op"), 5),
+    (derived(), ("source", "text"), None),
+    (reference(), ("source", "year"), "2024"),
+    (reference(), ("source", "year"), 2024.5),
+    (reference(), ("source", "year"), True),
+    (reference(), ("source", "year"), None),
+    (reference(), ("source", "url"), 5),
+    (theirs(), ("source", "turn"), "1"),
+    (theirs(), ("source", "turn"), True),
+    (theirs(), ("source", "turn"), 1.5),
+    (theirs(), ("source", "quote"), None),
+    (theirs(), ("source", "field"), 3),
+    (theirs(), ("source", "file"), ["a.xlsx"]),
+    (ours(), ("source", "note"), 5),
+    (theirs(), ("source",), None),
+    (theirs(), ("source",), "from a client"),
+    (theirs(), ("id",), 5),
+    (theirs(), ("id",), ""),
+    (theirs(), ("unit",), 5),
+    (theirs(), ("period",), 5),
+    (theirs(), ("kind",), 5),
+    (theirs(), ("precision",), "0"),
+    (theirs(), ("precision",), 0.0),
+    (theirs(), ("precision",), True),
+])
+def test_from_json_checks_every_nested_type(figure, path, value):
+    with pytest.raises(ValueError):
+        from_json(_bad(figure, path, value))
+
+
+def test_from_json_accepts_the_nulls_the_model_allows():
+    assert from_json(_bad(theirs(), ("source", "turn"), None)).source.turn is None
+    assert from_json(_bad(theirs(), ("period",), None)).period is None
+    for key in ("source", "unit", "value", "kind", "id", "precision", "period"):
+        missing = json.loads(json.dumps(as_json(theirs())))
+        del missing[key]
+        with pytest.raises(ValueError):
+            from_json(missing)
+
+
+def test_match_does_not_depend_on_the_callers_decimal_context():
+    import decimal
+
+    fs = FigureSet([derived("A", value="1000", unit="count")])
+    with decimal.localcontext() as ctx:
+        ctx.prec = 1
+        # at one digit, a gap of 5.1 would round to 5 and the figure would match
+        assert fs.match(D("1005.1")) == []
+        assert [f.id for f in fs.match(D("1005"))] == ["A"]
+    with decimal.localcontext() as ctx:
+        ctx.prec = 2
+        # and the bound 5.0251 must not be cut to 5.0, which would refuse a gap of 5.02
+        assert [f.id for f in fs.match(D("1005.02"))] == ["A"]
