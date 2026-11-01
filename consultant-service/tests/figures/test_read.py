@@ -72,7 +72,7 @@ MUST_FLAG = [
     ("10k", ["10000"], ["digit"]),
     ("$1.2M", ["1200000"], ["money"]),
     # more of the same grammar
-    ("bookings double", ["2"], ["multiplier"]),
+    ("bookings doubled", ["2"], ["multiplier"]),
     ("triple the members", ["3"], ["multiplier"]),
     ("a tenfold rise", ["10"], ["multiplier"]),
     ("a three-fold rise", ["3"], ["multiplier"]),
@@ -177,7 +177,7 @@ MUST_NOT_FLAG = [
     "the 1990s",
     "2025-03-01",
     "31/10/2025",
-    "2025-2026",
+    "in 2025-2026",
     "seconds count",
     "hundreds of people",
     "dozens of people",
@@ -336,6 +336,145 @@ def test_empty_and_numberless_text():
     assert mentions("") == []
     assert mentions("No numbers here at all.") == []
     assert unsupported("", NOTHING) == []
+
+
+# -- controller rulings after review --------------------------------------------------------
+
+# 1. a numbered list marker first on its line is structure, not a number
+
+def test_a_list_marker_is_not_a_mention():
+    assert mentions("1. Book the studio") == []
+    text = "The plan:\n1. Book the studio\n  2) Call 12 members\n\t3. Open in 2 weeks\n10. Review"
+    assert [m.text for m in mentions(text)] == ["12", "2"]
+
+
+@pytest.mark.parametrize("text,want", [
+    ("We have 1. Then more", ["1"]),        # mid-line, not a marker
+    ("1.5 hours a day", ["1.5"]),           # a decimal, not a marker
+    ("12 reformers", ["12"]),               # no point after it
+    ("Plan:\n3 classes a day", ["3"]),      # first on its line, but no point
+    ("1.Book the studio", ["1"]),           # no space after the point
+])
+def test_a_number_that_is_not_a_list_marker_still_counts(text, want):
+    assert [m.text for m in mentions(text)] == want
+
+
+# 2. double and triple are factors only before what they multiply
+
+@pytest.mark.parametrize("text,want", [
+    ("double the revenue", ["2"]),
+    ("triple your bookings", ["3"]),
+    ("quadruple our reach", ["4"]),
+    ("double what you make", ["2"]),
+    ("double that", ["2"]),
+    ("double as many", ["2"]),
+    ("doubling their spend", ["2"]),
+    ("double 3 classes", ["2", "3"]),
+    ("double twelve", ["2", "12"]),
+    ("bookings doubled", ["2"]),
+    ("revenue tripled", ["3"]),
+    ("reach quadrupled", ["4"]),
+    ("twice", ["2"]),
+    ("threefold", ["3"]),
+    ("a tenfold rise", ["10"]),
+])
+def test_a_multiplier_word_before_what_it_multiplies_counts(text, want):
+    found = mentions(text)
+    assert [m.value for m in found] == [D(v) for v in want]
+    assert found[0].form == "multiplier"
+
+
+@pytest.mark.parametrize("text", [
+    "no double booking", "a triple room", "bookings double.", "double-check it",
+    "triple-booked", "a double", "Double booking is gone",
+])
+def test_a_multiplier_word_as_a_modifier_is_not_a_mention(text):
+    assert mentions(text) == []
+
+
+# 3. fractions read as the percent number
+
+@pytest.mark.parametrize("text,value,span", [
+    ("a third of members", "33.3333", "a third"),
+    ("one third", "33.3333", "one third"),
+    ("two thirds", "66.6667", "two thirds"),
+    ("two-thirds of them", "66.6667", "two-thirds"),
+    ("half the clients", "50", "half"),
+    ("a half", "50", "a half"),
+    ("a quarter of sales", "25", "a quarter"),
+    ("three quarters", "75", "three quarters"),
+    ("a fifth", "20", "a fifth"),
+    ("an eighth", "12.5", "an eighth"),
+])
+def test_a_fraction_reads_as_the_percent_number(text, value, span):
+    found = mentions(text)
+    assert [(m.text, m.value, m.form) for m in found] == [(span, D(value), "fraction")]
+
+
+def test_a_number_word_or_ordinal_is_not_taken_for_a_fraction():
+    assert [(m.value, m.form) for m in mentions("half a dozen")] == [(D(6), "word")]
+    assert [(m.value, m.form) for m in mentions("half a million")] == [(D(500000), "word")]
+    assert [(m.value, m.form) for m in mentions("the third week")] == [(D(3), "ordinal")]
+    assert [(m.value, m.form) for m in mentions("two and a half weeks")] == [(D("2.5"), "word")]
+    assert [(m.value, m.form) for m in mentions("two classes")] == [(D(2), "word")]
+
+
+def test_a_fraction_is_supported_by_a_percent_figure():
+    m = mentions("a third of members")[0]
+    assert supported(m, FigureSet([theirs("share", "33.3", "percent")])) is True
+    assert supported(m, FigureSet([theirs("share", "33.3", "")])) is True
+    assert supported(m, FigureSet([theirs("share", "33", "percent")])) is False
+    assert supported(m, FigureSet([theirs("price", "33.3333", "USD")])) is False
+    claim = {"id": "CF2", "type": "client_fact", "value": 0.5, "unit": "%", "provenance": "client_input",
+             "approval_status": "client_stated", "source": "client brief", "text": "half come back"}
+    assert unsupported("half of them come back", FigureSet([from_claim(claim)])) == []
+
+
+# 4. a 1900-2100 number is a year only after a word that makes it one
+
+@pytest.mark.parametrize("text", [
+    "in 2025", "In 2025 we grew", "since 2019", "by 2030", "from 2020", "until 2027", "till 2027",
+    "during 2024", "before 2020", "after 2021", "the end of 2025", "the year 2025", "FY 2025",
+    "May 2026", "October 2025", "Q3 2025", "on Oct 31, 2025", "31 Oct 2025", "from 2020 to 2025",
+    "in 2025-2026", "the 1990s",
+])
+def test_a_year_after_its_word_is_a_date(text):
+    found = mentions(text)
+    assert found and all(m.form == "date" for m in found)
+
+
+@pytest.mark.parametrize("text,want,forms", [
+    ("2000 members", ["2000"], ["digit"]),
+    ("2025 was good", ["2025"], ["digit"]),
+    ("we sold 1950 mats", ["1950"], ["digit"]),
+    ("2025-2026", ["2025", "2026"], ["range", "range"]),
+    ("may 2026", ["2026"], ["digit"]),   # a month name is capitalised
+])
+def test_a_year_shaped_count_is_a_digit(text, want, forms):
+    found = mentions(text)
+    assert [m.value for m in found] == [D(v) for v in want]
+    assert [m.form for m in found] == forms
+
+
+# 5. a label's list of numbers are labels
+
+@pytest.mark.parametrize("text", [
+    "Phases 2 and 3", "Steps 1-3", "Phases 1, 2 and 3", "Phases 1, 2, and 3", "Steps 1 & 2",
+    "Phases 2 to 4", "Phase 2\u20133", "Phase 2 and 3", "Steps 1-3 and 5", "Phase two",
+])
+def test_a_list_after_a_label_word_is_labels(text):
+    assert mentions(text) == []
+
+
+@pytest.mark.parametrize("text,want", [
+    ("Phase 2 costs $35", ["$35"]),
+    ("Step 3 takes 12 weeks", ["12"]),
+    ("Phase 2. 3 weeks later", ["3"]),
+    ("Phases 1-2 run for 6 weeks", ["6"]),
+    ("Phase 2 adds 2-3 weeks", ["2", "3"]),
+])
+def test_a_number_after_a_label_that_is_not_in_its_list_still_counts(text, want):
+    assert [m.text for m in mentions(text)] == want
 
 
 # -- the module stays its own grammar -----------------------------------------------------

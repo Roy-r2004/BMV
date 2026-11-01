@@ -21,25 +21,36 @@ What it counts (plan ruling 8), with the form each mention carries:
                 dozen, "a dozen", "half a dozen", "a hundred and twenty",
                 "two and a half"
     multiplier  3x, 3 followed by the multiplication sign, 3-fold, threefold,
-                tenfold, twice, double, triple, quadruple (and their -d/-s/-ing)
+                tenfold, twice, doubled, tripled, quadrupled always; double,
+                triple, quadruple (and -s, -ing) only before the, your, our,
+                their, its, what, that, as or a number ("double the revenue",
+                not "no double booking")
     ordinal     3rd, 1st, 22nd; third and up, twenty-first
+    fraction    half, a half, a third, one third, two thirds, a quarter, three
+                quarters, a fifth, ...; the value is the percent number (33.3333
+                for a third), so it is compared with percent figures
     range       2-3, 2 to 3, en or em dash, $20-$30, 10-15%, 10-15k: one
                 mention per end, a magnitude on the second end scales the first
     time        6pm, 6 p.m., 6:30 pm, 18:00, 6-7pm, 9am to 5pm; the value is the
                 hour on a 24-hour clock
-    date        a year 1900-2100 standing alone (2025, the 1990s, 2025-2026), a
-                day with a month name (31 Oct, 31st October, the 3rd of March,
-                Oct 31), 2025-03-01, 31/10/2025
+    date        a year 1900-2100 after a word that makes it one (in, since, by,
+                from, until, till, during, before, after, of, year, FY, a month
+                name, Q1-Q4) or completing a day and month (Oct 31, 2025); a
+                decade (the 1990s); a day with a month name (31 Oct, 31st
+                October, the 3rd of March, Oct 31); 2025-03-01, 31/10/2025.
+                Any other 1900-2100 is a digit: "2000 members" is a count.
 
 What it does not count:
   - "one", "a", "an", "first", "second" on their own: articles and a unit of
     time before they are quantities. "one hundred", "twenty-one", "a dozen" and
     "one and a half" are quantities and are counted.
   - a number right after a label word from `labels.LABEL_WORDS`, or its plural
-    ("Phase 2", "Exhibit 2.1", "Phases 1-2", "Phase two"): ruling 4.
+    ("Phase 2", "Exhibit 2.1", "Phase two"), and every number listed with it,
+    joined by and, a comma, &, a hyphen, to or an en dash ("Phases 1, 2 and 3",
+    "Steps 1-3"): ruling 4.
+  - a numbered list marker at the start of a line ("1. ", "2) "): structure.
   - identifiers: letters with digits glued on (Q3, M3-A, B2B, FY2025, v2.1) and capitals,
     a hyphen and digits (CF-04); a dotted chain of three or more parts (3.2.1).
-  - "double" or "triple" in a hyphenated compound (double-check).
   - vague plurals (hundreds, dozens).
 A month name is a proper noun and is read only capitalised ("May 3", not "may 3").
 A unit glued to a number stays out of the mention: "8hrs" is the mention "8".
@@ -54,7 +65,8 @@ from typing import Literal
 from app.figures.labels import LABEL_WORDS
 from app.figures.model import FigureSet
 
-Form = Literal["digit", "money", "percent", "word", "multiplier", "ordinal", "range", "time", "date"]
+Form = Literal["digit", "money", "percent", "word", "multiplier", "ordinal", "fraction", "range", "time",
+               "date"]
 
 
 @dataclass(frozen=True)
@@ -120,6 +132,20 @@ _WORD = re.compile(r"[A-Za-z]+")
 _JOIN = re.compile(rf"{_SP}+|-(?=[A-Za-z])")
 
 _LABELS = frozenset(w.lower() for w in LABEL_WORDS)
+# the numbers listed after a label ("Phases 1, 2 and 3", "Steps 1-3 & 5") are labels too
+_LABEL_LIST = re.compile(
+    rf"(?:{_SP}*(?:,|&|-|\u2013){_SP}*(?:(?:and|&){_SP}+)?|{_SP}+(?:and|to){_SP}+)"
+    rf"\d+(?:\.\d+)*(?![A-Za-z0-9%])")
+
+# a numbered list marker: digits, then "." or ")", then a space, first on its line
+_LIST_MARKER = re.compile(rf"\d+[.)]{_SP}")
+
+# the words after which a 1900-2100 number is a year, not a count
+_YEAR_WORDS = frozenset({"in", "since", "by", "from", "until", "till", "during", "before", "after",
+                         "of", "year", "fy"})
+_MONTH_WORD = re.compile(_MONTHS)
+_QUARTER = re.compile(r"[Qq][1-4]")
+_BEFORE_YEAR = re.compile(rf"(?P<w>[A-Za-z0-9]+)[.,]?{_SP}+$")
 
 # number words
 _UNITS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9}
@@ -141,13 +167,26 @@ _NOT_ALONE = frozenset({"one", "first", "second"})
 _AFTER_A = frozenset({"dozen", "hundred", *_SCALES})
 _STARTS = frozenset({*_UNITS, *_TEENS, *_TENS, *_ORD_UNITS, *_ORD_TEENS, *_ORD_TENS})
 
-_MULT_WORDS = {
-    "twice": 2,
-    **{f"double{s}": 2 for s in ("", "d", "s")}, "doubling": 2,
-    **{f"triple{s}": 3 for s in ("", "d", "s")}, "tripling": 3,
-    **{f"quadruple{s}": 4 for s in ("", "d", "s")}, "quadrupling": 4,
+# always a factor
+_MULT_ALWAYS = {"twice": 2, "doubled": 2, "tripled": 3, "quadrupled": 4}
+# a factor only before what it multiplies ("double the revenue"); otherwise a
+# modifier ("no double booking", "a triple room", "double-check")
+_MULT_BEFORE = {
+    **{f"double{s}": 2 for s in ("", "s")}, "doubling": 2,
+    **{f"triple{s}": 3 for s in ("", "s")}, "tripling": 3,
+    **{f"quadruple{s}": 4 for s in ("", "s")}, "quadrupling": 4,
 }
+_MULTIPLIED = re.compile(
+    rf"{_SP}+(?:(?i:the|your|our|their|its|what|that|as)(?![A-Za-z])|[\d$\u20ac\u00a3.]"
+    rf"|(?i:{'|'.join(sorted({*_UNITS, *_TEENS, *_TENS}, key=len, reverse=True))})(?![A-Za-z]))")
 _FOLD_PREFIX = {**_UNITS, **_TEENS, **_TENS, "hundred": 100, "thousand": 1000}
+
+# fractions: "a third" and "one third" take the singular, "two thirds" the plural
+_DENOMINATORS = {"half": 2, "third": 3, "quarter": 4, "fourth": 4, "fifth": 5, "sixth": 6,
+                 "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10}
+_DENOMINATORS_MANY = {"halves": 2, "thirds": 3, "quarters": 4, "fourths": 4, "fifths": 5, "sixths": 6,
+                      "sevenths": 7, "eighths": 8, "ninths": 9, "tenths": 10}
+_PERCENT_PLACES = Decimal("0.0001")
 
 
 # -- small readers ------------------------------------------------------------------------
@@ -232,8 +271,59 @@ def _after_label(text: str, start: int) -> bool:
     return word in _LABELS or (word.endswith("s") and word[:-1] in _LABELS)
 
 
-def _is_year(q: _Qty, text: str) -> bool:
+def _label_end(text: str, end: int) -> int:
+    """Where the list of numbers a label started ends: "Phases 1, 2 and 3"."""
+    while (m := _LABEL_LIST.match(text, end)):
+        end = m.end()
+    return end
+
+
+def _year_shaped(q: _Qty, text: str) -> bool:
     return q.plain and q.end - q.start == 4 and 1900 <= q.value <= 2100 and not text[q.end:q.end + 1].isalpha()
+
+
+def _year_context(text: str, start: int) -> bool:
+    """True when the word before `start` makes a 1900-2100 number a year: in
+    2025, since 2019, FY 2025, May 2026, Q3 2025."""
+    m = _BEFORE_YEAR.search(text, max(0, start - 40), start)
+    if not m or (m.start() > 0 and text[m.start() - 1].isalnum()):
+        return False
+    word = m.group("w")
+    return (word.lower() in _YEAR_WORDS or bool(_MONTH_WORD.fullmatch(word))
+            or bool(_QUARTER.fullmatch(word)))
+
+
+def _is_year(q: _Qty, text: str) -> bool:
+    return _year_shaped(q, text) and _year_context(text, q.start)
+
+
+def _line_start(text: str, pos: int) -> bool:
+    """True when only spaces stand between the start of the line and `pos`."""
+    i = pos
+    while i > 0 and text[i - 1] in " \t\u00a0":
+        i -= 1
+    return i == 0 or text[i - 1] in "\r\n"
+
+
+def _percent_of(numerator: int, denominator: int) -> Decimal:
+    """numerator/denominator as a percent number, exact to four places: 33.3333."""
+    value = (Decimal(numerator) * 100 / Decimal(denominator)).quantize(_PERCENT_PLACES)
+    return value.quantize(Decimal(1)) if value == value.to_integral_value() else value.normalize()
+
+
+def _fraction(words: list[str]) -> tuple[Decimal, int] | None:
+    """A fraction as (percent number, words used): half, a half, a third, one
+    third, two thirds, three quarters. None when the words say no fraction."""
+    first = words[0]
+    second = words[1] if len(words) > 1 else None
+    if first in ("a", "an", "one") and second in _DENOMINATORS:
+        return _percent_of(1, _DENOMINATORS[second]), 2
+    numerator = _UNITS.get(first) or _TEENS.get(first)
+    if numerator and numerator > 1 and second in _DENOMINATORS_MANY:
+        return _percent_of(numerator, _DENOMINATORS_MANY[second]), 2
+    if first == "half":
+        return Decimal(50), 1
+    return None
 
 
 def _hour24(hour: int, ap: str) -> int:
@@ -268,14 +358,29 @@ def _read_time(text: str, pos: int) -> Read | None:
     return None
 
 
+_YEAR_AFTER_DATE = re.compile(rf",?{_SP}+(?P<y>19\d\d|20\d\d|2100)(?![\d,%A-Za-z]|\.\d)")
+
+
+def _day_and_year(text: str, pos: int, m: re.Match) -> Read:
+    """A day with its month, and the year that completes it ("Oct 31, 2025")."""
+    found = [_mention(text, pos, m.end(), int(m.group("d")), "date")]
+    year = _YEAR_AFTER_DATE.match(text, m.end())
+    if year:
+        found.append(_mention(text, year.start("y"), year.end("y"), int(year.group("y")), "date"))
+        return year.end(), found
+    return m.end(), found
+
+
 def _read_date(text: str, pos: int) -> Read | None:
     m = _ISO_DATE.match(text, pos)
     if m:
         return m.end(), [_mention(text, pos, m.end(), int(m.group("y")), "date")]
-    for pattern in (_SLASH_DATE, _DAY_MONTH, _MONTH_DAY):
-        m = pattern.match(text, pos)
-        if m and 1 <= int(m.group("d")) <= 31:
-            return m.end(), [_mention(text, pos, m.end(), int(m.group("d")), "date")]
+    m = _SLASH_DATE.match(text, pos)
+    if m and 1 <= int(m.group("d")) <= 31:
+        return m.end(), [_mention(text, pos, m.end(), int(m.group("d")), "date")]
+    m = _DAY_MONTH.match(text, pos)
+    if m and 1 <= int(m.group("d")) <= 31:
+        return _day_and_year(text, pos, m)
     return None
 
 
@@ -290,8 +395,8 @@ def _read_range(text: str, pos: int) -> Read | None:
     if b is None or b.ordinal or b.signed:
         return None
     if _after_label(text, pos):
-        return b.end, []
-    if _is_year(a, text) and _is_year(b, text):
+        return _label_end(text, b.end), []
+    if _is_year(a, text) and _year_shaped(b, text):   # from 2025-2026: the second end follows the first
         return b.end, [_mention(text, a.start, a.end, a.value, "date"),
                        _mention(text, b.start, b.end, b.value, "date")]
     if b.scale != 1 and a.scale == 1:   # 10-15k is ten to fifteen thousand
@@ -309,7 +414,7 @@ def _read_digits(text: str, pos: int) -> Read | None:
         return None
     form = _form(q)
     if form == "digit" and _after_label(text, pos):
-        return q.end, []
+        return _label_end(text, q.end), []
     if _is_year(q, text):
         return q.end, [_mention(text, pos, q.end, q.value, "date")]
     if q.plain and q.end - q.start == 4 and 1900 <= q.value <= 2100 and text[q.end:q.end + 1] == "s" \
@@ -411,13 +516,23 @@ def _read_words(text: str, pos: int) -> Read | None:
     if not ws:
         return None
     first, _, first_end, _ = ws[0]
-    if first in _MULT_WORDS:
-        if len(ws) > 1 and ws[1][3]:   # double-check, triple-booked: a compound, not a factor
+    if first in _MULT_ALWAYS:
+        return first_end, [_mention(text, pos, first_end, _MULT_ALWAYS[first], "multiplier")]
+    if first in _MULT_BEFORE:
+        if not _MULTIPLIED.match(text, first_end):   # no double booking, double-check
             return first_end, []
-        return first_end, [_mention(text, pos, first_end, _MULT_WORDS[first], "multiplier")]
+        return first_end, [_mention(text, pos, first_end, _MULT_BEFORE[first], "multiplier")]
     if first.endswith("fold") and first[:-4] in _FOLD_PREFIX:
         return first_end, [_mention(text, pos, first_end, _FOLD_PREFIX[first[:-4]], "multiplier")]
-    parsed = _phrase([w[0] for w in ws])
+    words = [w[0] for w in ws]
+    # "half a dozen" is a number; any other "half", "a third", "two thirds" a fraction
+    parsed = _phrase(words) if first == "half" else None
+    if parsed is None:
+        fraction = _fraction(words)
+        if fraction is not None:
+            value, used = fraction
+            return ws[used - 1][2], [_mention(text, pos, ws[used - 1][2], value, "fraction")]
+        parsed = _phrase(words)
     if parsed is None:
         return None
     value, used, ordinal = parsed
@@ -440,7 +555,7 @@ def _read_words(text: str, pos: int) -> Read | None:
 def _read_letters(text: str, pos: int) -> Read | None:
     m = _MONTH_DAY.match(text, pos)
     if m and 1 <= int(m.group("d")) <= 31:
-        return m.end(), [_mention(text, pos, m.end(), int(m.group("d")), "date")]
+        return _day_and_year(text, pos, m)
     q = _quantity(text, pos)   # US$35, USD 35
     if q is not None:
         return q.end, [_mention(text, pos, q.end, q.value, _form(q))]
@@ -453,6 +568,9 @@ def _read_letters(text: str, pos: int) -> Read | None:
 def _read_at(text: str, pos: int) -> Read | None:
     if text[pos].isalpha():
         return _read_letters(text, pos)
+    marker = _LIST_MARKER.match(text, pos)
+    if marker and _line_start(text, pos):   # "1. Book the studio": structure, not a number
+        return marker.end(), []
     return (_read_date(text, pos) or _read_time(text, pos)
             or _read_range(text, pos) or _read_digits(text, pos))
 
@@ -508,8 +626,9 @@ def supported(m: Mention, known: FigureSet, hours: set[int] | None = None) -> bo
     supported by its form. Every other form needs a figure in `known.match`
     (within half a percent, or equal as the figure displays). Two unit checks
     keep a number from passing as something else: money needs a figure in a
-    money unit or with no unit, and a percent (compared as the percent number,
-    25 for 25%) needs a figure in "percent" or with no unit.
+    money unit or with no unit, and a percent or a fraction (both compared as
+    the percent number: 25 for 25%, 33.3333 for a third) needs a figure in
+    "percent" or with no unit.
 
     A mention near two figures of different values is supported here; refusing
     to pick one of them is the binder's job, not the reader's."""
@@ -520,7 +639,7 @@ def supported(m: Mention, known: FigureSet, hours: set[int] | None = None) -> bo
     found = known.match(m.value)
     if m.form == "money":
         return any(f.unit == "" or f.unit in _MONEY_UNITS for f in found)
-    if m.form == "percent":
+    if m.form in ("percent", "fraction"):
         return any(f.unit in ("", "percent") for f in found)
     return bool(found)
 
