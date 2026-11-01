@@ -28,6 +28,7 @@ import dataclasses
 import json
 import logging
 import math
+import re
 
 from sqlalchemy.orm import Session
 
@@ -36,7 +37,7 @@ from app.config import settings
 from app.figures import known as _known
 from app.figures.bind import bind
 from app.figures.calc import decimal_of, derive, places_of, round_half_up, unit_key
-from app.figures.model import Figure, FigureSet, Proposal, as_json, display_number, from_claim
+from app.figures.model import Figure, FigureSet, Proposal, _within, as_json, display_number, from_claim
 from app.figures.read import mentions
 from app.models import Request
 from app.pipeline.figures import CONSTANTS
@@ -58,9 +59,13 @@ MAX_TERM = 1e12
 #: The registry's word for a claim whose time basis it could not find
 #: (registry._infer_unit); it is no basis, not a period.
 _NO_BASIS = "as stated"
-#: The length of the plan the answer proposes, in weeks, when the model gives none,
-#: and the bounds it is held to.
-PLAN_WEEKS_DEFAULT, PLAN_WEEKS_MIN, PLAN_WEEKS_MAX = 6, 2, 12
+# The length of the plan the answer proposes, and its bounds, are per business:
+# settings.PLAN_WEEKS_DEFAULT / _MIN / _MAX (app/config.py).
+
+#: Words that make a plan's name say how long it runs. A name that holds one (or
+#: any number) is rendered from the plan's length in code, never the model's words.
+_DURATION_WORDS = re.compile(
+    r"\b(?:days?|weeks?|wks?|fortnights?|months?|quarters?|years?|yrs?)\b", re.I)
 
 
 def _as_float(v) -> float | None:
@@ -84,8 +89,8 @@ def _claim_matches(v: float, claim: dict) -> bool:
 
 
 def _close(a: float, b: float) -> bool:
-    """Within half a percent: the tolerance the registry and the known set use."""
-    return abs(a - b) <= max(0.005 * abs(b), 1e-6)
+    """The same figure: the model's tolerance (half a percent), on the digits."""
+    return _within(decimal_of(a), decimal_of(b))
 
 
 def _is_money(claim: dict | None) -> bool:
@@ -266,11 +271,13 @@ def compute_move(raw: dict | None, claims: list[dict]) -> dict | None:
 
 
 def plan_name(name: str, duration: Figure) -> str:
-    """The plan's name. A name that carries a number is not the model's to write:
-    it is rendered here from the duration figure ("6-week plan"), as is a missing one.
-    A digit the reader passes over (a label, a plan position) counts as a number here."""
+    """The plan's name. A name that says how long the plan runs is not the model's
+    to write: one holding a number (a digit the reader passes over, a label or a plan
+    position, counts too) or a duration word ("one-month pilot", "a fortnight
+    sprint") is rendered here from the duration figure ("6-week plan"), as is a
+    missing one. A name with neither ("Booking pilot") is kept."""
     name = str(name or "").strip()[:40]
-    if not name or mentions(name) or any(ch.isdigit() for ch in name):
+    if not name or mentions(name) or any(ch.isdigit() for ch in name) or _DURATION_WORDS.search(name):
         return f"{display_number(duration)}-week plan"
     return name
 
@@ -322,18 +329,21 @@ def shape(raw: dict, claims: list[dict], known: FigureSet,
         if not value or not cites or not any(ch.isdigit() for ch in value):
             continue
         b_value, b_label = bound(value), bound(label)
-        if b_value is None or b_label is None:
+        # A headline figure IS a figure: its value must name at least one, and
+        # nothing in it or its label may name none. "Week 4", "Phase 2", "Q3" are a
+        # plan position, a label and an identifier to the reader, and name nothing.
+        if b_value is None or not b_value[1] or b_label is None:
             problems.append(f"the figure '{value}' is not in the figures you cited")
             continue
-        # `ids` are the figures the value (and its label) name, for the page's tags
+        # `ids` are the figures the value names, for the page's tags
         shown.append({"value": b_value[0], "label": b_label[0], "cites": cites,
-                      "ids": list(dict.fromkeys(b_value[1] + b_label[1]))})
+                      "ids": list(dict.fromkeys(b_value[1]))})
         if len(shown) >= MAX_FIGURES:
             break
 
     action = raw.get("action") if isinstance(raw.get("action"), dict) else {}
-    weeks = int(_as_float(action.get("weeks")) or PLAN_WEEKS_DEFAULT)
-    weeks = max(PLAN_WEEKS_MIN, min(PLAN_WEEKS_MAX, weeks))
+    weeks = int(_as_float(action.get("weeks")) or settings.PLAN_WEEKS_DEFAULT)
+    weeks = max(settings.PLAN_WEEKS_MIN, min(settings.PLAN_WEEKS_MAX, weeks))
     duration = _known.plan_weeks_figure(weeks)
 
     if not headline:
@@ -395,6 +405,7 @@ def write(db: Session, request_id: int, decision: dict) -> dict | None:
             unverified="; ".join(decision.get("unverified") or []) or "nothing listed",
             leading=_leading(req),
             claims=_claim_lines(claims),
+            figures_block=_known.prompt_lines(known),
         )
     except Exception as exc:
         logger.warning("answer could not be prepared: %s", str(exc)[:200])

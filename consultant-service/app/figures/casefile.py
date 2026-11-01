@@ -53,7 +53,7 @@ import re
 from bisect import bisect_right
 from dataclasses import replace
 from decimal import Decimal
-from typing import Iterable
+from typing import Iterable, Iterator, NamedTuple
 
 from app.config import settings
 from app.figures.model import _TIME_UNITS, Figure, FigureSet, TheirsSource, as_json, from_json
@@ -120,6 +120,57 @@ def _scope_question(req) -> str:
         return ""
     question = brief.get("question") if isinstance(brief, dict) else None
     return " ".join(question.split()) if isinstance(question, str) else ""
+
+
+class ClientText(NamedTuple):
+    """One text in the client's own words: the text as it is read, the id prefix
+    its figures take (T<turn>, F-<field>), and where it came from."""
+    text: str
+    prefix: str
+    turn: int | None
+    field: str | None
+
+
+def _answer_texts(pairs: list) -> Iterator[ClientText]:
+    for turn, pair in enumerate(pairs, 1):
+        answer = pair.get("answer") if isinstance(pair, dict) else None
+        if not isinstance(answer, str) or not answer.strip():
+            continue
+        qid = pair.get("id")
+        field = qid.strip() if isinstance(qid, str) and qid.strip() else None
+        yield ClientText(answer, f"T{turn}", turn, field)
+
+
+def client_words(req) -> Iterator[ClientText]:
+    """The one place that says which of the row's words are the client's: each
+    interview answer (never the question we asked), then each free-text column with
+    the notes the intake adds cut out, skipping a column that repeats words already
+    read or holds only the scope question we wrote. A file's figures are not words
+    and are read from its claims (`build`)."""
+    yield from _answer_texts(_loads_list(getattr(req, "ops_numbers_json", None)))
+    question, seen = _scope_question(req), set()
+    for field in FREE_TEXT_COLUMNS:
+        text = getattr(req, field, None)
+        if not isinstance(text, str):
+            continue
+        if field == "business_description":
+            text = _OUR_NOTES.sub("", text)
+        words = " ".join(text.split())
+        if not words or words in seen or (field == "desired_outcome" and words == question):
+            continue   # empty, the same words again, or the question we wrote
+        seen.add(words)
+        yield ClientText(text.strip(), f"F-{field}", None, field)
+
+
+def client_texts(req) -> list[str]:
+    """The client's own words on the row (`client_words`), as plain texts."""
+    return [w.text.strip() for w in client_words(req)]
+
+
+def answers(ops_numbers: object) -> list[str]:
+    """The answers alone in interview pairs as the page sends them (a JSON list of
+    {question, answer}), never the questions we asked."""
+    return [w.text.strip() for w in _answer_texts(_loads_list(ops_numbers))]
 
 
 def _sentence_spans(text: str) -> list[tuple[int, int]]:
@@ -206,14 +257,15 @@ def _figure(id: str, m: Mention, source: TheirsSource, text: str) -> Figure | No
         return None
 
 
-def _text_figures(text: str, prefix: str, *, turn: int | None, field: str | None,
-                  limit: int) -> list[Figure]:
+def read_text(text: str, prefix: str, *, turn: int | None = None, field: str | None = None,
+              limit: int) -> list[tuple[Mention, Figure]]:
     """One figure per stored number in `text`, named `<prefix>-<n>`, the first
-    `limit` of them in text order."""
+    `limit` of them in text order, each with the mention it was read from (whose
+    form says how it was written: a count, money, a percent...)."""
     text = text[:MAX_TEXT_CHARS]
     spans = _sentence_spans(text)
     starts = [s for s, _ in spans]
-    out: list[Figure] = []
+    out: list[tuple[Mention, Figure]] = []
     n = 0
     for m in mentions(text):
         if len(out) >= limit:
@@ -224,8 +276,13 @@ def _text_figures(text: str, prefix: str, *, turn: int | None, field: str | None
         figure = _figure(f"{prefix}-{n}", m, TheirsSource(
             turn=turn, field=field, quote=_quote(text, spans, starts, m), file=None, cell=None), text)
         if figure:
-            out.append(figure)
+            out.append((m, figure))
     return out
+
+
+def _text_figures(text: str, prefix: str, *, turn: int | None, field: str | None,
+                  limit: int) -> list[Figure]:
+    return [f for _, f in read_text(text, prefix, turn=turn, field=field, limit=limit)]
 
 
 # -- the client's files ----------------------------------------------------------------
@@ -318,28 +375,8 @@ def build(req) -> list[Figure]:
     from_files = _claim_figures(_loads_list(getattr(req, "evidence_json", None)), limit=per_request // 2)
     per_request -= len(from_files)
 
-    for turn, pair in enumerate(_loads_list(getattr(req, "ops_numbers_json", None)), 1):
-        answer = pair.get("answer") if isinstance(pair, dict) else None
-        if not isinstance(answer, str) or not answer.strip():
-            continue
-        qid = pair.get("id")
-        field = qid.strip() if isinstance(qid, str) and qid.strip() else None
-        for figure in _text_figures(answer, f"T{turn}", turn=turn, field=field,
-                                    limit=min(per_text, per_request - len(figures))):
-            _place(figures, figure)
-
-    question, seen = _scope_question(req), set()
-    for field in FREE_TEXT_COLUMNS:
-        text = getattr(req, field, None)
-        if not isinstance(text, str):
-            continue
-        if field == "business_description":
-            text = _OUR_NOTES.sub("", text)
-        words = " ".join(text.split())
-        if not words or words in seen or (field == "desired_outcome" and words == question):
-            continue   # empty, the same words again, or the question we wrote
-        seen.add(words)
-        for figure in _text_figures(text.strip(), f"F-{field}", turn=None, field=field,
+    for words in client_words(req):
+        for figure in _text_figures(words.text, words.prefix, turn=words.turn, field=words.field,
                                     limit=min(per_text, per_request - len(figures))):
             _place(figures, figure)
 

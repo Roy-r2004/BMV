@@ -24,6 +24,7 @@ from app import auth_client
 from app.ai import provider
 from app.config import settings
 from app.database import get_db
+from app.figures.model import tag_word
 from app.pipeline import failure
 from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.templating import render
@@ -144,32 +145,55 @@ def fallback_facts(stage: str | None) -> list[dict]:
 _DIGITS = re.compile(r"\d+(?:[.,]\d+)*")
 
 
-def _not_in_their_words(value: str, texts: list[str]) -> list[str]:
-    """Every number in a short value read off their words that the words do not
-    hold, as written. Each number the reader finds must name a figure of theirs in
-    `texts` (`known.known_for_texts`, the strict reader: words, ordinals and small
-    numbers count); a clock time must be one they named, and a date one they
-    wrote. Digits the reader passes over as a label or an identifier ("Phase 2",
-    "Q3") must still stand in their words, so a value is held to every digit it
-    shows. Pass their own words only, never our questions."""
-    from app.figures.known import hours_in, known_for_texts
-    from app.figures.read import mentions, supported
+class _TheirWords:
+    """Their words, read once, for checking the short values read off them (a fact,
+    a case-file figure, its label). Pass their own words only, never our questions.
 
-    found = mentions(value)
-    if not found and not _DIGITS.search(value):
-        return []
-    known, hours = known_for_texts(texts), hours_in(texts)
-    theirs = [m for t in texts if isinstance(t, str) for m in mentions(t)]
-    dates = {m.value for m in theirs if m.form == "date"}
-    bad = [m.text for m in found
-           if not (m.value in dates if m.form == "date" else supported(m, known, hours))]
-    covered = [(m.start, m.end) for m in found]
-    digits = {d.replace(",", "") for t in texts if isinstance(t, str) for d in _DIGITS.findall(t)}
-    for d in _DIGITS.finditer(value):
-        inside = any(s <= d.start() and d.end() <= e for s, e in covered)
-        if not inside and d.group().replace(",", "") not in digits:
-            bad.append(d.group())
-    return bad
+    `missing(value)` lists every number in the value the words do not hold, as
+    written. A number must bind to a figure of theirs (`bind`, the rule every stage
+    uses: a count is not backed by money, a price by a count, and words, ordinals and
+    small numbers count); a clock time must be one they named; a date one they wrote,
+    as a date or as a bare year ("we started 2019" backs "since 2019"). Digits the
+    reader passes over as a label or an identifier ("Phase 2", "Q3") must still stand
+    in their words outside a time or a date ("We open at 6pm" does not back "Phase 6"),
+    so a value is held to every digit it shows."""
+
+    def __init__(self, texts: list[str]) -> None:
+        from app.figures.known import hours_in, known_for_texts
+        from app.figures.read import mentions
+
+        texts = [t for t in texts if isinstance(t, str)]
+        self.known, self.hours = known_for_texts(texts), hours_in(texts)
+        self.dates: set = set()
+        self.digits: set[str] = set()
+        for t in texts:
+            found = mentions(t)
+            self.dates |= {m.value for m in found if m.form == "date" or (
+                m.form == "digit" and len(m.text) == 4 and 1900 <= m.value <= 2100)}
+            clock = [(m.start, m.end) for m in found if m.form in ("time", "date")]
+            self.digits |= {d.group().replace(",", "") for d in _DIGITS.finditer(t)
+                            if not any(s <= d.start() and d.end() <= e for s, e in clock)}
+
+    def missing(self, value: str) -> list[str]:
+        from app.figures.bind import bind
+        from app.figures.read import mentions
+
+        found = mentions(value)
+        if not found and not _DIGITS.search(value):
+            return []
+        bad = [u.text for u in bind(value, self.known, hours=self.hours).unresolved]
+        bad += [m.text for m in found if m.form == "date" and m.value not in self.dates]
+        covered = [(m.start, m.end) for m in found]
+        for d in _DIGITS.finditer(value):
+            inside = any(s <= d.start() and d.end() <= e for s, e in covered)
+            if not inside and d.group().replace(",", "") not in self.digits:
+                bad.append(d.group())
+        return bad
+
+
+def _not_in_their_words(value: str, texts: list[str]) -> list[str]:
+    """`_TheirWords(texts).missing(value)`, for a single value."""
+    return _TheirWords(texts).missing(value)
 
 
 def _figures_in(value: str) -> bool:
@@ -180,15 +204,11 @@ def _figures_in(value: str) -> bool:
 
 
 def _answers(ops_numbers: str | None) -> list[str]:
-    """Their answers alone, never the questions we asked."""
-    try:
-        pairs = json.loads(ops_numbers or "[]")
-    except (TypeError, ValueError):
-        return []
-    if not isinstance(pairs, list):
-        return []
-    return [str(p["answer"]).strip() for p in pairs
-            if isinstance(p, dict) and str(p.get("answer") or "").strip()]
+    """Their answers alone, never the questions we asked (`casefile.answers`, the
+    same reading the case file makes)."""
+    from app.figures.casefile import answers
+
+    return answers(ops_numbers)
 
 
 def _fact_value(value, quote, texts: list[str]) -> str:
@@ -379,6 +399,7 @@ def shape_fact_updates(raw_updates, raw_new, facts: list[dict], texts: list[str]
     an answer never overwrites that silently.
     """
     by_key = {f["key"]: f for f in facts}
+    theirs = _TheirWords(texts)   # read once, not once per update
     updates = []
     for u in raw_updates if isinstance(raw_updates, list) else []:
         if not isinstance(u, dict):
@@ -391,7 +412,7 @@ def shape_fact_updates(raw_updates, raw_new, facts: list[dict], texts: list[str]
         # echoes that back has not learned the fact, it has read our note.
         if re.search(r"\b(not known|unknown|not (yet )?(given|stated|provided)|n/?a)\b", value, re.I):
             continue
-        if _not_in_their_words(value, texts):
+        if theirs.missing(value):
             continue
         updates.append({"key": key, "value": value})
     added = []
@@ -756,6 +777,7 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
     from app.pipeline import figures
 
     out: dict = {"figures": []}
+    lines: dict[str, _TheirWords] = {}
     seen = set()
     for f in (raw.get("figures") or []) if isinstance(raw, dict) else []:
         if not isinstance(f, dict):
@@ -774,13 +796,16 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
         # every number in the value is in the words it was quoted from, a time one they named there
         if _not_in_their_words(value, [token]):
             continue
-        if _not_in_their_words(label, [text]):
+        reader = lines.get(src) or lines.setdefault(src, _TheirWords([text]))   # each line read once
+        if reader.missing(label):
             continue
         key = (src, value.casefold())
         if key in seen:
             continue
         seen.add(key)
-        out["figures"].append({"kind": "theirs", "source": (origins or {}).get(src) or _origin(""),
+        # `display` and `tag` are what the page shows beside it, as on a payload's figures map
+        out["figures"].append({"kind": "theirs", "tag": tag_word("theirs"), "display": value,
+                               "source": (origins or {}).get(src) or _origin(""),
                                "source_id": src, "token": token, "value": value, "label": label})
         if len(out["figures"]) >= CASEFILE_MAX_FIGURES:
             break

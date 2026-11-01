@@ -34,8 +34,8 @@ from app.ai import provider
 from app.config import settings
 from app.figures import known as _known
 from app.figures.calc import decimal_of, derive, places_of, round_half_up
-from app.figures.model import Figure, FigureSet, TheirsSource
-from app.figures.read import mentions
+from app.figures.model import _TIME_UNITS, Figure, FigureSet, TheirsSource
+from app.figures.read import _MONEY_UNITS, mentions
 from app.pipeline import figures
 from app.pipeline._shared import ask_until_usable, reply_json
 from app.templating import render
@@ -68,13 +68,25 @@ def owner_texts(req) -> list[str]:
     return _known.client_texts(req)
 
 
-#: A count in the week is never a price or a share: "$12" does not vouch for 12 a slot.
-_NOT_A_COUNT = frozenset({"USD", "EUR", "GBP", "percent"})
+#: A count in the week is never money in any currency, a share or a length of time:
+#: "$12", "22 AUD", "CAD 22" and "22 minutes" do not vouch for 22 seats.
+#: The one exception is the days a week, which are counted in days ("6 days a week").
+_NOT_A_COUNT = frozenset({*_MONEY_UNITS, "percent", *(one for one, _ in _TIME_UNITS)})
+#: How a count is written: digits, a number word, the end of a range. Money ("A$22",
+#: whose currency the case file does not name), a percent, a multiplier, an ordinal
+#: or a fraction is not a count, whatever unit its figure ended up with.
+_COUNT_FORMS = frozenset({"digit", "word", "range"})
+
+
+def _counts(texts: list[str], *, counted_in: str | None = None) -> FigureSet:
+    """Their figures that can be a count in the week; with `counted_in`, also those
+    counted in that unit of time ("day" for the days a week)."""
+    return FigureSet(f for m, f in _known.read_texts(texts)
+                     if m.form in _COUNT_FORMS and (f.unit not in _NOT_A_COUNT or f.unit == counted_in))
 
 
 def _num(value, known: FigureSet) -> float | None:
-    """The number if the owner said it (a figure of theirs that is not money or a
-    percent), else None."""
+    """The number if the owner said it as a count (`_counts`), else None."""
     if value is None or isinstance(value, bool):
         return None
     try:
@@ -82,7 +94,7 @@ def _num(value, known: FigureSet) -> float | None:
         d = decimal_of(v)
     except (TypeError, ValueError, OverflowError):
         return None
-    return v if any(f.unit not in _NOT_A_COUNT for f in known.match(d)) else None
+    return v if known.match(d) else None
 
 
 def _clock(value, named_hours: set[int]) -> str | None:
@@ -175,7 +187,7 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
     kind = raw.get("shape")
     if kind not in SHAPES or kind == "none":
         return None
-    allowed = _known.known_for_texts(texts)
+    allowed = _counts(texts)
     named_hours = _known.hours_in(texts)
     lower = " ".join(texts).lower()
 
@@ -217,7 +229,7 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
 
     per_slot = _num(raw.get("per_slot"), allowed)
     slots = _num(raw.get("slots_per_day"), allowed)
-    days = _num(raw.get("days_per_week"), allowed)
+    days = _num(raw.get("days_per_week"), _counts(texts, counted_in="day"))   # "6 days a week"
     if not per_slot or not slots or not days:
         return None
     if not (1 <= days <= MAX_DAYS and 1 <= slots <= MAX_SLOTS and 1 <= per_slot <= MAX_PER_SLOT):

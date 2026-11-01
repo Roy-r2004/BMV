@@ -93,6 +93,18 @@ class Settings:
     # and 100..5000.
     CASE_FILE_FIGURES_PER_TEXT: int = _env_int_within("CASE_FILE_FIGURES_PER_TEXT", 200, 20, 1000)
     CASE_FILE_FIGURES_PER_REQUEST: int = _env_int_within("CASE_FILE_FIGURES_PER_REQUEST", 1000, 100, 5000)
+    # The length of the plan the answer proposes, in weeks (app/pipeline/answer.py),
+    # and the bounds the model's length is held to; the roadmap's phases may not run
+    # past it. Per business, so bounded: the default 6 within 2..26, the shortest
+    # 1..12, the longest 4..104.
+    PLAN_WEEKS_DEFAULT: int = _env_int_within("PLAN_WEEKS_DEFAULT", 6, 2, 26)
+    PLAN_WEEKS_MIN: int = _env_int_within("PLAN_WEEKS_MIN", 2, 1, 12)
+    PLAN_WEEKS_MAX: int = _env_int_within("PLAN_WEEKS_MAX", 12, 4, 104)
+    # How many figures a prompt lists under "Figures you may use"
+    # (app/figures/known.py prompt_lines). Theirs and derived come first; the rest
+    # are counted in one closing line. A prompt cannot grow with a pasted
+    # spreadsheet. Held to 10..200.
+    PROMPT_FIGURE_LINES: int = _env_int_within("PROMPT_FIGURE_LINES", 60, 10, 200)
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
     # Managing Consultant"). A document a person signs reads senior; one

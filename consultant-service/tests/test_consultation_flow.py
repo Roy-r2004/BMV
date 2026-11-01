@@ -179,38 +179,38 @@ def _roadmap_raw(**over):
     return raw
 
 
-def _allowed():
+def _known_and_the_move():
     """What the roadmap is checked against: what the request knows, and the move."""
     return K.with_extra(KNOWN, K.move_figures(answer.compute_move(MOVE, CLAIMS)))
 
 
 def test_the_roadmap_is_phases_we_carry_out_and_decisions_they_make():
-    plan, problems = action_plan.shape(_roadmap_raw(), _allowed())
+    plan, problems = action_plan.shape(_roadmap_raw(), _known_and_the_move())
     assert plan["status"] == action_plan.READY and not problems
     # "by" is only ever us or together — never a job handed to the owner
     assert [p["by"] for p in plan["phases"]] == ["us", "us"]
     assert plan["decisions"][0]["id"] == "d1"
     together = _roadmap_raw()
     together["phases"][1]["by"] = "Together"
-    assert action_plan.shape(together, _allowed())[0]["phases"][1]["by"] == "together"
+    assert action_plan.shape(together, _known_and_the_move())[0]["phases"][1]["by"] == "together"
 
 
 def test_a_phase_with_an_invented_price_is_dropped_and_too_few_phases_kill_it():
     raw = _roadmap_raw()
     raw["phases"][1]["do"] = "We match the $35 studio down the road."
-    plan, problems = action_plan.shape(raw, _allowed())
+    plan, problems = action_plan.shape(raw, _known_and_the_move())
     # one usable phase left: not a roadmap
     assert plan is None
     assert any("35" in p for p in problems)
 
 
 def test_a_roadmap_needs_a_decision_with_real_options():
-    assert action_plan.shape(_roadmap_raw(decisions=[]), _allowed())[0] is None
+    assert action_plan.shape(_roadmap_raw(decisions=[]), _known_and_the_move())[0] is None
     one_option = [{"question": "Go ahead?", "options": ["Yes"]}]
-    assert action_plan.shape(_roadmap_raw(decisions=one_option), _allowed())[0] is None
+    assert action_plan.shape(_roadmap_raw(decisions=one_option), _known_and_the_move())[0] is None
     invented = [{"question": "Charge $40 at weekends?", "options": ["Yes", "No"]},
                 {"question": "Go ahead?", "options": ["Yes", "Not yet"]}]
-    plan, problems = action_plan.shape(_roadmap_raw(decisions=invented), _allowed())
+    plan, problems = action_plan.shape(_roadmap_raw(decisions=invented), _known_and_the_move())
     assert [d["question"] for d in plan["decisions"]] == ["Go ahead?"] and problems
 
 

@@ -91,6 +91,8 @@ def shape(raw: dict, known: FigureSet, hours: set[int] | None = None,
         return r.text
 
     base = [plan_weeks] if plan_weeks is not None else []
+    # No phase runs past the plan: its length when the answer proposed one, else the longest plan we make.
+    last_week = int(plan_weeks.value) if plan_weeks is not None else settings.PLAN_WEEKS_MAX
     phases, spans, figures = [], [], []
     for i, p in enumerate(list(raw.get("phases") or [])[:6]):
         if not isinstance(p, dict):
@@ -101,14 +103,20 @@ def shape(raw: dict, known: FigureSet, hours: set[int] | None = None,
         if not (when and title and do):
             continue
         span = week_span(when)
+        if span and span[1] > last_week:
+            # a span past the plan would register a length nobody proposed, and vouch for prose with it
+            problems.append(f"phase {i + 1} runs to week {span[1]}, past the {last_week}-week plan")
+            continue
         own = ([_ours(_known.phase_weeks_id(len(phases) + 1), span[1] - span[0] + 1, "week",
                       f"how long phase {len(phases) + 1} takes")] if span else [])
         against = _known.with_extra(known, base + own)
-        bound = [checked(t, f"phase {i + 1}", against) for t in (title, do, you)]
+        # "when" is bound too: a plan position ("Weeks 1 to 2") reads as a date and
+        # passes; a quantity in it ("When revenue hits $10k") must name a figure
+        bound = [checked(t, f"phase {i + 1}", against) for t in (when, title, do, you)]
         if any(b is None for b in bound):
             continue
-        phases.append({"when": when, "title": bound[0], "do": bound[1],
-                       "by": "together" if by == "together" else "us", "you": bound[2]})
+        phases.append({"when": bound[0], "title": bound[1], "do": bound[2],
+                       "by": "together" if by == "together" else "us", "you": bound[3]})
         spans.append(span)
         figures += own
 
@@ -212,6 +220,7 @@ def write(db: Session, request_id: int) -> dict | None:
             modules=_modules(req),
             timeline=req.timeline or "",
             claims=_answer._claim_lines(claims),
+            figures_block=_known.prompt_lines(known),
         )
     except Exception as exc:
         logger.warning("roadmap could not be prepared: %s", str(exc)[:200])

@@ -31,6 +31,9 @@ interview, before any request row exists: pass it their answers only, never
 A stage that has just computed figures the row cannot show yet (the answer's
 move, before the answer is saved) passes them as `extra`, or adds them with
 `with_extra`.
+
+`prompt_lines(known)` is the set as a prompt shows it to the model, one bounded line
+per figure ("Figures you may use").
 """
 from __future__ import annotations
 
@@ -42,9 +45,9 @@ from typing import Iterable, Sequence
 
 from app.config import settings
 from app.figures import casefile
-from app.figures.model import (Figure, FigureSet, Proposal, Working, decimal_from_float, from_claim,
-                               from_json)
-from app.figures.read import mentions
+from app.figures.model import (Figure, FigureSet, Proposal, TheirsSource, Working, decimal_from_float, display,
+                               from_claim, from_json, tag_word)
+from app.figures.read import Mention, mentions
 
 logger = logging.getLogger("consultant.figures.known")
 
@@ -105,28 +108,10 @@ def _stored_figures(items: object) -> list[Figure]:
 # -- the client's words ----------------------------------------------------------------
 
 def client_texts(req) -> list[str]:
-    """The client's own words on the row, as the case file reads them: each
-    interview answer (never the question we asked), then each free-text column
-    with the notes the intake adds cut out, skipping a column that repeats words
-    already read or holds only the scope question we wrote."""
-    out: list[str] = []
-    for pair in casefile._loads_list(getattr(req, "ops_numbers_json", None)):
-        answer = pair.get("answer") if isinstance(pair, dict) else None
-        if isinstance(answer, str) and answer.strip():
-            out.append(answer.strip())
-    question, seen = casefile._scope_question(req), set()
-    for field in casefile.FREE_TEXT_COLUMNS:
-        text = getattr(req, field, None)
-        if not isinstance(text, str):
-            continue
-        if field == "business_description":
-            text = casefile._OUR_NOTES.sub("", text)
-        words = " ".join(text.split())
-        if not words or words in seen or (field == "desired_outcome" and words == question):
-            continue
-        seen.add(words)
-        out.append(text.strip())
-    return out
+    """The client's own words on the row, exactly as the case file reads them
+    (`casefile.client_words`): their answers, never our questions, and their
+    free-text columns without the notes the intake adds."""
+    return casefile.client_texts(req)
 
 
 def hours_in(texts: Iterable[str]) -> set[int]:
@@ -143,14 +128,17 @@ def known_for_texts(texts: Sequence[str]) -> FigureSet:
     """The client's numbers in `texts`, as theirs figures (ids A<i>-<n>: the n-th
     number of the i-th text), read the way the case file reads an answer. Pass the
     client's own words only, never our questions."""
-    known = FigureSet()
+    return FigureSet(f for _, f in read_texts(texts))
+
+
+def read_texts(texts: Sequence[str]) -> list[tuple[Mention, Figure]]:
+    """`known_for_texts`, with the mention each figure was read from (its form
+    says whether it was written as a count, money, a percent...)."""
+    out: list[tuple[Mention, Figure]] = []
     for i, text in enumerate(texts or [], 1):
-        if not isinstance(text, str) or not text.strip():
-            continue
-        for f in casefile._text_figures(text.strip(), f"A{i}", turn=None, field=None,
-                                        limit=settings.CASE_FILE_FIGURES_PER_TEXT):
-            known.add(f)
-    return known
+        if isinstance(text, str) and text.strip():
+            out += casefile.read_text(text.strip(), f"A{i}", limit=settings.CASE_FILE_FIGURES_PER_TEXT)
+    return out
 
 
 # -- the parts a request stores --------------------------------------------------------
@@ -162,9 +150,10 @@ def capacity_figures(picture: object) -> list[Figure]:
     if not isinstance(picture, dict):
         return []
     period = "week" if picture.get("shape") == "weekly_grid" else (picture.get("period") or None)
-    fallback = str(picture.get("unit_plural") or "")
+    fallback = picture["unit_plural"] if isinstance(picture.get("unit_plural"), str) else ""
+    derived = picture.get("derived")
     out = []
-    for d in picture.get("derived") or []:
+    for d in derived if isinstance(derived, list) else []:
         if not isinstance(d, dict) or not isinstance(d.get("key"), str) or not d["key"]:
             continue
         value = _number(d.get("value"))
@@ -219,17 +208,19 @@ def move_figures(move: object) -> list[Figure]:
     if not isinstance(move, dict):
         return []
     out: list[Figure] = []
-    proposed = [p for p in move.get("proposed") or [] if isinstance(p, dict)]
+    stored, cites = move.get("proposed"), move.get("cites")
+    proposed = [p for p in stored if isinstance(p, dict)] if isinstance(stored, list) else []
+    cites = cites if isinstance(cites, list) else []
     value = _number(move.get("value"))
     if value is not None and value > 0:
-        unit = str(move.get("unit") or "")
+        unit = move["unit"] if isinstance(move.get("unit"), str) else ""
         period = move.get("period") if isinstance(move.get("period"), str) and move.get("period") else None
         label = str(move.get("label") or "")
         working = str(move.get("working") or "")
         source = (Proposal(note=label or working or "the move we propose") if proposed else
-                  Working(inputs=tuple(str(c) for c in move.get("cites") or []), op="product", text=working))
-        out.append(Figure(MOVE_ID, value, unit, period, "ours" if proposed else "derived", source,
-                          said_precision(value)))
+                  Working(inputs=tuple(str(c) for c in cites), op="product", text=working))
+        out += _made(lambda: Figure(MOVE_ID, value, unit, period, "ours" if proposed else "derived", source,
+                                    said_precision(value)))
     for n, p in enumerate(proposed, 1):
         v = _number(p.get("value"))
         if v is None:
@@ -237,8 +228,17 @@ def move_figures(move: object) -> list[Figure]:
         label = str(p.get("label") or "proposed")
         # the unit the move stored with it; a move stored before it kept one is read from the label
         unit = p["unit"] if isinstance(p.get("unit"), str) else proposal_unit(label)
-        out.append(Figure(f"PROP-{n}", v, unit, None, "ours", Proposal(note=label), _places(v)))
+        out += _made(lambda: Figure(f"PROP-{n}", v, unit, None, "ours", Proposal(note=label), _places(v)))
     return out
+
+
+def _made(build) -> list[Figure]:
+    """[the figure `build` makes], or [] when what was stored cannot be a figure."""
+    try:
+        return [build()]
+    except (TypeError, ValueError, ArithmeticError) as exc:
+        logger.info("a stored figure could not be read: %s", exc)
+        return []
 
 
 def plan_weeks_figure(weeks: int) -> Figure:
@@ -254,7 +254,13 @@ def answer_figures(answer: object) -> list[Figure]:
         return []
     out = move_figures(answer.get("move"))
     action = answer.get("action") if isinstance(answer.get("action"), dict) else {}
-    out += _stored_figures([action["figure"]] if isinstance(action.get("figure"), dict) else [])
+    if isinstance(action.get("figure"), dict):
+        out += _stored_figures([action["figure"]])
+    else:
+        # an answer stored before the length was a figure kept only its weeks
+        weeks = _number(action.get("weeks"))
+        if weeks is not None and weeks > 0 and weeks == weeks.to_integral_value():
+            out += _made(lambda: plan_weeks_figure(int(weeks)))
     return out
 
 
@@ -306,3 +312,66 @@ def known_for(req, extra: Iterable[Figure] = (), *, leave_out: Iterable[str] = (
         _add_kept(known, roadmap_figures(_loads(getattr(req, "action_plan_json", None))))
     extra = list(extra)
     return with_extra(known, extra) if extra else known
+
+
+# -- the set, as a prompt shows it ----------------------------------------------------------
+
+#: The order a prompt lists figures in: what the client said, what we worked out from
+#: it, what a publication says, and last what we only propose. When there are more
+#: than the prompt may list, the end of this order is what is left out.
+_PROMPT_ORDER = ("theirs", "derived", "reference", "ours")
+
+#: A figure's period is said after it ("$22 a week") only when it is one of these.
+_PROMPT_PERIODS = frozenset({"hour", "day", "week", "month", "quarter", "year"})
+
+#: Characters of the words that say what a figure is, on its line.
+PROMPT_NOTE_CHARS = 70
+
+
+def _note(f: Figure) -> str:
+    """What a figure is, in a few words: the client's own words for theirs, the
+    working for a derived one, the proposal for ours, the publication for a reference."""
+    s = f.source
+    if isinstance(s, TheirsSource):
+        text = s.quote
+    elif isinstance(s, Working):
+        text = s.text
+    elif isinstance(s, Proposal):
+        text = s.note
+    else:
+        text = f"{s.publication} {s.year}"
+    text = " ".join(str(text or "").replace("|", "/").split())
+    if len(text) > PROMPT_NOTE_CHARS:
+        text = text[:PROMPT_NOTE_CHARS].rsplit(" ", 1)[0].rstrip(",;:-") + "\u2026"
+    return text
+
+
+def _prompt_line(f: Figure) -> str:
+    """`CF-04 | $22 a week | yours | what the client said`: the id to cite, the
+    figure as a client reads it, whose it is, and what it is."""
+    shown = display(f)
+    if f.period in _PROMPT_PERIODS:
+        shown += f" a {f.period}"
+    note = _note(f)
+    return f"{f.id} | {shown} | {tag_word(f.kind)}" + (f" | {note}" if note else "")
+
+
+def prompt_lines(known: FigureSet) -> str:
+    """The known set as the lines a prompt lists under "Figures you may use": one
+    line per figure, `id | figure | whose it is | what it is`, theirs first, then
+    derived, reference and ours, each kind in the order its figures were added.
+
+    At most `settings.PROMPT_FIGURE_LINES` lines. When there are more figures, the
+    list is cut from the end of that order (so theirs and derived are the last to
+    go) and its last line says how many more exist and whose they are. An empty set
+    gives "none"."""
+    ordered = [f for kind in _PROMPT_ORDER for f in known.by_kind(kind)]
+    if not ordered:
+        return "none"
+    limit = settings.PROMPT_FIGURE_LINES
+    if len(ordered) <= limit:
+        return "\n".join(_prompt_line(f) for f in ordered)
+    shown, left = ordered[:limit - 1], ordered[limit - 1:]
+    whose = ", ".join(f"{n} {tag_word(k)}" for k in _PROMPT_ORDER if (n := sum(1 for f in left if f.kind == k)))
+    more = f"... and {len(left)} more figures exist but are not listed here ({whose}); write only the numbers listed above"
+    return "\n".join([*(_prompt_line(f) for f in shown), more])
