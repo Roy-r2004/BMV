@@ -87,14 +87,20 @@ def _format_site_research(req: Request) -> str:
 def _analysis(body: dict, known: FigureSet, hours: set[int]) -> dict:
     """The analysis in a reply, its prose checked against what the client gave.
 
-    Nothing in it is required beyond a JSON object, as before: a field whose every
-    sentence held a number nobody owns is left empty, exactly as one the model did
+    The findings are the pain points and the growth opportunity: when the model wrote
+    any and the check leaves none of either, the reply is unusable (ValueError), so it
+    is asked for again and then the stage stops, as for a reply that cannot be read. A
+    reply that never had either is accepted as before, and nothing else is required:
+    any other field that loses every sentence is left empty, like one the model did
     not write."""
     result = reply_json(body)
+    findings_written = has_text(result.get("pain_points")) or has_text(result.get("growth_opportunity"))
     removed: list[str] = []
     for key in PROSE_KEYS:
         if key in result:
             result[key] = clean_prose(result[key], known, hours, removed)
+    if findings_written and not (has_text(result.get("pain_points")) or has_text(result.get("growth_opportunity"))):
+        raise ValueError("every pain point and the growth opportunity held a number nobody gave")
     if removed:
         logger.info("took %d sentence(s) holding a number nobody gave out of the analysis", len(removed))
     result.setdefault("business_model", "Unknown")

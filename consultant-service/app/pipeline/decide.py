@@ -23,8 +23,9 @@ The prose a client reads (the summary, the central problem, why not the others,
 what is unverified, the features and the AI employees' titles and reasons) is
 checked against the figures the request knows: a sentence holding a number nobody
 owns is dropped, its neighbours kept, and a list item left with nothing is dropped.
-The reply asks for nothing beyond a JSON object, as before, so a field that
-loses every sentence is stored empty, like one the model never wrote.
+The summary is the one field the check can make unusable: a summary the model
+wrote that loses every sentence is asked for again, and then stops the run. Any
+other field that loses every sentence is stored empty, like one never written.
 """
 
 import json
@@ -103,10 +104,13 @@ def _decision(body: dict, known: FigureSet, hours: set[int]) -> dict:
     """The decision in a reply, its prose checked against what the client gave and
     what we worked out.
 
-    Nothing in it is required beyond a JSON object, as before: a field whose every
-    sentence held a number nobody owns is left empty, exactly as one the model did
-    not write."""
+    The summary is the recommendation to the owner: when the model wrote one and the
+    check leaves nothing of it, the reply is unusable (ValueError), so it is asked for
+    again and then the stage stops, as for a reply that cannot be read. A reply that
+    never had a summary is accepted as before, and nothing else is required: any other
+    field that loses every sentence is left empty, like one the model did not write."""
     result = reply_json(body)
+    summary_written = has_text(result.get("consulting_summary"))
     removed: list[str] = []
     if isinstance(result.get("unverified"), list):
         # cut to the length stored BEFORE the check, so a number is never cut after it
@@ -116,6 +120,8 @@ def _decision(body: dict, known: FigureSet, hours: set[int]) -> dict:
             result[key] = clean_prose(result[key], known, hours, removed)
     if isinstance(result.get("recommended_ai_employees"), list):
         result["recommended_ai_employees"] = _employees(result["recommended_ai_employees"], known, hours, removed)
+    if summary_written and not has_text(result.get("consulting_summary")):
+        raise ValueError("every sentence of the recommendation held a number nobody gave")
     if removed:
         logger.info("took %d sentence(s) holding a number nobody gave out of the decision", len(removed))
     return result

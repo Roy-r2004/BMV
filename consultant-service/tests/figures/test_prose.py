@@ -6,11 +6,12 @@ Each now passes it through `bind.clean_sentences` against the figures the reques
 knows: a sentence that holds a number nobody owns is dropped and its neighbours are
 kept; a number the client gave, or that we worked out from theirs, is kept.
 
-What an emptied field does is each stage's existing rule. `decide` and `analyze`
-require nothing in a reply beyond a JSON object, so a field whose every sentence is
-dropped is stored empty, as one the model did not write. `diagnose` requires an
-explanation to have a statement and a diagnosis to have two, so a reply whose
-statements are all dropped is asked for again and then stops the run.
+What an emptied core field does is the stage's existing "nothing usable" path: the
+reply is asked for again (`ask_until_usable`) and then the stage raises `StageFailed`
+with its own stage id. The core field is the summary for `decide`, the pain points and
+the growth opportunity together for `analyze`, and the statements (two needed) for
+`diagnose`. A reply that never had the field is accepted as before, and any other
+field that loses every sentence is stored empty.
 
 The model is always a stub (`app.ai.provider.chat`); nothing reaches the provider.
 """
@@ -197,20 +198,54 @@ def test_a_pain_point_that_empties_is_dropped_and_the_others_stay(monkeypatch):
     assert result["pain_points"] == ["Booking is done by hand.", "Nobody chases the gaps."]
 
 
-def test_an_analysis_whose_prose_all_empties_is_stored_empty_like_one_never_written(monkeypatch):
-    """Nothing in an analysis is required beyond a JSON object, so no field is a reason to
-    stop the run: an emptied field is stored empty and the stage does not ask again."""
-    prompts = _model_says(monkeypatch, {
-        "business_model": "Appointments", "target_customer_profile": "They earn $85,000 a year.",
-        "pain_points": ["Rent rose 40% last year."], "growth_opportunity": "Take 15% of the market."})
+NO_FINDINGS = {"business_model": "Appointments", "target_customer_profile": "They earn $85,000 a year.",
+               "pain_points": ["Rent rose 40% last year."], "growth_opportunity": "Take 15% of the market."}
+FINDINGS = {"business_model": "Appointments", "target_customer_profile": "Members.",
+            "pain_points": ["Booking is done by hand."], "growth_opportunity": "Fill the mornings."}
+
+
+def test_an_analysis_whose_findings_all_empty_is_asked_for_again_and_the_second_reply_is_used(monkeypatch):
+    """The pain points and the growth opportunity are the analysis. When the model wrote
+    some and the check leaves none, the reply is unusable: the existing second ask."""
+    prompts = _model_says(monkeypatch, NO_FINDINGS, FINDINGS)
     request_id = _row()
 
     result = _analyze(request_id)
 
-    assert result["target_customer_profile"] == "" and result["growth_opportunity"] == ""
-    assert result["pain_points"] == []
-    assert len(prompts) == 1 and _ledger(request_id) == [("analyze", True)]
-    assert json.loads(_read(request_id).business_analysis_json) == result
+    assert result == FINDINGS and len(prompts) == 2
+    assert _ledger(request_id) == [("analyze", False), ("analyze", True)]
+    assert json.loads(_read(request_id).business_analysis_json) == FINDINGS
+
+
+def test_an_analysis_whose_findings_empty_twice_stops_the_run_and_stores_nothing(monkeypatch):
+    prompts = _model_says(monkeypatch, NO_FINDINGS)
+    request_id = _row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _analyze(request_id)
+
+    assert stopped.value.stage == "analyzing" and len(prompts) == settings.STAGE_REPLY_ATTEMPTS
+    assert "number nobody gave" in stopped.value.cause
+    assert _ledger(request_id) == [("analyze", False)] * settings.STAGE_REPLY_ATTEMPTS
+    assert _read(request_id).business_analysis_json is None
+
+
+def test_an_analysis_that_keeps_one_finding_is_kept(monkeypatch):
+    """Either finding is enough; the profile alone emptying is no reason to ask again."""
+    prompts = _model_says(monkeypatch, {**NO_FINDINGS, "growth_opportunity": "Fill the mornings."})
+
+    result = _analyze(_row())
+
+    assert result["growth_opportunity"] == "Fill the mornings." and result["pain_points"] == []
+    assert result["target_customer_profile"] == "" and len(prompts) == 1
+
+
+def test_an_analysis_that_never_had_findings_is_accepted_as_before(monkeypatch):
+    prompts = _model_says(monkeypatch, {"business_model": "Appointments"})
+
+    result = _analyze(_row())
+
+    assert result == {"business_model": "Appointments", "pain_points": []} and len(prompts) == 1
 
 
 # -- decide ---------------------------------------------------------------------------------
@@ -289,19 +324,57 @@ def test_the_claim_ids_and_the_two_enumerations_are_not_prose(monkeypatch):
     assert result["intervention_kind"] == "software" and result["confidence"] == "low"
 
 
-def test_a_decision_whose_summary_all_empties_is_stored_with_an_empty_summary(monkeypatch):
-    """The decision requires nothing in a reply beyond a JSON object (a reply with no
-    summary is accepted today), so an emptied summary is stored empty and the stage
-    does not ask again. Whoever shows the summary shows nothing, as for one never written."""
-    prompts = _model_says(monkeypatch, {**DECISION, "consulting_summary": "That adds $9,000 a month."})
+EMPTIED_SUMMARY = {**DECISION, "consulting_summary": "That adds $9,000 a month. It saves 20 hours a week."}
+
+
+def test_a_summary_that_empties_is_asked_for_again_and_the_second_reply_is_used(monkeypatch):
+    """The summary is the recommendation to the owner. When the model wrote one and the
+    check leaves nothing of it, the reply is unusable: the existing second ask."""
+    good = {**DECISION, "consulting_summary": "Fill the quiet mornings first."}
+    prompts = _model_says(monkeypatch, EMPTIED_SUMMARY, good)
     request_id = _row()
 
     result = _decide(request_id)
 
-    assert result["consulting_summary"] == ""
-    assert len(prompts) == 1 and _ledger(request_id) == [("decide", True)]
+    assert result["consulting_summary"] == "Fill the quiet mornings first." and len(prompts) == 2
+    assert _ledger(request_id) == [("decide", False), ("decide", True)]
     row = _read(request_id)
-    assert row.consulting_analysis == "" and json.loads(row.consulting_recommendations_json) == result
+    assert row.consulting_analysis == "Fill the quiet mornings first."
+    assert json.loads(row.consulting_recommendations_json)["consulting_summary"] == result["consulting_summary"]
+
+
+def test_a_summary_that_empties_twice_stops_the_run_and_stores_nothing(monkeypatch):
+    prompts = _model_says(monkeypatch, EMPTIED_SUMMARY)
+    request_id = _row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _decide(request_id)
+
+    assert stopped.value.stage == "consulting" and len(prompts) == settings.STAGE_REPLY_ATTEMPTS
+    assert "number nobody gave" in stopped.value.cause
+    assert _ledger(request_id) == [("decide", False)] * settings.STAGE_REPLY_ATTEMPTS
+    row = _read(request_id)
+    assert row.consulting_recommendations_json is None and row.consulting_analysis is None
+
+
+def test_a_summary_that_only_lost_a_sentence_is_kept_without_asking_again(monkeypatch):
+    prompts = _model_says(monkeypatch, {**DECISION, "consulting_summary": "That adds $9,000 a month. Keep the price."})
+    request_id = _row()
+
+    result = _decide(request_id)
+
+    assert result["consulting_summary"] == "Keep the price." and len(prompts) == 1
+    assert _ledger(request_id) == [("decide", True)]
+
+
+def test_a_decision_that_never_had_a_summary_is_accepted_as_before(monkeypatch):
+    """A reply with no summary is usable today (test_honest_failure sends them), so the
+    check adds no demand for one; only a summary the check emptied is unusable."""
+    prompts = _model_says(monkeypatch, {"intervention_kind": "software", "confidence": "low"})
+
+    result = _decide(_row())
+
+    assert result.get("consulting_summary") is None and len(prompts) == 1
 
 
 # -- diagnose -------------------------------------------------------------------------------
