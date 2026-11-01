@@ -73,7 +73,7 @@ def build_roadmap_pdf(req) -> str:
     width, height = A4
     frame = Frame(18 * mm, 20 * mm, width - 36 * mm, height - 36 * mm, id="content")
     doc.addPageTemplates([
-        PageTemplate(id="body", frames=[frame], onPage=_page_chrome("The roadmap", name, draft=draft)),
+        PageTemplate(id="body", frames=[frame], onPage=_page_chrome("The roadmap", name, draft=draft, stamp="DRAFT")),
     ])
     doc.build(flows)
     return path

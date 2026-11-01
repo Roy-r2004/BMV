@@ -2599,7 +2599,7 @@ def _reasons_in(source: str) -> tuple[list[str], list[str]]:
             if items is not None:
                 built += items
             elif not (isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name)
-                      and node.value.func.id == "registry_reasons"):
+                      and node.value.func.id in ("registry_reasons", "_presentation_reasons")):
                 unread.append(ast.unparse(node))
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and is_reasons(node.func.value):
             items = literal_items(node.args[0]) if node.args else None

@@ -668,7 +668,9 @@ def _presentation_reasons(req) -> list[str]:
     # 16mm down from the top.
     frame = {"left": 18, "bottom": 20, "top": 16}
     found = []
-    for kind in ("blueprint", "technical", "operations", "roadmap", "system"):
+    # The system file is a browser page with its own margins. Judging it on
+    # this frame marks every screen DRAFT.
+    for kind in ("blueprint", "technical", "operations", "roadmap"):
         path = os.path.join(folder, f"{request_id}-{kind}.pdf")
         if os.path.isfile(path):
             found.extend(
@@ -741,7 +743,7 @@ def release_status(req: Request) -> dict:
     unchecked = [where for where, found in recorded.items() if found is None]
     if unchecked and law.can_record(req):
         reasons.append(f"{len(unchecked)} document(s) not yet checked against the figures since the last data change")
-    reasons.extend(_presentation_reasons(req))
+    reasons += _presentation_reasons(req)
     # client governance is the optional LATER state: a consultancy deliverable
     # is final on its quality checks alone; CLIENT APPROVED needs the client's
     # own owner and approver (intake facts, never invented)
@@ -1866,10 +1868,11 @@ def strip_page_chrome(text: str, concept: str | None = None) -> str:
 _TOC_BLOCK = re.compile(r"(?:^|(?<=\s))Contents[ \t]*\r?\n(?:[^\n]{2,220}?[\s.]+\d{1,3}[ \t]*\r?\n?){2,}")
 
 
-def _page_chrome(label: str, concept: str, draft: bool = False):
+def _page_chrome(label: str, concept: str, draft: bool = False, stamp: str | None = None):
     """Footer + a slim accent header naming the volume — the mark of a
     document that knows which binder it belongs to. A run whose quality
-    bench recorded a high finding is stamped DRAFT on every page."""
+    bench recorded a high finding is stamped on every page. The engine's
+    documents keep their own stamp; a client volume passes the short word."""
 
     def draw(canvas, doc):
         canvas.saveState()
@@ -1878,8 +1881,9 @@ def _page_chrome(label: str, concept: str, draft: bool = False):
         canvas.line(18 * mm, A4[1] - 11 * mm, A4[0] - 18 * mm, A4[1] - 11 * mm)
         canvas.setFont(F_SB, 6.8)
         if draft:
+            from app.engine.work_products.render_pdf import DRAFT_STAMP
             canvas.setFillColor(WARN)
-            canvas.drawCentredString(A4[0] / 2, A4[1] - 9 * mm, "DRAFT")
+            canvas.drawCentredString(A4[0] / 2, A4[1] - 9 * mm, stamp or DRAFT_STAMP)
         canvas.setFillColor(ACCENT)
         canvas.drawString(18 * mm, A4[1] - 9 * mm, label.upper())
         canvas.setFillColor(MUTED)
@@ -1978,7 +1982,7 @@ def build_pdf(req: Request, kind: str) -> str:
     cover_template = PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req))
     body_template = PageTemplate(
         id="body", frames=[body_frame],
-        onPage=_page_chrome(label, req.concept_name or req.business_name or "", draft=draft),
+        onPage=_page_chrome(label, req.concept_name or req.business_name or "", draft=draft, stamp="DRAFT"),
     )
     from app.storyline.build import build as build_story
 

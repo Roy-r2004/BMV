@@ -173,3 +173,29 @@ def test_a_one_person_studio_operations_manual_is_not_padded(tmp_path, monkeypat
     pages = _pages(export_pdf.build_pdf(row, "operations"))
     assert 1 <= len(pages) <= 6
     db.close()
+
+
+def test_the_rests_line_names_our_estimates_when_that_is_what_it_rests_on():
+    from app.storyline.model import RestsOn
+    from app.storyline.pdf import rests_line
+
+    assert rests_line(RestsOn(0, 0, 2, 0, 0, 0)) == "What this rests on: our estimates."
+    assert rests_line(RestsOn(0, 0, 0, 0, 0, 0)) is None
+
+
+def test_a_system_file_is_not_judged_on_the_volume_frame(tmp_path, monkeypatch):
+    db, row = _ready(tmp_path, monkeypatch)
+    folder = os.path.join(str(tmp_path), "exports")
+    os.makedirs(folder)
+    system = os.path.join(folder, f"{row.id}-system.pdf")
+    open(system, "wb").close()
+    seen = []
+
+    def record(path, frame_mm=None):
+        seen.append(os.path.basename(path))
+        return []
+
+    monkeypatch.setattr("app.engine.gates.presentation.clipping_findings", record)
+    export_pdf._presentation_reasons(row)
+    assert seen == []
+    db.close()

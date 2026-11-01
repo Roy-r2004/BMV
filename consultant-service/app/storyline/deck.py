@@ -41,10 +41,10 @@ def storyline_slides(prs, story, req) -> None:
     if rest:
         _add_text(slide, rest, MARGIN, Inches(top), Inches(11.6), Inches(0.5), size=14, color=quiet)
 
-    slide = new()
-    _add_text(slide, "The register", MARGIN, Inches(0.55), Inches(11.6), Inches(0.7),
-              size=28, color=ink, font=FONT_DISPLAY)
     if story.register is not None:
+        slide = new()
+        _add_text(slide, "The register", MARGIN, Inches(0.55), Inches(11.6), Inches(0.7),
+                  size=28, color=ink, font=FONT_DISPLAY)
         top = 1.5
         for row in story.register.rows:
             _add_text(slide, f"{row.recommendation} {row.owner}", MARGIN, Inches(top),

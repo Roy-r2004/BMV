@@ -92,6 +92,8 @@ def rests_line(rests) -> str | None:
         parts.append("your figures")
     if rests.derived:
         parts.append("what we worked out")
+    if rests.ours:
+        parts.append("our estimates")
     if rests.reference:
         parts.append("references with their sources")
     if rests.checks_passed:

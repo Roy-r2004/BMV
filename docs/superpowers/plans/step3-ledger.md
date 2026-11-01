@@ -16,6 +16,8 @@ Ruling: `release_status` records a clipped page, and names that page, only for a
 
 Ruling: the cover panel's own words (the wordmark and the volume numeral) are not a clipped page - they are painted on the navy panel, left of the body frame, on purpose; counting them would stamp every storyline file DRAFT - a line of the register or the answer that actually leaves the frame is still a finding.
 
+Parked after the whole-step review, not fixed in this pass: the new PDF pages are drawn with Paragraph rather than the number-law path, so a title can still carry a figure token and a register word is not checked; the prize exhibit types every step as USD and those figures join the known set for a run that has terms; the draft line on the cover quotes the gate's own reasons; the roadmap is served from its file time and not from the release stamp; a deck exhibit can run past the slide when it has many rows; the PDF and the deck print the register without its ranges; a roadmap measure with no baseline still says "From". Each of these needs its own test before a fix.
+
 Ruling: the storyline acceptance file is `tests/storyline/test_output_shape.py`, not `test_acceptance.py` - `tests/figures/test_acceptance.py` already has that name, and the default importer cannot load both; importlib mode breaks the engine tests that `import conftest` - the plan's file name is the only thing that moved.
 
 Ruling: the page law measures a PDF on the pipeline's body frame and ignores the cover panel's own words - `release_status` already does both, and a law that counted the panel would fail every clean volume - a line of the answer that leaves the frame is still a finding.
