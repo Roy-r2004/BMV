@@ -318,6 +318,75 @@ def _fit_chars(width, size: int, lines: int = 1) -> int:
     return max(8, int(width / per_char) * lines)
 
 
+def _package_story(req):
+    """The storyline, when this run stored one. A run without one keeps the
+    deck it has always had."""
+    if not getattr(req, "storyline_json", None):
+        return None
+    from app.storyline.build import build as build_story
+
+    return build_story(req)
+
+
+def _screens_for_the_plan(prs, images, blank, chrome, text, muted, accent, accent_soft, surface) -> None:
+    """The screens, after the plan, titled as how the plan runs.
+
+    The confidence line is not printed. A screen with no picture is absent.
+    """
+    from pptx.enum.text import PP_ALIGN
+    from pptx.util import Inches, Pt
+
+    for img in images:
+        hero = _presentation_variant(img.file_path, "hero") or _abs_image_path(img.file_path)
+        if hero is None:
+            continue
+        caption = _story_of(img)
+        slide = prs.slides.add_slide(blank)
+        chrome(slide, label="how the plan runs")
+        _add_text(
+            slide, img.role_label or "Product screen", MARGIN, Inches(0.84),
+            Inches(5.0), Inches(0.52), size=26, color=text, font=FONT_DISPLAY,
+        )
+        if caption and caption["subheading"]:
+            _add_text(slide, caption["subheading"], MARGIN, Inches(1.32), Inches(5.0), Inches(0.3),
+                      size=11, color=muted)
+        if caption and caption["description"]:
+            _add_text(
+                slide, _fit(caption["description"], Inches(6.2), 11, lines=3),
+                Inches(6.35), Inches(0.87), Inches(6.23), Inches(0.82),
+                size=11, color=muted, line_spacing=1.25,
+            )
+        hero_h = Inches(4.85) if caption and caption["ai"] else Inches(5.35)
+        _place_image_contain(slide, hero, MARGIN, Inches(1.72), Inches(11.83), hero_h)
+        if not (caption and caption["ai"]):
+            continue
+        strip_top = Inches(6.62)
+        _rect(slide, surface, MARGIN, strip_top, Inches(11.83), Inches(0.66), alpha=45)
+        _rect(slide, accent, MARGIN, strip_top, Pt(2.5), Inches(0.66))
+        if caption["ai"]["title"]:
+            _add_text(
+                slide, caption["ai"]["title"].upper(), MARGIN + Inches(0.25), strip_top + Inches(0.09),
+                Inches(3.5), Inches(0.28), size=9, color=accent_soft, bold=True, spacing=2.0,
+            )
+        if caption["ai"]["headline"]:
+            _add_text(
+                slide, caption["ai"]["headline"], MARGIN + Inches(0.25), strip_top + Inches(0.32),
+                Inches(4.6), Inches(0.3), size=12, color=text,
+            )
+        if caption["ai"]["rationale"]:
+            _add_text(
+                slide, _fit(caption["ai"]["rationale"], Inches(3.55), 9),
+                MARGIN + Inches(5.1), strip_top + Inches(0.23), Inches(3.55), Inches(0.3),
+                size=9, color=muted,
+            )
+        if caption["tracks"]:
+            _add_text(
+                slide, _fit("  ·  ".join(caption["tracks"][:3]), Inches(2.95), 9),
+                MARGIN + Inches(8.85), strip_top + Inches(0.23), Inches(2.95), Inches(0.3),
+                size=9, color=muted, align=PP_ALIGN.RIGHT,
+            )
+
+
 def _story_of(img) -> dict | None:
     """The caption for one screen. Shared with the result page so the deck
     and the page never describe the same screenshot differently."""
@@ -425,6 +494,14 @@ def _build_presentation(
         # No separate page index. It said "01 / 03" while the kicker beside
         # it already said "SCREEN 01", and the only free corner left was
         # underneath the description. The count goes in the kicker instead.
+
+    package = _package_story(req)
+    if package is not None:
+        from app.storyline.deck import storyline_slides
+
+        storyline_slides(prs, package, req)
+        _screens_for_the_plan(prs, images, blank, chrome, TEXT, MUTED, ACCENT, ACCENT_SOFT, SURFACE)
+        return prs
 
     # ── Cover: their own screen, dimmed, with the concept over it ─────────
     slide = prs.slides.add_slide(blank)
