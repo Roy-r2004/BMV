@@ -2510,6 +2510,10 @@ REASON_KINDS = [
      "The consistency check has not run on the current version of this engagement."),
     ("integrity layer: 2 finding(s)",
      "The consistency check found inconsistencies that are still open."),
+    ("Volume I, page 7: the number 35 matches none of the client's figures, our workings, our estimates "
+     "or a cited reference",
+     "Some figures in the documents are not yet tied to your figures, our workings, our estimates or a "
+     "cited source."),
 ]
 
 
@@ -2653,6 +2657,10 @@ def test_every_reason_the_gate_can_give_has_its_own_sentence():
     classes = ", ".join(dict.fromkeys(name for name, _ in export_pdf._GATE_ARTIFACTS))
     built = [reason.replace(_LIST_MARK, classes if reason.startswith("client-unsafe artifacts") else "pilot_queue, m3")
              for reason in built]
+    # the release law's reason is all open parts but its tail (document, page,
+    # numbers), which this reader renders as "7": read it as a real one
+    law_example = next(reason for reason, _ in REASON_KINDS if reason.startswith("Volume I, page"))
+    built = [law_example if reason.startswith("7, 7: 7 none of") else reason for reason in built]
     assert len(built) == len(method_note._KINDS) == len(REASON_KINDS), built
     sentences = [method_note.plain_reason(reason) for reason in built]
     assert method_note.GENERIC_REASON not in sentences, [

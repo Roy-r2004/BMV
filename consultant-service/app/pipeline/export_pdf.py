@@ -21,6 +21,7 @@ the page numbers).
 
 import html
 import json
+import logging
 import os
 import re
 from datetime import datetime
@@ -58,7 +59,10 @@ from reportlab.platypus import (
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from app.config import settings
+from app.figures import law
 from app.models import Request
+
+logger = logging.getLogger("consultant.export_pdf")
 
 _FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "fonts")
 
@@ -263,23 +267,40 @@ def _is_label(line: str) -> bool:
     return bool(plain) and plain.endswith(":") and len(plain) <= 80
 
 
+def _inline(text: str) -> str:
+    out = html.escape(text, quote=False)
+    return _BOLD.sub(r"<b>\1</b>", out)
+
+
 def _rich(text: str) -> str:
-    """Escape, then translate the markdown inline forms our prompts emit."""
-    out = html.escape(_strip_artifacts(text), quote=False)
-    out = _BOLD.sub(r"<b>\1</b>", out)
-    return out
+    """Escape, then translate the markdown inline forms our prompts emit.
+
+    This is the volumes' content choke point: every piece of content passes
+    here, so inside a release-law scope (`build_pdf`) each number is bound to
+    the figure it names or recorded as a finding (`law.check`). Outside a scope
+    (the engine's work products) the text is only escaped, as before."""
+    return _inline(law.check(_strip_artifacts(text)))
+
+
+def _drawn(text: str) -> str:
+    """`_rich` for text this renderer composes itself: the cover, document
+    control, the list of sources, dates it stamps. That is page furniture,
+    declared here by the code that draws it, so the law does not read it."""
+    return _inline(_strip_artifacts(text))
 
 
 _SECTION_COUNTER = {"n": 0}
 
 
-def _h1(text: str):
+def _h1(text: str, *, drawn: bool = False):
+    """A section heading. `drawn` marks a heading this renderer writes itself
+    (furniture); a heading from the documents is content."""
     _SECTION_COUNTER["n"] += 1
     return [
         CondPageBreak(55 * mm),
         Spacer(1, 10),
         Paragraph(f"SECTION {_SECTION_COUNTER['n']:02d}", _S["secno"]),
-        Paragraph(_rich(text), _S["h1toc"]),
+        Paragraph(_drawn(text) if drawn else _rich(text), _S["h1toc"]),
         HRFlowable(width=14 * mm, thickness=2.2, color=ACCENT, spaceBefore=3, spaceAfter=9, hAlign="LEFT"),
     ]
 
@@ -673,12 +694,29 @@ def release_status(req: Request) -> dict:
             reasons.append("integrity layer has not run on the current content")
         elif rep.get("findings"):
             reasons.append(f"integrity layer: {len(rep['findings'])} finding(s)")
+    # the release law, read from each document's latest build (`law.recorded`):
+    # a number on a page that names none of the request's figures. One reason
+    # per page. A document not rendered since the last data change has no
+    # findings to give, and says so under "law" (rendering it is what checks it).
+    recorded = law.recorded(req)
+    for where, place, said in law.page_reasons(recorded):
+        reasons.append(f"{where}, {place}: {said} none of the client's figures, our workings, "
+                       f"our estimates or a cited reference")
     # client governance is the optional LATER state: a consultancy deliverable
     # is final on its quality checks alone; CLIENT APPROVED needs the client's
     # own owner and approver (intake facts, never invented)
     dc = _reg.document_control(req)
     status = "draft" if reasons else ("client_approved" if dc["complete"] else "final")
-    return {"status": status, "status_label": STATUS_LABELS[status], "reasons": reasons, "client_approval": dc}
+    return {"status": status, "status_label": STATUS_LABELS[status], "reasons": reasons, "client_approval": dc,
+            "law": {where: _law_state(found) for where, found in recorded.items()}}
+
+
+def _law_state(found: list | None) -> str:
+    if found is None:
+        return "not yet rendered"
+    if not found:
+        return "checked"
+    return f"{len(found)} number{'s' if len(found) != 1 else ''} nobody owns"
 
 
 def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
@@ -777,22 +815,23 @@ def _is_draft(req: Request) -> bool:
 
 
 def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:
+    # the cover is furniture: the volume, its title, the names, the date stamped
     concept = req.concept_name or req.business_name or ""
     date = datetime.utcnow().strftime("%B %d, %Y")
     return [
         Spacer(1, 60 * mm),
-        Paragraph(_rich(sub_label).upper(), _S["cover_vol"]),
-        Paragraph(_rich(doc_label), _S["cover_title"]),
+        Paragraph(_drawn(sub_label).upper(), _S["cover_vol"]),
+        Paragraph(_drawn(doc_label), _S["cover_title"]),
         HRFlowable(width=16 * mm, thickness=2.5, color=ACCENT, spaceAfter=12, hAlign="LEFT"),
-        Paragraph(_rich(concept), _S["cover_sub"]),
+        Paragraph(_drawn(concept), _S["cover_sub"]),
     ] + (
-        [Paragraph(_rich(f"An engagement for {req.business_name}"), _S["cover_sub"])]
+        [Paragraph(_drawn(f"An engagement for {req.business_name}"), _S["cover_sub"])]
         if concept != req.business_name else []
     ) + [
         Spacer(1, 14),
-        Paragraph(_rich(f"Prepared exclusively · {date}"), _S["meta"]),
+        Paragraph(_drawn(f"Prepared exclusively · {date}"), _S["meta"]),
     ] + (
-        [Paragraph(_rich(f"Engagement lead: {settings.ENGAGEMENT_LEAD}"), _S["meta"])]
+        [Paragraph(_drawn(f"Engagement lead: {settings.ENGAGEMENT_LEAD}"), _S["meta"])]
         if (settings.ENGAGEMENT_LEAD or "").strip() else []
     ) + [
         Paragraph("Confidential — for the addressee's team and advisors.", _S["meta"]),
@@ -863,7 +902,7 @@ def _customers_flowables(business_case: dict) -> list:
     channels = cust.get("channels") or []
     if not segments and not channels:
         return []
-    flows = _h1("Who you serve, and how they arrive")
+    flows = _h1("Who you serve, and how they arrive", drawn=True)
     if segments:
         flows.append(Paragraph("Customer segments", _S["h3"]))
         for seg in segments:
@@ -881,7 +920,7 @@ def _journey_flowables(journey: dict | None, name_by_id: dict | None = None) -> 
     stages = (journey or {}).get("stages") or []
     if not stages:
         return []
-    flows = _h1("The future-state customer journey")
+    flows = _h1("The future-state customer journey", drawn=True)
     flows.append(Paragraph(
         "The journey once the modules are built — what your customer does at every stage, and which "
         "parts of the system work for them behind the scenes. Not today's journey.", _S["meta"],
@@ -921,7 +960,7 @@ def _organization_flowables(org: dict | None) -> list:
     impact = (org or {}).get("change_impact") or []
     if not roles:
         return []
-    flows = _h1("The organization — humans and AI on one chart")
+    flows = _h1("The organization — humans and AI on one chart", drawn=True)
     rows = []
     for r in roles:
         is_ai = r.get("type") == "ai"
@@ -949,7 +988,7 @@ def _organization_flowables(org: dict | None) -> list:
 def _scoreboard_flowables(scoreboard: list) -> list:
     if not scoreboard:
         return []
-    flows = _h1("The scoreboard")
+    flows = _h1("The scoreboard", drawn=True)
     flows.append(Paragraph(
         "Baselines are your own numbers, or “measure in week 1” — never an estimate of ours.",
         _S["meta"],
@@ -975,7 +1014,7 @@ def _scoreboard_flowables(scoreboard: list) -> list:
 def _risks_flowables(risks: list) -> list:
     if not risks:
         return []
-    flows = _h1("What could make this fail — honestly")
+    flows = _h1("What could make this fail — honestly", drawn=True)
     flows.append(Paragraph(
         "The real risks are usually habits, not technology. Each one has a counter-move.",
         _S["meta"],
@@ -1006,7 +1045,7 @@ def _playbook_flowables(playbook: dict | None) -> list:
     people = pb.get("people_plan") or {}
     if not steps and not wins:
         return []
-    flows = _h1("The execution playbook")
+    flows = _h1("The execution playbook", drawn=True)
     if wins:
         flows.append(Paragraph("Your first 30 days — value before any software", _S["h2toc"]))
         for w in wins:
@@ -1146,7 +1185,7 @@ def _financial_model_flowables(business_case: dict) -> list:
         payback = ""
     if not lines and not scenarios and not missing and not payback:
         return []
-    flows = _h1("The financial case, quantified")
+    flows = _h1("The financial case, quantified", drawn=True)
     flows.append(Paragraph(
         "Convention: a 365-day year; every monthly figure in this engagement is a 30-day operating "
         "month (the annual figure ÷ 365 × 30), never one twelfth of the year.", _S["meta"]))
@@ -1155,7 +1194,13 @@ def _financial_model_flowables(business_case: dict) -> list:
             "What the current way of working costs, annualized from your own figures:", _S["body"]))
         for l in lines:
             item = _rich(str(l.get("item") or ""))
-            arith = _rich(str(l.get("arithmetic") or ""))
+            # A verified line's result is a derived figure (`registry.derived_claims`,
+            # in the volume's known set) and its arithmetic is that figure's own
+            # working, whose product the decomposition verified (and repaired to the
+            # exact product): drawn as the figure's record, like the period step in it.
+            # An unverified line is prose like any other, so its result is a number
+            # nobody worked out and the law records it.
+            arith = (_drawn if l.get("arithmetic_verified") else _rich)(str(l.get("arithmetic") or ""))
             annual = _rich(_quantity(l.get("annual"),
                                      str(l.get("arithmetic") or "") + " " + str(l.get("item") or ""),
                                      unit=l.get("unit")))
@@ -1216,7 +1261,7 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
             and not has_site and not corrections and not assumptions and not to_measure):
         return []
 
-    flows = _h1("Evidence & method")
+    flows = _h1("Evidence & method", drawn=True)
     flows.append(Paragraph(
         "Where every figure in this engagement comes from — which claims are facts you supplied, "
         "which are labeled assumptions of ours, and which await measurement.", _S["meta"]))
@@ -1224,7 +1269,9 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
     if facts or req.revenue_today or req.main_problem:
         flows.append(Paragraph("Facts you supplied", _S["h2toc"]))
     for f in facts:
-        q = _rich(str(f.get("question") or ""))
+        # the question is our record of what we asked, quoted (drawn); the
+        # answer is the client's own words, content whose numbers are theirs
+        q = _drawn(str(f.get("question") or ""))
         a = _rich(str(f.get("answer") or ""))
         if q or a:
             flows.append(Paragraph(f"<b>{q}</b> — {a}", _S["bullet"], bulletText="•"))
@@ -1246,7 +1293,8 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
     if corrections:
         sources.append("Your corrections from the pre-launch briefing chat (quoted below)")
     for s in sources:
-        flows.append(Paragraph(_rich(s), _S["bullet"], bulletText="•"))
+        # composed here, the count of their answers included: furniture
+        flows.append(Paragraph(_drawn(s), _S["bullet"], bulletText="•"))
 
     if corrections:
         flows.append(Paragraph("Corrections you made in the briefing chat", _S["h2toc"]))
@@ -1328,7 +1376,7 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
 
 
 def _decision_flowables(req: Request | None = None) -> list:
-    flows = _h1("Three ways forward")
+    flows = _h1("Three ways forward", drawn=True)
     ways: list[tuple[str, str]] = []
     for title, body in [
         ("We execute this plan for you",
@@ -1355,12 +1403,12 @@ def _decision_flowables(req: Request | None = None) -> list:
     lead = (settings.ENGAGEMENT_LEAD or "").strip()
     if lead:
         closing.append(Paragraph("Engagement leadership", _S["h2toc"]))
-        closing.append(Paragraph(_rich(lead), _S["body"]))
+        closing.append(Paragraph(_drawn(lead), _S["body"]))
         # Real accountability only: the release date prints when a reviewer
         # actually released this run — never as an invented formality.
         if req is not None and getattr(req, "reviewed_at", None):
             closing.append(Paragraph(
-                _rich(f"Reviewed and released on {req.reviewed_at:%B %d, %Y}."), _S["meta"]))
+                _drawn(f"Reviewed and released on {req.reviewed_at:%B %d, %Y}."), _S["meta"]))
         closing.append(Spacer(1, 4))
     closing.append(Paragraph("<b>consulting@buildmyversion.com</b>", _S["body"]))
     flows.append(KeepTogether(closing))
@@ -1373,7 +1421,7 @@ def _decision_flowables(req: Request | None = None) -> list:
 def _module_appendix_flowables(modules: list) -> list:
     if not modules:
         return []
-    flows = _h1("Module appendix — the engineering detail")
+    flows = _h1("Module appendix — the engineering detail", drawn=True)
     flows.append(Paragraph(
         "The full anatomy of every module, exactly as specified. This is the level a build team "
         "estimates and works from.", _S["meta"],
@@ -1488,7 +1536,7 @@ def _screens_flowables(req: Request) -> list:
             shots.append((img, abs_path))
     if not shots:
         return []
-    flows = _h1("The screens")
+    flows = _h1("The screens", drawn=True)
     flows.append(Paragraph(
         "Your product's interface, drawn with your own services and vocabulary — each screen "
         "annotated with what it does.", _S["meta"],
@@ -1527,7 +1575,7 @@ def _handbook_flowables(org: dict | None, procedures: list) -> list:
     if not roles:
         return []
     impact_by_role = {c.get("role"): c for c in (org or {}).get("change_impact") or []}
-    flows = _h1("Role handbook")
+    flows = _h1("Role handbook", drawn=True)
     flows.append(Paragraph(
         "One page per human role: what they own, what they decide, and the procedures they run.",
         _S["meta"],
@@ -1565,7 +1613,7 @@ def _checklists_flowables(checklists_data: dict | None) -> list:
     forms = (checklists_data or {}).get("forms") or []
     if not checklists and not forms:
         return []
-    flows = _h1("Forms & checklists")
+    flows = _h1("Forms & checklists", drawn=True)
     flows.append(Paragraph(
         "The artifacts your team holds in their hands — print them, laminate them. A checklist tagged PILOT applies "
         "from day one; one tagged FUTURE applies once the modules it names are built.",
@@ -1618,8 +1666,10 @@ def _doc_control_flowables(req: Request) -> list:
         ("Review", "A regenerated engagement supersedes this copy; review at each phase gate."),
         ("Copies", "Uncontrolled when printed."),
     ]
+    # the block is the run's own record (its number, the date stamped, names
+    # from intake): furniture, drawn
     for label, value in rows:
-        flows.append(Paragraph(f"<b>{label}:</b> " + _rich(value), _S["meta"]))
+        flows.append(Paragraph(f"<b>{label}:</b> " + _drawn(value), _S["meta"]))
     flows.append(Spacer(1, 6))
     return flows
 
@@ -1627,7 +1677,7 @@ def _doc_control_flowables(req: Request) -> list:
 def _procedures_flowables(procedures: list) -> list:
     if not procedures:
         return []
-    flows = _h1("The procedure library")
+    flows = _h1("The procedure library", drawn=True)
     flows.append(Paragraph(
         "The recurring routines this business runs on — who (or which AI) does each step. "
         "Grouped by the part of the system each routine belongs to.",
@@ -1765,10 +1815,15 @@ def build_pdf(req: Request, kind: str) -> str:
     # download button reads as broken. Serve the file already on disk while
     # it is newer than the run's last data change (a rerun or a reviewer
     # edit bumps updated_at, which invalidates it).
+    # The release law's findings for the file are kept beside it, so a file
+    # served from here still reports them; one with none kept is rebuilt.
+    where = VOLUMES.get(kind, "Volume III")
     cached = os.path.join(settings.UPLOADS_DIR, "exports", f"{req.id}-{kind}.pdf")
     if os.path.isfile(cached) and req.updated_at is not None:
-        if datetime.utcfromtimestamp(os.path.getmtime(cached)) > req.updated_at:
+        if (datetime.utcfromtimestamp(os.path.getmtime(cached)) > req.updated_at
+                and law.fresh(req.id, where, req.updated_at)):
             return cached
+    started = datetime.utcnow()
 
     if kind == "blueprint":
         md = req.mvp_blueprint
@@ -1785,6 +1840,116 @@ def build_pdf(req: Request, kind: str) -> str:
         raise ValueError(f"{kind} document not ready")
 
     business_case = _loads(req.business_case_json, {})
+    known, hours = document_known(req, business_case)
+
+    # Two passes over the same flowables. The cover's status (and the method
+    # note's list of what is not verified) is decided while the flowables are
+    # made, before the law has read the pages after it; the first pass is how
+    # the second knows what this very volume holds.
+    with law.scope(known, where=where, hours=hours, request_id=req.id) as first:
+        _volume_flows(req, kind, md, label, sub, business_case)
+    with law.scope(known, where=where, hours=hours, request_id=req.id, pending=first.findings) as final:
+        flows = _volume_flows(req, kind, md, label, sub, business_case)
+        draft = _is_draft(req)
+
+    out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f"{req.id}-{kind}.pdf")
+
+    doc = _EngagementDoc(
+        out_path, pagesize=A4,
+        title=f"{req.concept_name or req.business_name} — {label}",
+        author="Build My Version",
+    )
+    W, H = A4
+    cover_frame = Frame(74 * mm, 20 * mm, W - 92 * mm, H - 40 * mm, id="cover")
+    body_frame = Frame(18 * mm, 20 * mm, W - 36 * mm, H - 36 * mm, id="content")
+    doc.addPageTemplates([
+        PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req)),
+        PageTemplate(id="body", frames=[body_frame],
+                     onPage=_page_chrome(label, req.concept_name or req.business_name or "",
+                                         draft=draft)),
+    ])
+    doc.multiBuild(flows)
+    # the running header and the footer (`_page_chrome`) are drawn in these
+    # bands above and below the body frame; the law's snippets are not sought there
+    law.save(req.id, where, law.locate_pages(out_path, final.findings, margins=(15 * mm, 19 * mm)),
+             built_at=started)
+    return out_path
+
+
+#: The release law's name for each volume (`law.DOCUMENTS`).
+VOLUMES = {"blueprint": "Volume I", "technical": "Volume II", "operations": "Volume III"}
+
+
+def gate_figures(gate: dict | None) -> list:
+    """The pilot gate's own numbers as the figures they are: the duration, the
+    target and the guardrail the gate proposes are ours, registered with the
+    typed gate for the client's approval (the registry's `claim_values` counts
+    them as the gate's). The baseline is not one of them: it is the client's
+    figure or is measured in week 1."""
+    from decimal import Decimal
+
+    from app.figures.model import Figure, Proposal
+
+    if not isinstance(gate, dict):
+        return []
+    units = {"duration_value": "week" if (gate.get("duration_unit") or "week") == "week"
+             else str(gate.get("duration_unit")),
+             "target_value": "percent", "guardrail_value": ""}
+    out = []
+    for key, unit in units.items():
+        v = gate.get(key)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v in (float("inf"), float("-inf")):
+            continue
+        value = Decimal(repr(float(v))).normalize()
+        places = max(0, -value.as_tuple().exponent)
+        out.append(Figure(f"PG-{key.split('_')[0].upper()}", value, unit, None, "ours",
+                          Proposal(note=f"the pilot gate's {key.split('_')[0]}"), places))
+    return out
+
+
+def document_known(req, business_case: dict | None = None) -> tuple:
+    """The figures a rendered document may print, and the hours of the day the
+    client gave: the request's known set (`known.known_for`), with the business
+    case's derived and proposed figures (`registry.derived_claims`: a verified
+    financial-model line, a scenario's assumption and its verified impact) and
+    the pilot gate's proposals, so a row whose registry predates them still
+    knows them. Never raises: a set that cannot be built is empty, so every
+    number becomes a finding rather than a pass."""
+    from app.figures.known import hours_for, known_for
+    from app.figures.model import FigureSet, from_claim
+
+    bc = business_case if isinstance(business_case, dict) else _loads(getattr(req, "business_case_json", None), {})
+    bc = bc if isinstance(bc, dict) else {}
+    extra = []
+    try:
+        from app.pipeline.registry import derived_claims
+
+        for c in derived_claims(bc.get("financial_model") if isinstance(bc.get("financial_model"), dict) else {}):
+            try:
+                f = from_claim(c)
+            except (TypeError, ValueError):
+                continue
+            if f.kind in ("derived", "ours"):
+                extra.append(f)
+        extra += gate_figures(bc.get("pilot_gate"))
+    except Exception:
+        logger.warning("the business case's figures could not be read for the release law", exc_info=True)
+    try:
+        known = known_for(req, extra=extra)
+    except Exception:
+        logger.warning("the known set could not be built for the release law", exc_info=True)
+        known = FigureSet()
+    try:
+        hours = hours_for(req)          # as the stages read them: none given, no time is theirs
+    except Exception:
+        hours = set()
+    return known, hours
+
+
+def _volume_flows(req: Request, kind: str, md: str | None, label: str, sub: str, business_case: dict) -> list:
+    """Every flowable of one volume, cover first."""
     journey = _loads(req.journey_json, None)
     org = _loads(req.org_json, None)
     scoreboard = _loads(req.scoreboard_json, [])
@@ -1855,24 +2020,4 @@ def build_pdf(req: Request, kind: str) -> str:
         flows += _checklists_flowables(_loads(req.checklists_json, None))
         flows += _handbook_flowables(org, procedures)
         flows += _decision_flowables(req)
-
-    out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, f"{req.id}-{kind}.pdf")
-
-    doc = _EngagementDoc(
-        out_path, pagesize=A4,
-        title=f"{req.concept_name or req.business_name} — {label}",
-        author="Build My Version",
-    )
-    W, H = A4
-    cover_frame = Frame(74 * mm, 20 * mm, W - 92 * mm, H - 40 * mm, id="cover")
-    body_frame = Frame(18 * mm, 20 * mm, W - 36 * mm, H - 36 * mm, id="content")
-    doc.addPageTemplates([
-        PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req)),
-        PageTemplate(id="body", frames=[body_frame],
-                     onPage=_page_chrome(label, req.concept_name or req.business_name or "",
-                                         draft=_is_draft(req))),
-    ])
-    doc.multiBuild(flows)
-    return out_path
+    return flows

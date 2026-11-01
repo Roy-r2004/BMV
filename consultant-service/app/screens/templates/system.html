@@ -23,7 +23,7 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 </head>
 <body>
 <div class="bmv-stage" id="stage">
-  <div class="frame">
+  {% call sample() %}<div class="frame">
     {{ frame.chrome(system) }}
     <div class="body">
       {{ frame.sidebar(system, system.screens[0].id) }}
@@ -32,7 +32,7 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
         {% for s in system.screens %}<div id="screen-{{ s.id }}" data-screen="{{ s.id }}"{% if not loop.first %} hidden{% endif %} class="work-wrap">{{ frame.work(s) }}</div>{% endfor %}
       </div>
     </div>
-  </div>
+  </div>{% endcall %}
 </div>
 <script>
 (function () {

@@ -5,6 +5,16 @@ navigates on the site is exactly what they hold on paper.
 `prepare` measures what the templates only draw (grid columns, bar heights,
 line paths); `system_html` and `proposal_html` render. Nothing here talks to
 a model or a database: `proposal_context` takes plain values.
+
+The release law (`app.figures.law`) reads what the templates print. Every
+`{{ ... }}` that prints a string passes the environment's `finalize`, which is
+the screens' content choke point: inside a law scope (the proposal PDF) its
+numbers are bound or recorded. Not read, by declaration of the code that draws
+them: markup the code builds (`Markup`: the stylesheet, icons, JSON), numbers
+the code computes (ints and floats: geometry, counters, list numbering),
+anything piped through `|drawn` (dates, SVG paths, colours), and everything
+inside `{% call sample() %}`, a drawn screen's sample data, which refuses to
+render without the SAMPLE DATA stamp.
 """
 
 import base64
@@ -16,8 +26,12 @@ from datetime import date
 from functools import lru_cache
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from markupsafe import Markup
+from markupsafe import Markup, escape
 
+from app.figures import law
+from app.figures.known import move_figures
+from app.figures.model import display
+from app.figures.read import mentions
 from app.screens import schema
 
 TEMPLATES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
@@ -25,8 +39,36 @@ FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 #: how much a 1280px frame is scaled to sit on an A4 landscape page
 PAGE_SCALE = 0.78
 
+
+def _finalize(value):
+    """Every printed value. A plain string is content and goes through the
+    release law; markup the code built and numbers it computed are drawn."""
+    if isinstance(value, str) and not isinstance(value, Markup):
+        return law.check(value)
+    return value
+
+
+def _drawn(value) -> Markup:
+    """`{{ x|drawn }}`: a value the template draws as furniture (a date it
+    stamps, an SVG path, a colour), escaped and not read by the law."""
+    return Markup(escape("" if value is None else value))
+
+
+def _sample(caller) -> Markup:
+    """`{% call sample() %}...{% endcall %}`: a drawn screen's sample data. The
+    law does not read it, and it must carry the SAMPLE DATA stamp, or the page
+    is not drawn."""
+    with law.sample_region():
+        body = caller()
+    if not law.stamped(body):
+        raise law.UnstampedSample("a sample region was drawn without its SAMPLE DATA stamp")
+    return Markup(body)
+
+
 _env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]),
-                   trim_blocks=False, lstrip_blocks=False)
+                   trim_blocks=False, lstrip_blocks=False, finalize=_finalize)
+_env.filters["drawn"] = _drawn
+_env.globals["sample"] = _sample
 
 # ── icons: stroke paths, 24-unit box, drawn in currentColor ──
 ICONS = {
@@ -94,7 +136,8 @@ def _embedded_fonts() -> str:
 
 def stylesheet(accent_name: str) -> str:
     accent = schema.ACCENTS.get(accent_name) or schema.ACCENTS[schema.DEFAULT_ACCENT]
-    return _env.get_template("screens.css").render(accent=accent)
+    with law.furniture():                     # colours and sizes, not content
+        return _env.get_template("screens.css").render(accent=accent)
 
 
 def short_name(name: str) -> str:
@@ -214,8 +257,11 @@ def _first_block(system: dict, kind: str) -> dict | None:
     return None
 
 
+_FILL = re.compile(r"(\d+)\s*(?:/|of)\s*(\d+)")
+
+
 def _fill_of(value: str) -> int:
-    m = re.search(r"(\d+)\s*(?:/|of)\s*(\d+)", value or "")
+    m = _FILL.search(value or "")
     if m and int(m.group(2)) > 0:
         return max(0, min(24, round(int(m.group(1)) / int(m.group(2)) * 24)))
     return 16
@@ -228,12 +274,21 @@ def proposal_context(system: dict, *, business_name: str, journey_stages: list[s
     story = system.get("story") or schema.shape_story({})
     short = short_name(business_name)
     product = system["product"]["name"]
-    kpi = _first_block(system, "kpis")
     lst = _first_block(system, "list")
+    # The cover's hero is the answer's first headline figure, bound to the
+    # client's own figures; with none, the cover has no hero. Never a sample
+    # tile: the cover is not a sample region (plan ruling 3).
     hero_kpi = None
-    if kpi:
-        first = kpi["items"][0]
-        hero_kpi = {**first, "fill": _fill_of(first["value"])}
+    headline = next(iter((answer or {}).get("figures") or []), None)
+    if isinstance(headline, dict) and str(headline.get("value") or "").strip():
+        value = str(headline["value"])
+        hero_kpi = {"value": value, "label": str(headline.get("label") or ""), "sub": "",
+                    "ids": list(headline.get("ids") or []),
+                    "fill": _fill_of(value) if _FILL.search(value) else None}
+    # the cover's floating cards show the product, so they carry no number:
+    # only list rows that hold none are drawn there
+    hero_rows = [r for r in (lst or {}).get("rows", [])
+                 if isinstance(r, dict) and not any(mentions(str(r.get(k) or "")) for k in ("text", "tag", "action"))]
     pts, path = _journey(journey_stages or [])
 
     groups = []
@@ -258,11 +313,12 @@ def proposal_context(system: dict, *, business_name: str, journey_stages: list[s
 
     move = (answer or {}).get("move") or None
     if move:
-        proposed = move.get("proposed") or []
+        # each number we propose prints as its figure (PROP-n) displays it, so a
+        # price reads "$28" and the law binds it to the proposal
+        proposed = [f for f in move_figures(move) if f.id.startswith("PROP-")]
         move = {"display": move.get("display", ""), "label": move.get("label", ""),
                 "working": move.get("working", ""),
-                "proposed": (" and ".join(f"{p.get('label') or 'the proposed figure'} ({_fmt(float(p['value']))})"
-                                          for p in proposed if p.get("value") is not None)
+                "proposed": (" and ".join(f"{f.source.note or 'the proposed figure'} ({display(f)})" for f in proposed)
                              + (" is our proposal, not your figure." if len(proposed) == 1 else " are our proposals, not your figures.")
                              if proposed else "")}
     figures = [{"value": f.get("value", ""), "label": f.get("label", "")} for f in (answer or {}).get("figures") or []][:4]
@@ -283,7 +339,7 @@ def proposal_context(system: dict, *, business_name: str, journey_stages: list[s
         "intro": story.get("intro") or system["screens"][0].get("caption", ""),
         "journey": pts, "journey_path": path,
         "hero_kpi": hero_kpi,
-        "hero_rows": (lst or {}).get("rows", [])[:2],
+        "hero_rows": hero_rows[:2],
         "ambition": story.get("ambition") or {},
         "changes": story.get("changes") or [],
         "move": move, "figures": figures,

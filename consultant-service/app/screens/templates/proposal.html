@@ -130,18 +130,19 @@ h3.d { font-family: var(--display); font-weight: 700; font-size: 16px; line-heig
 
 {# ── cover ── #}
 <section class="page">
-  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span><span>Proposal for {{ p.business }}, {{ p.date }}</span></div>
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span><span>Proposal for {{ p.business }}, {{ p.date|drawn }}</span></div>
   <div class="cover" style="margin-top: 26px">
     <div>
       <h1 class="d">{{ p.headline }}</h1>
       <p class="lede">{{ p.intro }}</p>
       {% if p.journey %}<div class="journey" style="position: static; margin-top: 40px">
-        <svg viewBox="0 0 600 70" preserveAspectRatio="none"><path d="{{ p.journey_path }}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>{% for s in p.journey %}<circle cx="{{ s.x }}" cy="{{ s.y }}" r="5" fill="{{ '#d6a83c' if loop.last else '#fff' }}" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>{% endfor %}</svg>
+        <svg viewBox="0 0 600 70" preserveAspectRatio="none"><path d="{{ p.journey_path|drawn }}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>{% for s in p.journey %}<circle cx="{{ s.x }}" cy="{{ s.y }}" r="5" fill="{{ ('#d6a83c' if loop.last else '#fff')|drawn }}" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>{% endfor %}</svg>
         <div class="lb" style="grid-template-columns: repeat({{ p.journey|length }}, 1fr)">{% for s in p.journey %}<div style="text-align: {{ 'left' if loop.first else ('right' if loop.last else 'center') }}"><b>{{ s.label }}</b>{{ s.sub }}</div>{% endfor %}</div>
       </div>{% endif %}
     </div>
     <div class="float">
-      {% if p.hero_kpi %}<div class="fcard" style="right: 8%; top: 4%; width: 230px"><div class="lb">{{ p.hero_kpi.label }} <span class="chip info" style="float:right">Sample</span></div><div class="big">{{ p.hero_kpi.value }}</div>{% if p.hero_kpi.sub %}<div class="muted" style="margin-top:4px">{{ p.hero_kpi.sub }}</div>{% endif %}<div class="sq">{% for i in range(24) %}<i{% if i >= p.hero_kpi.fill %} class="o"{% endif %}></i>{% endfor %}</div></div>{% endif %}
+      {# the hero is the answer's first headline figure (theirs, bound), never sample data #}
+      {% if p.hero_kpi %}<div class="fcard" style="right: 8%; top: 4%; width: 230px"><div class="lb">{{ p.hero_kpi.label }}</div><div class="big">{{ p.hero_kpi.value }}</div>{% if p.hero_kpi.sub %}<div class="muted" style="margin-top:4px">{{ p.hero_kpi.sub }}</div>{% endif %}{% if p.hero_kpi.fill is not none %}<div class="sq">{% for i in range(24) %}<i{% if i >= p.hero_kpi.fill %} class="o"{% endif %}></i>{% endfor %}</div>{% endif %}</div>{% endif %}
       {% for r in p.hero_rows %}<div class="fcard {{ 'n' if loop.first else '' }}" style="left: {{ 6 + loop.index0 * 12 }}%; top: {{ 40 + loop.index0 * 22 }}%; width: 300px"><div class="row">{% if r.tag %}<span class="chip {{ r.tone }}">{{ r.tag }}</span>{% endif %}<span>{{ r.text }}</span></div>{% if r.action %}<div style="margin-top:8px"><span class="btn sm{% if not loop.first %} primary{% endif %}">{{ r.action }}</span></div>{% endif %}</div>{% endfor %}
     </div>
   </div>
@@ -190,7 +191,9 @@ h3.d { font-family: var(--display); font-weight: 700; font-size: 16px; line-heig
 </section>
 {% endif %}
 
-{# ── what it is worth, from their own figures ── #}
+{# ── what it is worth, from their own figures ──
+   The move's working is the move figure's own record, composed in code from
+   terms each verified against a figure (answer.compute_move): drawn. #}
 {% if p.move %}
 <section class="page">
   <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
@@ -199,7 +202,7 @@ h3.d { font-family: var(--display); font-weight: 700; font-size: 16px; line-heig
     <p class="lede" style="margin-top: 6px">Worked out from the figures you gave us. Every term is yours, or marked as our proposal.</p>
     <div class="worth">
       <div class="in">{% for f in p.figures %}<div><b>{{ f.value }}</b>{{ f.label }}</div>{% endfor %}</div>
-      <div class="out"><b>{{ p.move.display }}</b><span>{{ p.move.label }}</span><p>{{ p.move.working }}.</p>{% if p.move.proposed %}<p>{{ p.move.proposed }}</p>{% endif %}</div>
+      <div class="out"><b>{{ p.move.display }}</b><span>{{ p.move.label }}</span><p>{{ p.move.working|drawn }}.</p>{% if p.move.proposed %}<p>{{ p.move.proposed }}</p>{% endif %}</div>
     </div>
   </div>
 </section>

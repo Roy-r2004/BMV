@@ -31,7 +31,7 @@ tests/test_deck_layout.py.
 import json
 import os
 import re
-from datetime import date
+from datetime import date, datetime
 
 from PIL import Image
 from pptx import Presentation
@@ -42,6 +42,7 @@ from pptx.oxml.ns import qn
 from pptx.util import Emu, Inches, Pt
 
 from app.config import settings
+from app.figures import law
 from app.models import Request
 from app.pipeline import compositing, screen_story
 from app.pipeline._shared import employees_with_ids
@@ -138,7 +139,13 @@ def _add_text(
     anchor=None,
     line_spacing: float | None = None,
     spacing: float | None = None,
+    drawn: bool = False,
 ):
+    """The deck's content choke point. Inside a release-law scope
+    (`build_presentation`) the text's numbers are bound to the figures they name
+    and the rest are recorded with this slide's number (`law.check`). `drawn`
+    marks text the deck composes itself (kickers, numerals, the cover's names
+    and date, its fixed copy): furniture, which the law does not read."""
     box = slide.shapes.add_textbox(int(left), int(top), int(width), int(height))
     tf = box.text_frame
     tf.word_wrap = True
@@ -149,7 +156,7 @@ def _add_text(
     if line_spacing:
         p.line_spacing = line_spacing
     run = p.add_run()
-    run.text = text
+    run.text = text if drawn else _checked(slide, text)
     run.font.size = Pt(size)
     run.font.bold = bold
     run.font.color.rgb = color
@@ -164,10 +171,32 @@ def _add_text(
     return box
 
 
+def _slide_number(slide) -> int | None:
+    """The slide's place in its deck, counted from 1; None for anything that is
+    not a slide of a presentation."""
+    try:
+        sid = slide.slide_id
+        for n, s in enumerate(slide.part.package.presentation_part.presentation.slides, 1):
+            if s.slide_id == sid:
+                return n
+    except Exception:
+        return None
+    return None
+
+
+def _checked(slide, text):
+    """`text` through the release law, findings placed on this slide. Outside a
+    scope (the engine's decks) it comes back as it was, and nothing is counted."""
+    if law.active() is None:
+        return text
+    return law.check(text, page=_slide_number(slide))
+
+
 def _kicker(slide, text: str, left, top, color: RGBColor, *, width=Inches(8), size: int = 11):
+    # a kicker is the deck's own label ("SCREEN 01 / 03", "TODAY"): furniture
     return _add_text(
         slide, text.upper(), left, top, width, Inches(0.32),
-        size=size, color=color, bold=True, spacing=2.6,
+        size=size, color=color, bold=True, spacing=2.6, drawn=True,
     )
 
 
@@ -193,6 +222,7 @@ def _add_bullets(
         # with no length budget. Three four-line bullets do not fit a column
         # sized for three two-line ones, and the surplus is drawn straight
         # over the summary strip beneath it.
+        item = _checked(slide, item)
         run.text = f"›  {_clamp(item, clamp) if clamp else item}"
         run.font.size = Pt(size)
         run.font.color.rgb = color
@@ -305,6 +335,28 @@ def build_presentation(
     plan_result: dict,
     images: list,
 ) -> Presentation:
+    """The deck. It is built inside the release law: every slide's content
+    passes `_add_text`/`_add_bullets`, each number not owned by a figure of the
+    request is recorded with its slide number, and the findings are kept for
+    the release gate (`law.save`, read by `export_pdf.release_status`)."""
+    from app.pipeline.export_pdf import document_known
+
+    started = datetime.utcnow()
+    known, hours = document_known(req)
+    request_id = getattr(req, "id", None)
+    with law.scope(known, where="The deck", hours=hours, request_id=request_id) as found:
+        prs = _build_presentation(req, analysis, consult_result, plan_result, images)
+    law.save(request_id, "The deck", found.findings, built_at=started)
+    return prs
+
+
+def _build_presentation(
+    req: Request,
+    analysis: dict,
+    consult_result: dict,
+    plan_result: dict,
+    images: list,
+) -> Presentation:
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
@@ -337,7 +389,7 @@ def build_presentation(
             _kicker(slide, label, MARGIN, Inches(0.52), ACCENT)
         _add_text(
             slide, concept.upper(), SLIDE_W - MARGIN - Inches(4), Inches(0.52), Inches(4), Inches(0.32),
-            size=10, color=MUTED, align=PP_ALIGN.RIGHT, spacing=2.0,
+            size=10, color=MUTED, align=PP_ALIGN.RIGHT, spacing=2.0, drawn=True,
         )
         # No separate page index. It said "01 / 03" while the kicker beside
         # it already said "SCREEN 01", and the only free corner left was
@@ -365,19 +417,20 @@ def build_presentation(
     _rect(slide, ACCENT, 0, 0, SLIDE_W, Pt(3))
 
     _kicker(slide, req.business_name, MARGIN, Inches(3.55), ACCENT_SOFT, size=12)
+    # the cover is furniture: the names, the industry and the date stamped
     _add_text(
         slide, concept, MARGIN, Inches(4.0), Inches(11.6), Inches(1.5),
-        size=54, color=TEXT, bold=False, font=FONT_DISPLAY,
+        size=54, color=TEXT, bold=False, font=FONT_DISPLAY, drawn=True,
     )
     _hairline(slide, LINE, MARGIN, Inches(5.62), Inches(11.83))
     _add_text(
         slide, (req.industry or "").strip() or "Bespoke software concept",
-        MARGIN, Inches(5.85), Inches(7), Inches(0.4), size=13, color=MUTED,
+        MARGIN, Inches(5.85), Inches(7), Inches(0.4), size=13, color=MUTED, drawn=True,
     )
     _add_text(
         slide, f"Prepared for {req.business_name}  ·  {date.today():%B %Y}",
         SLIDE_W - MARGIN - Inches(6), Inches(5.85), Inches(6), Inches(0.4),
-        size=11, color=MUTED, align=PP_ALIGN.RIGHT,
+        size=11, color=MUTED, align=PP_ALIGN.RIGHT, drawn=True,
     )
 
     # ── The shift ─────────────────────────────────────────────────────────
@@ -454,7 +507,7 @@ def build_presentation(
             _rect(slide, ACCENT, x, y, Pt(2.5), card_h)
             _add_text(
                 slide, f"{i + 1:02d}", x + Inches(0.25), y + Inches(0.18),
-                Inches(0.6), Inches(0.3), size=11, color=ACCENT, bold=True,
+                Inches(0.6), Inches(0.3), size=11, color=ACCENT, bold=True, drawn=True,
             )
             _add_text(
                 slide, _fit(m.get("name") or "", card_w - Inches(1.2), 15),
@@ -704,9 +757,10 @@ def build_presentation(
             tf.margin_right = Pt(16)
             tf.margin_top = Pt(18)
             tf.margin_bottom = Pt(18)
+            # a card's text is content, drawn without `_add_text`: it goes through the law here
             p0 = tf.paragraphs[0]
             r0 = p0.add_run()
-            r0.text = emp.get("title", "AI Employee")
+            r0.text = _checked(slide, emp.get("title", "AI Employee"))
             r0.font.bold = True
             r0.font.size = Pt(15)
             r0.font.color.rgb = TEXT
@@ -714,7 +768,7 @@ def build_presentation(
             p1 = tf.add_paragraph()
             p1.space_before = Pt(8)
             r1 = p1.add_run()
-            r1.text = _clamp(emp.get("why", ""), 260)
+            r1.text = _clamp(_checked(slide, emp.get("why", "")), 260)
             r1.font.size = Pt(11.5)
             r1.font.color.rgb = MUTED
             r1.font.name = FONT_TEXT
@@ -758,6 +812,7 @@ def build_presentation(
     # The honest paths, stated on the deck the client keeps: this document
     # set is complete enough to execute without us — and the deep-dive is
     # the middle rung for readers convinced but not yet committed.
+    # the deck's own fixed copy and sign-off: furniture
     _add_text(
         slide,
         "Three ways forward: we execute this plan for you, module by module. Or book the "
@@ -766,17 +821,18 @@ def build_presentation(
         "is credited in full against your build). Or take the blueprint, technical plan and "
         "playbook to your own team — they are written to be enough.",
         MARGIN, Inches(1.62), Inches(11.8), Inches(0.9), size=13, color=MUTED, line_spacing=1.25,
+        drawn=True,
     )
     _hairline(slide, LINE, MARGIN, Inches(2.62), Inches(11.83))
     _add_text(
         slide, "consulting@buildmyversion.com", MARGIN, Inches(2.82), Inches(11.8), Inches(0.45),
-        size=15, color=ACCENT, bold=True,
+        size=15, color=ACCENT, bold=True, drawn=True,
     )
 
 
     _add_text(
         slide, f"Prepared exclusively for {req.business_name}", MARGIN, Inches(6.75),
-        Inches(11.8), Inches(0.5), size=12, color=MUTED,
+        Inches(11.8), Inches(0.5), size=12, color=MUTED, drawn=True,
     )
 
     return prs

@@ -34,6 +34,8 @@
 </div>
 {%- endmacro %}
 
+{# A whole frame is a sample region: the release law does not read its sample
+   data, and `sample()` refuses to draw it without the stamp in its chrome. #}
 {% macro frame(system, screen) -%}
-<div class="frame">{{ chrome(system) }}<div class="body">{{ sidebar(system, screen.id) }}<div class="main">{{ topbar(system) }}{{ work(screen) }}</div></div></div>
+{% call sample() %}<div class="frame">{{ chrome(system) }}<div class="body">{{ sidebar(system, screen.id) }}<div class="main">{{ topbar(system) }}{{ work(screen) }}</div></div></div>{% endcall %}
 {%- endmacro %}
