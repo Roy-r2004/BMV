@@ -452,7 +452,7 @@ def test_a_fraction_is_supported_by_a_percent_figure():
 # 4. a 1900-2100 number is a year only after a word that makes it one
 
 @pytest.mark.parametrize("text", [
-    "in 2025", "In 2025 we grew", "since 2019", "from 2020", "until 2027", "till 2027",
+    "in 2025", "In 2025 we grew", "since 2019", "from 2020 to 2024", "until 2027", "till 2027",
     "during 2024", "before 2020", "after 2021", "the year 2025", "FY 2025",
     "May 2026", "October 2025", "Q3 2025", "on Oct 31, 2025", "31 Oct 2025", "from 2020 to 2025",
     "in 2025-2026", "the 1990s",
@@ -493,7 +493,7 @@ def test_a_list_after_a_label_word_is_labels(text):
     ("Phase 2 costs $35", ["$35"]),
     ("Step 3 takes 12 weeks", ["12"]),
     ("Phase 2. 3 weeks later", ["3"]),
-    ("Phases 1-2 run for 6 weeks", ["2", "6"]),   # a listed number must end the phrase
+    ("Phases 1-2 run for 6 weeks", ["6"]),        # a verb after the list ends it
     ("Phase 2 adds 2-3 weeks", ["2", "3"]),
 ])
 def test_a_number_after_a_label_that_is_not_in_its_list_still_counts(text, want):
@@ -548,7 +548,7 @@ def test_only_an_unspaced_dash_joins_a_label_list(text, want):
     ("Phase 2 and 3", ["3"]),
     ("Phase 2 and 3,000 members", ["3,000"]),
     ("Phases 2 and 3,000 members", ["3,000"]),
-    ("Phases 2 and 3 run", ["3"]),                 # accepted cost
+    ("Phases 2 and 3 run", []),                    # a verb after the list ends it
     ("Phases 2 and 3 weeks", ["3"]),
     ("Steps 1, 2 percent", ["2 percent"]),
     ("Phases 2 and 3", []),
@@ -663,8 +663,8 @@ def test_the_currency_codes_are_one_tuple_and_the_money_units():
     ("growth of 2000 members", [("2000", "2000", "digit")]),
     ("a team of 1950 people", [("1950", "1950", "digit")]),
     ("by 2000 members", [("2000", "2000", "digit")]),
-    ("by 2026", [("2026", "2026", "digit")]),        # accepted cost
-    ("the end of 2025", [("2025", "2025", "digit")]),
+    ("by 2026", [("2026", "2026", "date")]),         # by and of lead again (fourth review, item 6)
+    ("the end of 2025", [("2025", "2025", "date")]),
     ("in 2025", [("2025", "2025", "date")]),
     ("until 2027", [("2027", "2027", "date")]),
 ])
@@ -703,7 +703,7 @@ def test_fraction_words_that_are_not_quantities(text):
 
 def test_a_fraction_word_with_no_exception_is_read_as_a_fraction():
     # the rule is inverted (re-review item 2): read unless a known exception applies
-    assert readings("a third time") == [("a third", "33.3333", "fraction")]
+    assert readings("a third time") == [("third", "3", "ordinal")]     # before a noun: an order
     assert readings("a half") == [("a half", "50", "fraction")]
     assert readings("thirds") == [("thirds", "33.3333", "fraction")]
 
@@ -877,7 +877,7 @@ def test_a_month_and_day_in_date_position_is_a_date(text, want):
     ("after 2000 sessions", [("2000", "2000", "digit")]),
     ("until 2000 members sign up", [("2000", "2000", "digit")]),
     ("from 2000 to 2050 members", [("2000", "2000", "range"), ("2050", "2050", "range")]),
-    ("In 2025 revenue grew", [("2025", "2025", "digit")]),        # accepted cost
+    ("In 2025 revenue grew", [("2025", "2025", "date")]),         # revenue is a noun a year qualifies
 ])
 def test_a_year_shaped_number_before_a_noun_is_a_count(text, want):
     assert readings(text) == want
@@ -1095,11 +1095,12 @@ def test_an_idiom_is_not_a_quantity(text):
 
 
 def test_nine_to_five_is_working_hours():
-    assert readings("a 9-5 job") == [("9", "9", "time"), ("5", "17", "time")]
-    assert readings("9 to 5") == [("9", "9", "time"), ("5", "17", "time")]
-    assert unsupported("a 9-5 job", NOTHING) == []
-    assert unsupported("a 9-5 job", NOTHING, hours={9, 17}) == []
-    assert [m.value for m in unsupported("a 9-5 job", NOTHING, hours={9})] == [D(17)]
+    # only after open, opens, hours, shift or daily (fourth review, item 4)
+    assert readings("open 9-5") == [("9", "9", "time"), ("5", "17", "time")]
+    assert readings("Hours: 9 to 5") == [("9", "9", "time"), ("5", "17", "time")]
+    assert unsupported("open 9-5", NOTHING) == []
+    assert unsupported("open 9-5", NOTHING, hours={9, 17}) == []
+    assert [m.value for m in unsupported("open 9-5", NOTHING, hours={9})] == [D(17)]
 
 
 @pytest.mark.parametrize("text,want", [
@@ -1167,6 +1168,234 @@ def test_vulgar_half_zero_noon_and_midnight():
 ])
 def test_a_label_number_of_two_digits_must_end_the_phrase(text, want):
     assert [m.text for m in mentions(text)] == want
+
+
+# -- fourth review ---------------------------------------------------------------------------
+
+def values_of(text: str) -> list[Decimal]:
+    return [m.value for m in mentions(text)]
+
+
+# 1. day-month follows the same continuation rule, and the day must exist in the month
+
+@pytest.mark.parametrize("text,want", [
+    ("4 December parties", [("4", "4", "digit")]),
+    ("12 December cake orders", [("12", "12", "digit")]),
+    ("Run 2 June workshops", [("2", "2", "digit")]),
+    ("Book 6 January intro sessions", [("6", "6", "digit")]),
+    ("Only 4 of March trials converted", [("4", "4", "digit")]),
+    ("31 Oct", [("31 Oct", "31", "date")]),
+    ("12 December.", [("12 December", "12", "date")]),
+    ("on 12 December we opened", [("12 December", "12", "date")]),
+    ("12 December 2025", [("12 December", "12", "date"), ("2025", "2025", "date")]),
+    ("30 Feb.", [("30", "30", "digit")]),
+    ("31 April", [("31", "31", "digit")]),
+    ("Feb 30.", [("30", "30", "digit")]),
+    ("Apr 31", [("31", "31", "digit")]),
+    ("Feb 29.", [("Feb 29", "29", "date")]),
+])
+def test_day_month_needs_a_date_continuation_and_a_real_day(text, want):
+    assert readings(text) == want
+
+
+# 2. a list of month-day pairs is a monthly series of counts; a pair or span is a date range
+
+@pytest.mark.parametrize("text,want", [
+    ("New members: Jan 12, Feb 14, Mar 18.", ["12", "14", "18"]),
+    ("Bookings: May 15; June 18; July 21.", ["15", "18", "21"]),
+    ("Churned members: April 7, May 5, June 4.", ["7", "5", "4"]),
+    ("Sign-ups: 12 Jan, 14 Feb, 18 Mar.", ["12", "14", "18"]),
+])
+def test_a_monthly_series_is_read_as_counts(text, want):
+    found = mentions(text)
+    assert [m.text for m in found] == want and all(m.form != "date" for m in found)
+
+
+@pytest.mark.parametrize("text,want", [
+    ("Closed Dec 24 and 25.", [("Dec 24", "24", "date"), ("25", "25", "date")]),
+    ("from Nov 1 to Nov 30", [("Nov 1", "1", "date"), ("Nov 30", "30", "date")]),
+    ("Closed Dec 24 to Jan 2.", [("Dec 24", "24", "date"), ("Jan 2", "2", "date")]),
+    ("On May 12 and 13 we are closed.", [("May 12", "12", "date"), ("13", "13", "date")]),
+    ("Workshops on June 3 or 10.", [("June 3", "3", "date"), ("10", "10", "date")]),
+    ("The audit runs Mar 3-7.", [("Mar 3", "3", "date"), ("7", "7", "date")]),
+    ("Dec 24 - Jan 2, 2026", [("Dec 24", "24", "date"), ("Jan 2", "2", "date"), ("2026", "2026", "date")]),
+])
+def test_a_month_day_pair_that_ends_as_a_date_is_a_date_range(text, want):
+    assert readings(text) == want
+
+
+# 3. rank words make a share; "a third" before a noun is an order
+
+@pytest.mark.parametrize("text,want", [
+    ("The top quarter of members book 60% of classes",
+     [("quarter", "25", "fraction"), ("60%", "60", "percent")]),
+    ("the bottom fifth", [("fifth", "20", "fraction")]),
+    ("our weakest quarter", [("quarter", "25", "fraction")]),
+    ("the best third", [("third", "33.3333", "fraction")]),
+    ("the lowest tenth", [("tenth", "10", "fraction")]),
+    ("the upper half", [("half", "50", "fraction")]),
+    ("the lower half", [("half", "50", "fraction")]),
+    ("A fourth van", [("fourth", "4", "ordinal")]),
+    ("a third hygienist", [("third", "3", "ordinal")]),
+    ("the third class", [("third", "3", "ordinal")]),
+    ("a third of members", [("a third", "33.3333", "fraction")]),
+    ("cut costs by a third", [("a third", "33.3333", "fraction")]),
+    ("nearly a fifth.", [("a fifth", "20", "fraction")]),
+    ("a quarter van", [("a quarter", "25", "fraction")]),
+])
+def test_rank_words_make_a_share_and_a_third_before_a_noun_is_an_order(text, want):
+    assert readings(text) == want
+
+
+# 4. nine to five is working hours only with am/pm or after open, hours, shift, daily
+
+@pytest.mark.parametrize("text", [
+    "Reduce the team from 9 to 5 people.", "Drop from 9 to 5 vans", "A 9-5 member split", "We work 9-5.",
+])
+def test_nine_to_five_without_a_lead_is_two_numbers(text):
+    found = mentions(text)
+    assert [m.value for m in found] == [D(9), D(5)] and all(m.form != "time" for m in found)
+
+
+@pytest.mark.parametrize("text", ["open 9-5", "Opens 9 to 5", "Hours: 9-5", "shift 9-5", "daily 9-5", "9am-5pm"])
+def test_nine_to_five_after_a_lead_or_with_am_pm_is_working_hours(text):
+    found = mentions(text)
+    assert [(m.value, m.form) for m in found] == [(D(9), "time"), (D(17), "time")]
+
+
+# 5. a ratio cue makes a colon pair a ratio; otherwise quarter minutes and ranges make a time
+
+@pytest.mark.parametrize("text,want", [
+    ("Keep the ratio at 1:10", ["1", "10"]),
+    ("Move the ratio from 1:12 to 1:8", ["1", "12", "1", "8"]),
+    ("Staffing 1:10.", ["1", "10"]),
+    ("after 1:12 became standard", ["1", "12"]),
+    ("a staff-to-client 1:6", ["1", "6"]),
+    ("a 1:15 mix", ["1", "15"]),
+])
+def test_a_colon_pair_with_a_ratio_cue_or_odd_minutes_is_a_ratio(text, want):
+    found = mentions(text)
+    assert [str(m.value) for m in found] == want and all(m.form != "time" for m in found)
+
+
+@pytest.mark.parametrize("text,want", [
+    ("The 7:15 class", [("7:15", "7", "time")]),
+    ("opens 7:30 and closes 8:15", [("7:30", "7", "time"), ("8:15", "8", "time")]),
+    ("8:00-18:00", [("8:00", "8", "time"), ("18:00", "18", "time")]),
+    ("9:00 to 17:00", [("9:00", "9", "time"), ("17:00", "17", "time")]),
+    ("8:30 - 17:30", [("8:30", "8", "time"), ("17:30", "17", "time")]),
+    ("9:05 to 17:00", [("9:05", "9", "time"), ("17:00", "17", "time")]),
+    ("at 9:10", [("9:10", "9", "time")]),
+])
+def test_a_colon_pair_with_quarter_minutes_or_a_time_at_the_other_end_is_a_time(text, want):
+    assert readings(text) == want
+    assert all(m.value != 0 or m.form == "time" for m in mentions(text))   # never a stray 0
+
+
+# 6. more year leads, a noun a year qualifies, and "from" needs its other end
+
+@pytest.mark.parametrize("text", [
+    "By 2027 the studio will", "the 2025 plan", "FY 2025 revenue", "Revenue for 2024 was", "In late 2025",
+    "Q3 2025 revenue", "mid-2025", "over 2024.", "from 2020 until 2024",
+])
+def test_a_year_after_a_lead_and_before_a_date_continuation_is_a_date(text):
+    found = mentions(text)
+    assert found and all(m.form == "date" for m in found), found
+
+
+@pytest.mark.parametrize("text,want", [
+    ("Followers rose to 2100 from 1950 in May.", [("2100", "2100", "digit"), ("1950", "1950", "digit")]),
+    ("Up from 1980 in 2024.", [("1980", "1980", "digit"), ("2024", "2024", "date")]),
+    ("growth of 2000 members", [("2000", "2000", "digit")]),
+    ("the 2000 members", [("2000", "2000", "digit")]),
+    ("for 1999 people", [("1999", "1999", "digit")]),
+])
+def test_a_year_shaped_count_stays_a_count(text, want):
+    assert readings(text) == want
+
+
+# 7. twice and thrice keep their factor in compounds
+
+@pytest.mark.parametrize("text,value", [
+    ("Twice-weekly classes", "2"), ("twice-daily", "2"), ("twice-yearly reviews", "2"), ("thrice weekly", "3"),
+    ("Twice a week", "2"),
+])
+def test_twice_and_thrice_compounds_are_multipliers(text, value):
+    found = mentions(text)
+    assert [(m.value, m.form) for m in found] == [(D(value), "multiplier")]
+
+
+def test_double_compounds_stay_modifiers():
+    assert mentions("double-check") == []
+
+
+# 8. every vulgar fraction sign reads as a fraction
+
+@pytest.mark.parametrize("text,value", [
+    ("\u2153 of members", "33.3333"), ("\u2154 renew", "66.6667"), ("\u215b of a share", "12.5"),
+    ("\u2155 of revenue", "20"), ("\u2159 of it", "16.6667"), ("\u215e", "87.5"),
+])
+def test_a_vulgar_fraction_sign_is_a_fraction(text, value):
+    assert [(m.value, m.form) for m in mentions(text)] == [(D(value), "fraction")]
+
+
+def test_a_number_and_a_vulgar_fraction():
+    assert readings("2\u2154 hours") == [("2", "2", "digit"), ("\u2154", "66.6667", "fraction")]
+
+
+# 9. a short local prefix or a glued code needs an amount
+
+@pytest.mark.parametrize("text", ["R1", "R2", "Risks R1-R5", "See risk R3", "Room R2", "PHP8"])
+def test_a_prefix_before_a_short_number_is_an_identifier(text):
+    assert mentions(text) == []
+
+
+@pytest.mark.parametrize("text,value", [("R500", "500"), ("R1,200", "1200"), ("R2.5k", "2500"), ("AUD50", "50")])
+def test_a_prefix_before_an_amount_is_money(text, value):
+    assert [(m.value, m.form) for m in mentions(text)] == [(D(value), "money")]
+
+
+def test_a_code_before_a_number_glued_to_a_letter_is_not_money():
+    assert readings("CAD 3D") == [("3", "3", "digit")]
+
+
+# 10. a label list may be followed by a function word or a verb
+
+@pytest.mark.parametrize("text,want", [
+    ("Weeks 1-4 are setup", [("1", "1", "date"), ("4", "4", "date")]),
+    ("Month 1-3 is the pilot", [("1", "1", "date"), ("3", "3", "date")]),
+    ("Phases 2-3 take 10 weeks", [("10", "10", "digit")]),
+    ("Options 1 and 2 cost the same", []),
+    ("### Week 1-2 - Setup", [("1", "1", "date"), ("2", "2", "date")]),
+    ("Phases 2 and 3 weeks", [("3", "3", "digit")]),
+    ("Weeks 1-4 members", [("1", "1", "date"), ("4", "4", "digit")]),
+])
+def test_a_label_list_followed_by_a_verb_or_function_word_holds(text, want):
+    assert readings(text) == want
+
+
+# 11. value bugs
+
+def test_a_dozen_and_a_half_is_eighteen():
+    assert values_of("a dozen and a half") == [D(18)]
+    assert values_of("A dozen and a half pastries.") == [D(18)]
+    assert values_of("two and a half") == [D("2.5")]
+    assert values_of("a million and a half") == [D(1500000)]
+
+
+@pytest.mark.parametrize("text,want", [
+    ("Our top-10 clients pay late.", [("10", "10", "digit")]),
+    ("Covid-19 cut revenue.", [("19", "19", "digit")]),
+    ("COVID-19", []),
+])
+def test_a_hyphen_after_a_word_is_not_a_minus(text, want):
+    assert readings(text) == want
+
+
+# 12. am applies to a range ending at 12
+
+def test_ten_to_twelve_am():
+    assert readings("10-12am") == [("10", "10", "time"), ("12am", "12", "time")]
 
 
 # -- the module stays its own grammar -----------------------------------------------------
