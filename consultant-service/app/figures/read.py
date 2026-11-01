@@ -2,7 +2,9 @@
 
 `mentions(text)` reads every number a piece of prose holds; `unsupported(text,
 known)` returns the ones no known figure supports. There is no leniency: a
-small number is a number, and "1 of 5" holds two of them.
+small number is a number, and "1 of 5" holds two of them. A hidden number is
+the one failure this reader must not have, so wherever the grammar is unsure,
+it reads the number.
 
 This is its own grammar. It does not use `registry._numbers`, which the engine
 and the frozen laws depend on, and it imports nothing from the pipeline or the
@@ -10,53 +12,68 @@ engine. It reads with Decimal only; no float is ever made.
 
 What it counts (plan ruling 8), with the form each mention carries:
 
-    digit       12, 1.5, 0.5, .5, 1,000, 45,000, -5; k/M suffixes (10k, 5M) and
-                magnitude words (1.5 million, 2 dozen) scale the value
-    money       $35, $22.50, US$35, the euro and pound signs, 35 USD, $35k,
-                $1.2M, $2bn (m, B and bn scale only after a currency sign)
+    digit       12, 1.5, 0.5, .5, 1,000, 45 000 (space, thin space or no-break
+                space between groups of three), -5; k/K and M scale (10k, 5M),
+                as do magnitude words (1.5 million, 2 dozen). The tail of a
+                token that starts with a digit is read too: 10x12, 1h30, 24x7.
+    money       $35, $22.50, US$35, the euro and pound signs, a currency code
+                before or after, glued or spaced (AUD50, CAD 5, Rs500, 35 USD),
+                dollars/euros after; $35k, $1.2M, $5MM, $5mn, $2bn, $2B (m, MM,
+                mn, B and bn scale only with a currency)
     percent     50%, 50 %, 25 percent, 25 per cent, fifty percent; the value is
                 the percent number (25), never the fraction
     word        two to nineteen, the tens, compounds spaced or hyphenated
                 (twenty-two, twenty two), hundred, thousand, million, billion,
                 dozen, "a dozen", "half a dozen", "a hundred and twenty",
                 "two and a half"
-    multiplier  3x, 3 followed by the multiplication sign, 3-fold, threefold,
-                tenfold, twice, doubled, tripled, quadrupled always; double,
-                triple, quadruple (and -s, -ing) only before the, your, our,
-                their, its, what, that, as or a number ("double the revenue",
-                not "no double booking")
-    ordinal     3rd, 1st, 22nd; third and up, twenty-first
-    fraction    half, a third, one third, two thirds, a quarter, three quarters,
-                a fifth, ... only as a quantity: before "of" ("a third of
-                members"), "half the ...", or the tail "and a half" ("an hour
-                and a half"); not "the first half", "half-price", "a third
-                time", "two quarters". The value is the percent number (33.3333
-                for a third), so it is compared with percent figures
+    multiplier  3x, 3X, 3 followed by the multiplication sign, 3-fold,
+                threefold, tenfold, twice, doubled, tripled, quadrupled always;
+                double, triple, quadruple (and -s, -ing) only before the, your,
+                our, their, its, what, that, as or a number ("double the
+                revenue", not "no double booking")
+    ordinal     3rd, 1st, 22nd; third and up, twenty-first, the hundredth. A
+                word ordinal that opens a sentence before a comma ("Third, we")
+                is an enumerator and is not read.
+    fraction    "one third", "two thirds", "three quarters" (a cardinal one to
+                nine with a denominator) always; "half", "a third", "a quarter",
+                "thirds" only as a quantity: before "of", "half the ...", after
+                by, in, into, than, over, under, nearly, almost, about, around,
+                just, only or at ("cut costs in half"), or the tail "and a half".
+                Not "the first half", "half-price", "a third time". The value is
+                the percent number (33.3333 for a third).
     range       2-3, 2 to 3, en or em dash, $20-$30, 10-15%, 10-15k: one
-                mention per end, a magnitude on the second end scales the first
+                mention per end. A bare end takes the other end's money or
+                percent ($30-35 is two money mentions, 30-35% two percents) and
+                a magnitude on the second end scales the first; ends with no
+                unit have the form "range".
     time        6pm, 6 p.m., 6:30 pm, 18:00, 6-7pm, 9am to 5pm; the value is the
                 hour on a 24-hour clock
-    date        a year 1900-2100 after a word that makes it one (in, since, by,
-                from, until, till, during, before, after, of, year, FY, a month
-                name, Q1-Q4) or completing a day and month (Oct 31, 2025); a
-                decade (the 1990s); a day with a month name (31 Oct, 31st
-                October, the 3rd of March, Oct 31); 2025-03-01, 31/10/2025.
-                Any other 1900-2100 is a digit: "2000 members" is a count.
+    date        a year 1900-2100 after in, since, from, until, till, during,
+                before, after, year, FY, a month name or Q1-Q4, or completing a
+                day and month (Oct 31, 2025); a decade (the 1990s); a day with a
+                month name (31 Oct, 31st October, the 3rd of March, Oct 31);
+                2025-03-01, 31/10/2025. Any other 1900-2100 is a digit: "2000
+                members" and "by 2000 members" are counts.
 
 What it does not count:
   - "one", "a", "an", "first", "second" on their own: articles and a unit of
-    time before they are quantities. "one hundred", "twenty-one", "a dozen" and
-    "one and a half" are quantities and are counted.
-  - a number right after a label word from `labels.LABEL_WORDS`, or its plural
-    ("Phase 2", "Exhibit 2.1", "Phase two"), and every number listed with it,
-    joined by and, &, a hyphen, to or an en dash ("Steps 1-3", "Phase 2 and
-    3"), or by a comma after a plural label ("Phases 1, 2 and 3"): ruling 4.
+    time before they are quantities.
+  - a label (ruling 4): a bare number (digits, or a dotted exhibit number) right
+    after a word from `labels.LABEL_WORDS`, capitalised ("Phase 2") or after a
+    reference word ("in phase 2", "see section 4"). Further bare numbers join
+    the label only through an unspaced dash ("Steps 1-3", "Phase 2-3"), or,
+    after a plural label, through and, to, & or a comma ("Phases 1, 2 and 3");
+    each must end the phrase (end of text, punctuation, a closing bracket, or
+    another joiner). Anything else is read: "Phase 1 - 6 weeks", "Phase 2 and
+    12 weeks", "Phase 2 - $50", "Phases 2 and 3,000 members".
   - a numbered list marker at the start of a line ("1. ", "2) "): structure.
-  - identifiers: letters with digits glued on (Q3, M3-A, B2B, FY2025, v2.1) and capitals,
-    a hyphen and digits (CF-04); a dotted chain of three or more parts (3.2.1).
+  - identifiers that start with letters (Q3, M3-A, B2B, FY2025, v2.1, model_5),
+    capitals, a hyphen and digits (CF-04), dotted chains of three or more parts
+    (3.2.1).
   - vague plurals (hundreds, dozens).
 A month name is a proper noun and is read only capitalised ("May 3", not "may 3").
 A unit glued to a number stays out of the mention: "8hrs" is the mention "8".
+Markdown emphasis does not hide a number: "**5**", "__5__", "_50%_".
 """
 from __future__ import annotations
 
@@ -70,6 +87,7 @@ from app.figures.model import FigureSet
 
 Form = Literal["digit", "money", "percent", "word", "multiplier", "ordinal", "fraction", "range", "time",
                "date"]
+Label = Literal["singular", "plural"]
 
 
 @dataclass(frozen=True)
@@ -84,36 +102,46 @@ class Mention:
 
 # -- the grammar -----------------------------------------------------------------------
 
-_SP = r"[ \t\u00a0]"   # a space inside one phrase; never a line break
+_SPACES = " \t\u00a0"            # a space inside one phrase; never a line break
+_SP = f"[{_SPACES}]"
 
-# currency before the number: $, US$ / A$ style, the euro sign, the pound sign
+# The currency codes the reader knows, before or after a number. The one list:
+# money mentions match figures in these units (see `supported`).
+_CURRENCY_CODES: tuple[str, ...] = (
+    "USD", "EUR", "GBP", "AUD", "CAD", "CHF", "JPY", "CNY", "INR", "SGD", "AED", "SAR", "ZAR",
+    "NZD", "SEK", "NOK", "DKK", "HKD", "Rs",
+)
+_CODE = "(?:" + "|".join(_CURRENCY_CODES) + ")"
+# currency signs before the number: $, US$ / A$ style, the euro sign, the pound sign
 _CUR = r"(?:[A-Z]{1,3}\$|\$|\u20ac|\u00a3)"
-_CODE = r"(?:USD|EUR|GBP)"
-# 1,000 style separators only in groups of three; a point only with a digit after
-# it, so the full stop that ends a sentence is never read as a decimal point
-_NUM = r"(?:(?:\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:\.\d+)?|\.\d+)"
+# Thousands in groups of three, by comma or by one kind of space (a space, a thin
+# space, a no-break space, a narrow no-break space); a point only with a digit
+# after it, so the full stop that ends a sentence is never read as a decimal point.
+_GROUPS = "|".join(rf"\d{{1,3}}(?:{sep}\d{{3}})+(?!\d)" for sep in (",", " ", "\u2009", "\u00a0", "\u202f"))
+_NUM = rf"(?:(?:{_GROUPS}|\d+)(?:\.\d+)?|\.\d+)"
+_GROUP_SEPARATORS = str.maketrans("", "", ", \u2009\u00a0\u202f")
 
 _HEAD = re.compile(
     rf"(?P<sign>[-\u2212](?=[\d$\u20ac\u00a3.]))?"
-    rf"(?:(?P<cur>{_CUR}){_SP}?|(?P<code>{_CODE}){_SP}?)?"
+    rf"(?:(?P<cur>{_CUR}){_SP}?|(?P<code>{_CODE})\.?{_SP}?)?"
     rf"(?P<num>{_NUM})")
-_MAG_LETTER = re.compile(r"(?P<m>[kK]|M|bn|B|m)(?![A-Za-z0-9])")
+_MAG_LETTER = re.compile(r"(?P<m>MM|mn|bn|[kK]|M|B|m)(?![A-Za-z0-9])")
 _MAG_WORD = re.compile(rf"{_SP}+(?P<w>thousand|million|billion|dozen)(?![A-Za-z])", re.I)
 _PCT = re.compile(rf"{_SP}?%|{_SP}*(?:per{_SP}?cent|percentage{_SP}+points?)(?![A-Za-z])", re.I)
-_TIMES = re.compile(rf"x(?![A-Za-z0-9])|{_SP}?\u00d7")
+_TIMES = re.compile(rf"[xX](?![A-Za-z0-9])|{_SP}?\u00d7")
 _FOLD = re.compile(r"-?fold(?![A-Za-z])", re.I)
 _ORD = re.compile(r"(?:st|nd|rd|th)(?![A-Za-z0-9])", re.I)
 _MONEY_AFTER = re.compile(rf"{_SP}?{_CODE}(?![A-Za-z])|{_SP}+(?i:dollars?|euros?)(?![A-Za-z])")
-_MONEY_WORDS = re.compile(rf"{_SP}+(?:dollars?|euros?)(?![A-Za-z])", re.I)
 _TO = re.compile(rf"{_SP}*[-\u2013\u2014]{_SP}*|{_SP}+to{_SP}+")
 _CHAIN = re.compile(r"\d+(?:\.\d+){2,}(?!\d)")
 
-_MAGNITUDE = {"k": 1000, "K": 1000, "M": 10**6, "m": 10**6, "B": 10**9, "bn": 10**9,
-              "thousand": 1000, "million": 10**6, "billion": 10**9, "dozen": 12}
-_NEEDS_CURRENCY = frozenset({"m", "B", "bn"})   # 5m is five metres or minutes, 70B a model size
+_MAGNITUDE = {"k": 1000, "K": 1000, "M": 10**6, "m": 10**6, "MM": 10**6, "mn": 10**6,
+              "B": 10**9, "bn": 10**9, "thousand": 1000, "million": 10**6, "billion": 10**9, "dozen": 12}
+# 5m is five metres or minutes, 70B a model size: these scale only with a currency
+_NEEDS_CURRENCY = frozenset({"m", "MM", "mn", "B", "bn"})
 
 # clock times: "p.m." keeps its own final point, "6pm." leaves the full stop alone
-_MER = r"(?:\.{sp}?m\.|{sp}?m)(?![A-Za-z])".format(sp=_SP)
+_MER = rf"(?:\.{_SP}?m\.|{_SP}?m)(?![A-Za-z])"
 _TIME_RANGE = re.compile(
     rf"(?P<h1>\d{{1,2}})(?:[:.](?P<m1>[0-5]\d))?(?:{_SP}*[-\u2013]{_SP}*|{_SP}+to{_SP}+)"
     rf"(?P<h2>\d{{1,2}})(?:[:.](?P<m2>[0-5]\d))?{_SP}?(?P<ap>[ap]){_MER}", re.I)
@@ -127,32 +155,36 @@ _DAY_MONTH = re.compile(rf"(?P<d>\d{{1,2}})(?:st|nd|rd|th)?(?:{_SP}+of)?{_SP}+{_
 _MONTH_DAY = re.compile(rf"{_MONTHS}\.?{_SP}+(?P<d>\d{{1,2}})(?:st|nd|rd|th)?(?![A-Za-z0-9%]|[.:]\d)")
 _ISO_DATE = re.compile(r"(?P<y>19\d\d|20\d\d|2100)-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)")
 _SLASH_DATE = re.compile(r"(?P<d>\d{1,2})/\d{1,2}/(?:\d{4}|\d{2})(?![\d/])")
+_YEAR_AFTER_DATE = re.compile(rf",?{_SP}+(?P<y>19\d\d|20\d\d|2100)(?![\d,%A-Za-z]|\.\d)")
 
-# identifiers, not quantities: Q3, M3-A, B2B, FY2025, v2.1; CF-04, ISO-9001
+# the words after which a 1900-2100 number is a year, not a count
+_YEAR_WORDS = frozenset({"in", "since", "from", "until", "till", "during", "before", "after", "year", "fy"})
+_MONTH_WORD = re.compile(_MONTHS)
+_QUARTER = re.compile(r"[Qq][1-4]")
+_BEFORE_YEAR = re.compile(rf"(?P<w>[A-Za-z0-9]+)[.,]?{_SP}+$")
+
+# identifiers that start with letters, not quantities: Q3, M3-A, B2B, FY2025, v2.1; CF-04, ISO-9001
 _IDENT = re.compile(r"[A-Za-z]+\d[A-Za-z0-9]*(?:[-.][A-Za-z0-9]+)*|[A-Z]{1,6}-\d[A-Za-z0-9]*(?:[-.][A-Za-z0-9]+)*")
 
 _WORD = re.compile(r"[A-Za-z]+")
 _JOIN = re.compile(rf"{_SP}+|-(?=[A-Za-z])")
 
+# labels (ruling 4). A lower-case label word is a label only after a word that
+# refers to it ("in phase 2", "see section 4"); "book a table 4 times" is a count.
 _LABELS = frozenset(w.lower() for w in LABEL_WORDS)
-# the numbers listed after a label ("Steps 1-3 & 5", "Phase 2 and 3") are labels
-# too. A comma joins only after a plural label ("Phases 1, 2 and 3"): after a
-# singular one ("Phase 2, 12 weeks long") the comma ends the label, so the 12 is
-# read. A hidden number is the worst failure here, so when unsure, read it.
-_LIST_ITEM = r"\d+(?:\.\d+)*(?![A-Za-z0-9%])"
-_LABEL_LIST = re.compile(rf"(?:{_SP}*(?:&|-|\u2013){_SP}*|{_SP}+(?:and|to){_SP}+){_LIST_ITEM}")
-_LABEL_LIST_PLURAL = re.compile(
-    rf"(?:{_SP}*(?:,|&|-|\u2013){_SP}*(?:(?:and|&){_SP}+)?|{_SP}+(?:and|to){_SP}+){_LIST_ITEM}")
+_LABEL_LEADS = frozenset({"see", "in", "of", "to", "from", "during", "before", "after", "until",
+                          "through", "at", "per"})
+_LABEL_ITEM = re.compile(r"\d+(?:\.\d+)*")
+_DASH_JOIN = r"[-\u2013](?=\d)"          # unspaced: "Steps 1-3"; a spaced dash separates
+_LABEL_JOIN = re.compile(_DASH_JOIN)
+_LABEL_JOIN_PLURAL = re.compile(
+    rf"{_DASH_JOIN}|{_SP}*,{_SP}*(?:(?:and|&){_SP}+)?|{_SP}*&{_SP}*|{_SP}+(?:and|to){_SP}+")
+# what may follow a listed label number: the end, punctuation, a bracket, a joiner
+_ITEM_END = re.compile(
+    rf"[.!?;:](?!\d)|[)\]}}]|{_SP}*(?:[\r\n]|$)|{_SP}+(?:and|to)(?![A-Za-z])|{_SP}*[,&](?!\d)|{_DASH_JOIN}")
 
 # a numbered list marker: digits, then "." or ")", then a space, first on its line
 _LIST_MARKER = re.compile(rf"\d+[.)]{_SP}")
-
-# the words after which a 1900-2100 number is a year, not a count
-_YEAR_WORDS = frozenset({"in", "since", "by", "from", "until", "till", "during", "before", "after",
-                         "of", "year", "fy"})
-_MONTH_WORD = re.compile(_MONTHS)
-_QUARTER = re.compile(r"[Qq][1-4]")
-_BEFORE_YEAR = re.compile(rf"(?P<w>[A-Za-z0-9]+)[.,]?{_SP}+$")
 
 # number words
 _UNITS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9}
@@ -188,11 +220,18 @@ _MULTIPLIED = re.compile(
     rf"|(?i:{'|'.join(sorted({*_UNITS, *_TEENS, *_TENS}, key=len, reverse=True))})(?![A-Za-z]))")
 _FOLD_PREFIX = {**_UNITS, **_TEENS, **_TENS, "hundred": 100, "thousand": 1000}
 
-# fractions: "a third" and "one third" take the singular, "two thirds" the plural
+# fractions
 _DENOMINATORS = {"half": 2, "third": 3, "quarter": 4, "fourth": 4, "fifth": 5, "sixth": 6,
                  "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10}
 _DENOMINATORS_MANY = {"halves": 2, "thirds": 3, "quarters": 4, "fourths": 4, "fifths": 5, "sixths": 6,
                       "sevenths": 7, "eighths": 8, "ninths": 9, "tenths": 10}
+_FRACTION_LEADS = frozenset({"by", "in", "into", "than", "over", "under", "nearly", "almost", "about",
+                             "around", "just", "only", "at"})
+_FRACTION_OF = re.compile(rf"{_SP}+of(?![A-Za-z])", re.I)
+# "half the clients" is "half of the clients"; English drops the "of" only after half
+_HALF_DETERMINER = re.compile(
+    rf"{_SP}+(?:the|your|our|their|its|these|those|all|my|his|her)(?![A-Za-z])", re.I)
+_COMPOUND = re.compile(r"-[A-Za-z]")     # half-price, half-day
 _PERCENT_PLACES = Decimal("0.0001")
 
 
@@ -219,7 +258,7 @@ def _quantity(text: str, pos: int) -> _Qty | None:
     if not m:
         return None
     num = m.group("num")
-    q = _Qty(start=pos, end=m.end(), value=Decimal(num.replace(",", "")),
+    q = _Qty(start=pos, end=m.end(), value=Decimal(num.translate(_GROUP_SEPARATORS)),
              money=bool(m.group("cur") or m.group("code")), signed=bool(m.group("sign")))
     if q.signed:
         q.value = -q.value
@@ -264,35 +303,67 @@ def _mention(text: str, start: int, end: int, value: Decimal | int, form: Form) 
     return Mention(text=text[start:end], start=start, end=end, value=Decimal(value), form=form)
 
 
-def _after_label(text: str, start: int) -> Literal["singular", "plural"] | None:
-    """Whether the number at `start` follows a label word, and in which number:
-    "Phase 2" is singular, "Phases 1-2" plural, anything else None."""
+def _word_before(text: str, start: int) -> tuple[str, int]:
+    """The word that ends right before `start` (after spaces), and where it starts;
+    ("", start) when spaces lead to anything but a word, or to nothing."""
     j = start
-    while j > 0 and text[j - 1] in " \t\u00a0":
+    while j > 0 and text[j - 1] in _SPACES:
         j -= 1
     if j == start:
-        return None
+        return "", start
     k = j
     while k > 0 and text[k - 1].isalpha():
         k -= 1
-    word = text[k:j].lower()
-    if word in _LABELS:
-        return "singular"
-    if word.endswith("s") and word[:-1] in _LABELS:
-        return "plural"
+    return text[k:j], k
+
+
+def _after_label(text: str, start: int) -> Label | None:
+    """Whether the number at `start` follows a label word, and in which number:
+    "Phase 2" is singular, "Phases 1-2" plural, anything else None. A lower-case
+    label word counts only after a word that refers to it ("in phase 2")."""
+    word, k = _word_before(text, start)
+    lower = word.lower()
+    if lower in _LABELS:
+        label: Label = "singular"
+    elif lower.endswith("s") and lower[:-1] in _LABELS:
+        label = "plural"
+    else:
+        return None
+    if word[0].isupper() or _word_before(text, k)[0].lower() in _LABEL_LEADS:
+        return label
     return None
 
 
-def _label_end(text: str, end: int, label: Literal["singular", "plural"]) -> int:
-    """Where the list of numbers a label started ends: "Phases 1, 2 and 3"."""
-    joiner = _LABEL_LIST_PLURAL if label == "plural" else _LABEL_LIST
-    while (m := joiner.match(text, end)):
-        end = m.end()
+def _label_end(text: str, end: int, label: Label) -> int:
+    """Where the list of bare numbers a label started ends: "Phases 1, 2 and 3"."""
+    join = _LABEL_JOIN_PLURAL if label == "plural" else _LABEL_JOIN
+    while (j := join.match(text, end)):
+        item = _LABEL_ITEM.match(text, j.end())
+        if not item or not _ITEM_END.match(text, item.end()):
+            break
+        end = item.end()
     return end
 
 
+def _read_label(text: str, pos: int) -> Read | None:
+    """A bare number after a label word, and the bare numbers listed with it."""
+    label = _after_label(text, pos)
+    item = _LABEL_ITEM.match(text, pos) if label else None
+    if not item:
+        return None
+    q = _quantity(text, pos)
+    if (q is None or q.end > item.end() or q.scale != 1
+            or q.signed or q.money or q.percent or q.times or q.ordinal):
+        return None   # "Phase 2,000", "Step 3 40%": a quantity, read as one
+    return _label_end(text, item.end(), label), []
+
+
+def _year_number(q: _Qty) -> bool:
+    return q.plain and q.end - q.start == 4 and 1900 <= q.value <= 2100
+
+
 def _year_shaped(q: _Qty, text: str) -> bool:
-    return q.plain and q.end - q.start == 4 and 1900 <= q.value <= 2100 and not text[q.end:q.end + 1].isalpha()
+    return _year_number(q) and not text[q.end:q.end + 1].isalpha()
 
 
 def _year_context(text: str, start: int) -> bool:
@@ -313,49 +384,24 @@ def _is_year(q: _Qty, text: str) -> bool:
 def _line_start(text: str, pos: int) -> bool:
     """True when only spaces stand between the start of the line and `pos`."""
     i = pos
-    while i > 0 and text[i - 1] in " \t\u00a0":
+    while i > 0 and text[i - 1] in _SPACES:
         i -= 1
     return i == 0 or text[i - 1] in "\r\n"
+
+
+def _sentence_start(text: str, pos: int) -> bool:
+    """True when `pos` opens a sentence: the start of the text or a line, or after
+    a full stop, question or exclamation mark and a space."""
+    i = pos
+    while i > 0 and text[i - 1] in _SPACES:
+        i -= 1
+    return i == 0 or text[i - 1] in "\r\n" or (i < pos and text[i - 1] in ".!?")
 
 
 def _percent_of(numerator: int, denominator: int) -> Decimal:
     """numerator/denominator as a percent number, exact to four places: 33.3333."""
     value = (Decimal(numerator) * 100 / Decimal(denominator)).quantize(_PERCENT_PLACES)
     return value.quantize(Decimal(1)) if value == value.to_integral_value() else value.normalize()
-
-
-_FRACTION_OF = re.compile(rf"{_SP}+of(?![A-Za-z])", re.I)
-# "half the clients" is "half of the clients"; English drops the "of" only after half
-_HALF_DETERMINER = re.compile(
-    rf"{_SP}+(?:the|your|our|their|its|these|those|all|my|his|her)(?![A-Za-z])", re.I)
-_AND_BEFORE = re.compile(rf"(?:^|[^A-Za-z])and{_SP}+$", re.I)
-
-
-def _fraction_in_use(text: str, start: int, end: int, words: list[str]) -> bool:
-    """A fraction counts only as a quantity: "<fraction> of ..." ("a third of
-    no-shows"), "half the ...", or the tail "and a half" ("an hour and a half").
-    "The first half", "half-price", "a third time" and "two quarters" (of a
-    fiscal year) are not fractions."""
-    if _FRACTION_OF.match(text, end):
-        return True
-    if words == ["half"] and _HALF_DETERMINER.match(text, end):
-        return True
-    return words == ["a", "half"] and bool(_AND_BEFORE.search(text, max(0, start - 8), start))
-
-
-def _fraction(words: list[str]) -> tuple[Decimal, int] | None:
-    """A fraction as (percent number, words used): half, a half, a third, one
-    third, two thirds, three quarters. None when the words say no fraction."""
-    first = words[0]
-    second = words[1] if len(words) > 1 else None
-    if first in ("a", "an", "one") and second in _DENOMINATORS:
-        return _percent_of(1, _DENOMINATORS[second]), 2
-    numerator = _UNITS.get(first) or _TEENS.get(first)
-    if numerator and numerator > 1 and second in _DENOMINATORS_MANY:
-        return _percent_of(numerator, _DENOMINATORS_MANY[second]), 2
-    if first == "half":
-        return Decimal(50), 1
-    return None
 
 
 def _hour24(hour: int, ap: str) -> int:
@@ -390,9 +436,6 @@ def _read_time(text: str, pos: int) -> Read | None:
     return None
 
 
-_YEAR_AFTER_DATE = re.compile(rf",?{_SP}+(?P<y>19\d\d|20\d\d|2100)(?![\d,%A-Za-z]|\.\d)")
-
-
 def _day_and_year(text: str, pos: int, m: re.Match) -> Read:
     """A day with its month, and the year that completes it ("Oct 31, 2025")."""
     found = [_mention(text, pos, m.end(), int(m.group("d")), "date")]
@@ -416,6 +459,10 @@ def _read_date(text: str, pos: int) -> Read | None:
     return None
 
 
+def _unit(q: _Qty) -> Form | None:
+    return "money" if q.money else "percent" if q.percent else None
+
+
 def _read_range(text: str, pos: int) -> Read | None:
     a = _quantity(text, pos)
     if a is None or a.times or a.ordinal:
@@ -426,16 +473,17 @@ def _read_range(text: str, pos: int) -> Read | None:
     b = _quantity(text, to.end())
     if b is None or b.ordinal or b.signed:
         return None
-    label = _after_label(text, pos)
-    if label:
-        return _label_end(text, b.end, label), []
     if _is_year(a, text) and _year_shaped(b, text):   # from 2025-2026: the second end follows the first
         return b.end, [_mention(text, a.start, a.end, a.value, "date"),
                        _mention(text, b.start, b.end, b.value, "date")]
     if b.scale != 1 and a.scale == 1:   # 10-15k is ten to fifteen thousand
         a.value *= b.scale
-    return b.end, [_mention(text, a.start, a.end, a.value, "range"),
-                   _mention(text, b.start, b.end, b.value, "range")]
+    # a bare end takes the other end's unit: $30-35 is money twice, 30-35% percent twice
+    unit_a, unit_b = _unit(a), _unit(b)
+    unit_a, unit_b = unit_a or unit_b, unit_b or unit_a
+    plain_form: Form = "multiplier" if b.times else "range"
+    return b.end, [_mention(text, a.start, a.end, a.value, unit_a or plain_form),
+                   _mention(text, b.start, b.end, b.value, unit_b or plain_form)]
 
 
 def _read_digits(text: str, pos: int) -> Read | None:
@@ -445,16 +493,11 @@ def _read_digits(text: str, pos: int) -> Read | None:
     q = _quantity(text, pos)
     if q is None:
         return None
-    form = _form(q)
-    label = _after_label(text, pos) if form == "digit" else None
-    if label:
-        return _label_end(text, q.end, label), []
     if _is_year(q, text):
         return q.end, [_mention(text, pos, q.end, q.value, "date")]
-    if q.plain and q.end - q.start == 4 and 1900 <= q.value <= 2100 and text[q.end:q.end + 1] == "s" \
-            and not text[q.end + 1:q.end + 2].isalpha():   # the 1990s
-        return q.end + 1, [_mention(text, pos, q.end + 1, q.value, "date")]
-    return q.end, [_mention(text, pos, q.end, q.value, form)]
+    if _year_number(q) and text[q.end:q.end + 1] == "s" and not text[q.end + 1:q.end + 2].isalpha():
+        return q.end + 1, [_mention(text, pos, q.end + 1, q.value, "date")]   # the 1990s
+    return q.end, [_mention(text, pos, q.end, q.value, _form(q))]
 
 
 def _words_from(text: str, pos: int, limit: int = 16) -> list[tuple[str, int, int, bool]]:
@@ -479,7 +522,8 @@ def _phrase(words: list[str]) -> tuple[Decimal, int, bool] | None:
     or None when it says none. Words combine as numbers are spoken: a unit only
     after nothing, a tens word, hundred or a scale; hundred after something under
     a hundred; scales falling (thousand after million, never before); "and" only
-    after hundred or a scale and before a number word."""
+    after hundred or a scale and before a number word. "Hundredth" and
+    "thousandth" stand alone too ("the hundredth member")."""
     n = len(words)
 
     def at(i: int) -> str | None:
@@ -513,16 +557,22 @@ def _phrase(words: list[str]) -> tuple[Decimal, int, bool] | None:
             group, last = (group or 0) + _TENS.get(w, _ORD_TENS.get(w, 0)), "tens"
             ordinal = w in _ORD_TENS
         elif w in ("hundred", "hundredth"):
-            if last not in ("unit", "teen", "tens", "a") or hundred_here:
+            if last is None and w == "hundredth":
+                group, last, ordinal = Decimal(100), "hundred", True
+            elif last not in ("unit", "teen", "tens", "a") or hundred_here:
                 break
-            group, last, hundred_here = group * 100, "hundred", True
-            ordinal = w == "hundredth"
+            else:
+                group, last, hundred_here = group * 100, "hundred", True
+                ordinal = w == "hundredth"
         elif w in _SCALES or w in _ORD_SCALES:
             scale = _SCALES.get(w) or _ORD_SCALES[w]
-            if last not in ("unit", "teen", "tens", "hundred", "a") or (last_scale and scale >= last_scale):
+            if last is None and w in _ORD_SCALES:
+                total, last, ordinal = Decimal(scale), "scale", True
+            elif last not in ("unit", "teen", "tens", "hundred", "a") or (last_scale and scale >= last_scale):
                 break
-            total, group, last, hundred_here, last_scale = total + group * scale, None, "scale", False, scale
-            ordinal = w in _ORD_SCALES
+            else:
+                total, group, last, hundred_here, last_scale = total + group * scale, None, "scale", False, scale
+                ordinal = w in _ORD_SCALES
         elif w == "dozen":
             if last not in ("unit", "teen", "tens", "a"):
                 break
@@ -545,6 +595,41 @@ def _phrase(words: list[str]) -> tuple[Decimal, int, bool] | None:
     return value, k, ordinal
 
 
+def _read_fraction(text: str, pos: int, ws: list[tuple[str, int, int, bool]]) -> Read | None:
+    """A fraction, read as the percent number. A cardinal one to nine with a
+    denominator ("one third", "two thirds", "three quarters") is always one.
+    "half", "a third", "an eighth" and a bare plural ("thirds") are one only as
+    a quantity: before "of", "half the ...", after a word like by, in, over or
+    about ("cut costs in half"), or the tail "and a half"; never in a hyphenated
+    compound ("half-price")."""
+    first = ws[0][0]
+    second = ws[1][0] if len(ws) > 1 else None
+    always = False
+    if first in _UNITS and (second in _DENOMINATORS if first == "one" else second in _DENOMINATORS_MANY):
+        numerator = _UNITS[first]
+        denominator = _DENOMINATORS[second] if first == "one" else _DENOMINATORS_MANY[second]
+        used, always = 2, True
+    elif first in ("a", "an") and second in _DENOMINATORS:
+        numerator, denominator, used = 1, _DENOMINATORS[second], 2
+    elif first == "half":
+        numerator, denominator, used = 1, 2, 1
+    elif first in _DENOMINATORS_MANY:
+        numerator, denominator, used = 1, _DENOMINATORS_MANY[first], 1
+    else:
+        return None
+    end = ws[used - 1][2]
+    if not always:
+        if _COMPOUND.match(text, end):
+            return None
+        lead = _word_before(text, pos)[0].lower()
+        in_use = (bool(_FRACTION_OF.match(text, end)) or lead in _FRACTION_LEADS
+                  or (first == "half" and bool(_HALF_DETERMINER.match(text, end)))
+                  or (first == "a" and second == "half" and lead == "and"))
+        if not in_use or (first in _DENOMINATORS_MANY and lead not in _FRACTION_LEADS):
+            return None
+    return end, [_mention(text, pos, end, _percent_of(numerator, denominator), "fraction")]
+
+
 def _read_words(text: str, pos: int) -> Read | None:
     ws = _words_from(text, pos)
     if not ws:
@@ -562,16 +647,17 @@ def _read_words(text: str, pos: int) -> Read | None:
     # "half a dozen" is a number; "a third of members" a fraction
     parsed = _phrase(words) if first == "half" else None
     if parsed is None:
-        fraction = _fraction(words)
-        if fraction is not None and _fraction_in_use(text, pos, ws[fraction[1] - 1][2], words[:fraction[1]]):
-            value, used = fraction
-            return ws[used - 1][2], [_mention(text, pos, ws[used - 1][2], value, "fraction")]
+        fraction = _read_fraction(text, pos, ws)
+        if fraction is not None:
+            return fraction
         parsed = _phrase(words)
     if parsed is None:
         return None
     value, used, ordinal = parsed
     end = ws[used - 1][2]
     if ordinal:
+        if _sentence_start(text, pos) and text[end:end + 1] == ",":   # "Third, we ...": an enumerator
+            return end, []
         return end, [_mention(text, pos, end, value, "ordinal")]
     if used < len(ws) and ws[used][0] == "fold":   # three-fold
         return ws[used][2], [_mention(text, pos, ws[used][2], value, "multiplier")]
@@ -580,7 +666,7 @@ def _read_words(text: str, pos: int) -> Read | None:
     pct = _PCT.match(text, end)
     if pct:
         return pct.end(), [_mention(text, pos, pct.end(), value, "percent")]
-    money = _MONEY_WORDS.match(text, end)
+    money = _MONEY_AFTER.match(text, end)
     if money:
         return money.end(), [_mention(text, pos, money.end(), value, "money")]
     return end, [_mention(text, pos, end, value, "word")]
@@ -590,7 +676,7 @@ def _read_letters(text: str, pos: int) -> Read | None:
     m = _MONTH_DAY.match(text, pos)
     if m and 1 <= int(m.group("d")) <= 31:
         return _day_and_year(text, pos, m)
-    q = _quantity(text, pos)   # US$35, USD 35
+    q = _quantity(text, pos)   # US$35, USD 35, AUD50, Rs500
     if q is not None:
         return q.end, [_mention(text, pos, q.end, q.value, _form(q))]
     m = _IDENT.match(text, pos)
@@ -605,15 +691,36 @@ def _read_at(text: str, pos: int) -> Read | None:
     marker = _LIST_MARKER.match(text, pos)
     if marker and _line_start(text, pos):   # "1. Book the studio": structure, not a number
         return marker.end(), []
-    return (_read_date(text, pos) or _read_time(text, pos)
+    return (_read_label(text, pos) or _read_date(text, pos) or _read_time(text, pos)
             or _read_range(text, pos) or _read_digits(text, pos))
 
 
-def _can_start(text: str, i: int) -> bool:
-    prev = text[i - 1] if i else ""
-    if prev.isalnum() or prev == "_":
-        return False
+def _digit_led(text: str) -> bytearray:
+    """For each position, 1 when it sits in a run of letters and digits that
+    starts with a digit ("10x12", "1h30"), so a digit inside it may start a number."""
+    led = bytearray(len(text))
+    run = 0
+    for i, ch in enumerate(text):
+        if ch.isalnum():
+            if i == 0 or not text[i - 1].isalnum():
+                run = 1 if ch.isdigit() else 0
+            led[i] = run
+    return led
+
+
+def _can_start(text: str, i: int, led: bytearray) -> bool:
     ch, nxt = text[i], text[i + 1:i + 2]
+    prev = text[i - 1] if i else ""
+    if prev.isalnum():
+        # inside a token: only a digit, and only when the token starts with one
+        return ch.isdigit() and bool(led[i - 1])
+    if prev == "_":
+        # "__5__" is emphasis; "model_5" an identifier
+        j = i - 1
+        while j > 0 and text[j - 1] == "_":
+            j -= 1
+        if j > 0 and text[j - 1].isalnum():
+            return False
     if ch.isdigit() or ch in "$\u20ac\u00a3":
         return True
     if ch in "-\u2212":
@@ -629,15 +736,16 @@ def mentions(text: str) -> list[Mention]:
     """Every number `text` holds, in text order. A range gives one mention per end."""
     out: list[Mention] = []
     text = text or ""
+    led = _digit_led(text)
     i, n = 0, len(text)
     while i < n:
-        if not _can_start(text, i):
+        if not _can_start(text, i, led):
             i += 1
             continue
         read = _read_at(text, i)
         if read is None:
-            if text[i].isalpha():   # not a number: step over the whole word
-                while i < n and text[i].isalnum():
+            if text[i].isalpha():   # not a number: step over the letters of the word
+                while i < n and text[i].isalpha():
                     i += 1
             else:
                 i += 1
@@ -648,9 +756,9 @@ def mentions(text: str) -> list[Mention]:
     return out
 
 
-# Units a money mention may match. "USD" is what the registry gives money
-# (registry._infer_unit); the others are the codes the reader knows.
-_MONEY_UNITS = frozenset({"USD", "EUR", "GBP"})
+# Units a money mention may match: the currency codes the reader knows. "USD" is
+# what the registry gives money (registry._infer_unit).
+_MONEY_UNITS = frozenset(_CURRENCY_CODES)
 
 
 def supported(m: Mention, known: FigureSet, hours: set[int] | None = None) -> bool:

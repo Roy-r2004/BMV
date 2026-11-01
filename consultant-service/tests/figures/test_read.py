@@ -112,8 +112,8 @@ MUST_FLAG = [
     ("5m away", ["5"], ["digit"]),
     ("2 to 3 weeks", ["2", "3"], ["range", "range"]),
     ("2\u20133 weeks", ["2", "3"], ["range", "range"]),
-    ("10-15% more", ["10", "15"], ["range", "range"]),
-    ("$20-$30 a class", ["20", "30"], ["range", "range"]),
+    ("10-15% more", ["10", "15"], ["percent", "percent"]),
+    ("$20-$30 a class", ["20", "30"], ["money", "money"]),
     ("10-15k a month", ["10000", "15000"], ["range", "range"]),
     ("Weeks 1-2", ["1", "2"], ["range", "range"]),
     ("2000-3000 members", ["2000", "3000"], ["range", "range"]),
@@ -153,7 +153,7 @@ MUST_NOT_FLAG = [
     "6pm",
     # more of the same grammar
     "Phases 1-2",
-    "phase 2 starts",
+    "work starts in phase 2",
     "Phase two",
     "see Table 4",
     "Option 3",
@@ -422,9 +422,11 @@ def test_a_fraction_in_a_quantity_use_reads_as_the_percent_number(text, value, s
     ("half price classes", []),
     ("a half", []),
     ("a third time", [("third", "3", "ordinal")]),      # an order, read as one
-    ("two quarters", [("two", "2", "word")]),          # fiscal quarters: a count
-    ("one third", [("third", "3", "ordinal")]),         # no "of": the number is still read
-    ("three quarters", [("three", "3", "word")]),
+    ("every quarter", []),
+    ("per quarter", []),
+    ("last quarter", []),
+    ("next quarter", []),
+    ("this quarter", []),
 ])
 def test_a_fraction_word_outside_a_quantity_use_is_not_a_fraction(text, want):
     assert [(m.text, str(m.value), m.form) for m in mentions(text)] == want
@@ -452,8 +454,8 @@ def test_a_fraction_is_supported_by_a_percent_figure():
 # 4. a 1900-2100 number is a year only after a word that makes it one
 
 @pytest.mark.parametrize("text", [
-    "in 2025", "In 2025 we grew", "since 2019", "by 2030", "from 2020", "until 2027", "till 2027",
-    "during 2024", "before 2020", "after 2021", "the end of 2025", "the year 2025", "FY 2025",
+    "in 2025", "In 2025 we grew", "since 2019", "from 2020", "until 2027", "till 2027",
+    "during 2024", "before 2020", "after 2021", "the year 2025", "FY 2025",
     "May 2026", "October 2025", "Q3 2025", "on Oct 31, 2025", "31 Oct 2025", "from 2020 to 2025",
     "in 2025-2026", "the 1990s",
 ])
@@ -479,7 +481,7 @@ def test_a_year_shaped_count_is_a_digit(text, want, forms):
 
 @pytest.mark.parametrize("text", [
     "Phases 2 and 3", "Steps 1-3", "Phases 1, 2 and 3", "Phases 1, 2, and 3", "Steps 1 & 2",
-    "Phases 2 to 4", "Phase 2\u20133", "Phase 2 and 3", "Steps 1-3 and 5", "Phase two",
+    "Phases 2 to 4", "Phase 2\u20133", "Steps 1-3 and 5", "Phase two",
     "Steps 1, 2", "Phases 1, 2, 3 and 4", "Phase 2-3, and Steps 4, 5",
 ])
 def test_a_list_after_a_label_word_is_labels(text):
@@ -493,11 +495,294 @@ def test_a_list_after_a_label_word_is_labels(text):
     ("Phase 2 costs $35", ["$35"]),
     ("Step 3 takes 12 weeks", ["12"]),
     ("Phase 2. 3 weeks later", ["3"]),
-    ("Phases 1-2 run for 6 weeks", ["6"]),
+    ("Phases 1-2 run for 6 weeks", ["2", "6"]),   # a listed number must end the phrase
     ("Phase 2 adds 2-3 weeks", ["2", "3"]),
 ])
 def test_a_number_after_a_label_that_is_not_in_its_list_still_counts(text, want):
     assert [m.text for m in mentions(text)] == want
+
+
+# -- review fixes: a hidden number is the one failure this reader must not have ------------
+
+def readings(text: str) -> list[tuple[str, str, str]]:
+    return [(m.text, str(m.value), m.form) for m in mentions(text)]
+
+
+# A1. only a bare number joins a label; anything carrying a unit is read
+
+@pytest.mark.parametrize("text,want", [
+    ("Phase 2 - $50", [("$50", "50", "money")]),
+    ("Phase 2 to $50k", [("$50k", "50000", "money")]),
+    ("Step 3 - 40% of members", [("40%", "40", "percent")]),
+    ("Section 4 - 2,000 members", [("2,000", "2000", "digit")]),
+    ("Step 1 - 3x faster", [("3x", "3", "multiplier")]),
+    ("Phase 2,000 members", [("2,000", "2000", "digit")]),
+    ("Step 3 40% of members", [("40%", "40", "percent")]),
+    ("Phase 2 percent", [("2 percent", "2", "percent")]),
+    ("Phase 2k", [("2k", "2000", "digit")]),
+])
+def test_a_label_does_not_hide_a_number_with_a_unit(text, want):
+    assert readings(text) == want
+
+
+# A2. a dash joins a label list only unspaced
+
+@pytest.mark.parametrize("text,want", [
+    ("Phase 1 - 6 weeks", ["6"]),
+    ("Phase 1 \u2013 6 weeks", ["6"]),
+    ("Appendix 1 - 12 interviews", ["12"]),
+    ("Page 3 - 12 reformers", ["12"]),
+    ("Steps 1-3", []),
+    ("Phases 1-3", []),
+    ("Phase 2\u20133.", []),
+])
+def test_only_an_unspaced_dash_joins_a_label_list(text, want):
+    assert [m.text for m in mentions(text)] == want
+
+
+# A3. and/to/comma join only after a plural label, and only bare items that end the phrase
+
+@pytest.mark.parametrize("text,want", [
+    ("Phase 2 and 12 weeks", ["12"]),
+    ("Phase 2 to 12 weeks", ["12"]),
+    ("Step 1 to 3 members", ["3"]),
+    ("Part 2 and 15 more classes", ["15"]),
+    ("Phase 2 and 3", ["3"]),
+    ("Phase 2 and 3,000 members", ["3,000"]),
+    ("Phases 2 and 3,000 members", ["3,000"]),
+    ("Phases 2 and 3 run", ["3"]),                 # accepted cost
+    ("Phases 2 and 3 weeks", ["3"]),
+    ("Steps 1, 2 percent", ["2 percent"]),
+    ("Phases 2 and 3", []),
+    ("Steps 1, 2 and 3", []),
+    ("Steps 1, 2 and 3.", []),
+    ("(Phases 2 and 3)", []),
+    ("Phases 2 and 3; then", []),
+    ("Phases 2 and 3\nNext", []),
+    ("Phases 1-2, 4 & 6", []),
+])
+def test_a_label_list_needs_a_plural_label_and_bare_items(text, want):
+    assert [m.text for m in mentions(text)] == want
+
+
+# A4. a lower-case label word is a label only after a reference word
+
+@pytest.mark.parametrize("text,want", [
+    ("book a table 4 times a week", ["4"]),
+    ("the option 3 times", ["3"]),
+    ("a page 2 people read", ["2"]),
+    ("Phase 2", []),
+    ("in phase 2", []),
+    ("see section 4", []),
+    ("during step 3", []),
+    ("per phase 2", []),
+    ("as set out in table 4", []),
+])
+def test_a_lower_case_label_word_needs_a_reference_lead(text, want):
+    assert [m.text for m in mentions(text)] == want
+
+
+# B5. markdown emphasis does not hide a number
+
+@pytest.mark.parametrize("text,want", [
+    ("__5__ studios", [("5", "5", "digit")]),
+    ("_50%_ growth", [("50%", "50", "percent")]),
+    ("**5**", [("5", "5", "digit")]),
+    ("*12* reformers", [("12", "12", "digit")]),
+    ("model_5 and snake_case_5", []),
+])
+def test_markdown_emphasis_does_not_hide_a_number(text, want):
+    assert readings(text) == want
+
+
+# B6. the tail of a token that starts with a digit is read
+
+@pytest.mark.parametrize("text,want", [
+    ("10x12", ["10", "12"]),
+    ("1h30", ["1", "30"]),
+    ("24x7", ["24", "7"]),
+    ("2x2", ["2", "2"]),
+    ("M3-A, CF-04 and v2", []),
+])
+def test_the_tail_of_a_digit_led_token_is_read(text, want):
+    assert [m.text for m in mentions(text)] == want
+
+
+# C7. more scale letters, with a currency
+
+@pytest.mark.parametrize("text,value", [
+    ("$5MM", "5000000"), ("$5mn", "5000000"), ("$2bn", "2000000000"), ("$2B", "2000000000"),
+])
+def test_scale_letters_with_a_currency(text, value):
+    assert readings(text) == [(text, value, "money")]
+
+
+def test_scale_letters_without_a_currency_do_not_scale():
+    assert readings("5MM rows and 2B params") == [("5", "5", "digit"), ("2", "2", "digit")]
+
+
+# C8. range ends keep their unit
+
+@pytest.mark.parametrize("text,forms", [
+    ("$30-$35", ["money", "money"]),
+    ("$30-35", ["money", "money"]),
+    ("30-35%", ["percent", "percent"]),
+    ("30-35 reformers", ["range", "range"]),
+])
+def test_range_ends_keep_their_unit(text, forms):
+    found = mentions(text)
+    assert [m.value for m in found] == [D(30), D(35)]
+    assert [m.form for m in found] == forms
+
+
+def test_a_range_end_is_unit_checked():
+    known = FigureSet([theirs("mats", "30", "reformers"), theirs("rooms", "35", "rooms")])
+    assert [m.text for m in unsupported("$30-35", known)] == ["$30", "35"]
+    assert unsupported("30-35 reformers", known) == []
+
+
+# C9. currency codes, glued or spaced
+
+@pytest.mark.parametrize("text,value", [
+    ("AUD50", "50"), ("SGD100", "100"), ("INR500", "500"), ("CAD 5", "5"), ("Rs500", "500"),
+    ("Rs. 500", "500"), ("50 NZD", "50"), ("JPY 1,200", "1200"),
+])
+def test_a_currency_code_makes_money(text, value):
+    assert readings(text) == [(text, value, "money")]
+
+
+def test_the_currency_codes_are_one_tuple_and_the_money_units():
+    assert isinstance(R._CURRENCY_CODES, tuple)
+    assert R._MONEY_UNITS == frozenset(R._CURRENCY_CODES)
+    m = mentions("AUD50")[0]
+    assert supported(m, FigureSet([theirs("fee", "50", "AUD")])) is True
+    assert supported(m, FigureSet([theirs("fee", "50", "reformers")])) is False
+
+
+# D10. "of" and "by" no longer make a year
+
+@pytest.mark.parametrize("text,want", [
+    ("growth of 2000 members", [("2000", "2000", "digit")]),
+    ("a team of 1950 people", [("1950", "1950", "digit")]),
+    ("by 2000 members", [("2000", "2000", "digit")]),
+    ("by 2026", [("2026", "2026", "digit")]),        # accepted cost
+    ("the end of 2025", [("2025", "2025", "digit")]),
+    ("in 2025", [("2025", "2025", "date")]),
+    ("until 2027", [("2027", "2027", "date")]),
+])
+def test_of_and_by_do_not_make_a_year(text, want):
+    assert readings(text) == want
+
+
+# D11. fractions after a lead word, and cardinal fractions always
+
+@pytest.mark.parametrize("text,span,value", [
+    ("cut costs in half", "half", "50"),
+    ("down by half", "half", "50"),
+    ("down by a quarter", "a quarter", "25"),
+    ("over half", "half", "50"),
+    ("split into thirds", "thirds", "33.3333"),
+    ("nearly a third", "a third", "33.3333"),
+    ("more than half", "half", "50"),
+    ("one third", "one third", "33.3333"),
+    ("two thirds", "two thirds", "66.6667"),
+    ("three quarters", "three quarters", "75"),
+    ("two quarters", "two quarters", "50"),
+    ("one half", "one half", "50"),
+])
+def test_a_fraction_after_a_lead_word_or_with_a_cardinal(text, span, value):
+    assert readings(text) == [(span, value, "fraction")]
+
+
+@pytest.mark.parametrize("text", [
+    "the first half", "second half", "half-price", "at half-price", "half price", "every quarter",
+    "per quarter", "last quarter", "next quarter", "this quarter", "thirds",
+])
+def test_fraction_words_that_are_not_quantities(text):
+    assert [m for m in mentions(text) if m.form == "fraction"] == []
+    assert mentions(text) == []
+
+
+def test_a_third_time_is_an_order_not_a_fraction():
+    assert readings("a third time") == [("third", "3", "ordinal")]
+
+
+# D12. a word ordinal opening a sentence before a comma is an enumerator
+
+@pytest.mark.parametrize("text,want", [
+    ("Third, we book the studio.", []),
+    ("Fourth, the price.", []),
+    ("We start. Third, we book.", []),
+    ("Plan:\nFifth, review.", []),
+    ("3rd, we book.", [("3rd", "3", "ordinal")]),
+    ("the third, and last", [("third", "3", "ordinal")]),
+    ("Third week we book.", [("Third", "3", "ordinal")]),
+])
+def test_a_sentence_opening_word_ordinal_is_an_enumerator(text, want):
+    assert readings(text) == want
+
+
+# E13-15. ordinals at scale, space-grouped thousands, 2X
+
+@pytest.mark.parametrize("text,want", [
+    ("the hundredth member", [("hundredth", "100", "ordinal")]),
+    ("the thousandth visit", [("thousandth", "1000", "ordinal")]),
+    ("one hundredth", [("one hundredth", "100", "ordinal")]),
+    ("45 000 a year", [("45 000", "45000", "digit")]),
+    ("1 250 000 views", [("1 250 000", "1250000", "digit")]),
+    ("45\u2009000", [("45\u2009000", "45000", "digit")]),
+    ("45\u00a0000", [("45\u00a0000", "45000", "digit")]),
+    ("12 34 56", [("12", "12", "digit"), ("34", "34", "digit"), ("56", "56", "digit")]),
+    ("2X more", [("2X", "2", "multiplier")]),
+])
+def test_scale_ordinals_grouped_thousands_and_capital_x(text, want):
+    assert readings(text) == want
+
+
+# F17. the span invariant over a seeded random mix, and speed
+
+_TOKENS = [
+    "12", "1,000", "45 000", "3.5", ".5", "$35", "\u20ac50", "\u00a37", "AUD50", "Rs500", "50%", "25 percent",
+    "10k", "$1.2M", "$5MM", "2-3", "2 to 3", "$30-35", "3x", "2X", "3\u00d7", "10x12", "1h30", "3rd", "1st",
+    "twelve", "twenty-two", "a dozen", "half a dozen", "half", "a third", "two thirds", "third", "Third,",
+    "twice", "double", "the", "of", "in", "by", "and", "to", ",", ".", "-", " - ", "\u2013", "(", ")", "**",
+    "__", "_", "Phase", "phase", "Phases", "Steps", "Exhibit 2.1", "Q3", "CF-04", "model_5", "2025", "2000",
+    "31 Oct", "Oct 31", "6pm", "18:00", "6-7pm", "1990s", "2025-03-01", "\n", "\n1. ", "  2) ", "members",
+    "weeks", "-5", "\u22125", "0", "1.2.3", "v2.1",
+]
+_SEPARATORS = ["", " ", " ", " ", "\t", "-", ",", "\u00a0"]
+
+
+def test_spans_are_exact_ordered_and_never_overlap_over_a_seeded_random_mix():
+    import random
+    rng = random.Random(20261101)
+    for _ in range(20000):
+        parts = []
+        for _ in range(rng.randint(1, 8)):
+            parts.append(rng.choice(_TOKENS))
+            parts.append(rng.choice(_SEPARATORS))
+        text = "".join(parts)
+        last_end = 0
+        for m in mentions(text):
+            assert text[m.start:m.end] == m.text, (text, m)
+            assert m.start < m.end and m.start >= last_end, (text, m)
+            assert isinstance(m.value, Decimal), (text, m)
+            last_end = m.end
+
+
+def test_a_long_text_reads_quickly():
+    import time
+    digits = "1234567890" * 3000                                    # 30k characters
+    chain = ", ".join(str(i % 1000) for i in range(6000))          # about 23k
+    labels = "Phases " + ", ".join(str(i) for i in range(1, 5000)) + " and 5000."   # about 24k
+    prose = "Phase 2 - $50, 30-35% of 1,200 members in 2025; a third of no-shows. " * 330   # about 23k
+    text = "\n".join((digits, chain, labels, prose))
+    assert len(text) >= 100_000
+    started = time.perf_counter()
+    found = unsupported(text, NOTHING)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 5, elapsed
+    assert len(found) > 6000
 
 
 # -- the module stays its own grammar -----------------------------------------------------
