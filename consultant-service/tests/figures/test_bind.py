@@ -1153,7 +1153,9 @@ def test_a_unitless_count_takes_a_number_only_when_no_noun_follows_it():
     _stays_unresolved("We have 12 instructors.", known, "12")
     for text in ("We have 12.", "We have 12, then more.", "We have 12 of them.", "Only 12 of them."):
         assert [f.id for f in bind(text, known).bound] == ["CF-01"], text
-    for text in ("We have 12 per class.", "Hire 12 now.", "Dial 12"):       # a rate, or a number that is not a quantity
+    for text in ("We have 12 per class.", "We have 12 each week."):         # a rate does not contradict a figure with no period
+        assert [f.id for f in bind(text, known).bound] == ["CF-01"], text
+    for text in ("Hire 12 now.", "Dial 12"):                                   # a number that is not a quantity
         _stays_unresolved(text, known, "12")
     named = fs(theirs("CF-01", "12", "instructors"))
     assert [f.id for f in bind("We have 12 instructors.", named).bound] == ["CF-01"]
@@ -1303,8 +1305,7 @@ def test_a_spaced_dash_or_an_em_dash_never_joins_two_numbers():
     r = bind("Class size 12 - $22 per head.", R1)         # a unitless 12 after "size" and beside "per head" is no quantity
     assert r.text == "Class size 12 - $22 per head." and [f.id for f in r.bound] == ["CF-22"]
     assert [u.text for u in r.unresolved] == ["12"]
-    r = bind("Price: $22 - 12 per class.", R1)
-    assert [f.id for f in r.bound] == ["CF-22"] and [u.text for u in r.unresolved] == ["12"]
+    _binds_each_on_its_own("Price: $22 - 12 per class.", R1, "CF-22", "CF-12")      # "per class" does not hold a figure with no period
 
 
 def test_a_bare_number_followed_by_a_partitive_or_an_alternative_shares_nothing():
@@ -1739,11 +1740,11 @@ def test_a_period_that_agrees_or_is_not_named_does_not_block():
     assert [f.id for f in bind("9 members leave each month.", STUDIO).bound] == ["LEAVE"]
     assert [f.id for f in bind("About 182 seats sit empty.", STUDIO).bound] == ["EMPTY"]
     assert [f.id for f in bind("Your annual loss is about $102,000.", STUDIO).bound] == ["LOSTY"]
-    # every period phrase in the clause must be the figure's own: two periods in one clause bind neither figure
+    # each number is held to the phrase next to it: two periods in one clause bind the figure of each
     r = bind("Empty seats cost you about $1,950 a week, or about $102,000 a year.", STUDIO)
-    assert r.bound == [] and [u.text for u in r.unresolved] == ["$1,950", "$102,000"]
+    assert [f.id for f in r.bound] == ["LOSTW", "LOSTY"] and r.unresolved == []
     r = bind("Rent is $4,000 a month and you lose about $1,950 a week.", STUDIO)
-    assert r.bound == [] and [u.text for u in r.unresolved] == ["$4,000", "$1,950"]
+    assert [f.id for f in r.bound] == ["RENT", "LOSTW"] and r.unresolved == []
     r = bind("Empty seats cost you about $1,950 a week. That is about $102,000 a year.", STUDIO)
     assert [f.id for f in r.bound] == ["LOSTW", "LOSTY"] and r.unresolved == []
 
@@ -1834,8 +1835,9 @@ def test_a_figure_with_no_noun_takes_a_number_only_when_no_noun_follows_it():
     bare = fs(theirs("A", "4", ""))
     for text in ("You have 4.", "You have 4, ok.", "You have 4 of them."):
         assert [f.id for f in bind(text, bare).bound] == ["A"], text
-    for text in ("You have 4 a week.", "Hire 4 more."):        # a rate, and a number that follows a verb
-        assert bind(text, bare).bound == [], text
+    for text in ("You have 4 a week.", "You have 4 per class."):   # a rate: nothing for it to contradict
+        assert [f.id for f in bind(text, bare).bound] == ["A"], text
+    assert bind("Hire 4 more.", bare).bound == []                  # a number that follows a verb
     _stays_unresolved("You have 4 instructors.", bare, "4")
     _stays_unresolved("Hire 4 more instructors.", bare, "4")
     # a figure that names a noun takes a number that names none
@@ -2126,8 +2128,7 @@ def test_a_figure_with_no_unit_binds_an_exact_number_where_a_quantity_stands():
 
 
 def test_a_figure_with_no_unit_does_not_bind_near_a_rate_a_period_or_a_noun_or_a_rounding():
-    for text in ("You have 4 a week.", "You have 4 per class.", "You have 4 each month.", "You have 4 instructors.",
-                 "You have 4 more instructors.", "You have 4 of your instructors."):
+    for text in ("You have 4 instructors.", "You have 4 more instructors.", "You have 4 of your instructors."):
         r = bind(text, BARE)
         assert r.bound == [] and [u.text for u in r.unresolved] == ["4"], text
     known = fs(derived("D4", "4.02", "", precision=2))
@@ -2187,3 +2188,49 @@ def test_a_comparison_sign_takes_the_cue_away_but_an_arrow_does_not():
     for text in ("Costs -> about $45,000.", "Costs => ~$45,000."):
         r = bind(text, REV)
         assert r.text == text and [f.id for f in r.bound] == ["M"], text
+
+
+# -- the correction: a rate does not hold a figure with no period; each number is held to the phrase next to it -------------
+
+def test_a_figure_with_no_unit_and_no_period_binds_beside_a_rate_or_a_period():
+    for text in ("You have 4 a week.", "You have 4 per class.", "You have 4 each month.", "Each week you have 4."):
+        r = bind(text, BARE)
+        assert r.text == text and [f.id for f in r.bound] == ["U4"] and r.unresolved == [], text
+
+
+def test_a_figure_with_no_unit_but_a_period_is_held_to_it_like_any_figure():
+    weekly = fs(theirs("W4", "4", "", period="week"))
+    assert [f.id for f in bind("You have 4 a week.", weekly).bound] == ["W4"]
+    assert [f.id for f in bind("You have 4.", weekly).bound] == ["W4"]
+    for text in ("You have 4 a month.", "You have 4 per class.", "Each month you have 4."):
+        r = bind(text, weekly)
+        assert r.text == text and r.bound == [] and [u.text for u in r.unresolved] == ["4"], text
+
+
+def test_the_partitive_with_a_rate_binds_the_clients_figures_when_no_noun_follows_the_pair():
+    halo = fs(theirs("A1-1", "12", "reformers"), theirs("A2-1", "10", ""), theirs("A2-2", "12", ""))
+    text = "We track evening fill against 10 of 12 each week."
+    r = bind(text, halo)
+    assert r.text == text and r.unresolved == [] and [f.id for f in r.bound] == ["A2-1", "A1-1"]
+    # a noun after the pair does count, for both numbers
+    r = bind("We track evening fill against 10 of 12 reformers each week.", halo)
+    assert [f.id for f in r.bound] == ["A1-1"] and [u.text for u in r.unresolved] == ["10"]
+    r = bind("We track evening fill against 10 of 12 reformers each week.", fs(theirs("A", "12", "reformers")))
+    assert [f.id for f in r.bound] == ["A"] and [u.text for u in r.unresolved] == ["10"]
+
+
+def test_each_number_is_held_only_to_the_period_phrase_next_to_it():
+    both = bind("Empty seats cost you about $1,950 a week, or about $102,000 a year.", REV)
+    assert both.text == "Empty seats cost you about $1,950 a week, or about $102,000 a year."
+    assert [f.id for f in both.bound] == ["LOSTW", "LOSTY"] and both.unresolved == []
+    assert [f.id for f in bind("This month, losses are about $1,950 a week.", REV).bound] == ["LOSTW"]
+    assert [f.id for f in bind("Each week, losses are about $1,950 a week.", REV).bound] == ["LOSTW"]
+    # no phrase after the number: the nearest one before it speaks
+    for text in ("Each month, you lose about $1,950.", "This month, losses are about $1,950.", "MTD losses are about $1,950."):
+        r = bind(text, REV)
+        assert r.text == text and r.bound == [] and [u.text for u in r.unresolved] == ["$1,950"], text
+    # the phrase after a number belongs to that number, not to the one before it
+    r = bind("Rent is $1,950 a month and you lose $4,000 a week.", REV)
+    assert r.bound == [] and [u.text for u in r.unresolved] == ["$1,950", "$4,000"]
+    r = bind("You lose about $1,950 a week and about $102,000 a month.", REV)
+    assert [f.id for f in r.bound] == ["LOSTW"] and [u.text for u in r.unresolved] == ["$102,000"]

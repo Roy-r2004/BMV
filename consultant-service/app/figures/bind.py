@@ -309,7 +309,9 @@ _FUNCTION_WORDS = frozenset(
     "this that these those then but so if when while which who whom what not no nor yet up out off over into "
     "onto about around roughly approximately nearly circa each every both either".split())
 
-_FUNCTION_WORDS = _FUNCTION_WORDS | _NUMBER_WORDS
+_FUNCTION_WORDS = _FUNCTION_WORDS | _NUMBER_WORDS | frozenset(
+    "against between among across towards toward through throughout during until till since before after behind "
+    "beside besides via plus minus versus vs like unlike near".split())
 
 _NEXT_WORD = re.compile(rf"(?:-|{_SP}+)[~\u2248]?([A-Za-z]+)")
 
@@ -574,8 +576,8 @@ def _noun_key(noun: str) -> str:
 
 
 class _Clauses:
-    """Where the clauses of a text are (a clause is a sentence, a bullet or a table row), the
-    rate and period phrases each holds, and the limit words in it."""
+    """Where the clauses of a text are (a clause is a sentence, a bullet or a table row), every
+    rate and period phrase in it, and the limit words."""
 
     def __init__(self, text: str) -> None:
         breaks = list(_CLAUSE_BREAK.finditer(text))
@@ -583,36 +585,54 @@ class _Clauses:
         self._starts = [b.start() for b in breaks]
         self._ends = [b.end() for b in breaks]
         self._limits = [m.start() for m in _LIMIT_ANYWHERE.finditer(text)]
-        self._seen: dict[tuple[int, int], frozenset[str]] = {}   # a clause is read once, however many numbers it holds
+        found: list[tuple[int, int, str]] = []
+        for m in _PHRASE.finditer(text):
+            if m.group("n1") or m.group("n2"):
+                key = _noun_key(m.group("n1") or m.group("n2"))
+            elif m.group("adv"):
+                adv = m.group("adv").lower()
+                key = _CANON_ADV.get(adv, adv)
+            else:
+                key = "*"        # a rate or a span that names none of day, week, month, year as one period
+            found.append((m.start(), m.end(), key))
+        if "|" in text:          # a table cell that is a time word names a period too
+            pos = 0
+            for line in text.split("\n"):
+                if "|" in line:
+                    at = 0
+                    for cell in line.split("|"):
+                        c = _CELL.fullmatch(cell)
+                        if c:
+                            w = c.group().strip().lower()
+                            found.append((pos + at + c.start(), pos + at + c.end(),
+                                          _CANON_ADV.get(w) or _noun_key(w)))
+                        at += len(cell) + 1
+                pos += len(line) + 1
+        found.sort()
+        self._phrases = found
+        self._phrase_starts = [f[0] for f in found]
 
     def bounds(self, start: int, end: int) -> tuple[int, int]:
         i = bisect_right(self._ends, start)
         j = bisect_left(self._starts, end)
         return (self._ends[i - 1] if i else 0), (self._starts[j] if j < len(self._starts) else len(self.text))
 
-    def phrases(self, start: int, end: int) -> frozenset[str]:
-        """The period each rate or period phrase in the clause around text[start:end] names,
-        "*" for a phrase that names none of day, week, month or year as one period ("per class",
-        "MTD", "over 5 years")."""
+    def nearest(self, start: int, end: int, next_number: int) -> frozenset[str]:
+        """What the rate or period phrase next to the number at text[start:end] names: the
+        nearest one after it, before the next number or the end of the clause; failing that the
+        nearest one before it in the clause. Only that phrase can contradict the number; the
+        others in the clause belong to other numbers. "*" for a phrase that names none of day,
+        week, month or year as one period ("per class", "MTD", "over 5 years")."""
         left, right = self.bounds(start, end)
-        if (left, right) not in self._seen:
-            keys: set[str] = set()
-            for m in _PHRASE.finditer(self.text, left, right):
-                if m.group("n1") or m.group("n2"):
-                    keys.add(_noun_key(m.group("n1") or m.group("n2")))
-                elif m.group("adv"):
-                    adv = m.group("adv").lower()
-                    keys.add(_CANON_ADV.get(adv, adv))
-                else:
-                    keys.add("*")
-            if "|" in self.text[left:right]:
-                for cell in self.text[left:right].split("|"):
-                    c = _CELL.fullmatch(cell)
-                    if c:
-                        w = c.group().strip().lower()
-                        keys.add(_CANON_ADV.get(w) or _noun_key(w))
-            self._seen[(left, right)] = frozenset(keys)
-        return self._seen[(left, right)]
+        i = bisect_left(self._phrase_starts, end)
+        if i < len(self._phrases) and self._phrases[i][0] < min(next_number, right):
+            return frozenset({self._phrases[i][2]})
+        j = bisect_left(self._phrase_starts, start) - 1
+        while j >= 0 and self._phrases[j][0] >= left:
+            if self._phrases[j][1] <= start:
+                return frozenset({self._phrases[j][2]})
+            j -= 1
+        return frozenset()
 
     def limit_before(self, start: int) -> bool:
         """Whether a limit word stands earlier in the same clause."""
@@ -802,13 +822,13 @@ _LIST_MARK_BEFORE = re.compile(r"[ \t]*(?:[-*+>][ \t]+)?(?:\*\*|__)?\Z")
 _LIST_MARK_AFTER = re.compile(r"(?:\*\*|__)?[.)]")
 
 
-def _stands_as_a_quantity(view: str, start: int, end: int, before: str, line_starts: list[int], keys) -> bool:
+def _stands_as_a_quantity(view: str, start: int, end: int, before: str, line_starts: list[int]) -> bool:
     """Whether a bare number stands where a quantity stands, so a figure with no unit may name
-    it: not a list marker ("**4.** Review pricing"), not a table cell ("| 4 | Review |"), not
-    beside a rate or period phrase, and after a word that can precede a quantity ("is", "of",
-    "about", a comma ...) rather than a verb or a name ("Dial 4", "Room 12")."""
-    if keys:
-        return False
+    it: not a list marker ("**4.** Review pricing"), not a table cell ("| 4 | Review |"), and
+    after a word that can precede a quantity ("is", "of", "about", "against", a comma ...)
+    rather than a verb or a name ("Dial 4", "Room 12"). A rate or period phrase beside it does
+    not matter: a figure with no period has nothing for the phrase to contradict, and one with
+    a period is held to it as any figure is."""
     ls = line_starts[bisect_right(line_starts, start) - 1]
     if ls >= start - 40 and _LIST_MARK_BEFORE.fullmatch(view[ls:start]) and _LIST_MARK_AFTER.match(view, end):
         return False
@@ -984,14 +1004,16 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
 
     # tokens first: they do not depend on ranges, and the number one becomes can be an end of one
     ms_ends = [m.end for m in ms]
+    number_starts = sorted([m.start for m in ms] + [t.start() for t in tokens])
     token_decisions: list[_Decision] = []
     numbers: list[Mention] = list(ms)
     for t in tokens:
         k = bisect_right(ms_ends, t.start()) - 1
-        keys = clauses.phrases(t.start(), t.end())
+        n = bisect_right(number_starts, t.start())
+        keys = clauses.nearest(t.start(), t.end(), number_starts[n] if n < len(number_starts) else len(view))
         d = _decide_token(t.group(1).strip(), view, t.start(), t.end(), known, ms_ends[k] if k >= 0 else 0, keys,
                           _stands_as_a_quantity(view, t.start(), t.end(), view[max(0, t.start() - 40):t.start()],
-                                                line_starts, keys),
+                                                line_starts),
                           clauses.limit_before(t.start()))
         token_decisions.append(d)
         if d.figure is not None:
@@ -1058,13 +1080,14 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
         if shapes[index].kind == "bare":
             phrase = _phrase_after(view, reach)
         if not (phrase and phrase[0] in _TIME_CANON):   # a time word is the number's unit, not a period it is paid in
-            keys = clauses.phrases(m.start, reach)
+            n = bisect_left(number_starts, reach)
+            keys = clauses.nearest(m.start, reach, number_starts[n] if n < len(number_starts) else len(view))
         q = bisect_right(quote_starts, m.start) - 1
         quoted = q >= 0 and m.end <= quotes[q][1]
         hedged, limited = _context(view, m.start, reach)
         before = view[max(0, m.start - 40):m.start]
         approximate = (not limited and bool(_APPROX_CUE.search(before)) and not clauses.limit_before(m.start))
-        bare_ok = shapes[index].kind != "bare" or _stands_as_a_quantity(view, m.start, m.end, before, line_starts, keys)
+        bare_ok = shapes[index].kind != "bare" or _stands_as_a_quantity(view, m.start, m.end, before, line_starts)
         if m.value not in matched:
             matched[m.value] = known.match(m.value)
         decisions.append(_decide_mention(m, shapes[index], phrase, matched[m.value], known, quoted, hedged, limited,
