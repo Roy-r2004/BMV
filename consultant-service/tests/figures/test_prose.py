@@ -100,14 +100,15 @@ def _model_says(monkeypatch, *replies) -> list[str]:
     return prompts
 
 
-def _model_says_by_template(monkeypatch, replies: dict) -> None:
+def _model_says_by_template(monkeypatch, replies: dict) -> dict[str, list[str]]:
     """For `diagnose`, which renders three templates: the model answers each prompt from
     the template it was rendered from. A reply is a dict (sent as JSON) or a list of
-    them, used in turn with the last one repeating."""
+    them, used in turn with the last one repeating. Returns the prompts sent, by template."""
     rendered: dict[str, str] = {}
     real_render = diagnose.render
     lock = threading.Lock()
     turns: dict[str, int] = {}
+    sent: dict[str, list[str]] = {}
 
     def render_and_remember(name, **context):
         text = real_render(name, **context)
@@ -117,15 +118,17 @@ def _model_says_by_template(monkeypatch, replies: dict) -> None:
     def chat(model, messages, **kwargs):
         name = rendered[messages[0]["content"]]
         reply = replies[name]
-        if isinstance(reply, list):
-            with lock:
+        with lock:
+            sent.setdefault(name, []).append(messages[0]["content"])
+            if isinstance(reply, list):
                 n = turns.get(name, 0)
                 turns[name] = n + 1
-            reply = reply[min(n, len(reply) - 1)]
+                reply = reply[min(n, len(reply) - 1)]
         return _reply(reply)
 
     monkeypatch.setattr(diagnose, "render", render_and_remember)
     monkeypatch.setattr("app.ai.provider.chat", chat)
+    return sent
 
 
 def _analyze(request_id: int) -> dict:
@@ -467,8 +470,19 @@ def test_an_explanation_reply_with_too_few_statements_left_is_asked_for_again_th
 
     assert stopped.value.stage == "diagnosing"
     assert "1 usable explanation" in stopped.value.cause and "needs 2" in stopped.value.cause
+    # the cause (failure_json, the team's email) says it was the number check that emptied them
+    assert "2 had no statement left once the sentences holding a number nobody gave" in stopped.value.cause
     assert _ledger(request_id) == [("diagnose:1", False)] * settings.STAGE_REPLY_ATTEMPTS
     assert _read(request_id).diagnosis_json is None
+
+
+def test_a_reply_with_too_few_explanations_to_begin_with_does_not_blame_the_number_check(monkeypatch):
+    _diagnosis_says(monkeypatch, [_hypothesis(1, STATEMENTS[0])])
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(_row())
+
+    assert stopped.value.cause == "the model gave 1 usable explanation, and a diagnosis needs 2"
 
 
 def test_a_second_reply_with_clean_statements_is_used(monkeypatch):
@@ -523,6 +537,207 @@ def test_the_thinking_trail_shows_the_cleaned_statements_and_keeps_our_own_count
     assert "3 possible explanations" in texts and "Testing all 3 against their own figures" in texts
     assert "Evenings are full." in texts
     assert not any("50,000" in t for t in texts)
+
+
+# -- the objections the diagnostician is handed again -----------------------------------------
+
+KILLS = {"kills": True, "because": "Rent rose 40% last year, so the evenings are not the cause.",
+         "weakness": "", "better_explanation": "Prices are 15% below rivals."}
+
+
+def test_the_objections_a_second_pass_is_handed_are_the_reviewers_own_words(monkeypatch):
+    """The text stored for the client is checked, so a reason that is one sentence holding a
+    number nobody gave is stored empty. The diagnostician that must think again still hears
+    it as written (it goes to the model, and anything it echoes is checked again), and no
+    empty '- ' line is sent."""
+    sent = _model_says_by_template(monkeypatch, {
+        "diagnose.j2": {"hypotheses": [_hypothesis(n, s) for n, s in enumerate(STATEMENTS, 1)]},
+        "test_hypothesis.j2": TESTED, "challenge.j2": KILLS})
+
+    result = _diagnose(_row())
+
+    first, second = sent["diagnose.j2"]
+    assert "ONCE ALREADY" not in first and "ONCE ALREADY" in second
+    heard = ("- Rent rose 40% last year, so the evenings are not the cause. "
+             "A better explanation may be: Prices are 15% below rivals.")
+    assert second.count(heard) == 2        # both reviewers
+    assert not any(line.strip() == "-" for line in second.splitlines())
+    assert result["attempts"] == 2
+    assert all(c["because"] == "" and c["better_explanation"] == "" for c in result["challenges"])
+
+
+# -- a cut never lands inside a figure -----------------------------------------------------------
+
+def _straddling(limit: int, figure: str = "$2200") -> tuple[str, str]:
+    """(a text, what is left of it once the sentence holding `figure` is taken out), built
+    so that `figure` starts three characters before character `limit`: cut there, it would
+    leave only the first three characters of it ("$22" of "$2200")."""
+    start = limit - 3
+    kept = "Evenings are full. "
+    while len(kept) + 16 + len("Rent is ") <= start:
+        kept += "Quiet mornings. "
+    gap = start - len(kept) - len("Rent is ")
+    # the sentence with the figure opens with a capital, or the splitter would not end the one before
+    fill = "" if gap == 0 else " " if gap == 1 else "W" + "w" * (gap - 2) + " "
+    text = kept + fill + f"Rent is {figure} a month."
+    assert text[:limit].endswith("$22") and len(text) > limit
+    return text, kept.strip()
+
+
+def test_a_statement_is_checked_before_it_is_cut_so_the_cut_cannot_leave_a_known_number(monkeypatch):
+    """Cut first, the 400th character would leave '$22', the price the client gave, in place
+    of '$2200'. Checked first, the sentence holding '$2200' is taken out whole."""
+    text, kept = _straddling(400)
+    _diagnosis_says(monkeypatch, [_hypothesis(1, text), _hypothesis(2, STATEMENTS[1]), _hypothesis(3, STATEMENTS[2])])
+
+    result = _diagnose(_row())
+
+    assert result["hypotheses"][0]["statement"] == kept
+    assert "$" not in result["hypotheses"][0]["statement"]
+
+
+def test_a_test_and_a_reviewer_are_checked_before_they_are_cut_too(monkeypatch):
+    because, kept_because = _straddling(400)
+    note, kept_note = _straddling(300)
+    _diagnosis_says(
+        monkeypatch, [_hypothesis(n, s) for n, s in enumerate(STATEMENTS, 1)],
+        tested={"verdict": "supported", "cites": [], "because": because, "would_need": note},
+        challenge={"kills": False, "because": because, "weakness": note, "better_explanation": note})
+
+    result = _diagnose(_row())
+
+    test = result["hypotheses"][0]["test"]
+    assert (test["because"], test["would_need"]) == (kept_because, kept_note)
+    for c in result["challenges"]:
+        assert (c["because"], c["weakness"], c["better_explanation"]) == (kept_because, kept_note, kept_note)
+
+
+def test_an_unverified_item_is_checked_before_it_is_cut(monkeypatch):
+    text, kept = _straddling(decide.UNVERIFIED_CHARS)
+    _model_says(monkeypatch, {**DECISION, "unverified": [text]})
+
+    assert _decide(_row())["unverified"] == [kept]
+
+
+def test_a_long_statement_that_passes_is_cut_at_the_end_of_a_sentence(monkeypatch):
+    long = "Quiet mornings. " * 40
+    _diagnosis_says(monkeypatch, [_hypothesis(1, long), _hypothesis(2, STATEMENTS[1]), _hypothesis(3, STATEMENTS[2])])
+
+    statement = _diagnose(_row())["hypotheses"][0]["statement"]
+
+    assert len(statement) <= 400 and statement.endswith("mornings.") and statement.startswith("Quiet mornings. ")
+
+
+def test_cut_prose_stops_at_a_sentence_end_in_the_second_half_else_at_a_word_end():
+    cut = analyze.cut_prose
+    text = "Aaa bbb. Ccc ddd eee. Fff ggg hhh iii."
+    assert cut(text, 100) == text and cut(text, len(text)) == text
+    assert cut(text, 23) == "Aaa bbb. Ccc ddd eee."      # the sentence ends at 21, after half of 23
+    assert cut(text, 20) == "Aaa bbb. Ccc ddd"           # it ends at 8, in the first half: cut at a word
+    assert cut(text, 25) == "Aaa bbb. Ccc ddd eee."      # the limit falls at the end of "Fff": the sentence end is kept
+    assert cut("Rent is $2200 a month.", 11) == "Rent is"   # never inside the figure
+    assert cut("w" * 50, 10) == ""                          # one word longer than the limit is not prose
+
+
+# -- the figures a diagnosis is checked against ---------------------------------------------------
+
+def test_figures_that_cannot_be_read_stop_the_diagnosis_as_diagnosing_and_clear_the_old_one(monkeypatch):
+    def unreadable(*args, **kwargs):
+        raise RuntimeError("the case file could not be read")
+
+    prompts = _model_says(monkeypatch, {"hypotheses": []})
+    monkeypatch.setattr(diagnose, "known_for", unreadable)
+    request_id = _row(diagnosis_json=json.dumps({"leading": "H1", "hypotheses": [{"id": "H1", "statement": "Old"}]}))
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing" and "the case file could not be read" in stopped.value.cause
+    assert _read(request_id).diagnosis_json is None
+    assert prompts == [] and _ledger(request_id) == []
+
+
+def test_the_clock_times_that_cannot_be_read_stop_the_diagnosis_the_same_way(monkeypatch):
+    def unreadable(*args, **kwargs):
+        raise RuntimeError("no hours")
+
+    monkeypatch.setattr(diagnose, "hours_for", unreadable)
+    request_id = _row(diagnosis_json=json.dumps({"leading": "H1", "hypotheses": [{"id": "H1", "statement": "Old"}]}))
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing" and _read(request_id).diagnosis_json is None
+
+
+@pytest.mark.parametrize("module, stage, run", [
+    pytest.param(analyze, "analyzing", _analyze, id="analyze"),
+    pytest.param(decide, "consulting", _decide, id="decide"),
+])
+def test_figures_that_cannot_be_read_stop_the_other_two_stages_before_any_call(monkeypatch, module, stage, run):
+    def unreadable(*args, **kwargs):
+        raise RuntimeError("the case file could not be read")
+
+    prompts = _model_says(monkeypatch, {"business_model": "x"})
+    monkeypatch.setattr(module, "known_for", unreadable)
+    request_id = _row()
+
+    with pytest.raises(StageFailed) as stopped:
+        run(request_id)
+
+    assert stopped.value.stage == stage and prompts == [] and _ledger(request_id) == []
+
+
+# -- what the check took out is logged --------------------------------------------------------------
+
+def _logged(caplog, name: str) -> str:
+    return " | ".join(r.getMessage() for r in caplog.records if r.name == name)
+
+
+def test_the_log_names_how_many_sentences_and_which_numbers_but_never_the_sentences(monkeypatch, caplog):
+    _model_says(monkeypatch, DECISION)
+
+    with caplog.at_level("INFO", logger="consultant.decide"):
+        _decide(_row())
+
+    line = _logged(caplog, "consultant.decide")
+    assert "took 5 sentence(s) out of the decision" in line
+    for number in ("30", "15%", "$9,000", "25%", "18"):
+        assert number in line
+    for words in ("turn away", "discount engine", "waiting list", "fill the mornings"):
+        assert words not in line
+
+
+def test_the_log_is_written_on_the_retry_path_of_the_decision_and_the_analysis(monkeypatch, caplog):
+    good = {**DECISION, "consulting_summary": "Fill the quiet mornings first."}
+    _model_says(monkeypatch, EMPTIED_SUMMARY, good)
+    with caplog.at_level("INFO", logger="consultant.decide"):
+        assert _decide(_row())["consulting_summary"] == "Fill the quiet mornings first."
+    first = _logged(caplog, "consultant.decide")
+    assert "$9,000" in first and "20" in first          # the unusable first reply is what was logged
+
+    _model_says(monkeypatch, NO_FINDINGS, FINDINGS)
+    with caplog.at_level("INFO", logger="consultant.analyze"):
+        assert _analyze(_row()) == FINDINGS
+    second = _logged(caplog, "consultant.analyze")
+    assert "took 3 sentence(s) out of the analysis" in second
+    for number in ("$85,000", "40%", "15%"):
+        assert number in second
+    assert "Rent rose" not in second
+
+
+def test_the_log_is_written_when_the_diagnosis_fails_for_want_of_statements(monkeypatch, caplog):
+    _diagnosis_says(monkeypatch, [
+        _hypothesis(1, "They lose $50,000 a year."), _hypothesis(2, "They lose 14 members a month."),
+        _hypothesis(3, STATEMENTS[2])])
+
+    with caplog.at_level("INFO", logger="consultant.diagnose"):
+        with pytest.raises(StageFailed):
+            _diagnose(_row())
+
+    line = _logged(caplog, "consultant.diagnose")
+    assert "took 4 sentence(s) out of the diagnosis" in line     # two sentences in each of the two replies
+    assert "$50,000" in line and "14" in line and "They lose" not in line
 
 
 # -- the parts of the row that are not about this run ----------------------------------------
@@ -595,17 +810,32 @@ def test_the_capacity_prompt_shows_the_question_and_the_check_does_not(monkeypat
 
 
 class _Row:
-    def __init__(self, ops):
+    """The columns `casefile.client_words` reads; a missing one reads as empty."""
+
+    def __init__(self, ops, **columns):
         self.ops_numbers_json = ops
+        for name, value in columns.items():
+            setattr(self, name, value)
 
 
-@pytest.mark.parametrize("ops, texts, lines", [
-    pytest.param(None, ["A."], ["A."], id="no answers"),
-    pytest.param("not json", ["A."], ["A."], id="unreadable"),
-    pytest.param(json.dumps({"q": "a"}), ["A."], ["A."], id="not a list"),
+@pytest.mark.parametrize("ops, lines", [
+    pytest.param(None, ["free"], id="no answers"),
+    pytest.param("not json", ["free"], id="unreadable"),
+    pytest.param(json.dumps({"q": "a"}), ["free"], id="not a list"),
     pytest.param(json.dumps([{"question": "Q1?", "answer": " a1 "}, {"question": "Q2?", "answer": "  "},
                              "junk", {"question": "", "answer": "a3"}, {"answer": 7}]),
-                 ["a1", "a3", "free"], ["Q1?: a1", "a3", "free"], id="only answered pairs, then the free words"),
+                 ["Q1?: a1", "a3", "free"], id="only answered pairs, then the free words"),
 ])
-def test_the_capacity_context_pairs_each_answer_with_its_question(ops, texts, lines):
-    assert orchestrator._capacity_context(_Row(ops), texts) == lines
+def test_the_capacity_context_pairs_each_answer_with_its_question(ops, lines):
+    assert orchestrator._capacity_context(_Row(ops, main_problem="free")) == lines
+
+
+def test_the_capacity_context_lines_up_with_the_texts_the_numbers_are_checked_in():
+    """The prompt's lines and the check's texts come from the same iterator, one for one."""
+    row = _Row(json.dumps([{"question": "How many?", "answer": "12 reformers"}, {"answer": "6 a day"}]),
+               main_problem="Evenings are full.", business_description="A studio.")
+
+    context, texts = orchestrator._capacity_context(row), capacity.owner_texts(row)
+
+    assert len(context) == len(texts) == 4
+    assert [c.rsplit(": ", 1)[-1] for c in context] == texts

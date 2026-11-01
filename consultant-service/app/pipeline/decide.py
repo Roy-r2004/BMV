@@ -40,7 +40,7 @@ from app.figures.model import FigureSet
 from app.models import Request
 from app.pipeline import consult
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
-from app.pipeline.analyze import clean_prose, has_text
+from app.pipeline.analyze import clean_prose, cut_prose, has_text, log_removed
 from app.pipeline.failure import StageFailed
 from app.templating import render
 
@@ -112,18 +112,19 @@ def _decision(body: dict, known: FigureSet, hours: set[int]) -> dict:
     result = reply_json(body)
     summary_written = has_text(result.get("consulting_summary"))
     removed: list[str] = []
-    if isinstance(result.get("unverified"), list):
-        # cut to the length stored BEFORE the check, so a number is never cut after it
-        result["unverified"] = [u[:UNVERIFIED_CHARS] if isinstance(u, str) else u for u in result["unverified"]]
     for key in PROSE_KEYS:
         if key in result:
             result[key] = clean_prose(result[key], known, hours, removed)
+    if isinstance(result.get("unverified"), list):
+        # cut AFTER the check, at a word or sentence end, so a cut can never leave a piece
+        # of a figure ("$2200" cut to "$22") that matches a number the client gave
+        result["unverified"] = [cut_prose(u, UNVERIFIED_CHARS) if isinstance(u, str) else u
+                                for u in result["unverified"]]
     if isinstance(result.get("recommended_ai_employees"), list):
         result["recommended_ai_employees"] = _employees(result["recommended_ai_employees"], known, hours, removed)
+    log_removed(logger, "decision", removed)
     if summary_written and not has_text(result.get("consulting_summary")):
         raise ValueError("every sentence of the recommendation held a number nobody gave")
-    if removed:
-        logger.info("took %d sentence(s) holding a number nobody gave out of the decision", len(removed))
     return result
 
 
@@ -175,8 +176,7 @@ def decide(db: Session, request_id: int, analysis: dict) -> dict:
     if result.get("confidence") not in ("high", "medium", "low"):
         # Not "medium": a middle nobody stated reads as a judgement weighed.
         result.pop("confidence", None)
-    result["unverified"] = [u[:UNVERIFIED_CHARS] for u in (result.get("unverified") or [])
-                            if isinstance(u, str) and u.strip()]
+    result["unverified"] = [u for u in (result.get("unverified") or []) if isinstance(u, str) and u.strip()]
 
     req.consulting_analysis = result.get("consulting_summary")
     req.consulting_recommendations_json = json.dumps(result)

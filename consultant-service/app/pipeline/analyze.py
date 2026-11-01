@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,7 @@ from app.config import settings
 from app.figures.bind import clean_sentences
 from app.figures.known import hours_for, known_for, prompt_lines
 from app.figures.model import FigureSet
+from app.figures.read import mentions
 from app.models import Request
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline.failure import StageFailed
@@ -22,6 +24,11 @@ STALE_AT_START = frozenset({"capacity", "answer", "registry", "roadmap"})
 
 #: The model-written text of the analysis a client reads on the web.
 PROSE_KEYS = ("target_customer_profile", "pain_points", "growth_opportunity")
+
+#: How many of the numbers a check removed are named in the log line.
+LOG_NUMBERS = 20
+
+_SENTENCE_END = re.compile(r"[.!?][\"')\u201d\u2019\]]*(?=\s|$)")
 
 
 def has_text(value) -> bool:
@@ -59,6 +66,37 @@ def clean_prose(value, known: FigureSet, hours: set[int], removed: list[str]):
     if isinstance(value, dict):
         return {k: clean_prose(v, known, hours, removed) for k, v in value.items()}
     return value
+
+
+def cut_prose(text: str, limit: int) -> str:
+    """`text` cut to at most `limit` characters, for text that has already been
+    checked: at the last sentence end in its second half, else at the last word
+    end, so the cut never falls inside a word or a figure ("$2200" is never cut to
+    "$22"). A text that fits is returned as it is. Nothing is added. One word longer
+    than the limit is not prose, and gives "" rather than a piece of it."""
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    if not text[limit].isspace():
+        space = max(head.rfind(c) for c in " \t\n\u00a0")
+        if space <= 0:
+            return ""
+        head = head[:space]
+    ends = [m.end() for m in _SENTENCE_END.finditer(head)]
+    if ends and ends[-1] >= limit // 2:
+        head = head[:ends[-1]]
+    return head.rstrip()
+
+
+def log_removed(log: logging.Logger, what: str, removed: list[str]) -> None:
+    """Say at INFO what the number check took out of `what`: how many sentences, and
+    the numbers in them. Never the sentences themselves. Called on every path, the
+    retry and the failure included, so "what did it drop?" can be answered."""
+    if not removed:
+        return
+    numbers = list(dict.fromkeys(m.text for sentence in removed for m in mentions(sentence)))
+    named = ", ".join(numbers[:LOG_NUMBERS]) + (", ..." if len(numbers) > LOG_NUMBERS else "")
+    log.info("took %d sentence(s) out of the %s; numbers in them: %s", len(removed), what, named or "none")
 
 
 def _format_site_research(req: Request) -> str:
@@ -99,10 +137,9 @@ def _analysis(body: dict, known: FigureSet, hours: set[int]) -> dict:
     for key in PROSE_KEYS:
         if key in result:
             result[key] = clean_prose(result[key], known, hours, removed)
+    log_removed(logger, "analysis", removed)
     if findings_written and not (has_text(result.get("pain_points")) or has_text(result.get("growth_opportunity"))):
         raise ValueError("every pain point and the growth opportunity held a number nobody gave")
-    if removed:
-        logger.info("took %d sentence(s) holding a number nobody gave out of the analysis", len(removed))
     result.setdefault("business_model", "Unknown")
     result.setdefault("pain_points", [])
     return result

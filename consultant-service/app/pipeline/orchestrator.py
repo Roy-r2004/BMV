@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app import mailer
 from app.config import settings
 from app.database import SessionLocal
+from app.figures.casefile import client_words
 from app.models import Request
 from app.pipeline import action_plan, analyze, answer, blueprint, capacity, consult, decide, decompose, diagnose, extras, plan, playbook, qa_experts, research
 from app.pipeline.failure import StageFailed, fail_run
@@ -292,22 +293,22 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
     _build_from(db, request_id, analysis_saved, consult_saved, token=token)
 
 
-def _capacity_context(req, texts: list[str]) -> list[str]:
+def _capacity_context(req) -> list[str]:
     """What the capacity prompt reads: each of their answers beside the question we
-    asked, then the rest of their words. The numbers are checked in `texts` (their
-    words alone), as in the interview; the questions are only there so the reading
-    knows what each answer is about."""
+    asked, then the rest of their words. Built from `casefile.client_words`, the same
+    iterator `capacity.owner_texts` reads, so the lines line up one for one with the
+    texts the numbers are checked in (their words alone, as in the interview); the
+    questions are only there so the reading knows what each answer is about."""
     try:
         pairs = json.loads(req.ops_numbers_json) if req.ops_numbers_json else []
     except (TypeError, ValueError):
         pairs = []
-    answered = [p for p in pairs if isinstance(p, dict) and isinstance(p.get("answer"), str)
-                and p["answer"].strip()] if isinstance(pairs, list) else []
     lines = []
-    for p in answered:
-        question = str(p.get("question") or "").strip()[:200]
-        lines.append(f"{question}: {p['answer'].strip()}" if question else p["answer"].strip())
-    return lines + texts[len(answered):]
+    for word in client_words(req):
+        pair = pairs[word.turn - 1] if word.turn is not None and isinstance(pairs, list) else None
+        question = str(pair.get("question") or "").strip()[:200] if isinstance(pair, dict) else ""
+        lines.append(f"{question}: {word.text.strip()}" if question else word.text.strip())
+    return lines
 
 
 def _read_capacity(db: Session, request_id: int) -> None:
@@ -319,7 +320,7 @@ def _read_capacity(db: Session, request_id: int) -> None:
     picture, usage, error = capacity.read(
         texts, "not launched yet — this is a plan"
         if req.operating_stage == "opening" else "already operating", earlier=earlier,
-        context=_capacity_context(req, texts))
+        context=_capacity_context(req))
     from app.pipeline._shared import log_usage
 
     # the replies that could not be read, then the last call

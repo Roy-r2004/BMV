@@ -43,7 +43,7 @@ from app.pipeline._shared import (
     log_usage, reply_json,
 )
 from app.pipeline import evidence
-from app.pipeline.analyze import clean_prose
+from app.pipeline.analyze import clean_prose, cut_prose, log_removed
 from app.pipeline.failure import StageFailed
 from app.pipeline.registry import client_fact_claims
 from app.templating import render
@@ -57,6 +57,10 @@ MAX_HYPOTHESES = 5
 #: answer, the registry and the roadmap are written after it. (The capacity picture
 #: was read just before, and is kept: a hypothesis may cite it.)
 STALE_AT_DIAGNOSIS = frozenset({"answer", "registry", "roadmap"})
+
+#: How much of a test's or a reviewer's reason, and of their other notes, is kept.
+BECAUSE_CHARS = 400
+NOTE_CHARS = 300
 
 #: Checks the text of one model-written field: binds its numbers to the figures
 #: the request knows and takes out each sentence that holds one nobody owns.
@@ -166,31 +170,39 @@ def _enough_explanations(known_ids: set[str], clean: Clean):
     statement left and is not usable, so a reply made of them is asked for again."""
 
     def use(raw: dict) -> list[dict]:
-        hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids, clean)
+        emptied: list[str] = []
+        hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids, clean, emptied)
         if len(hypotheses) < MIN_HYPOTHESES:
+            # the cause is recorded (failure_json, the team's email): say when it was the number check
+            by_check = (f"; {len(emptied)} had no statement left once the sentences holding a number "
+                        f"nobody gave were taken out" if emptied else "")
             raise ValueError(
                 f"the model gave {len(hypotheses)} usable explanation{'' if len(hypotheses) == 1 else 's'}, "
-                f"and a diagnosis needs {MIN_HYPOTHESES}")
+                f"and a diagnosis needs {MIN_HYPOTHESES}{by_check}")
         return hypotheses
 
     return use
 
 
-def _sanitize_hypotheses(raw: list, known_ids: set[str], clean: Clean) -> list[dict]:
+def _sanitize_hypotheses(raw: list, known_ids: set[str], clean: Clean, emptied: list[str]) -> list[dict]:
     """Keep the shape honest and drop citations to claims that do not exist.
 
     A fabricated id is worse than no id: downstream it reads exactly like a
     real one, and the client is shown a conclusion resting on a number they
-    never gave. The same goes for a number in the prose: each text is cut to the
-    length stored and then checked (`clean`), so the check sees what is kept, and
-    an explanation with no statement left is dropped like one that had none.
+    never gave. The same goes for a number in the prose: each text is checked
+    (`clean`) and only then cut to the length stored, at a word or sentence end,
+    so a cut can never leave a piece of a figure that matches one the client
+    gave. An explanation with no statement left is dropped like one that had
+    none, and its id is appended to `emptied` when it was the check that
+    emptied it.
     """
     out = []
     for i, h in enumerate(raw or [], start=1):
         if not isinstance(h, dict) or not str(h.get("statement") or "").strip():
             continue
-        statement = clean(str(h["statement"])[:400])
+        statement = cut_prose(clean(str(h["statement"])), 400)
         if not statement.strip():
+            emptied.append(str(h.get("id") or f"H{i}")[:8])
             continue
         cites = [c for c in (h.get("cites") or []) if isinstance(c, str) and c in known_ids]
         out.append({
@@ -198,8 +210,8 @@ def _sanitize_hypotheses(raw: list, known_ids: set[str], clean: Clean) -> list[d
             "statement": statement,
             "area": str(h.get("area") or "other")[:40],
             "software_can_fix": bool(h.get("software_can_fix")),
-            "would_support": clean(str(h.get("would_support") or "")[:300]),
-            "would_refute": clean(str(h.get("would_refute") or "")[:300]),
+            "would_support": cut_prose(clean(str(h.get("would_support") or "")), 300),
+            "would_refute": cut_prose(clean(str(h.get("would_refute") or "")), 300),
             "cites": cites,
             "from_owner": bool(h.get("from_owner")),
         })
@@ -271,12 +283,22 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
     known_ids = {c["id"] for c in claims}
     # Every sentence the model writes for the client is checked against the figures
     # the request knows: theirs, and their week as it was just worked out.
-    known = known_for(req, leave_out=STALE_AT_DIAGNOSIS)
-    hours = hours_for(req)
+    try:
+        known = known_for(req, leave_out=STALE_AT_DIAGNOSIS)
+        hours = hours_for(req)
+    except Exception as exc:
+        # no check, no diagnosis: stopped like any other failure, and the old one cleared
+        logger.warning("the figures a diagnosis is checked against could not be read: %s", str(exc)[:200])
+        raise _stopped(db, request_id, exc) from exc
     removed: list[str] = []
 
     def clean(text: str) -> str:
         return clean_prose(text, known, hours, removed)
+
+    def report() -> None:
+        """Say what the check took out so far, then forget it: the retry and the failure included."""
+        log_removed(logger, "diagnosis", removed)
+        removed.clear()
 
     register = build_engagement_register(
         req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
@@ -317,8 +339,10 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
                 ledger(db, request_id, model=settings.REASONING_MODEL, purpose=f"diagnose:{attempt}"))
         except Exception as exc:
             # a failed call, or replies too thin to be a diagnosis every time
+            report()
             logger.warning("diagnosis could not be formed: %s", str(exc)[:200])
             raise _stopped(db, request_id, exc) from exc
+        report()
 
         # `retry` is a field, not a sentence the screen has to recognise. The
         # header used to carry "— thinking again, the first reading was
@@ -332,26 +356,36 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
             narrate(db, request_id, CONSIDERING, h["statement"], area=h["area"],
                     software=h["software_can_fix"], theirs=h["from_owner"])
 
-        result = _test_and_challenge(db, request_id, hypotheses, context, known_ids,
-                                     main_problem, clean=clean, narrator=(db, request_id))
+        heard: list[dict] = []
+        try:
+            result = _test_and_challenge(db, request_id, hypotheses, context, known_ids,
+                                         main_problem, clean=clean, heard=heard, narrator=(db, request_id))
+        finally:
+            report()
         if result["status"] != "killed" or attempt == 2:
             result["attempts"] = attempt
             result["evidence"] = claims
-            if removed:
-                logger.info("took %d sentence(s) holding a number nobody gave out of the diagnosis", len(removed))
             return result
 
+        # What goes back to the model is what the reviewers wrote, not the text stored for the
+        # client: it is for the model (anything it echoes is checked again), and a reason the
+        # check emptied must not leave an empty "- " line.
         objections = "\n".join(
             f"- {c['because']}" + (f" A better explanation may be: {c['better_explanation']}"
                                    if c.get("better_explanation") else "")
-            for c in result["challenges"] if c.get("kills"))
+            for c in heard if c["kills"])
         logger.info("leading hypothesis killed; diagnosing again with the objections")
 
 
 def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
                         context: dict, known_ids: set[str], main_problem: str,
-                        *, clean: Clean, narrator: tuple | None = None) -> dict:
+                        *, clean: Clean, heard: list[dict], narrator: tuple | None = None) -> dict:
     """One pass: test every hypothesis, then attack whichever leads.
+
+    `heard` is filled with what each reviewer that ran said, as written and only cut
+    to length (kills, because, better_explanation): the objections the diagnostician
+    is handed on a second pass are made from it, not from the checked text stored for
+    the client.
 
     `narrator` is the (session, id) to write the client-facing trail to, and
     is used only BETWEEN the parallel phases — never inside a worker, where
@@ -377,9 +411,9 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
                 lambda usage, error: calls.append((usage, error)))
             verdict = r.get("verdict") if r.get("verdict") in ("supported", "refuted", "untestable") else "untestable"
             return ({"verdict": verdict,
-                     "because": str(r.get("because") or "")[:400],
+                     "because": str(r.get("because") or ""),
                      "cites": [c for c in (r.get("cites") or []) if isinstance(c, str) and c in known_ids],
-                     "would_need": str(r.get("would_need") or "")[:300]}, calls, None)
+                     "would_need": str(r.get("would_need") or "")}, calls, None)
         except Exception as exc:
             logger.warning("hypothesis %s could not be tested: %s", h["id"], str(exc)[:160])
             # Untested is not the same as untestable, and must not be shown as
@@ -391,8 +425,8 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
     with ThreadPoolExecutor(max_workers=MAX_HYPOTHESES) as pool:
         tested = list(pool.map(test, hypotheses))
     for h, (result, calls, error) in zip(hypotheses, tested):
-        result["because"] = clean(result["because"])
-        result["would_need"] = clean(result["would_need"])
+        result["because"] = cut_prose(clean(result["because"]), BECAUSE_CHARS)
+        result["would_need"] = cut_prose(clean(result["would_need"]), NOTE_CHARS)
         h["test"] = result
         for usage, call_error in calls or [(None, error)]:
             log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
@@ -434,9 +468,9 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
                 brief=brief, main_problem=main_problem, **context,
             ), settings.QA_MODEL, TEST_TOKENS)
             return ({"angle": name, "kills": bool(r.get("kills")),
-                     "because": str(r.get("because") or "")[:400],
-                     "weakness": str(r.get("weakness") or "")[:300],
-                     "better_explanation": str(r.get("better_explanation") or "")[:300]}, usage, None)
+                     "because": str(r.get("because") or ""),
+                     "weakness": str(r.get("weakness") or ""),
+                     "better_explanation": str(r.get("better_explanation") or "")}, usage, None)
         except Exception as exc:
             logger.warning("challenge %s failed: %s", name, str(exc)[:160])
             # A skeptic that never ran has not approved anything. Recorded as
@@ -450,8 +484,14 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
         attacked = list(pool.map(attack, CHALLENGE_ANGLES))
     challenges = []
     for result, usage, error in attacked:
-        for field in ("because", "weakness", "better_explanation"):
-            result[field] = clean(result[field])
+        if result.get("ran", True):
+            # as written, for the model's second pass (see `diagnose`); the stored text is checked
+            heard.append({"kills": result["kills"],
+                          "because": cut_prose(result["because"], BECAUSE_CHARS),
+                          "better_explanation": cut_prose(result["better_explanation"], NOTE_CHARS)})
+        for field, limit in (("because", BECAUSE_CHARS), ("weakness", NOTE_CHARS),
+                             ("better_explanation", NOTE_CHARS)):
+            result[field] = cut_prose(clean(result[field]), limit)
         challenges.append(result)
         log_usage(db, request_id, provider="openrouter", model=settings.QA_MODEL,
                   purpose=f"challenge:{result['angle']}", usage=usage,
