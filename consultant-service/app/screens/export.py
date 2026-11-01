@@ -60,11 +60,12 @@ def _answer_first(req: Request) -> str:
     story = build_story(req)
     if story is None or not story.answer.question:
         return ""
-    rests = story.answer.rests_on
-    line = (f"What this rests on: {rests.theirs} figures are yours, {rests.derived} worked out, "
-            f"{rests.reference} references with sources, {rests.checks_passed} checks passed.")
+    from app.storyline.pdf import rests_line
+
     question = html_lib.escape(story.answer.question)
-    return f'<section class="page"><h1>{question}</h1><p>{html_lib.escape(line)}</p></section>'
+    line = rests_line(story.answer.rests_on)
+    body = f"<p>{html_lib.escape(line)}</p>" if line else ""
+    return f'<section class="page"><h1>{question}</h1>{body}</section>'
 
 
 def page_texts(html: str) -> list[str]:

@@ -1,14 +1,15 @@
-"""The roadmap file. Task 8 replaces this body with the full plan.
+"""The roadmap file: as long as the plan, and it says so.
 
-Until then the file is a real PDF, so the package can include it, and it
-names no length and no number the run has not stored.
+The length is the plan's own figure. A plan of six weeks is six weeks, never
+ninety days. A baseline the owner has not measured yet is printed as stored.
+Metrics that share a review rhythm are listed under that rhythm once.
 """
 from __future__ import annotations
 
+import json
 import os
-
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+from datetime import datetime
+from xml.sax.saxutils import escape
 
 from app.config import settings
 from app.pipeline import action_plan
@@ -30,15 +31,202 @@ def build_roadmap_pdf(req) -> str:
     if (not isinstance(phases, list) or not phases
             or plan.get("status") in (action_plan.WRITING, action_plan.FAILED)):
         raise NotReady("roadmap")
+
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"{getattr(req, 'id', None)}-roadmap.pdf")
-    sheet = canvas.Canvas(path, pagesize=A4)
-    sheet.setFont("Helvetica", 16)
-    sheet.drawString(72, 780, "The implementation roadmap")
-    sheet.setFont("Helvetica", 11)
-    name = getattr(req, "business_name", None) or "This business"
-    sheet.drawString(72, 750, f"Prepared for {name}.")
-    sheet.showPage()
-    sheet.save()
+    updated = getattr(req, "updated_at", None)
+    if os.path.isfile(path) and updated is not None:
+        if datetime.utcfromtimestamp(os.path.getmtime(path)) > updated:
+            return path
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Frame, PageBreak, PageTemplate
+
+    from app.figures.known import known_for
+    from app.pipeline.export_pdf import _EngagementDoc, _page_chrome, release_status
+    from app.storyline.build import build as build_story
+    from app.storyline.pdf import answer_page_flowables, register_reference
+
+    story = build_story(req)
+    flows: list = []
+    if story is not None:
+        flows += answer_page_flowables(story)
+        if story.register is not None:
+            flows += register_reference()
+    flows += _plan(plan, story, known_for(req))
+    flows += _measures(_loads(getattr(req, "scoreboard_json", None)))
+    flows += _risks(_loads(getattr(req, "risks_json", None)))
+    flows += _decisions(plan.get("decisions"))
+    flows += _cadence(_loads(getattr(req, "scoreboard_json", None)))
+    if flows and isinstance(flows[-1], PageBreak):
+        flows = flows[:-1]
+
+    name = getattr(req, "concept_name", None) or getattr(req, "business_name", None) or ""
+    draft = release_status(req)["status"] == "draft"
+    doc = _EngagementDoc(
+        path, pagesize=A4,
+        title=f"{name} — The implementation roadmap",
+        author="Build My Version",
+    )
+    width, height = A4
+    frame = Frame(18 * mm, 20 * mm, width - 36 * mm, height - 36 * mm, id="content")
+    doc.addPageTemplates([
+        PageTemplate(id="body", frames=[frame], onPage=_page_chrome("The roadmap", name, draft=draft)),
+    ])
+    doc.build(flows)
     return path
+
+
+def _plan(plan: dict, story, known) -> list:
+    from reportlab.platypus import KeepTogether, Paragraph
+
+    from app.figures.known import PLAN_WEEKS_ID
+    from app.figures.model import display
+    from app.pipeline.export_pdf import _S
+
+    figure = known.get(PLAN_WEEKS_ID)
+    length = f"This plan runs for {display(figure)}." if figure is not None else "This plan runs for as long as its phases."
+    owners = _owners(story)
+    flows = [Paragraph("The plan", _S["h1toc"]), Paragraph(escape(length), _S["body"])]
+    for index, phase in enumerate(plan.get("phases") or [], 1):
+        if not isinstance(phase, dict):
+            continue
+        when = _words(phase.get("when"))
+        title = _words(phase.get("title"))
+        do = _words(phase.get("do"))
+        you = _words(phase.get("you"))
+        owner = owners.get(when) or ""
+        sentence = ". ".join(part for part in (when, title, do, you, owner) if part)
+        if sentence:
+            flows.append(Paragraph(escape(sentence + "."), _S["body"]))
+    if len(flows) > 2:
+        flows = [KeepTogether(flows[:3]), *flows[3:]]
+    return flows
+
+
+def _measures(board) -> list:
+    from reportlab.platypus import Paragraph
+
+    from app.pipeline.export_pdf import _S
+
+    if not isinstance(board, list) or not board:
+        return []
+    flows = [Paragraph("The measures", _S["h1toc"])]
+    for item in board:
+        if not isinstance(item, dict):
+            continue
+        metric = _words(item.get("metric"))
+        baseline = _words(item.get("baseline"))
+        target = _words(item.get("target"))
+        owner = _words(item.get("owner"))
+        if not metric:
+            continue
+        sentence = f"{metric}. From {baseline} to {target}."
+        if owner:
+            sentence += f" {owner} watches it."
+        flows.append(Paragraph(escape(sentence), _S["body"]))
+    return flows
+
+
+def _risks(risks) -> list:
+    from reportlab.platypus import Paragraph
+
+    from app.pipeline.export_pdf import _S
+
+    if not isinstance(risks, list) or not risks:
+        return []
+    flows = [Paragraph("The risks", _S["h1toc"])]
+    for item in risks:
+        if not isinstance(item, dict):
+            continue
+        risk = _words(item.get("risk"))
+        mitigation = _words(item.get("mitigation"))
+        who = _words(item.get("who_feels_it"))
+        if not risk:
+            continue
+        sentence = risk
+        if mitigation:
+            sentence += f". {mitigation}"
+        if who:
+            sentence += f". {who} feels it"
+        flows.append(Paragraph(escape(sentence + "."), _S["body"]))
+    return flows
+
+
+def _decisions(decisions) -> list:
+    from reportlab.platypus import Paragraph
+
+    from app.pipeline.export_pdf import _S
+
+    if not isinstance(decisions, list) or not decisions:
+        return []
+    flows = [Paragraph("Decisions only you can make", _S["h1toc"])]
+    for item in decisions:
+        if not isinstance(item, dict):
+            continue
+        question = _words(item.get("question"))
+        if not question:
+            continue
+        options = [_words(option) for option in (item.get("options") or [])]
+        options = [option for option in options if option]
+        sentence = question if question.endswith("?") else question + "."
+        if options:
+            sentence += " " + " ".join(options)
+        flows.append(Paragraph(escape(sentence), _S["body"]))
+    return flows
+
+
+def _cadence(board) -> list:
+    from reportlab.platypus import Paragraph
+
+    from app.pipeline.export_pdf import _S
+
+    if not isinstance(board, list):
+        return []
+    groups: dict[str, list[str]] = {}
+    for item in board:
+        if not isinstance(item, dict):
+            continue
+        metric = _words(item.get("metric"))
+        rhythm = _words(item.get("review"))
+        if not metric or not rhythm:
+            continue
+        groups.setdefault(rhythm, []).append(metric)
+    if not groups:
+        return []
+    flows = [Paragraph("The cadence", _S["h1toc"])]
+    for rhythm, metrics in groups.items():
+        flows.append(Paragraph(escape(rhythm), _S["h2toc"]))
+        for metric in metrics:
+            flows.append(Paragraph(escape(metric), _S["body"]))
+    return flows
+
+
+def _owners(story) -> dict[str, str]:
+    """The register's role words, keyed by the phase timeframe they belong to."""
+    if story is None or story.register is None:
+        return {}
+    found: dict[str, str] = {}
+    for row in story.register.rows:
+        when = _words(row.when)
+        owner = _words(row.owner)
+        if when and owner and when not in found:
+            found[when] = owner
+    return found
+
+
+def _words(value) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.split())
+
+
+def _loads(raw):
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None

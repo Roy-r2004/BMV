@@ -43,11 +43,9 @@ def answer_page_flowables(story) -> list:
         flows.append(Paragraph(escape(f"Monday: {page.monday}"), styles["body"]))
     if page.would_not:
         flows.append(Paragraph(escape("What we would not do: " + " ".join(page.would_not)), styles["body"]))
-    rests = page.rests_on
-    flows.append(Paragraph(escape(
-        f"What this rests on: {rests.theirs} figures are yours, {rests.derived} worked out, "
-        f"{rests.reference} references with sources, {rests.checks_passed} checks passed."
-    ), styles["body"]))
+    line = rests_line(page.rests_on)
+    if line:
+        flows.append(Paragraph(escape(line), styles["body"]))
     flows.append(PageBreak())
     return flows
 
@@ -81,6 +79,26 @@ def proof_lead_flowables(section, exhibit) -> list:
         flows.append(Paragraph(escape(section.takeaway), styles["body"]))
     flows.append(PageBreak())
     return flows
+
+
+def rests_line(rests) -> str | None:
+    """What the answer rests on, naming only the kinds that are there.
+
+    A count is a number, and the known set has no figure for a census, so the
+    line does not print one. A kind with nothing behind it is left off.
+    """
+    parts = []
+    if rests.theirs:
+        parts.append("your figures")
+    if rests.derived:
+        parts.append("what we worked out")
+    if rests.reference:
+        parts.append("references with their sources")
+    if rests.checks_passed:
+        parts.append("the checks that passed")
+    if not parts:
+        return None
+    return "What this rests on: " + ", ".join(parts) + "."
 
 
 def _bits():
