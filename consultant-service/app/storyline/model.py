@@ -6,6 +6,7 @@ to make a page look finished.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 
 
 @dataclass(frozen=True)
@@ -65,11 +66,48 @@ class Section:
 
 
 @dataclass(frozen=True)
+class Range:
+    """A value flexed either way. The three ends add up across the register."""
+    low: Decimal
+    mid: Decimal
+    high: Decimal
+    unit: str
+    period: str | None
+
+
+@dataclass(frozen=True)
+class Cost:
+    """A cost we can point at, or the input still needed before it can be priced."""
+    figure_id: str | None
+    needs: str | None
+
+
+@dataclass(frozen=True)
+class RegisterRow:
+    """One recommendation. `depends_on` names earlier rows, counting from 1."""
+    id: str
+    recommendation: str
+    changes: str
+    value: Range | None
+    cost: Cost
+    owner: str
+    when: str
+    depends_on: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class Register:
+    """The one table. `total` is the headline the rows add up to."""
+    rows: tuple[RegisterRow, ...]
+    total: Range | None
+    footnotes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Storyline:
-    """Everything the files and the screens share. `register` is filled in by
-    the register (Task 3); until then it is None."""
+    """Everything the files and the screens share."""
     answer: AnswerPage
-    register: object | None
+    register: Register | None
     sections: tuple[Section, ...]
     builds: bool
 
@@ -83,7 +121,7 @@ def from_json(data: dict) -> Storyline:
     """The storyline `to_json` wrote."""
     return Storyline(
         answer=_answer(data["answer"]),
-        register=data.get("register"),
+        register=_register(data.get("register")),
         sections=tuple(_section(s) for s in data.get("sections") or []),
         builds=bool(data["builds"]),
     )
@@ -117,6 +155,40 @@ def _section(data: dict) -> Section:
     )
 
 
+def _register(data) -> Register | None:
+    if not isinstance(data, dict):
+        return None
+    total = data.get("total")
+    return Register(
+        rows=tuple(_register_row(row) for row in data.get("rows") or []),
+        total=None if total is None else _range(total),
+        footnotes=tuple(data.get("footnotes") or ()),
+    )
+
+
+def _register_row(data: dict) -> RegisterRow:
+    value = data.get("value")
+    cost = data.get("cost") or {}
+    return RegisterRow(
+        id=data["id"], recommendation=data["recommendation"], changes=data["changes"],
+        value=None if value is None else _range(value),
+        cost=Cost(cost.get("figure_id"), cost.get("needs")),
+        owner=data["owner"], when=data["when"],
+        depends_on=tuple(int(n) for n in data.get("depends_on") or ()),
+    )
+
+
+def _range(data: dict) -> Range:
+    return Range(_decimal(data["low"]), _decimal(data["mid"]), _decimal(data["high"]),
+                 data.get("unit") or "", data.get("period"))
+
+
+def _decimal(value) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
+
+
 def _texts(value) -> tuple[str, ...]:
     if not isinstance(value, (list, tuple)):
         return ()
@@ -130,4 +202,6 @@ def _plain(value):
         return [_plain(item) for item in value]
     if isinstance(value, dict):
         return {key: _plain(item) for key, item in value.items()}
+    if isinstance(value, Decimal):
+        return format(value, "f")
     return value

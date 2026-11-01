@@ -108,6 +108,10 @@ class Request(Base):
     # verified product of terms. Null when it could not be written — the
     # screen then shows the decision's own summary.
     answer_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The storyline the package is drawn from (app/storyline): the register
+    # the model drafted and the proof titles. Null on a run from before it,
+    # and on a run whose answer has not reached that stage.
+    storyline_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The implementation roadmap (app/pipeline/action_plan.py): phases we
     # carry out, and the few decisions only the owner can make.
     # {"status": "writing"} while it is being written.

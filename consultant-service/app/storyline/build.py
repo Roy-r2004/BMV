@@ -23,7 +23,7 @@ def build(req) -> Storyline | None:
     """The storyline, or None when the run has no answer to open with."""
     if not isinstance(_loads(getattr(req, "answer_json", None)), dict):
         return None
-    return Storyline(answer_page(req), None, (), _builds(req))
+    return Storyline(answer_page(req), _register(req), (), _builds(req))
 
 
 def answer_page(req) -> AnswerPage:
@@ -41,6 +41,19 @@ def answer_page(req) -> AnswerPage:
         would_not=_would_not(req),
         rests_on=_rests_on(req, known),
     )
+
+
+def _register(req):
+    """The assembled register, or None when this run has none or it does not check out."""
+    raw = _loads(getattr(req, "storyline_json", None))
+    drafted = raw.get("register") if isinstance(raw, dict) else None
+    if not isinstance(drafted, list) or not drafted:
+        return None
+    try:
+        from app.storyline.register import assemble
+        return assemble(req, drafted)
+    except Exception:
+        return None
 
 
 def _question(req) -> str | None:
