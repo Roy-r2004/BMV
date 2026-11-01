@@ -337,13 +337,15 @@ def test_engine_bounds_read_the_environment(monkeypatch):
     monkeypatch.setenv("ENGINE_MAX_FANOUT", "9")
     monkeypatch.setenv("ENGINE_ASK_FLOOR", "0.2")
     import app.config as cfg
+    # Every module that did `from app.config import settings` holds this
+    # object. A reload builds another one, and a later test that patches the
+    # new one would change nothing those modules read, so put this one back.
+    original = cfg.settings
     reloaded = importlib.reload(cfg)
     try:
         assert reloaded.settings.ENGINE_MAX_FANOUT == 9 and reloaded.settings.ENGINE_ASK_FLOOR == 0.2
     finally:
-        monkeypatch.delenv("ENGINE_MAX_FANOUT")
-        monkeypatch.delenv("ENGINE_ASK_FLOOR")
-        importlib.reload(cfg)
+        cfg.settings = original
 
 
 # ---------------------------------------------------------------------------
