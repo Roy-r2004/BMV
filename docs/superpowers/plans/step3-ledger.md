@@ -16,7 +16,7 @@ Ruling: `release_status` records a clipped page, and names that page, only for a
 
 Ruling: the cover panel's own words (the wordmark and the volume numeral) are not a clipped page - they are painted on the navy panel, left of the body frame, on purpose; counting them would stamp every storyline file DRAFT - a line of the register or the answer that actually leaves the frame is still a finding.
 
-Ruling: pytest loads tests in importlib mode - the storyline acceptance file has the name the plan gives it, and `tests/figures/test_acceptance.py` already uses that name, so the default importer refuses to collect both - a test that needed the old prepend mode would fail the suite, and the suite is the check.
+Ruling: the storyline acceptance file is `tests/storyline/test_output_shape.py`, not `test_acceptance.py` - `tests/figures/test_acceptance.py` already has that name, and the default importer cannot load both; importlib mode breaks the engine tests that `import conftest` - the plan's file name is the only thing that moved.
 
 Ruling: the page law measures a PDF on the pipeline's body frame and ignores the cover panel's own words - `release_status` already does both, and a law that counted the panel would fail every clean volume - a line of the answer that leaves the frame is still a finding.
 
