@@ -38,6 +38,13 @@ their files. A brief fact's value (`brief_json`) is the interview's summary and 
 never read. Text the intake adds to the description (the facts they did not know,
 the question the engagement answers) is ours and is cut out before reading.
 
+Units, from how the number was written: money in its currency (USD, EUR, GBP or the
+code written with it), a percent or a fraction as "percent", a count followed by a
+time word in that time unit (12 weeks, 8 hrs a week: "week", "hour"), and any other
+plain count in the noun after it, as typed in lower case ("twelve reformers" is
+12 "reformers"). A count with no noun straight after it ("12 of 40 members" is 12
+with none, and 40 "members") has no unit.
+
 A clock time and a date are not stored. `read.supported` passes them by their
 form (a time against the hours the client gave), and a figure made from "6pm"
 would hold the value 18 and vouch for "18 reformers".
@@ -56,6 +63,7 @@ from decimal import Decimal
 from typing import Iterable, Iterator, NamedTuple
 
 from app.config import settings
+from app.figures.bind import _FUNCTION_WORDS
 from app.figures.model import _TIME_UNITS, Figure, FigureSet, TheirsSource, as_json, from_json
 from app.figures.read import Mention, mentions
 
@@ -89,7 +97,7 @@ _TRAILING_NUMBER = re.compile(r"(\d+)\s*$")
 # few characters after the mention are looked at too.
 _CODE_IN = re.compile(r"(?<![A-Za-z])[A-Z]{3}(?![A-Za-z])")
 _CODE_AFTER = re.compile(r"[ 	]{0,2}([A-Z]{3})(?![A-Za-z])")
-_AFTER_CHARS = 16   # room for "milliseconds" and the space before it
+_AFTER_CHARS = 80   # room for a time word or a noun (NOUN_MAX) behind a few skipped words
 # The time word a number is directly followed by ("12 weeks", "3-month", "8hrs"). The words
 # are the model's closed table, said by what they stand for (hrs is hour); the extra
 # spellings are the ones clients type. "8 hrs a week" is hours: the rate phrase after the
@@ -99,6 +107,15 @@ _TIME_CANON.update({"sec": "second", "secs": "second", "min": "minute", "mins": 
                     "hrs": "hour", "wk": "week", "wks": "week", "mo": "month", "mos": "month",
                     "yr": "year", "yrs": "year"})
 _TIME_WORD_AFTER = re.compile(r"(?:-|[^\S\r\n]*)([A-Za-z]+)")
+#: The longest noun kept as a count's unit.
+NOUN_MAX = 30
+# Words that sit between a count and what it counts ("12 new members", "8 more classes").
+# "of" is not one: "12 of 40 members" counts nothing the 12 can name (it is a function word).
+_SKIPPED_BEFORE_NOUN = frozenset({"more", "extra", "new", "additional", "total"})
+# The word that follows a count, after a space or a hyphen: letters, with hyphens and
+# apostrophes inside. A word cut short by another kind of letter ("caf" of a word with an
+# accent) is not read as a noun.
+_NOUN_AFTER = re.compile(r"(?:-|[^\S\r\n]+)([A-Za-z]+(?:['-][A-Za-z]+)*)(?![^\W\d_])")
 
 
 # -- reading the row -------------------------------------------------------------------
@@ -236,15 +253,38 @@ def _time_unit(after: str) -> str:
     return _TIME_CANON.get(word.group(1).lower(), "") if word else ""
 
 
+def _counted_unit(after: str) -> str:
+    """What a plain count counts, from the words after it: a time unit ("week" for
+    "12 weeks", "8 hrs a week"), else the noun as typed in lower case ("reformers" for
+    "twelve reformers", "classes" for "8 classes a day"), else "". A noun is the first
+    word after the count once "more", "new", "total" and the like are passed over; a
+    function word, punctuation, the end, or a word longer than NOUN_MAX leaves it
+    without a unit ("12 of 40 members" is 12 with none and 40 members)."""
+    unit = _time_unit(after)
+    if unit:
+        return unit
+    pos = 0
+    while True:
+        found = _NOUN_AFTER.match(after, pos)
+        if not found:
+            return ""
+        word = found.group(1).lower()
+        if word in _SKIPPED_BEFORE_NOUN:
+            pos = found.end()
+            continue
+        if word in _TIME_CANON:
+            return _TIME_CANON[word]
+        return "" if word in _FUNCTION_WORDS or not 2 <= len(word) <= NOUN_MAX else word
+
+
 def _unit(m: Mention, after: str) -> str:
     # a fraction is read as the percent number ("a third" is 33.3333), so it prints with its sign
     if m.form in ("percent", "fraction"):
         return "percent"
     if m.form == "money":
         return _currency(m.text, after)
-    # a count of something else (reformers, classes) has no unit; a position ("the 3rd
-    # week") or a multiplier ("3x") is not a length of time
-    return _time_unit(after) if m.form in ("digit", "word", "range") else ""
+    # a position ("the 3rd week") or a multiplier ("3x") counts nothing
+    return _counted_unit(after) if m.form in ("digit", "word", "range") else ""
 
 
 def _figure(id: str, m: Mention, source: TheirsSource, text: str) -> Figure | None:

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine
 from app.figures import casefile
-from app.figures.model import FigureSet, TheirsSource, display
+from app.figures.model import FigureSet, TheirsSource, display, display_number
 from app.models import Request
 
 DOT = "\u00b7"   # the middle dot in "<file> . <sheet> . <CELL>", written as an escape to keep this file ASCII
@@ -67,7 +67,7 @@ def test_each_number_they_gave_is_a_figure_that_says_where_it_came_from():
     assert (price.value, price.unit, price.source.turn, price.source.field) == (Decimal(22), "USD", 2, None)
 
     word = figs["F-business_description-1"]   # "twelve" counts
-    assert word.value == Decimal(12) and word.unit == ""
+    assert word.value == Decimal(12) and word.unit == "reformers"
     assert word.source == TheirsSource(turn=None, field="business_description",
                                        quote="We run a studio with twelve reformers.", file=None, cell=None)
     cost = figs["F-business_description-2"]
@@ -147,7 +147,7 @@ def test_the_unit_comes_from_how_the_number_was_written_and_never_claims_a_curre
     units = {f.value: f.unit for f in casefile.build(req)}
     assert units == {Decimal(35): "USD", Decimal(40): "EUR", Decimal(45): "GBP", Decimal(50): "",
                      Decimal(55): "USD", Decimal(60): "USD", Decimal(65): "USD",
-                     Decimal(70): "percent", Decimal(75): ""}
+                     Decimal(70): "percent", Decimal(75): "staff"}
 
 
 def test_a_currency_code_written_with_the_amount_beats_the_sign_beside_it():
@@ -179,11 +179,62 @@ def test_a_number_directly_followed_by_a_time_word_carries_that_unit():
     assert display(fig) == "12 weeks"
 
 
-def test_other_nouns_and_positions_stay_without_a_unit():
-    assert _units("We have 12 reformers and 6 classes a day.") == [(Decimal(12), ""), (Decimal(6), "")]
-    assert _units("We have 12 weekend slots.") == [(Decimal(12), "")]   # weekend is not week
+def test_positions_and_unattached_numbers_stay_without_a_unit():
+    assert _units("We have 12 weekend slots.") == [(Decimal(12), "weekend")]   # weekend is a noun, not week
     assert _units("It was the 3rd week, and 4x weeks.") == [(Decimal(3), ""), (Decimal(4), "")]   # a place, a factor
     assert _units("Open 7\n\nweeks") == [(Decimal(7), "")]   # not directly followed
+
+
+def test_a_plain_count_takes_the_noun_after_it_as_its_unit():
+    assert _units("We have twelve reformers.") == [(Decimal(12), "reformers")]
+    assert _units("We run 8 classes a day.") == [(Decimal(8), "classes")]
+    assert _units("Open to 40 Members, and 3 Part-Time staff.") == [(Decimal(40), "members"), (Decimal(3), "part-time")]
+    assert _units("Another 12 new members and 5 more classes, 6 extra reformers, 7 additional coaches, "
+                  "9 total seats.") == [(Decimal(12), "members"), (Decimal(5), "classes"), (Decimal(6), "reformers"),
+                                        (Decimal(7), "coaches"), (Decimal(9), "seats")]
+    assert _units("We need 4 more weeks and 2 extra hours.") == [(Decimal(4), "week"), (Decimal(2), "hour")]
+    [fig] = casefile.build(_req(main_problem="We have twelve reformers."))
+    assert display(fig) == "12 reformers" and display_number(fig) == "12"   # the number alone stays alone
+
+
+def test_a_count_with_no_noun_straight_after_it_has_no_unit():
+    assert _units("Of 40 members, 12 of 40 members came.") == [(Decimal(40), "members"), (Decimal(12), ""),
+                                                              (Decimal(40), "members")]
+    assert _units("We have 12 and 6.") == [(Decimal(12), ""), (Decimal(6), "")]
+    assert _units("We have 12, 6; and 5. Next 4") == [(Decimal(12), ""), (Decimal(6), ""), (Decimal(5), ""),
+                                                      (Decimal(4), "")]
+    assert _units("We have 12 more.") == [(Decimal(12), "")]
+    assert _units("12 or more members") == [(Decimal(12), "")]
+    assert _units("12 x") == [(Decimal(12), "")]   # one letter is not a noun
+    assert _units("We have 12 " + "w" * (casefile.NOUN_MAX + 1) + " ok") == [(Decimal(12), "")]   # too long
+    assert _units("We have 12 caf\u00e9s") == [(Decimal(12), "")]   # a word cut short by an accent is no noun
+    assert _units("It cost 12 000x") == [(Decimal(12000), "")]
+
+
+def test_a_noun_unit_keeps_two_counts_of_the_same_size_apart():
+    req = _req(ops_numbers_json=_pairs({"question": "a", "answer": "40 members"}, {"question": "b", "answer": "40 reformers"}))
+    members, reformers = casefile.build(req)
+    assert (members.unit, reformers.unit) == ("members", "reformers") and members != reformers
+    both = FigureSet([members, reformers])
+    assert [f.id for f in both.match(Decimal(40), "members")] == [members.id]
+    assert [f.id for f in both.match(Decimal(40), "reformers")] == [reformers.id]
+
+
+def test_a_noun_unit_does_not_move_an_id_and_survives_the_stored_form(db):
+    req = _req(main_problem="We have twelve reformers and 8 classes a day. About 40 members, $80 a month.",
+               ops_numbers_json=_pairs({"question": "a", "answer": "6 coaches"}))
+    first, second = casefile.build(req), casefile.build(req)
+    assert first == second
+    assert [f.id for f in first] == ["T1-1", "F-main_problem-1", "F-main_problem-2", "F-main_problem-3",
+                                     "F-main_problem-4"]
+    assert [f.unit for f in first] == ["coaches", "reformers", "classes", "members", "USD"]
+    row = _persist(db, main_problem=req.main_problem, ops_numbers_json=req.ops_numbers_json)
+    assert row.case_file_json is None
+    assert [f.unit for f in casefile.load(row)] == [f.unit for f in first]   # an old row builds them on read
+    casefile.save(db, row)
+    db.commit()
+    stored = casefile.load(_fresh(row.id))
+    assert list(stored) == first and row.case_file_json is not None   # and they round-trip through the column
 
 
 def test_money_and_percent_keep_their_units_beside_a_time_word():
@@ -198,13 +249,13 @@ def test_a_files_value_with_a_time_word_carries_it_too():
 
 def test_a_figure_prints_the_value_they_gave_without_the_zeros_a_magnitude_adds():
     req = _req(main_problem="We make 1.5k a month; the best day was $1,240.00; fill is 12.50%; and twelve staff.")
-    assert [display(f) for f in casefile.build(req)] == ["1,500", "$1,240", "12.5%", "12"]
+    assert [display(f) for f in casefile.build(req)] == ["1,500", "$1,240", "12.5%", "12 staff"]
 
 
 def test_a_time_or_a_date_is_not_a_figure():
     # read.supported() passes these by their form, and an "18" made from 6pm would
     # vouch for 18 reformers
-    req = _req(main_problem="We open at 6pm on 31 Oct 2025, and 12 people come.")
+    req = _req(main_problem="We open at 6pm, have done since 2019, and 12 people come.")
     assert [f.value for f in casefile.build(req)] == [Decimal(12)]
 
 
