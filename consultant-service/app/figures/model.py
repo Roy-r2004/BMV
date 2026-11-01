@@ -315,28 +315,18 @@ _APPROVAL_REJECTED = "rejected"
 # derived, anything proposed (or not said) is ours, rejected is not a figure.
 _PROVENANCE_KIND = {"client_input": "theirs", "machine_computed": "derived", "consultant_proposed": "ours"}
 _GATE_KIND_BY_APPROVAL = {"client_stated": "theirs", "machine_verified": "derived"}
-_KIND_CLAIM = {
-    "theirs": ("client_input", "client_stated"),
-    "derived": ("machine_computed", "machine_verified"),
-    "ours": ("consultant_proposed", _APPROVAL_PROPOSED),
-}
 
 # registry.py:1709, 2782: units whose value is stored as a fraction (0.25 for 25%).
 # A Figure holds the percent number (25) with unit "percent". "ratio" (the scenario
-# assumptions, registry.py:397) is the same thing and comes back as "%".
+# assumptions, registry.py:397) is the same thing.
 _FRACTION_UNITS = frozenset({"%", "ratio"})
 
 # registry.py:87-92 (CLAIM_TYPES). A derived figure remembers its claim type in
-# Working.op, so the claim it came from can be rebuilt; any other op (the exact
-# arithmetic's "mul", "sum") becomes a plain derived_value. A figure of ours has no
-# type of its own and becomes a proposed_threshold.
+# Working.op; any other type reads as a plain derived_value.
 _DERIVED_CLAIM_TYPES = ("derived_value", "time_basis_conversion", "scenario_impact")
-_PROPOSED_CLAIM_TYPE = "proposed_threshold"
-_THEIRS_CLAIM_TYPE = "client_fact"
 
 # the source strings the producers write (registry.py:339/348, evidence.py:279)
 _DISCOVERY_PREFIX = "discovery: "
-_BRIEF_SOURCE = "client brief"
 _FILE_SEP = " \u00b7 "   # "<file> . <sheet> . <CELL>", a middle dot
 
 
@@ -426,61 +416,6 @@ def from_claim(c: dict) -> Figure:
     else:
         src = Proposal(note=text or source)
     return Figure(id=cid, value=value, unit=unit, period=period, kind=kind, source=src, precision=precision)
-
-
-def to_claim(f: Figure) -> dict:
-    """A claim dict rebuilt from what the Figure holds. It is NOT the claim the
-    Figure was read from, and it is not a stand-in for one.
-
-    The kind sets provenance and approval; "percent" goes back to a fraction with
-    unit "%". What it loses:
-      - type collapses to five: client_fact, derived_value, time_basis_conversion,
-        scenario_impact and proposed_threshold. A module_kpi, scenario_assumption,
-        performance_target or any other proposed claim comes back as
-        proposed_threshold; a pilot_gate or historical_fact claim comes back as
-        client_fact, derived_value or proposed_threshold, by its kind.
-      - scope, phase, population and allowed_sections are reset to their defaults
-        ("engagement", "all", "n/a", ["*"]); `accepted` is dropped; so are event,
-        item, formula and scenario.
-      - a canonical_gate claim comes back under its kind's provenance, a "ratio"
-        comes back as "%", the text of a derived claim is its display, and the
-        value is a float again, so it loses digits past about 17.
-    Do not feed the result to claim_values, or to anything else that tells an
-    unaccepted module_kpi from other proposals: a proposal comes back with no
-    `accepted` and no module_kpi type, so that distinction is gone.
-
-    It passes validate_registry for any figure read by from_claim from a claim
-    that was itself valid. It does not for every figure: a hand-built derived
-    figure whose op is time_basis_conversion and whose period is not one of the
-    canonical bases (day, week, operating_30_day_month, year) fails, because the
-    registry demands one. A reference figure has no provenance in the registry's
-    closed set, so it raises ValueError."""
-    if f.kind == "reference":
-        raise ValueError(f"figure {f.id} is a published reference; the registry has no claim for it")
-    provenance, approval = _KIND_CLAIM[f.kind]
-    value, unit = f.value, f.unit
-    if unit == "percent":
-        value, unit = value.scaleb(-2), "%"
-    s = f.source
-    extra: dict = {}
-    if isinstance(s, TheirsSource):
-        ctype, text = _THEIRS_CLAIM_TYPE, s.quote
-        if s.file:
-            source = _FILE_SEP.join(p for p in (s.file, s.field, s.cell) if p)
-            extra = {"origin": "file", "file": s.file, **({"cell": s.cell} if s.cell else {})}
-        elif s.field:
-            source, extra = _DISCOVERY_PREFIX + s.field, {"question": s.field}
-        else:
-            source = _BRIEF_SOURCE
-    elif isinstance(s, Working):
-        ctype = s.op if s.op in _DERIVED_CLAIM_TYPES else "derived_value"
-        source, text = s.text, display(f)
-    else:
-        ctype, source, text = _PROPOSED_CLAIM_TYPE, s.note, s.note
-    return {"id": f.id, "type": ctype, "value": float(value), "unit": unit,
-            "time_basis": f.period or "n/a", "population": "n/a", "scope": "engagement", "phase": "all",
-            "provenance": provenance, "approval_status": approval, "source": source,
-            "allowed_sections": ["*"], "text": text, **extra}
 
 
 # -- the set of figures a request knows ----------------------------------------------
