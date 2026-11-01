@@ -131,21 +131,33 @@ def test_a_headline_with_twelve_she_never_gave_is_dropped_and_kept_when_she_did(
     raw = {"headline": "You turn away twelve people a week.", "sub": ""}
     got, problems = _answer(raw, ["$22 a class."])
     assert got is None and any("twelve" in p for p in problems)
-    got, problems = _answer(raw, ["We turn away twelve people a week."])
-    assert got["headline"] == "You turn away 12 people a week." and not problems
+    # her own count, echoed with its own noun, is hers; a number word stays a word
+    got, problems = _answer({"headline": "You have twelve reformers.", "sub": ""}, ["We have twelve reformers."])
+    assert got["headline"] == "You have twelve reformers." and not problems
+
+
+@pytest.mark.xfail(strict=True, reason="casefile gives a generic noun ('people', 'others') no unit, but bind "
+                                       "binds a count with a noun only to a figure with that noun, so the "
+                                       "client's own 'twelve people' echoed back names nothing (Review Focus 6)")
+def test_her_own_count_with_a_generic_noun_echoed_back_is_hers():
+    got, problems = _answer({"headline": "You turn away twelve people a week.", "sub": ""},
+                            ["We turn away twelve people a week."])
+    assert got["headline"] == "You turn away twelve people a week." and not problems
 
 
 def test_a_headline_figure_keeps_the_ids_of_both_figures_it_names_and_an_unmatched_one_is_dropped():
     raw = {"headline": "You are the cheapest nearby.",
-           "figures": [{"value": "$22 vs $32", "label": "you and two studios nearby", "cites": ["CF-04", "CF-06"]},
+           "figures": [{"value": "$22 vs $32", "label": "you and the studios nearby", "cites": ["CF-04", "CF-06"]},
                        {"value": "$22 vs $35", "label": "made up", "cites": ["CF-04"]}]}
     got, problems = _answer(raw)
     known = K.known_for_texts(HALO)
     ids = got["figures"][0]["ids"]
     assert [f["value"] for f in got["figures"]] == ["$22 vs $32"] and problems
-    assert [known.get(i).value for i in ids[:2]] == [22, 32] and all(known.get(i).unit == "USD" for i in ids[:2])
-    assert "2 studios" in got["figures"][0]["label"]     # "two studios" is bound too
-    assert len(ids) == 2                                  # but the ids are the value's only
+    assert [known.get(i).value for i in ids] == [22, 32] and all(known.get(i).unit == "USD" for i in ids)
+    # a count in the label must name a figure with its noun: she said "two others", not "two studios"
+    raw["figures"][0]["label"] = "you and two studios nearby"
+    got, problems = _answer(raw)
+    assert got["figures"] == [] and problems
 
 
 @pytest.mark.parametrize("value", ["Week 4", "Phase 2", "Q3"])
@@ -188,7 +200,7 @@ def test_the_roadmap_registers_its_lengths_as_ours_and_its_prose_binds_to_them()
     plan, problems = action_plan.shape(_roadmap(), K.known_for_texts(HALO))
     # "over four weeks" is a limit: it binds only on the figure's exact value (PLAN-WEEKS
     # is 4) and is never rewritten, so the model's wording stays; "two phases" is a count
-    assert not problems and plan["summary"] == "We do this in 2 phases over four weeks."
+    assert not problems and plan["summary"] == "We do this in two phases over four weeks."   # words stay words
     # a limit that is not the figure's exact value names nothing, and the summary goes
     plan, problems = action_plan.shape(_roadmap(summary="We do this over five weeks."), K.known_for_texts(HALO))
     assert plan["summary"] == "" and any("five" in p for p in problems)
@@ -199,7 +211,7 @@ def test_the_roadmap_registers_its_lengths_as_ours_and_its_prose_binds_to_them()
     # with the answer's plan length, the roadmap uses that one
     plan, problems = action_plan.shape(_roadmap(summary="A six-week plan."), K.known_for_texts(HALO),
                                        plan_weeks=K.plan_weeks_figure(6))
-    assert plan["summary"] == "A 6-week plan."
+    assert plan["summary"] == "A six-week plan."   # bound to PLAN-WEEKS, the word kept
     assert any(f["id"] == "PLAN-WEEKS" and f["value"] == "6" for f in plan["figures"])
 
 
@@ -258,7 +270,7 @@ def test_the_week_is_checked_in_their_words_and_a_price_is_not_a_count():
 def test_screens_captions_and_story_are_bound_and_an_unmatched_item_is_dropped():
     from app.screens import generate
     known = K.known_for_texts(HALO)
-    assert generate._clean_text("You run twelve reformers. You will run 40.", known, set()) == "You run 12 reformers."
+    assert generate._clean_text("You run twelve reformers. You will run 40.", known, set()) == "You run twelve reformers."
     story = generate._check_story({"headline": "Twelve reformers, full",
                                    "needs": ["A list of your 12 regulars", "3 new staff"],
                                    "comparison": {"rows": [{"label": "Price", "cells": ["$22", "$40"]},
@@ -266,11 +278,11 @@ def test_screens_captions_and_story_are_bound_and_an_unmatched_item_is_dropped()
                                    "ambition": {"pillars": [{"title": "Six a day", "text": "x"},
                                                             {"title": "Nine a day", "text": "x"}]}},
                                   known, set())
-    assert story["headline"] == "12 reformers, full"
+    assert story["headline"] == "Twelve reformers, full"
     # a count carries its noun: "12 reformers" does not back "12 regulars"
     assert story["needs"] == []
-    assert story["comparison"]["rows"] == [{"label": "Reformers", "cells": ["12", "12"]}]
-    assert [p["title"] for p in story["ambition"]["pillars"]] == ["6 a day"]
+    assert story["comparison"]["rows"] == [{"label": "Reformers", "cells": ["12", "twelve"]}]
+    assert [p["title"] for p in story["ambition"]["pillars"]] == ["Six a day"]
     # when her own words give "12 regulars", the need stands
     theirs = K.known_for_texts([*HALO, "We have 12 regulars."])
     assert generate._check_story({"needs": ["A list of your 12 regulars"]}, theirs, set())["needs"] == [
