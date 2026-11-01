@@ -23,7 +23,7 @@ from app.figures import labels
 from app.figures import model as M
 from app.figures.model import (
     Figure, FigureSet, Proposal, Reference, TheirsSource, Working,
-    as_json, display, from_claim, from_json, tag_word, to_claim,
+    as_json, display, display_number, from_claim, from_json, tag_word, to_claim,
 )
 from app.pipeline import capacity, registry as R
 
@@ -194,6 +194,44 @@ def test_unknown_unit_prints_the_number_then_the_unit_word():
     assert display(theirs(value="12", unit="reformers")) == "12 reformers"
     assert display(theirs(value="1250", unit="deliveries")) == "1,250 deliveries"
     assert display(theirs(value="3", unit="EUR")) == "3 EUR"
+
+
+# -- display_number: the number alone, for replacing a number inside a sentence --
+
+def test_display_number_keeps_symbols_and_drops_unit_words():
+    assert display_number(theirs(value="22")) == "$22"
+    assert display_number(theirs(value="25", unit="percent")) == "25%"
+    assert display_number(derived(value="44928", unit="USD", precision=-3)) == "~$45,000"
+    assert display_number(derived(value="33.333", unit="percent", precision=0)) == "~33%"
+    assert display_number(derived(value="-5", unit="USD")) == "-$5"
+    assert display_number(derived(value="-5.4", unit="USD", precision=0)) == "~-$5"
+    assert display_number(theirs(value="1250.5", precision=2)) == "$1,250.50"
+    # "6 weeks" is the number 6 and a word the sentence already holds
+    assert display_number(ours(value="6", unit="weeks")) == "6"
+    assert display_number(ours(value="1", unit="weeks")) == "1"
+    assert display_number(ours(value="6.4", unit="weeks")) == "~6"
+    assert display_number(theirs(value="12", unit="reformers")) == "12"
+    assert display_number(theirs(value="3", unit="EUR")) == "3"
+    assert display_number(theirs(value="1250", unit="count")) == "1,250"
+    assert display_number(theirs(value="1.5", unit="weeks", precision=1)) == "1.5"
+
+
+def test_display_number_without_symbols_is_the_digits_the_sign_and_the_tilde():
+    assert display_number(derived(value="44928", unit="USD", precision=-3), symbols=False) == "~45,000"
+    assert display_number(theirs(value="22"), symbols=False) == "22"
+    assert display_number(theirs(value="1250.5", precision=2), symbols=False) == "1,250.50"
+    assert display_number(theirs(value="25", unit="percent"), symbols=False) == "25"
+    assert display_number(derived(value="-5.4", unit="USD", precision=0), symbols=False) == "~-5"
+
+
+def test_display_number_agrees_with_display_on_every_number():
+    # whatever display prints, display_number prints the same digits, sign and tilde
+    import re
+    for f in (theirs(), theirs(value="25", unit="percent"), derived(), derived(value="3692.71", unit="USD", precision=2),
+              ours(value="6.4"), ours(value="1"), reference(), reference(value="1200000", unit="USD", precision=-3),
+              derived(value="-5.4", unit="USD", precision=0), theirs(value="12", unit="reformers")):
+        words = re.sub(r"[ A-Za-z]+$", "", display(f))
+        assert display_number(f) == words, f
 
 
 @pytest.mark.parametrize("unit", sorted(set(R._CAPACITY_CANON.values())))

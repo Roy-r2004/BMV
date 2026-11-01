@@ -171,8 +171,7 @@ _UNIT_STYLE = _unit_styles()
 _APPROXIMATE_KINDS = ("derived", "ours")
 
 
-def display(f: Figure) -> str:
-    """The figure as a client reads it: "$22", "25%", "~45,000", "6 weeks"."""
+def _shown(f: Figure, *, unit_word: bool, symbols: bool) -> str:
     rounded = _rounded(f.value, f.precision)
     prefix, one, many, fewest = _UNIT_STYLE.get(f.unit, ("", f" {f.unit}", f" {f.unit}", 0))
     magnitude = rounded.copy_abs()
@@ -180,7 +179,31 @@ def display(f: Figure) -> str:
     number = format(magnitude, f",.{digits}f")
     sign = "-" if rounded < 0 else ""
     approx = "~" if f.kind in _APPROXIMATE_KINDS and rounded != f.value else ""
-    return f"{approx}{sign}{prefix}{number}{one if magnitude == 1 else many}"
+    suffix = one if magnitude == 1 else many
+    is_word = suffix.startswith(" ")   # " weeks", " GB" are words; "%" is a symbol
+    if is_word and not unit_word:
+        suffix = ""
+    if not symbols:
+        prefix = ""
+        if not is_word:
+            suffix = ""
+    return f"{approx}{sign}{prefix}{number}{suffix}"
+
+
+def display(f: Figure) -> str:
+    """The figure as a client reads it: "$22", "25%", "~45,000", "6 weeks"."""
+    return _shown(f, unit_word=True, symbols=True)
+
+
+def display_number(f: Figure, *, symbols: bool = True) -> str:
+    """The number alone, for putting a figure's value where the model wrote a
+    number inside a sentence that already has the unit word: "6" for 6 weeks,
+    "12" for 12 reformers. It keeps the "~", the sign, the thousands commas and
+    the precision, and with `symbols` (the default) the "$" before dollars and the
+    "%" after a percent: "~$45,000", "25%". With `symbols=False` it is only the
+    "~", the sign and the digits, for a caller that keeps the symbols the
+    sentence already has."""
+    return _shown(f, unit_word=False, symbols=symbols)
 
 
 _TAG_WORDS = {"theirs": "yours", "derived": "worked out", "ours": "our estimate", "reference": "reference"}
