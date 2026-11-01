@@ -298,7 +298,7 @@ export default function Interview({
               <motion.div key="loading" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }}>
                 <p className="cx-ask-meta">
                   <span>Question {asked + 1}</span>
-                  <span><b>{toGo}</b> facts still to go</span>
+                  <span><b>{toGo}</b> {toGo === 1 ? 'fact' : 'facts'} still to go</span>
                 </p>
                 <p className="cx-lead" style={{ marginTop: 18 }}>
                   {asked === 0 ? 'Reading your brief' : 'Reading your answer'}
@@ -320,7 +320,7 @@ export default function Interview({
               >
                 <p className="cx-ask-meta">
                   <span>Question {asked + 1}</span>
-                  <span><b>{toGo}</b> facts still to go</span>
+                  <span><b>{toGo}</b> {toGo === 1 ? 'fact' : 'facts'} still to go</span>
                 </p>
                 <h2>{question.label}</h2>
                 {question.why ? <p className="cx-why">{question.why}</p> : null}

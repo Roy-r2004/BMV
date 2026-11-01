@@ -695,7 +695,7 @@ def _decision_payload(req: Request, *, public: bool = False) -> dict:
         # The answer screen: their week drawn from their own answers, the
         # finding in two lines, and the value of the move with its working.
         # Each is null when it could not be made — never a placeholder.
-        "capacity": capacity,
+        "capacity": figure_payload.capacity_for_web(capacity, public=public),
         "answer": answer,
         "action_plan": plan,
         "figures": figures,
@@ -1008,8 +1008,9 @@ def get_preview(request_ref: str, review_token: str | None = None,
         for i, emp in enumerate(recommendations.get("recommended_ai_employees", []), start=1)
     ]
     capacity, plan = capacity_stage.load(req), plan_stage.load(req)
+    public = not _shows_sources(req, review_token, authorization)
     answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=plan, capacity=capacity,
-                                             public=not _shows_sources(req, review_token, authorization))
+                                             public=public)
     # Cache-buster on every image URL. The path alone is NOT unique across
     # time: request ids restart when the database does, so /uploads/images/1/
     # can hold a DIFFERENT business's screens than it did last week — and a
@@ -1121,7 +1122,7 @@ def get_preview(request_ref: str, review_token: str | None = None,
         # The package page opens with these: the answer it was built around,
         # their week, the implementation roadmap and what they chose on it.
         "answer": answer,
-        "capacity": capacity,
+        "capacity": figure_payload.capacity_for_web(capacity, public=public),
         "action_plan": plan,
         "figures": figures,
         "decisions": plan_stage.load_decisions(req),
@@ -1359,10 +1360,16 @@ def build_zip(req: Request) -> tuple[str, str]:
             built.append((export_pdf.build_pdf(req, kind), name))
         except ValueError:
             continue
+    from app.figures.law import UnstampedSample
+
     try:
         built.append((screens_export.build_system_pdf(req), "Volume IV - Your System, Screen by Screen.pdf"))
     except (screens_export.NotReady, RuntimeError):
         pass
+    except UnstampedSample:
+        # a drawn screen lost its SAMPLE DATA stamp: the proposal is not drawn,
+        # and the rest of the package still goes out
+        logger.error("request %s: the proposal has a sample region without its stamp", req.id)
     if not built:
         raise HTTPException(status_code=400, detail="Documents not ready yet")
 
@@ -1399,6 +1406,7 @@ def pdf_file(req: Request, kind: str) -> tuple[str, str]:
     if kind == "system":
         # The proposal: the system screen by screen, printed by a browser
         # from the same HTML the site shows.
+        from app.figures.law import UnstampedSample
         from app.screens import export as screens_export
 
         try:
@@ -1406,6 +1414,9 @@ def pdf_file(req: Request, kind: str) -> tuple[str, str]:
         except screens_export.NotReady:
             raise HTTPException(status_code=400, detail="Your system is not drawn yet")
         except RuntimeError:
+            raise HTTPException(status_code=503, detail="The proposal cannot be printed on this server right now")
+        except UnstampedSample:
+            logger.error("request %s: the proposal has a sample region without its stamp", req.id)
             raise HTTPException(status_code=503, detail="The proposal cannot be printed on this server right now")
         return out_path, f"{file_stub}-system.pdf"
     try:

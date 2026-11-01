@@ -25,16 +25,29 @@ import { Fragment, useId, useState, type CSSProperties, type ReactNode } from 'r
 
 import type { FigureJson, FigureKind, FigureMap, FigureSegment } from '../../api/consultant';
 
-// The colours are the ones the data request's legend already uses: green for
-// what they told us, amber and dashed for what we estimated. They are inline
-// styles, because the answer's heading restyles every span inside it.
+// The hues are the ones the data request's legend already uses: green for what they
+// told us, amber and dashed for what we estimated, but the text is darkened until every
+// chip is at least 4.5:1 on its own tint, on white (the answer's card) and on the pillar
+// panel (#eef4ff): yours 6.07 / 5.57, worked out 7.30 / 6.65, our estimate 6.17 / 6.17,
+// reference 7.70 / 7.70 (the tints are rgba(14,159,110,.10), rgba(37,99,235,.09), #fff1dc
+// and #eef2f9). They are inline styles, because the answer's heading restyles every span
+// inside it.
 const COLOUR: Record<FigureKind, { color: string; background: string; border: string }> = {
-  theirs: { color: 'var(--cx-green)', background: 'var(--cx-green-soft)', border: '1px solid transparent' },
-  derived: { color: '#1d4ed8', background: 'var(--cx-blue-soft)', border: '1px solid transparent' },
-  ours: { color: 'var(--cx-amber)', background: 'var(--cx-amber-bg)', border: '1px dashed var(--cx-amber)' },
-  reference: { color: 'var(--cx-txt2)', background: '#eef2f9', border: '1px solid transparent' },
+  theirs: { color: '#0a6847', background: 'var(--cx-green-soft)', border: '1px solid transparent' },
+  derived: { color: '#1a43b8', background: 'var(--cx-blue-soft)', border: '1px solid transparent' },
+  ours: { color: '#8a4a00', background: 'var(--cx-amber-bg)', border: '1px dashed #8a4a00' },
+  reference: { color: '#3d4b6e', background: '#eef2f9', border: '1px solid transparent' },
 };
 const colourOf = (kind: FigureKind) => COLOUR[kind] ?? COLOUR.reference;
+
+// A figure that has no chip is underlined, and the line says the kind without colour:
+// solid for yours, dashed for worked out, dotted for our estimate, double for a reference.
+const LINE: Record<FigureKind, 'solid' | 'dashed' | 'dotted' | 'double'> = {
+  theirs: 'solid',
+  derived: 'dashed',
+  ours: 'dotted',
+  reference: 'double',
+};
 
 const BODY = { fontFamily: 'var(--cx-body)', letterSpacing: 0, textTransform: 'none' } as const;
 
@@ -78,7 +91,7 @@ function chipStyle(kind: FigureKind, height: number): CSSProperties {
 }
 
 /** The sentence that says where a figure came from, opened under it. */
-function Source({ id, info, lead }: { id: string; info: FigureJson; lead?: string }) {
+function Source({ id, info }: { id: string; info: FigureJson }) {
   return (
     <span
       id={id}
@@ -96,7 +109,6 @@ function Source({ id, info, lead }: { id: string; info: FigureJson; lead?: strin
         whiteSpace: 'normal',
       }}
     >
-      {lead ? <b style={{ fontWeight: 600, color: 'var(--cx-txt)' }}>{lead} </b> : null}
       {info.source}
     </span>
   );
@@ -110,57 +122,71 @@ const closeOnEscape = (open: boolean, toggle: () => void) => (e: { key: string; 
 };
 
 /** A figure inside a sentence: its text, and (with `chip`) its tag beside it. Pressing
- *  either opens the source below. With no entry in the map it is only its text. */
-export default function Fig({ id, text, figures, chip = true }: {
+ *  either opens the source below. With no entry in the map it is only its text. `trail`
+ *  is the punctuation that follows the figure in the sentence ("." in "$32."): it stays
+ *  with the figure, so an opened source never leaves it alone on a line. */
+export default function Fig({ id, text, figures, chip = true, trail = '' }: {
   id: string;
   text: string;
   figures?: FigureMap | null;
   /** The full tag chip beside the number, or only the number underlined. */
   chip?: boolean;
+  trail?: string;
 }) {
   const info = figures?.[id];
   const [open, setOpen] = useState(false);
   const panel = useId();
-  if (!info) return <>{text}</>;
+  if (!info) return <>{text}{trail}</>;
   const toggle = () => setOpen((v) => !v);
   const colour = colourOf(info.kind).color;
   return (
     <>
-      <button
-        type="button"
-        className={`relative cursor-pointer before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] ${FOCUS}`}
-        style={{
-          display: 'inline',
-          margin: 0,
-          padding: 0,
-          border: 0,
-          background: 'none',
-          font: 'inherit',
-          letterSpacing: 'inherit',
-          color: 'inherit',
-          textAlign: 'inherit',
-          whiteSpace: 'nowrap',
-          ...(chip ? {} : { textDecoration: 'underline', textDecorationColor: colour, textDecorationThickness: 2, textUnderlineOffset: 4 }),
-        }}
-        aria-expanded={open}
-        aria-controls={open ? panel : undefined}
-        aria-label={nameOf(text, info)}
-        data-figure={text}
-        onClick={toggle}
-        onKeyDown={closeOnEscape(open, toggle)}
-      >
-        {text}
-        {chip ? (
-          <span style={{ ...chipStyle(info.kind, 22), marginLeft: 4 }}>
-            {info.tag}
-            <Chevron open={open} />
-          </span>
-        ) : null}
-      </button>
+      <span style={{ display: 'inline', color: 'inherit', whiteSpace: 'nowrap' }}>
+        <button
+          type="button"
+          className={`relative cursor-pointer before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] ${FOCUS}`}
+          style={{
+            display: 'inline',
+            margin: 0,
+            padding: 0,
+            border: 0,
+            background: 'none',
+            font: 'inherit',
+            letterSpacing: 'inherit',
+            color: 'inherit',
+            textAlign: 'inherit',
+            whiteSpace: 'nowrap',
+            ...(chip ? {} : {
+              textDecorationLine: 'underline',
+              textDecorationStyle: LINE[info.kind] ?? 'solid',
+              textDecorationColor: colour,
+              textDecorationThickness: open ? 3 : 2,
+              textUnderlineOffset: 4,
+            }),
+          }}
+          aria-expanded={open}
+          aria-controls={open ? panel : undefined}
+          aria-label={nameOf(text, info)}
+          data-figure={text}
+          onClick={toggle}
+          onKeyDown={closeOnEscape(open, toggle)}
+        >
+          {text}
+          {chip ? (
+            <span style={{ ...chipStyle(info.kind, 22), marginLeft: 4 }}>
+              {info.tag}
+              <Chevron open={open} />
+            </span>
+          ) : null}
+        </button>
+        {trail}
+      </span>
       {open ? <Source id={panel} info={info} /> : null}
     </>
   );
 }
+
+const TRAILING = /^[.,;:!?)\]}'"\u2019\u201d\u00bb]+/;
 
 /** Prose in the pieces the server sent: plain text, and a Fig for each bound
  *  number. The first figure of each kind carries the chip, the rest are underlined.
@@ -172,14 +198,24 @@ export function Segments({ segments, text, figures }: {
 }): ReactNode {
   if (!segments?.length) return <>{text}</>;
   const seen = new Set<FigureKind>();
+  // the punctuation right after a figure travels with it (see `Fig`)
+  const pieces = segments.map((s) => ({ ...s, trail: '' }));
+  for (let i = 0; i + 1 < pieces.length; i++) {
+    const next = pieces[i + 1];
+    const m = pieces[i].figure && !next.figure ? TRAILING.exec(next.text) : null;
+    if (m) {
+      pieces[i].trail = m[0];
+      next.text = next.text.slice(m[0].length);
+    }
+  }
   return (
     <>
-      {segments.map((s, i) => {
-        if (!s.figure) return <Fragment key={i}>{s.text}</Fragment>;
+      {pieces.map((s, i) => {
+        if (!s.figure) return s.text ? <Fragment key={i}>{s.text}</Fragment> : null;
         const kind = figures?.[s.figure]?.kind;
         const chip = !kind || !seen.has(kind);
         if (kind) seen.add(kind);
-        return <Fig key={i} id={s.figure} text={s.text} figures={figures} chip={chip} />;
+        return <Fig key={i} id={s.figure} text={s.text} figures={figures} chip={chip} trail={s.trail} />;
       })}
     </>
   );
@@ -216,7 +252,12 @@ export function Tags({ items, labelled = false, lead, className = 'mt-2' }: {
             key={key}
             type="button"
             className={`relative cursor-pointer before:absolute before:-inset-x-1 before:-inset-y-[9px] before:content-[''] ${FOCUS}`}
-            style={{ ...chipStyle(info.kind, 28), padding: '0 10px', cursor: 'pointer' }}
+            style={{
+              ...chipStyle(info.kind, 28),
+              padding: '0 10px',
+              cursor: 'pointer',
+              boxShadow: isOpen ? 'inset 0 0 0 1px currentColor' : undefined,
+            }}
             aria-expanded={isOpen}
             aria-controls={isOpen ? panel : undefined}
             aria-label={nameOf(info.display, info)}
@@ -231,7 +272,7 @@ export function Tags({ items, labelled = false, lead, className = 'mt-2' }: {
       })}
       {shown ? (
         <span style={{ flexBasis: '100%', marginTop: -8 }}>
-          <Source id={panel} info={shown.info} lead={labelled && items.length > 1 ? `${shown.info.display}:` : undefined} />
+          <Source id={panel} info={shown.info} />
         </span>
       ) : null}
     </div>

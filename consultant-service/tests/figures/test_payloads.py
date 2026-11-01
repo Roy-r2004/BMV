@@ -46,7 +46,8 @@ DESCRIPTION = ("I run a pilates studio and I think I need a proper booking app. 
 GRID = {"shape": "weekly_grid", "unit": "reformer spot", "unit_plural": "reformer spots",
         "per_slot": 12, "slots_per_day": 6, "days_per_week": 6,
         "slot_times": [None, None, None, None, "18:00", "19:00"],
-        "typical_taken": 10, "full_slots": ["18:00", "19:00"], "waitlist": True}
+        "typical_taken": 10, "full_slots": ["18:00", "19:00"], "waitlist": True,
+        "quote": "Six 50-minute classes a day, six days a week."}
 MOVE = {"label": "moving 6pm and 7pm to $28, if regulars stay", "unit": "USD", "period": "year",
         "terms": [{"label": "evening spots a week", "value": 144, "from": "CAP-05"},
                   {"label": "price rise per spot", "value": 6,
@@ -458,7 +459,7 @@ def _hers() -> list[str]:
     """Every string in the fixture that is the client's own: our questions to her, her
     answers, what she wrote, the file she sent (name, sheet, cell)."""
     return [q for q, _ in QUESTIONS] + [a for _, a in QUESTIONS] + [DESCRIPTION] + [
-        "march-takings.xlsx", "Takings Sheet", "B5", "Takings for March"]
+        "march-takings.xlsx", "Takings Sheet", "B5", "Takings for March", GRID["quote"]]
 
 
 def _leaks(body) -> list[str]:
@@ -536,3 +537,92 @@ def test_a_public_sentence_keeps_a_reference_and_drops_a_working_that_holds_her_
     # a number of hers inside a working is not her words
     assert payload.public_sentence(_f("ours", Proposal(note="$28 proposed - $22 now"), "6"), ["$22 a class, $200 for 10"]
                                    ) == "Our estimate: $28 proposed - $22 now"
+
+
+# -- the week's own quote and basis -------------------------------------------------------------------
+
+def test_the_week_carries_a_quote_of_her_words_only_to_the_owner_and_the_reviewer(client, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "REVIEW_TOKEN", "review-secret-123")
+    token = secrets.token_urlsafe(18)
+    rid = _seed(_written(share_token=token))
+    owner = _decision(client, rid)["capacity"]
+    assert owner["quote"] == GRID["quote"] and owner["basis"]                    # the fixture has both
+    assert client.get(f"/api/requests/{rid}/preview").json()["capacity"]["quote"] == GRID["quote"]
+    shared = client.get(f"/api/shared/{token}").json()["capacity"]
+    assert shared["quote"] == "" and shared["basis"] == []
+    assert {k: v for k, v in shared.items() if k not in ("quote", "basis")} == {
+        k: v for k, v in owner.items() if k not in ("quote", "basis")}        # nothing else about the week changes
+    # a run anyone can open: blank on decision and preview too; the reviewer still reads it
+    anyone = _seed(_written(owner_email=None))
+    for route in ("decision", "preview"):
+        assert client.get(f"/api/requests/{anyone}/{route}").json()["capacity"]["quote"] == "", route
+        assert client.get(f"/api/requests/{anyone}/{route}").json()["capacity"]["basis"] == [], route
+        full = client.get(f"/api/requests/{anyone}/{route}", params={"review_token": "review-secret-123"}).json()
+        assert full["capacity"]["quote"] == GRID["quote"], route
+    assert GRID["quote"] not in json.dumps(client.get(f"/api/shared/{token}").json())
+
+
+def test_a_week_with_no_quote_or_basis_keeps_its_shape_and_none_is_unchanged():
+    assert payload.capacity_for_web({"shape": "total"}, public=True) == {"shape": "total"}
+    assert payload.capacity_for_web(None, public=True) is None and payload.capacity_for_web("x", public=True) == "x"
+    full = {"quote": "q", "basis": ["b"], "capacity": 3}
+    assert payload.capacity_for_web(full, public=False) is full
+    assert payload.capacity_for_web(full, public=True) == {"quote": "", "basis": [], "capacity": 3}
+    assert full["quote"] == "q"                                                   # the stored week is not touched
+
+
+# -- copy ---------------------------------------------------------------------------------------------
+
+def test_a_phases_length_names_the_stretch_of_the_plan_by_its_title(client):
+    figures = client.get(f"/api/requests/{_seed(_written())}/plan").json()["figures"]
+    assert figures["PLAN-PHASE-1-WEEKS"]["source"] == 'Our estimate: how long "Set the evening price" takes'
+    assert figures["PLAN-PHASE-2-WEEKS"]["source"] == 'Our estimate: how long "Watch the evenings" takes'
+    assert figures["PLAN-WEEKS"]["source"] == "Our estimate: the length of the plan we propose"
+    assert all("phase" not in e["source"] for e in figures.values())
+    assert payload.plan_notes({"phases": [{"title": ""}, "x"]}) == {
+        "PLAN-PHASE-1-WEEKS": "how long this stretch of the plan takes",
+        "PLAN-PHASE-2-WEEKS": "how long this stretch of the plan takes"}
+    assert payload.plan_notes(None) == {} and payload.plan_notes({"phases": "x"}) == {}
+
+
+def test_a_total_the_client_gave_says_what_it_is():
+    told = _f("derived", Working(inputs=(), op="capacity", text="as you told us"), "40", "vans")
+    assert payload.source_sentence(told) == "Worked out from what you told us"
+    assert payload.public_sentence(told) == "Worked out from what you told us"
+
+
+# -- the public map stays cheap -----------------------------------------------------------------------
+
+def test_a_thousand_client_quotes_against_thirty_figures_is_fast_and_still_redacts():
+    import time
+
+    quotes = [f"we sell {i} mats and {i + 1} blocks each week at the front desk" for i in range(1000)]
+    figs = [Figure(f"T{i}-1", Decimal(i + 1), "", None, "theirs",
+                   TheirsSource(turn=i + 1, field=None, quote=q, file=None, cell=None), 0) for i, q in enumerate(quotes)]
+    asked = {i + 1: f"How many mats and blocks do you sell, round {i}?" for i in range(1000)}
+    mine = [Figure(f"P-{n}", Decimal(n), "USD", None, "ours", Proposal(note=f"price point {n} of the list"), 0)
+            for n in range(1, 31)]
+    mine.append(Figure("P-31", Decimal(31), "USD", None, "ours", Proposal(note=quotes[500]), 0))
+    known = FigureSet(figs + mine)
+    started = time.perf_counter()
+    got = payload.figure_map(known, [f.id for f in mine], asked, public=True)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 0.3, f"{elapsed:.2f}s"
+    assert got["P-3"]["source"] == "Our estimate: price point 3 of the list"
+    assert got["P-31"]["source"] == payload.PLAIN_ESTIMATE            # it held one of her sentences
+    assert all(quotes[i] not in json.dumps(got) for i in (0, 500, 999))
+
+
+def test_a_known_set_of_many_equal_figures_does_not_slow_the_payload(client):
+    """550 numbers of the same value in her answers: building the payload (every piece of the answer is
+    bound against the set) stays linear."""
+    import time
+
+    answers = [{"id": f"q{i}", "question": f"Round {i}?", "answer": f"We have 12 reformers, answer {i}."} for i in range(550)]
+    fields = _written(ops_numbers_json=json.dumps(answers))
+    assert len(K.known_for(Request(**fields)).match(Decimal(12))) >= 500          # the set really is that crowded
+    started = time.perf_counter()
+    body = _decision(client, _seed(fields))
+    elapsed = time.perf_counter() - started
+    assert body["figures"] and elapsed < 5, f"{elapsed:.2f}s"

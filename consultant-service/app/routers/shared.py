@@ -69,7 +69,7 @@ def shared_package(token: str, db: Session = Depends(get_db)):
         "concept_name": req.concept_name,
         "status": req.status,
         "answer": answer,
-        "capacity": capacity,
+        "capacity": figure_payload.capacity_for_web(capacity, public=True),
         # the implementation roadmap, and what the owner chose on it — read-only
         "action_plan": ready,
         "figures": figures,

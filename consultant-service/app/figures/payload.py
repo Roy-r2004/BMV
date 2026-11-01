@@ -72,6 +72,11 @@ SENTENCE_MAX = 280
 
 _ELLIPSIS = "…"
 
+#: The working the capacity stage stores for a total the client gave (capacity.py): read
+#: as a sentence, "Worked out: as you told us" says nothing, so it says what it is.
+_AS_TOLD = "as you told us"
+TOLD_WORKING = "Worked out from what you told us"
+
 #: What we say when a working or a note has nothing a client could read.
 PLAIN_WORKING = "Worked out from your figures"
 PLAIN_ESTIMATE = "Our estimate: a number we propose, not one you gave us"
@@ -127,18 +132,19 @@ def _theirs(s: TheirsSource, questions: Mapping[int, str]) -> str:
     return f'{head}: "{quote}"' if quote else head
 
 
-def source_sentence(f: Figure, questions: Mapping[int, str] | None = None) -> str:
+def source_sentence(f: Figure, questions: Mapping[int, str] | None = None, *, note: str | None = None) -> str:
     """The one sentence that says where `f` came from. `questions` are the
     interview questions by turn (`questions_for`), which a theirs figure from an
-    answer is described by."""
+    answer is described by. `note` says what an ours figure is in the page's own
+    words (`plan_notes`), in place of the note the stage stored."""
     s = f.source
     if isinstance(s, TheirsSource):
         sentence = _theirs(s, questions or {})
     elif isinstance(s, Working):
         text = _plain(s.text)
-        sentence = f"Worked out: {text}" if text else PLAIN_WORKING
+        sentence = (TOLD_WORKING if text.lower() == _AS_TOLD else f"Worked out: {text}") if text else PLAIN_WORKING
     elif isinstance(s, Proposal):
-        text = _plain(s.note)
+        text = _plain(s.note if note is None else note)
         sentence = f"Our estimate: {text}" if text else PLAIN_ESTIMATE
     elif isinstance(s, Reference):
         publication = _plain(s.publication)
@@ -163,34 +169,53 @@ def client_words(known: FigureSet, questions: Mapping[int, str] | None = None) -
     return sorted({" ".join(str(x).split()) for x in found if str(x).strip()})
 
 
+def _is_word(ch: str) -> bool:
+    return ch.isalnum() or ch == "_"
+
+
 def _holds_any(text: str, words: Iterable[str]) -> bool:
-    return any(re.search(r"(?<!\w)" + re.escape(w) + r"(?!\w)", text, re.IGNORECASE) for w in words)
+    """Whether `text` holds any of `words` as whole words, ignoring case. A plain
+    substring search with the word boundary confirmed at each hit: it does not build
+    a pattern per word, so a thousand client quotes against a few dozen figures cost
+    a few thousand `find` calls."""
+    low = text.lower()
+    for w in words:
+        w = w.lower()
+        at = low.find(w) if w else -1
+        while at != -1:
+            end = at + len(w)
+            if (at == 0 or not _is_word(low[at - 1])) and (end == len(low) or not _is_word(low[end])):
+                return True
+            at = low.find(w, at + 1)
+    return False
 
 
-def public_sentence(f: Figure, words: Iterable[str] = ()) -> str:
+def public_sentence(f: Figure, words: Iterable[str] = (), *, note: str | None = None) -> str:
     """The sentence a viewer who is not the owner reads for `f`: a theirs figure says
     only that it came from the owner's answers, a reference is shown as it is, and a
     working or an estimate is shown unless it holds one of the client's own `words`."""
     if f.kind == "theirs" or isinstance(f.source, TheirsSource):
         return PUBLIC_THEIRS
-    sentence = source_sentence(f)
+    sentence = source_sentence(f, note=note)
     if f.kind == "reference" or not _holds_any(sentence, words):
         return sentence
     return PLAIN_WORKING if f.kind == "derived" else PLAIN_ESTIMATE
 
 
 def entry(f: Figure, questions: Mapping[int, str] | None = None, *, public: bool = False,
-          words: Iterable[str] = ()) -> dict:
+          words: Iterable[str] = (), note: str | None = None) -> dict:
     """One entry of the map. `public` is for a payload that goes to someone who is
-    not the owner (`public_sentence`); `words` are the client's own strings it keeps out."""
+    not the owner (`public_sentence`); `words` are the client's own strings it keeps
+    out; `note` replaces an ours figure's stored note (`plan_notes`)."""
     return {"display": display(f), "kind": f.kind, "tag": tag_word(f.kind),
-            "source": public_sentence(f, words) if public else source_sentence(f, questions)}
+            "source": public_sentence(f, words, note=note) if public else source_sentence(f, questions, note=note)}
 
 
 def figure_map(known: FigureSet, ids: Iterable[str], questions: Mapping[int, str] | None = None, *,
-               public: bool = False) -> dict[str, dict]:
+               public: bool = False, notes: Mapping[str, str] | None = None) -> dict[str, dict]:
     """The entries for the figures in `ids` that `known` holds, in the order asked.
-    With `public`, none of the client's own words is in any source."""
+    With `public`, none of the client's own words is in any source. `notes` say what
+    an ours figure is, by figure id (`plan_notes`)."""
     words = client_words(known, questions) if public else ()
     out: dict[str, dict] = {}
     for fid in ids:
@@ -199,7 +224,7 @@ def figure_map(known: FigureSet, ids: Iterable[str], questions: Mapping[int, str
             if f is None:
                 continue
             try:
-                out[fid] = entry(f, questions, public=public, words=words)
+                out[fid] = entry(f, questions, public=public, words=words, note=(notes or {}).get(fid))
             except Exception:   # one figure that cannot be described is left out, not the whole map
                 logger.warning("figure %s could not be described; it is left out of the payload", fid)
     return out
@@ -214,6 +239,30 @@ def questions_for(req) -> dict[int, str]:
         if isinstance(question, str) and question.strip():
             out[turn] = " ".join(question.split())
     return out
+
+
+def plan_notes(plan: object) -> dict[str, str]:
+    """What each phase's length is, in the roadmap's own words: the stage stores "how
+    long phase 2 takes", which says nothing on a page that never numbers its phases,
+    so the source names the stretch of the plan by its title."""
+    out: dict[str, str] = {}
+    phases = plan.get("phases") if isinstance(plan, dict) else None
+    for n, phase in enumerate(phases if isinstance(phases, list) else [], 1):
+        title = phase.get("title") if isinstance(phase, dict) else None
+        title = " ".join(title.split()) if isinstance(title, str) else ""
+        out[_known.phase_weeks_id(n)] = (f'how long "{_clip(title, 60)}" takes' if title
+                                         else "how long this stretch of the plan takes")
+    return out
+
+
+def capacity_for_web(capacity: object, *, public: bool = False) -> object:
+    """The week as the page gets it. The week carries a quote of the client's own words
+    and the basis it was drawn from; a payload that goes to someone who is not the owner
+    does not carry them (they are blank, so the shape is the same)."""
+    if not public or not isinstance(capacity, dict):
+        return capacity
+    return {**capacity, **({"quote": ""} if "quote" in capacity else {}),
+            **({"basis": []} if "basis" in capacity else {})}
 
 
 # -- the answer in pieces ----------------------------------------------------------------------
@@ -323,7 +372,8 @@ def for_web(req, *, answer: object = None, plan: object = None, capacity: object
             return answer, {}
         known = _known.known_for(req)
         served = answer_for_web(answer, known)
-        return served, figure_map(known, referenced_ids(served, plan, capacity), questions_for(req), public=public)
+        return served, figure_map(known, referenced_ids(served, plan, capacity), questions_for(req), public=public,
+                                  notes=plan_notes(plan))
     except Exception:   # a courtesy to the page: whatever went wrong, the page still opens
         logger.warning("the figures for a payload could not be built; it is served without them", exc_info=True)
         return answer, {}

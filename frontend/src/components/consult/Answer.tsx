@@ -150,7 +150,7 @@ export default function Answer({
     // our proposals are figures the payload names (`figure_id`); without the map the number is shown as sent
     const said = move.proposed.map((p) => `${p.label || 'The target'} (${figs?.[p.figure_id ?? '']?.display ?? fmt(p.value)})`);
     const proposed = move.proposed.length
-      ? ` ${said.join(' and ')} ${move.proposed.length > 1 ? 'are' : 'is'} our proposal; the rest is yours.`
+      ? ` ${sentence(said.join(' and '))} ${move.proposed.length > 1 ? 'are' : 'is'} our proposal; the rest is yours.`
       : ' Every term is one of your figures.';
     pillars.push({
       key: 'move',
