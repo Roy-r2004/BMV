@@ -60,8 +60,10 @@ def shared_package(token: str, db: Session = Depends(get_db)):
     plan = plan_stage.load(req)
     ready = plan if isinstance(plan, dict) and plan.get("status") == plan_stage.READY else None
     capacity = capacity_stage.load(req)
-    # the answer also in pieces, and the figures its numbers name (whose they are, and where from)
-    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=ready, capacity=capacity)
+    # the answer also in pieces, and the figures its numbers name (whose they are, and where from).
+    # Anyone with the link reads this, so none of the owner's own words (questions, quotes, files) is in it.
+    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=ready, capacity=capacity,
+                                             public=True)
     return {
         "business_name": req.business_name,
         "concept_name": req.concept_name,

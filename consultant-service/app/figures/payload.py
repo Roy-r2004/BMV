@@ -32,6 +32,13 @@ The answer's `headline`, `turn` and `sub` (and each headline figure's `value` an
 each bound number carrying its figure's id, so a page can put the tag beside it.
 The text itself is unchanged: the stages stored it already bound.
 
+A payload that goes to someone who is not the owner (the shared link, a run anyone
+can open) is built with `public=True`. The client's own words do not travel with it:
+every theirs source reads "From the owner's answers." (no question, no quote, no file
+name, no sheet, no cell), a working or note that happens to hold one of those strings
+falls back to the general sentence, and a reference stays as it is. The tag and the
+display are the same as for the owner.
+
 Building all of this is a courtesy to the page. `for_web` never raises: a payload
 that cannot name its figures is served without them, as a row from before this step
 is, and the page shows its numbers without tags.
@@ -65,6 +72,8 @@ _ELLIPSIS = "…"
 PLAIN_WORKING = "Worked out from your figures"
 PLAIN_ESTIMATE = "Our estimate: a number we propose, not one you gave us"
 PLAIN_REFERENCE = "Reference: a published source"
+#: What anyone but the owner reads where the owner's own words would be.
+PUBLIC_THEIRS = "From the owner's answers."
 
 
 # -- plain words --------------------------------------------------------------------------
@@ -135,20 +144,56 @@ def source_sentence(f: Figure, questions: Mapping[int, str] | None = None) -> st
     return _clip(sentence, SENTENCE_MAX)
 
 
-def entry(f: Figure, questions: Mapping[int, str] | None = None) -> dict:
-    """One entry of the map."""
+def client_words(known: FigureSet, questions: Mapping[int, str] | None = None) -> list[str]:
+    """The strings that are the client's own and that a public payload must not
+    carry: the questions we asked them, the files they sent (name, sheet, cell) and
+    the sentences they wrote that hold a number (a quote of three words or more; a
+    bare number is already in the answer and is not "words")."""
+    found = [q for q in (questions or {}).values()]
+    for f in known.by_kind("theirs"):
+        s = f.source
+        if isinstance(s, TheirsSource):
+            found += [s.file or "", (s.field or "") if s.file else "", s.cell or ""]
+            if len(s.quote.split()) >= 3:
+                found.append(s.quote)
+    return sorted({" ".join(str(x).split()) for x in found if str(x).strip()})
+
+
+def _holds_any(text: str, words: Iterable[str]) -> bool:
+    return any(re.search(r"(?<!\w)" + re.escape(w) + r"(?!\w)", text, re.IGNORECASE) for w in words)
+
+
+def public_sentence(f: Figure, words: Iterable[str] = ()) -> str:
+    """The sentence a viewer who is not the owner reads for `f`: a theirs figure says
+    only that it came from the owner's answers, a reference is shown as it is, and a
+    working or an estimate is shown unless it holds one of the client's own `words`."""
+    if f.kind == "theirs" or isinstance(f.source, TheirsSource):
+        return PUBLIC_THEIRS
+    sentence = source_sentence(f)
+    if f.kind == "reference" or not _holds_any(sentence, words):
+        return sentence
+    return PLAIN_WORKING if f.kind == "derived" else PLAIN_ESTIMATE
+
+
+def entry(f: Figure, questions: Mapping[int, str] | None = None, *, public: bool = False,
+          words: Iterable[str] = ()) -> dict:
+    """One entry of the map. `public` is for a payload that goes to someone who is
+    not the owner (`public_sentence`); `words` are the client's own strings it keeps out."""
     return {"display": display(f), "kind": f.kind, "tag": tag_word(f.kind),
-            "source": source_sentence(f, questions)}
+            "source": public_sentence(f, words) if public else source_sentence(f, questions)}
 
 
-def figure_map(known: FigureSet, ids: Iterable[str], questions: Mapping[int, str] | None = None) -> dict[str, dict]:
-    """The entries for the figures in `ids` that `known` holds, in the order asked."""
+def figure_map(known: FigureSet, ids: Iterable[str], questions: Mapping[int, str] | None = None, *,
+               public: bool = False) -> dict[str, dict]:
+    """The entries for the figures in `ids` that `known` holds, in the order asked.
+    With `public`, none of the client's own words is in any source."""
+    words = client_words(known, questions) if public else ()
     out: dict[str, dict] = {}
     for fid in ids:
         if isinstance(fid, str) and fid not in out:
             f = known.get(fid)
             if f is not None:
-                out[fid] = entry(f, questions)
+                out[fid] = entry(f, questions, public=public, words=words)
     return out
 
 
@@ -240,15 +285,18 @@ def referenced_ids(answer: object, plan: object, capacity: object) -> list[str]:
     return list(ids)
 
 
-def for_web(req, *, answer: object = None, plan: object = None, capacity: object = None) -> tuple[object, dict]:
+def for_web(req, *, answer: object = None, plan: object = None, capacity: object = None,
+            public: bool = False) -> tuple[object, dict]:
     """(the answer to serve, the figures map to serve) for a payload that carries
-    the stored `answer`, roadmap `plan` and week `capacity`. Never raises."""
+    the stored `answer`, roadmap `plan` and week `capacity`. `public` is for a payload
+    that goes to someone who is not the owner: the map holds none of the client's
+    own words. Never raises."""
     try:
         if not isinstance(answer, dict) and not referenced_ids(None, plan, capacity):
             return answer, {}
         known = _known.known_for(req)
         served = answer_for_web(answer, known)
-        return served, figure_map(known, referenced_ids(served, plan, capacity), questions_for(req))
+        return served, figure_map(known, referenced_ids(served, plan, capacity), questions_for(req), public=public)
     except Exception:   # a courtesy to the page: whatever went wrong, the page still opens
         logger.warning("the figures for a payload could not be built; it is served without them", exc_info=True)
         return answer, {}

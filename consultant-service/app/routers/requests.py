@@ -87,6 +87,19 @@ def _is_reviewer(review_token: str | None) -> bool:
     )
 
 
+def _shows_sources(req: Request, review_token: str | None, authorization: str | None) -> bool:
+    """Whether this viewer may read where each figure came from in the owner's own
+    words (the question they answered, what they wrote, the files they sent): the
+    signed-in owner, and the reviewer. A showcase run or a row with no owner can be
+    opened by anyone, so it is served with the general sentence instead."""
+    if _is_reviewer(review_token):
+        return True
+    if not req.owner_email:
+        return False
+    user = auth_client.resolve_user(authorization)
+    return bool(user and user["email"].lower() == req.owner_email.lower())
+
+
 def _pending_for(req: Request, review_token: str | None) -> bool:
     # True when this run is held from THIS caller. Only REVIEW_MODE="gate"
     # holds results back; the default "on" is oversight — the client sees
@@ -641,12 +654,13 @@ def _diagnosis_payload(req: Request) -> dict | None:
     }
 
 
-def _decision_payload(req: Request) -> dict:
+def _decision_payload(req: Request, *, public: bool = False) -> dict:
     analysis = json.loads(req.business_analysis_json) if req.business_analysis_json else {}
     decision = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
     capacity, plan = capacity_stage.load(req), plan_stage.load(req)
     # the answer also in pieces, and the figures its numbers name (whose they are, and where from)
-    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=plan, capacity=capacity)
+    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=plan, capacity=capacity,
+                                             public=public)
     return {
         "diagnosis": _diagnosis_payload(req),
         "id": req.id,
@@ -697,7 +711,7 @@ def get_decision(request_ref: str, review_token: str | None = None,
     """What we concluded, before anything is built on it."""
     req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
-    return _decision_payload(req)
+    return _decision_payload(req, public=not _shows_sources(req, review_token, authorization))
 
 
 @router.post("/{request_ref}/decision/approve")
@@ -864,7 +878,7 @@ def get_plan(request_ref: str, review_token: str | None = None,
     req = _load_request(request_ref, db)
     _require_view(req, review_token, authorization)
     plan = plan_stage.load(req)
-    _, figures = figure_payload.for_web(req, plan=plan)
+    _, figures = figure_payload.for_web(req, plan=plan, public=not _shows_sources(req, review_token, authorization))
     return {"plan": plan, "decisions": plan_stage.load_decisions(req), "figures": figures}
 
 
@@ -994,7 +1008,8 @@ def get_preview(request_ref: str, review_token: str | None = None,
         for i, emp in enumerate(recommendations.get("recommended_ai_employees", []), start=1)
     ]
     capacity, plan = capacity_stage.load(req), plan_stage.load(req)
-    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=plan, capacity=capacity)
+    answer, figures = figure_payload.for_web(req, answer=answer_stage.load(req), plan=plan, capacity=capacity,
+                                             public=not _shows_sources(req, review_token, authorization))
     # Cache-buster on every image URL. The path alone is NOT unique across
     # time: request ids restart when the database does, so /uploads/images/1/
     # can hold a DIFFERENT business's screens than it did last week — and a

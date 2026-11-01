@@ -39,7 +39,7 @@ QUESTIONS = [
     ("How many reformers do you have, and how are classes scheduled?", "12 reformers. Six 50-minute classes a day, six days a week."),
     ("How full is a typical class?", "About 10 of 12. The 6pm and 7pm ones have a waiting list most weeks."),
     ("What do you charge a class?", "$22 a class, $200 for 10"),
-    ("What do the studios nearby charge?", "Two others nearby, both $32 a class."),
+    ("What do the studios nearby charge?", "Two studios nearby, both $32 a class."),
 ]
 DESCRIPTION = ("I run a pilates studio and I think I need a proper booking app. The 6pm and 7pm classes have a "
                "waiting list every week, and I spend about 8 hours a week juggling bookings on WhatsApp")
@@ -56,7 +56,8 @@ MOVE = {"label": "moving 6pm and 7pm to $28, if regulars stay", "unit": "USD", "
 RAW_ANSWER = {
     "headline": "Your evenings sell out at $22 a class while others charge $32.",
     "turn": "Moving them to $28 is worth about $45,000 a year.",
-    "sub": "Your 12 reformers hold 432 reformer spots a week, and 144 reformer spots are in the evenings that sell out.",
+    "sub": ("Your 12 reformers hold 432 reformer spots a week, and 144 reformer spots are in the evenings that "
+            "sell out. Last month's takings were $1,240."),
     "figures": [{"value": "$22 vs $32", "label": "you and two studios nearby", "cites": ["CF-04", "CF-06"]},
                 {"value": "144 reformer spots", "label": "a week in the evenings that sell out", "cites": ["CAP-05"]}],
     "move": MOVE, "action": {"weeks": 6, "name": "six-week pilot"}}
@@ -65,10 +66,14 @@ RAW_ROADMAP = {
     "phases": [{"when": "Weeks 1 to 2", "title": "Set the evening price",
                 "do": "We move the 6pm and 7pm classes to $28 and tell your regulars.", "by": "us"},
                {"when": "Weeks 3 to 6", "title": "Watch the evenings",
-                "do": "We track evening fill against 10 of 12 each week.", "by": "together", "you": ""}],
+                "do": "We track how full the evenings are each week, for 4 weeks.", "by": "together", "you": ""}],
     "decisions": [{"question": "Go ahead with $28 evenings?", "detail": "Daytime stays at $22.",
                    "options": ["Yes", "Not yet"]}],
     "assumptions": ["Regulars accept $28"]}
+# a file she sent: the name, the sheet and the cell are hers too
+FILE = {"id": "CE-01", "type": "client_fact", "value": "$1,240", "unit": "USD", "file": "march-takings.xlsx",
+        "cell": "B5", "text": "Takings for March", "source": "march-takings.xlsx · Takings Sheet · B5",
+        "provenance": "client_input"}
 DECISION = {"consulting_summary": "Your evenings are full and your price is the lowest nearby.",
             "central_problem": "The evening price leaves money on the table.",
             "recommended_ai_employees": [], "recommended_features": [], "unverified": ["How regulars react"]}
@@ -77,6 +82,7 @@ DECISION = {"consulting_summary": "Your evenings are full and your price is the 
 def _fields(**over):
     base = dict(
         business_name="Halo Reformer Studio", business_description=DESCRIPTION, email="owner@example.com",
+        owner_email="test@example.com", evidence_json=json.dumps([FILE]),
         status="done", is_generating=False,
         ops_numbers_json=json.dumps([{"id": f"q{i}", "question": q, "answer": a} for i, (q, a) in enumerate(QUESTIONS, 1)]),
         consulting_recommendations_json=json.dumps(DECISION))
@@ -293,7 +299,10 @@ def test_the_preview_the_plan_and_the_shared_link_carry_the_same_map(client):
     preview = client.get(f"/api/requests/{rid}/preview").json()
     plan = client.get(f"/api/requests/{rid}/plan").json()
     shared = client.get(f"/api/shared/{token}").json()
-    assert preview["figures"] == decision["figures"] and shared["figures"] == decision["figures"]
+    assert preview["figures"] == decision["figures"]
+    # the shared link is the same map but for what only the owner may read (see the tests on her words)
+    public = {k: dict(e, source=payload.PUBLIC_THEIRS) if e["kind"] == "theirs" else e for k, e in decision["figures"].items()}
+    assert shared["figures"] == public
     assert preview["answer"] == decision["answer"] and shared["answer"] == decision["answer"]
     # the roadmap alone needs only what it names
     assert set(plan["figures"]) == {"PLAN-WEEKS", "PLAN-PHASE-1-WEEKS", "PLAN-PHASE-2-WEEKS", "PLAN-PHASES"}
@@ -394,3 +403,89 @@ def test_every_case_file_figure_says_it_is_theirs_and_where_from():
     for f in out["figures"]:
         assert f["kind"] == "theirs" and f["tag"] == "yours" and f["display"] == f["value"]
         _plain_source(f["source"])
+
+
+# -- the owner's own words stay with the owner ------------------------------------------------------
+
+def _hers() -> list[str]:
+    """Every string in the fixture that is the client's own: our questions to her, her
+    answers, what she wrote, the file she sent (name, sheet, cell)."""
+    return [q for q, _ in QUESTIONS] + [a for _, a in QUESTIONS] + [DESCRIPTION] + [
+        "march-takings.xlsx", "Takings Sheet", "B5", "Takings for March"]
+
+
+def _leaks(body) -> list[str]:
+    dumped = json.dumps(body)
+    return [w for w in _hers() if json.dumps(w)[1:-1] in dumped]
+
+
+def test_the_shared_link_carries_none_of_the_owners_own_words(client):
+    token = secrets.token_urlsafe(18)
+    rid = _seed(_written(share_token=token))
+    shared = client.get(f"/api/shared/{token}").json()
+    assert _leaks(shared) == []
+    theirs = {k: e for k, e in shared["figures"].items() if e["kind"] == "theirs"}
+    assert theirs and all(e["source"] == payload.PUBLIC_THEIRS and e["tag"] == "yours" for e in theirs.values())
+    # the tag, the display, the working and the estimate are what the owner sees
+    owner = _decision(client, rid)["figures"]
+    assert set(shared["figures"]) == set(owner)
+    for k, e in shared["figures"].items():
+        assert (e["display"], e["kind"], e["tag"]) == (owner[k]["display"], owner[k]["kind"], owner[k]["tag"])
+        if e["kind"] != "theirs":
+            assert e["source"] == owner[k]["source"]
+    assert shared["figures"]["CAP-01"]["source"] == "Worked out: 12 × 6 a day × 6 days"
+    # the file's own figure is named in the answer, and it says nothing about the file
+    assert any(p.get("figure") == "E1-1" for p in shared["answer"]["sub_segments"])
+    assert shared["figures"]["E1-1"]["source"] == payload.PUBLIC_THEIRS and "xlsx" not in json.dumps(shared)
+    # the pieces and the ids carry only text the page already shows and positional ids
+    for p in shared["answer"]["sub_segments"] + shared["answer"]["headline_segments"]:
+        assert set(p) <= {"text", "figure"}
+        assert "figure" not in p or re.fullmatch(r"[A-Z]+(?:-[A-Z0-9]+)*|[A-Z]\d+-\d+", p["figure"])
+
+
+def test_the_signed_in_owner_still_reads_where_each_figure_came_from(client):
+    body = _decision(client, _seed(_written()))
+    dumped = json.dumps(body["figures"])
+    for w in (QUESTIONS[2][0], QUESTIONS[2][1], "march-takings.xlsx", "Takings Sheet"):
+        assert json.dumps(w)[1:-1] in dumped, w
+    assert body["figures"]["E1-1"]["source"] == "From your file march-takings.xlsx, sheet Takings Sheet, cell B5"
+    preview = client.get(f"/api/requests/{_seed(_written())}/preview").json()
+    assert "march-takings.xlsx" in json.dumps(preview["figures"])
+
+
+def test_a_run_anyone_can_open_is_served_without_her_words_on_every_route(client):
+    # no owner: the route lets anyone in, so the figures say only where they are from
+    rid = _seed(_written(owner_email=None))
+    for route in ("decision", "preview", "plan"):
+        body = client.get(f"/api/requests/{rid}/{route}").json()
+        assert body["figures"], route
+        assert [w for w in _hers() if json.dumps(w)[1:-1] in json.dumps(body["figures"])] == [], route
+        assert all(e["source"] == payload.PUBLIC_THEIRS for e in body["figures"].values() if e["kind"] == "theirs")
+
+
+def test_the_reviewer_reads_the_full_sources(client, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "REVIEW_TOKEN", "review-secret-123")
+    rid = _seed(_written(owner_email=None))
+    body = client.get(f"/api/requests/{rid}/decision", params={"review_token": "review-secret-123"}).json()
+    assert "march-takings.xlsx" in json.dumps(body["figures"])
+    assert "march-takings.xlsx" not in json.dumps(client.get(f"/api/requests/{rid}/decision").json()["figures"])
+
+
+def test_a_public_sentence_keeps_a_reference_and_drops_a_working_that_holds_her_words():
+    words = ["What do you charge a class?", "march-takings.xlsx", "B5"]
+    theirs = _f("theirs", TheirsSource(turn=3, field="q3", quote="$22 a class, $200 for 10", file=None, cell=None))
+    assert payload.public_sentence(theirs, words) == payload.PUBLIC_THEIRS == "From the owner's answers."
+    sheet = _f("theirs", TheirsSource(turn=None, field="March", quote="x", file="march-takings.xlsx", cell="B5"))
+    assert payload.public_sentence(sheet, words) == payload.PUBLIC_THEIRS
+    ref = _f("reference", Reference(publication="Pilates Industry Report", year=2024, population="p", url="u"), "70", "percent")
+    assert payload.public_sentence(ref, words) == "Reference: Pilates Industry Report, 2024"
+    fine = _f("derived", Working(inputs=(), op="product", text="12 × 6 a day × 6 days"), "432")
+    assert payload.public_sentence(fine, words) == "Worked out: 12 × 6 a day × 6 days"
+    echoing = _f("derived", Working(inputs=(), op="product", text="the cell B5 in march-takings.xlsx × 12"), "432")
+    assert payload.public_sentence(echoing, words) == payload.PLAIN_WORKING
+    asked = _f("ours", Proposal(note="what do you charge a class? raised by $6"), "28", "USD")
+    assert payload.public_sentence(asked, words) == payload.PLAIN_ESTIMATE
+    # a number of hers inside a working is not her words
+    assert payload.public_sentence(_f("ours", Proposal(note="$28 proposed - $22 now"), "6"), ["$22 a class, $200 for 10"]
+                                   ) == "Our estimate: $28 proposed - $22 now"
