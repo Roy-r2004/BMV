@@ -31,30 +31,51 @@ stand for:
                 instructors" are two quantities, each with its own shape; a shape
                 an end carries is never overridden by the other. The numbers tokens
                 become are ends of ranges too, so binding twice changes nothing.
-    period      a period the sentence names by the number ("a month", "per week",
-                "weekly") must be the figure's own period if it has one. With none by
-                the number, any period the whole clause names (a sentence, a bullet, a
-                table row, before or after the number) must include the figure's: a
-                weekly figure never binds to "$9,500 a month" or "Each month you lose
-                $1,950".
-    value       a mention equal to the figure's value, or to the value as it displays
-                (44928 shown as ~45,000), is exact; any other mention within half a
-                percent is near. The tier decides first (exact beats near); the figure
-                that names the unit the next word gives beats a unitless one only
-                within a tier. A near mention is rewritten only to a derived or ours
-                figure, and only if it is a true rounding of it: the figure rounded to
-                the mention's own last significant place (45,000 for 44,928, 1,000
-                for 995); against a theirs or reference figure it is unresolved,
-                since we never silently correct a client's own number. Figures of
-                different values at the same distance make the mention ambiguous, so
-                "about $4,700" between 4,720 and 4,680 names neither.
-    limits      after a comparative or a bound ("over", "under", "at least", "up to",
-                "more than", "within", "max", "cap of", "exactly", "nearly" ..., also
-                after the number: "or more", "+", "max"), even with a hedge word
-                between, the number binds only when it equals the figure's own value,
-                not its rounded display, and is never rewritten: "over $45,000" is
-                not certified by 44,928 shown as ~$45,000. A token after a limit is
+    period      a figure that has a period binds only when EVERY rate or period phrase
+                in its clause (a sentence, a bullet, a table row, before or after the
+                number) names that period: "a week", "per week", "each", "every", "this",
+                "last", "the", "in a typical" + a time noun (second to decade, fortnight,
+                quarter, term, season), a time adverb ("hourly", "biweekly", "monthly"),
+                "per <anything>" (a rate: "per class", "per diem"), "every other week",
+                "MTD", "to date", "over 5 years", "over the lease", and a table cell that
+                is a time word. Any other phrase blocks, so a weekly figure is never "$9,500
+                a month", "$1,950 per session", "this month" or "MTD". No phrase, or a
+                figure with no period, does not block.
+    value       a mention equal to the figure's value is exact; one equal to the value as
+                it displays (44928 shown as ~45,000) or within half a percent of it is a
+                rounding. The tier decides first (exact beats a rounding); the figure that
+                names the unit the next word gives beats a unitless one only within a
+                tier. A rounding binds only a derived or ours figure, only when the number
+                stands directly after an approximation cue ("~", the approximately-equal
+                sign, about, around, roughly, approximately, approx., circa, c., an
+                estimated, some) and nothing else qualifies it (no comparison sign, no
+                limit word earlier in the clause, no exactness word), and, when it is not
+                the display itself, only if it is a true rounding of the figure to its own
+                last significant place (45,000 for 44,928, 1,000 for 995). Without a cue
+                "$45,000" for a figure shown as ~$45,000 is unresolved: the model should
+                use the token. The exact value of a figure we show rounded, and a true
+                rounding of it, stay as the model wrote them (the display could only say
+                less); a figure shown exactly is printed as its value. Against a theirs
+                or reference figure a rounding is never accepted: we never silently correct
+                a client's own number. Figures of different values at the same distance
+                make the mention ambiguous, so "about $4,700" between 4,720 and 4,680
+                names neither.
+    limits      after a comparative, a bound or an exactness word ("over", "under", "at
+                least", "up to", "more than", "within", "max", "cap", "ceiling", "tops",
+                "passes", "past", "south of", "exactly", "precisely", "an exact", "to the
+                dollar" ..., also after the number: "or more", "+", "-plus", "max"), even
+                with a hedge word or a "~" between, and after a comparison sign (">",
+                "<", the unicode forms), the number binds only when it equals the
+                figure's own value, not its rounded display, and is never rewritten:
+                "over $45,000" is not certified by 44,928 shown as ~$45,000. A token
+                after a limit, or in a clause with a limit word before it, is
                 unresolved when its figure is shown rounded.
+    unitless    a figure with no unit binds only a mention of exactly its value that has
+                no noun after it (also through "of": "3 of 12 reformers" counts reformers
+                for both numbers), no rate or period phrase in its clause, and that
+                stands where a quantity stands: not a list marker ("**4.** Review"), not
+                a table cell ("| 4 |"), not after a verb or a name ("Dial 4", "Room 4"),
+                and not a part of a ratio ("1:10", "4/12": no figure names those).
     equal       figures of one value that print the same way are one answer whatever
                 their units or kinds: the figure that names the noun, then the most
                 trusted kind (theirs, derived, reference, ours), then the lowest id.
@@ -67,10 +88,9 @@ classes" becomes "12 classes". The currency sign, percent sign, and the words
 percent, USD or dollars that the model put on its number are kept; a symbol it did
 not write is not added; a magnitude it wrote ("10k", "1.5 million") is spelled out
 as the figure's digits. A figure that rounding changed gets a "~" in front, except
-after a hedge word ("about", "around", "roughly", "approximately", "nearly",
-"circa", with or without an article after it), an article, or a "~" the model wrote,
-which stay exactly as written: they may be prepositions, and the sentence already
-hedges.
+after an approximation cue (with or without an article after it), an article, or a
+"~" the model wrote, which stay exactly as written: they may be prepositions, and
+the sentence already hedges.
 
 Not prose: URLs, markdown link targets and titles, image paths, inline code, fenced
 blocks and path-like tokens (".../guides/22") are blanked before the reader sees
@@ -325,12 +345,22 @@ _SKIP_WORDS = frozenset("more extra new additional total other further another f
 _PROFORMS = frozenset("others other ones one some many few rest those these them".split())
 
 
+# "3 of 12 reformers", "4 of your 12 reformers", "2 of your staff": the noun after "of" is the
+# one both numbers count
+_OF_TAIL = re.compile(
+    rf"{_SP}+of(?:{_SP}+(?:the|your|our|their|these|those|my|his|her|its)(?![A-Za-z]))?"
+    rf"(?:{_SP}+(?:\d[\d,]*(?:\.\d+)?|{_NUMBER_WORD})(?![A-Za-z\d]))?", re.I)
+
+
 def _phrase_after(view: str, pos: int) -> tuple[str, ...]:
     """The words that name what the number at `pos` counts: up to four words after it,
     skipping "more", "extra" and the like, stopping at a function word, an adverb,
-    punctuation or a number. "180 empty seats a week" gives ("empty", "seats")."""
+    punctuation or a number. "180 empty seats a week" gives ("empty", "seats"). After
+    "of" the noun is the one the partitive counts: "3 of your 12 reformers" gives
+    ("reformers",) for the 3 as for the 12."""
     words: list[str] = []
-    m = _NEXT_WORD.match(view, pos)
+    tail = _OF_TAIL.match(view, pos)
+    m = _NEXT_WORD.match(view, tail.end() if tail else pos)
     while m and len(words) < 4:
         w = m.group(1).lower()
         if w in _PHRASE_STOP:
@@ -395,11 +425,6 @@ def _rounds_to(value: Decimal, mention: Decimal) -> bool:
     return value.quantize(Decimal(1).scaleb(exponent), rounding=ROUND_HALF_UP, context=_CTX) == mention
 
 
-_PERIOD_WORDS = {"day": "day", "daily": "day", "week": "week", "weekly": "week", "wk": "week", "month": "month",
-                 "monthly": "month", "mo": "month", "year": "year", "yearly": "year", "annual": "year",
-                 "annually": "year", "annum": "year", "yr": "year"}
-
-
 def _figure_period(period: str | None) -> str | None:
     """The period a figure's time basis names ("operating_30_day_month" is a month)."""
     p = (period or "").lower()
@@ -409,45 +434,47 @@ def _figure_period(period: str | None) -> str | None:
     return None
 
 
-def _period_ok(period: str | None, adjacent: str | None, clause: frozenset[str] | set[str]) -> bool:
-    """Whether a figure's period fits what the sentence says. The period phrase right by
-    the number must be the figure's own; otherwise, if the clause names periods at all,
-    the figure's period must be one of them ("Each month you lose $1,950" is not a weekly
-    figure). A figure with no period, or a clause that names none, does not block."""
+def _period_ok(period: str | None, keys: frozenset[str] | set[str]) -> bool:
+    """Whether a figure's period fits what its clause says. Every rate or period phrase the
+    clause holds ("a week", "per class", "last month", "MTD") must name the figure's own
+    period; any other blocks ("$1,950 a month" is not a weekly figure, nor is "$1,950 per
+    session"). A figure with no period, or a clause with no such phrase, does not block."""
     fp = _figure_period(period)
-    if fp is None:
-        return True
-    if adjacent is not None:
-        return fp == adjacent
-    return not clause or fp in clause
+    return fp is None or all(k == fp for k in keys)
 
 
 def _pick(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure], exact_only: bool,
-          strict: bool = False, adjacent: str | None = None,
-          clause: frozenset[str] | set[str] = frozenset()) -> Figure | None:
+          strict: bool = False, approximate: bool = False, keys: frozenset[str] | set[str] = frozenset(),
+          bare_ok: bool = True) -> Figure | None:
     """The one figure `m` names among `found` (the figures near its value), or None
     when it names none or cannot choose.
 
-    The tier decides first: a figure equal to the mention, or to what it displays,
-    beats any figure that is only near. Within a tier, the figure that names the
-    very unit the next words give beats a unitless one; figures of one value that print
-    alike are not ambiguous, only unequal ones are. A near figure is taken only
-    if it is derived or ours and the mention is a true rounding of it, and never for
-    text that must match exactly (a quotation). `strict` is for a limit ("over
-    $45,000", "at most 12"): only a figure whose own value equals the mention's, not
-    its rounded display, may bind. A period the sentence names must be the figure's."""
-    cands = [f for f in found if _admissible(f, shape, phrase) and _period_ok(f.period, adjacent, clause)]
+    The tier decides first: a figure equal to the mention beats one that only displays as
+    it, which beats one that is only near. A figure the mention does not equal exactly (a
+    rounded one, or a near one) is taken only if it is derived or ours, the number stands
+    after an approximation cue ("about", "~") and nothing else qualifies it (`approximate`),
+    and, for a near figure, the mention is a true rounding of it. `exact_only` (a
+    quotation) takes no near figure; `strict` (a limit: "over $45,000") takes only a figure
+    whose own value equals the mention's. Within a tier, the figure that names the very unit
+    the next words give beats a unitless one; figures of one value that print alike are not
+    ambiguous, only unequal ones are. A figure with no unit takes only an exact mention that
+    stands where a quantity stands (`bare_ok`). Every rate or period phrase in the clause
+    must be the figure's own period."""
+    cands = [f for f in found if _admissible(f, shape, phrase) and _period_ok(f.period, keys)
+             and (f.unit not in ("", "count") or (bare_ok and f.value == m.value))]
     equal = [f for f in cands if f.value == m.value]
     if strict:
-        pool, is_near = equal, False
+        pool, tier = equal, "equal"
+    elif equal:
+        pool, tier = equal, "equal"
     else:
-        shown = [f for f in cands if f.value != m.value and displayed_value(f) == m.value]
-        near = [f for f in cands if f.value != m.value and displayed_value(f) != m.value]
-        pool, is_near = equal or shown, not (equal or shown)
-        if is_near:
-            pool = near
-    if not pool or (is_near and exact_only):
+        shown = [f for f in cands if displayed_value(f) == m.value]
+        near = [f for f in cands if displayed_value(f) != m.value]
+        pool, tier = (shown, "shown") if shown else (near, "near")
+    if not pool or (tier == "near" and exact_only):
         return None
+    if tier != "equal" and not (approximate or exact_only):
+        return None   # a number that is not the figure's own needs a cue that it is a rounding
     named = [f for f in pool if _names_unit(phrase, f.unit)]
     if named:
         pool = named   # "12 weeks": the figure in weeks is more specific than a unitless 12
@@ -458,95 +485,148 @@ def _pick(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure
     # Figures of one value that print the same are one answer whatever their units or kinds:
     # the most trusted kind, then the first id. (Unit specificity already narrowed the pool.)
     winner = min(pool, key=lambda f: (_TRUST[f.kind], f.id))
-    if is_near and (winner.kind in ("theirs", "reference") or not _rounds_to(winner.value, m.value)):
+    if tier == "near" and (winner.kind in ("theirs", "reference") or not _rounds_to(winner.value, m.value)):
         return None   # the model altered the client's own number, or changed one of ours
+    if tier != "equal" and winner.kind in ("theirs", "reference"):
+        return None
     return winner
 
 
 # -- hedges, limits, periods, non-prose and quotations ----------------------------------------------
 
-# A hedge word right before a number (with an article between: "roughly a 25%"), an
-# article alone, or a "~" / approximately-equal sign: the sentence already hedges, so
-# the figure's own "~" would say it twice.
-_HEDGE = re.compile(
-    rf"(?:(?<![A-Za-z])(?:(?:about|around|roughly|approximately|nearly|circa|almost){_SP}+(?:(?:a|an|the){_SP}+)?"
-    rf"|(?:a|an|the){_SP}+)|[~\u2248]{_SP}*)\Z", re.I)
+# An approximation cue right before the number: "~", the approximately-equal sign, "about",
+# "around", "roughly", "approximately", "approx.", "circa", "c.", "an estimated", "some".
+# A rounded figure may be written as a rounding only after one. "just under" and "nearly" are
+# limits, not cues.
+_CUE_WORDS = frozenset("about around roughly approximately approx circa c estimated some".split())
+_CUE = (rf"(?:(?<![A-Za-z])(?:about|around|roughly|approximately|approx\.?|circa|c\.|an{_SP}+estimated|estimated|some)"
+        rf"{_SP}+(?:(?:a|an|the){_SP}+)?|[~\u2248]{_SP}*)")
+_APPROX_CUE = re.compile(_CUE + r"\Z", re.I)
+# What stops the figure's own "~" being printed: the sentence already hedges. That is a cue,
+# an article alone, or a limit ("over"): a limit is never rewritten, so nothing is printed.
+_HEDGE = re.compile(rf"(?:{_CUE}|(?<![A-Za-z])(?:a|an|the){_SP}+)\Z", re.I)
 
-# A comparative or a limit introduces the number ("over $45,000", "within $7,500", "a cap of
-# 12", "under about $7,500") or follows it ("$7,500 max", "12+", "40 or more", "$1,953.60
-# exactly"). It is a claim about a bound, not a rounding: it certifies only a figure whose
-# own value equals the number, and the number is never rewritten.
+# A comparative, a limit or an exactness word introduces the number ("over $45,000",
+# "within $7,500", "a cap of 12", "under about $7,500", "no less than ~$102,000", "precisely
+# $19,950") or follows it ("$7,500 max", "12+", "$45,000-plus", "40 or more", "$1,953.60
+# exactly"). It is a claim about a bound, not a rounding: it certifies only a figure whose own
+# value equals the number, and the number is never rewritten.
 _LIMIT_WORDS = (
-    rf"over|under|above|below|beyond|exceeds?|exceeding|nearly|almost|exactly|within|in{_SP}+excess{_SP}+of"
-    rf"|at{_SP}+(?:least|most)|up{_SP}+to|upwards?{_SP}+of|north{_SP}+of"
+    rf"over|under|above|below|beyond|past|passes|passing|surpass(?:es|ing)?|tops?|exceeds?|exceeding|nearly|almost"
+    rf"|exactly|precisely|precise|exact|within|in{_SP}+excess{_SP}+of"
+    rf"|at{_SP}+(?:the{_SP}+)?(?:very{_SP}+)?(?:least|most)|at{_SP}+(?:worst|best)|at{_SP}+a{_SP}+(?:maximum|minimum)"
+    rf"|up{_SP}+to|upwards?{_SP}+of|(?:north|south){_SP}+of"
     rf"|(?:no|not){_SP}+(?:more|less|fewer){_SP}+than"
-    rf"|(?:more|less|fewer|greater|higher|lower|smaller|larger|bigger){_SP}+than"
+    rf"|(?:more|less|fewer|greater|higher|lower|smaller|larger|bigger){_SP}+than(?:{_SP}+or{_SP}+equal{_SP}+to)?"
     rf"|(?:maximum|minimum|max|min)(?:{_SP}+of)?|cap(?:ped)?(?:{_SP}+(?:at|of))?"
-    rf"|limit(?:ed)?(?:{_SP}+(?:to|of|at))?|top(?:{_SP}+of)?")
+    rf"|(?:limit|ceiling|floor)(?:ed)?(?:{_SP}+(?:to|of|at))?|top(?:{_SP}+of)?")
 _COMPARATIVE = re.compile(
-    rf"(?<![A-Za-z])(?:{_LIMIT_WORDS})(?![A-Za-z]){_SP}+"
-    rf"(?:(?:about|around|roughly|approximately|circa|some|nearly|almost){_SP}+)?(?:(?:a|an|the){_SP}+)?\Z", re.I)
+    rf"(?<![A-Za-z])(?:{_LIMIT_WORDS})(?![A-Za-z]),?{_SP}+"
+    rf"(?:(?:about|around|roughly|approximately|approx\.?|circa|some|nearly|almost){_SP}+)?(?:(?:a|an|the){_SP}+)?"
+    rf"(?:[~\u2248]{_SP}*)?\Z", re.I)
+# a comparison sign right before the number ("> $45,000", "<=$45,000"; not the arrow in "->")
+_SYMBOL_BEFORE = re.compile(
+    rf"(?:(?<![-=<>])[<>]=?|[\u2264\u2265]){_SP}*"
+    rf"(?:(?:about|around|roughly|approximately|approx\.?|circa|c\.|some|an{_SP}+estimated|estimated){_SP}+)?"
+    rf"(?:[~\u2248]{_SP}*)?\Z", re.I)
 _COMPARATIVE_AFTER = re.compile(
-    rf"{_SP}*(?:\+(?!\d)|(?:or|and){_SP}+(?:more|less|fewer|higher|lower|greater|smaller|up|above|below|over|under)"
-    rf"(?![A-Za-z])|(?:max|min|maximum|minimum|tops|exactly)(?![A-Za-z])|at{_SP}+(?:most|least)(?![A-Za-z]))",
-    re.I)
+    rf"{_SP}*(?:\+(?!\d)|-?plus(?![A-Za-z])|(?:or|and){_SP}+(?:more|less|fewer|higher|lower|greater|smaller|up|above"
+    rf"|below|over|under)(?![A-Za-z])|(?:max|min|maximum|minimum|tops|exactly|precisely)(?![A-Za-z])"
+    rf"|at{_SP}+(?:most|least)(?![A-Za-z])|to{_SP}+the{_SP}+(?:dollar|cent|penny)(?![A-Za-z]))", re.I)
+# a limit word anywhere in the text: with a rounded figure, one anywhere earlier in the clause
+# takes away the cue ("Cap spend at about $7,500")
+_LIMIT_ANYWHERE = re.compile(rf"(?<![A-Za-z])(?:{_LIMIT_WORDS})(?![A-Za-z])", re.I)
 
-# the period a phrase names: "a month", "per week", "each year", "/day", "weekly"
-_PERIOD_AFTER = re.compile(
-    rf"(?:{_SP}+(?P<w>[A-Za-z]+))?(?:{_SP}*/{_SP}*|{_SP}+(?:per|a|an|each|every){_SP}+)"
-    rf"(?P<u>day|week|month|year|yr|wk|mo|annum)(?![A-Za-z])|{_SP}+(?P<adv>daily|weekly|monthly|yearly|annually|annual)(?![A-Za-z])",
+# Rate and period phrases. A figure with a period is held to every one in its clause.
+_TIME_NOUN = (r"(?:second|minute|hour|day|week|fortnight|month|quarter|term|semester|season|year|decade"
+              r"|wk|yr|mo|annum)s?")
+_TIME_ADV = (r"(?:hourly|nightly|daily|weekly|fortnightly|biweekly|semiweekly|monthly|bimonthly|semimonthly"
+             r"|quarterly|semiannually|annually|yearly|biannually|biennially|annual)")
+_COUNT_WORD = r"(?:\d[\d,.]*|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|several|many|few|multiple)"
+_PHRASE = re.compile(
+    rf"(?<![A-Za-z])(?P<other>(?:every|each){_SP}+other{_SP}+{_TIME_NOUN})(?![A-Za-z])"
+    rf"|(?<![A-Za-z])(?:per|a|an|each|every|in{_SP}+a{_SP}+typical|in{_SP}+an{_SP}+average|for{_SP}+the|this|last"
+    rf"|next|the|past|previous|current){_SP}+(?P<n1>{_TIME_NOUN})(?![A-Za-z])"
+    rf"|(?<=[\d%]){_SP}*/{_SP}*(?P<n2>{_TIME_NOUN})(?![A-Za-z])"
+    rf"|(?<![A-Za-z])(?P<adv>{_TIME_ADV})(?![A-Za-z])"
+    rf"|(?<![A-Za-z])per{_SP}+(?P<rate>[A-Za-z]+)"
+    rf"|(?<=[\d%]){_SP}*/{_SP}*(?P<rate2>[A-Za-z]+)"
+    rf"|(?<![A-Za-z])(?P<ytd>[MYQ]TD)(?![A-Za-z])|(?<![A-Za-z])(?P<todate>to{_SP}+date)(?![A-Za-z])"
+    rf"|(?<![A-Za-z])(?P<overn>over{_SP}+(?:the{_SP}+)?(?:next{_SP}+|last{_SP}+|past{_SP}+)?{_COUNT_WORD}"
+    rf"{_SP}+(?:[A-Za-z-]+{_SP}+)?{_TIME_NOUN})(?![A-Za-z])"
+    rf"|(?<![A-Za-z])(?P<overthe>over{_SP}+the{_SP}+(?:lease|term|season|life|course|contract|period))(?![A-Za-z])",
     re.I)
-_PERIOD_BEFORE = re.compile(
-    r"(?<![A-Za-z])(?P<adv>daily|weekly|monthly|yearly|annual)(?![A-Za-z])(?:[ \t,:]+\w+){0,3}[ \t,:]*\Z", re.I)
-# any period named anywhere in a clause: "a week", "each month", "in a typical year", "weekly"
-_PERIOD_ANY = re.compile(
-    rf"(?:(?<![A-Za-z])(?:per|a|an|each|every|in{_SP}+a{_SP}+typical|in{_SP}+an{_SP}+average){_SP}+|/{_SP}*)"
-    rf"(?P<u>day|week|month|year|yr|wk|mo|annum)(?![A-Za-z])"
-    rf"|(?<![A-Za-z])(?P<adv>daily|weekly|monthly|yearly|annually|annual)(?![A-Za-z])", re.I)
+_CELL = re.compile(rf"\s*(?:{_TIME_NOUN}|{_TIME_ADV})\s*", re.I)
+_CANON_NOUN = {"wk": "week", "yr": "year", "mo": "month", "annum": "year"}
+_CANON_ADV = {"daily": "day", "weekly": "week", "monthly": "month", "yearly": "year", "annually": "year",
+              "annual": "year"}
 _CLAUSE_BREAK = re.compile(r"[.!?;](?=\s|$)|\n")
 
 
-def _period_phrase(text: str, start: int, end: int) -> str | None:
-    """The period the sentence names right around the number at text[start:end]: the
-    phrase after it ("a month", "weekly") or, failing that, an adjective just
-    before it ("monthly rent of")."""
-    m = _PERIOD_AFTER.match(text, end)
-    if m and not (m.group("w") and m.group("w").lower() in _FUNCTION_WORDS):
-        return _PERIOD_WORDS.get((m.group("u") or m.group("adv")).lower())
-    sentence = re.split(r"[.!?;\n]", text[max(0, start - 60):start])[-1]
-    b = _PERIOD_BEFORE.search(sentence)
-    return _PERIOD_WORDS.get(b.group("adv").lower()) if b else None
+_TIME_BASES = frozenset("second minute hour day week fortnight month quarter term semester season year decade wk yr mo".split())
+
+
+def _noun_key(noun: str) -> str:
+    n = noun.lower()
+    if n.endswith("s") and n[:-1] in _TIME_BASES:
+        n = n[:-1]
+    return _CANON_NOUN.get(n, n)
 
 
 class _Clauses:
-    """Where the clauses of a text are: a clause is a sentence, a bullet or a table row."""
+    """Where the clauses of a text are (a clause is a sentence, a bullet or a table row), the
+    rate and period phrases each holds, and the limit words in it."""
 
     def __init__(self, text: str) -> None:
         breaks = list(_CLAUSE_BREAK.finditer(text))
         self.text = text
         self._starts = [b.start() for b in breaks]
         self._ends = [b.end() for b in breaks]
+        self._limits = [m.start() for m in _LIMIT_ANYWHERE.finditer(text)]
         self._seen: dict[tuple[int, int], frozenset[str]] = {}   # a clause is read once, however many numbers it holds
 
-    def periods(self, start: int, end: int) -> frozenset[str]:
-        """Every period the clause around text[start:end] names, before and after."""
+    def bounds(self, start: int, end: int) -> tuple[int, int]:
         i = bisect_right(self._ends, start)
-        left = self._ends[i - 1] if i else 0
         j = bisect_left(self._starts, end)
-        right = self._starts[j] if j < len(self._starts) else len(self.text)
+        return (self._ends[i - 1] if i else 0), (self._starts[j] if j < len(self._starts) else len(self.text))
+
+    def phrases(self, start: int, end: int) -> frozenset[str]:
+        """The period each rate or period phrase in the clause around text[start:end] names,
+        "*" for a phrase that names none of day, week, month or year as one period ("per class",
+        "MTD", "over 5 years")."""
+        left, right = self.bounds(start, end)
         if (left, right) not in self._seen:
-            self._seen[(left, right)] = frozenset(
-                _PERIOD_WORDS[(m.group("u") or m.group("adv")).lower()]
-                for m in _PERIOD_ANY.finditer(self.text, left, right))
+            keys: set[str] = set()
+            for m in _PHRASE.finditer(self.text, left, right):
+                if m.group("n1") or m.group("n2"):
+                    keys.add(_noun_key(m.group("n1") or m.group("n2")))
+                elif m.group("adv"):
+                    adv = m.group("adv").lower()
+                    keys.add(_CANON_ADV.get(adv, adv))
+                else:
+                    keys.add("*")
+            if "|" in self.text[left:right]:
+                for cell in self.text[left:right].split("|"):
+                    c = _CELL.fullmatch(cell)
+                    if c:
+                        w = c.group().strip().lower()
+                        keys.add(_CANON_ADV.get(w) or _noun_key(w))
+            self._seen[(left, right)] = frozenset(keys)
         return self._seen[(left, right)]
+
+    def limit_before(self, start: int) -> bool:
+        """Whether a limit word stands earlier in the same clause."""
+        left, _ = self.bounds(start, start)
+        i = bisect_left(self._limits, start) - 1
+        return i >= 0 and self._limits[i] >= left
 
 
 def _context(text: str, start: int, end: int) -> tuple[bool, bool]:
-    """(hedged, limited) for the number at text[start:end]: hedged when a hedge word, an
-    article or a "~" stands right before it or a limit introduces or follows it; limited
-    when a limit does."""
+    """(hedged, limited) for the number at text[start:end]: hedged when a cue, an article or a
+    "~" stands right before it or a limit qualifies it; limited when a limit, a comparison sign
+    or an exactness word introduces or follows it."""
     before = text[max(0, start - 40):start]
-    limited = bool(_COMPARATIVE.search(before)) or bool(_COMPARATIVE_AFTER.match(text, end))
+    limited = bool(_COMPARATIVE.search(before) or _SYMBOL_BEFORE.search(before) or _COMPARATIVE_AFTER.match(text, end))
     return bool(_HEDGE.search(before)) or limited, limited
 
 
@@ -639,10 +719,11 @@ def _kind_of_unit(unit: str) -> str:
 
 
 def _decide_token(figure_id: str, text: str, start: int, end: int, known: FigureSet, floor: int = 0,
-                  clause: frozenset[str] | set[str] = frozenset()) -> _Decision:
+                  keys: frozenset[str] | set[str] = frozenset(), quantity: bool = True,
+                  limit_before: bool = False) -> _Decision:
     """`floor` is where the previous mention ended: a currency code that belongs to
-    that mention ("22 USD {{F:A}}") is not the lead of this token. `clause` holds the
-    periods the clause names."""
+    that mention ("22 USD {{F:A}}") is not the lead of this token. `keys` holds what
+    the rate and period phrases of the clause name."""
     f = known.get(figure_id)
     if f is None:
         return _UNRESOLVED
@@ -657,11 +738,13 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
     word = after.group(1).lower() if after else None
     if word and _contradicts(word, f.unit):
         return _UNRESOLVED
-    if not _period_ok(f.period, _period_phrase(text, start, end), clause):
-        return _UNRESOLVED   # a weekly figure is not "a month"
+    if not _period_ok(f.period, keys):
+        return _UNRESOLVED   # a weekly figure is not "a month", nor "$1,950 per session"
+    if f.unit in ("", "count") and not quantity:
+        return _UNRESOLVED   # a figure with no unit is not put where a number is a label, a cell or a name
     hedged, limited = _context(text, start, end)
-    if limited and display_number(f, symbols=False).startswith("~"):
-        return _UNRESOLVED   # "over {{F:M}}" for a rounded figure would certify a bound it cannot
+    if (limited or limit_before) and display_number(f, symbols=False).startswith("~"):
+        return _UNRESOLVED   # "over {{F:M}}", "Cap spend at {{F:M}}" for a rounded figure would certify a bound it cannot
     kind = _kind_of_unit(f.unit)
     trail = _TRAIL_HEAD.match(text, end)
     if trail and ("%" in trail.group() or "per" in trail.group().lower()):
@@ -696,19 +779,43 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
 
 
 def _decide_mention(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure], known: FigureSet,
-                    quoted: bool, hedged: bool, limited: bool, adjacent: str | None,
-                    clause: frozenset[str] | set[str], hours: set[int] | None) -> _Decision:
+                    quoted: bool, hedged: bool, limited: bool, approximate: bool, bare_ok: bool,
+                    keys: frozenset[str] | set[str], hours: set[int] | None) -> _Decision:
     if m.form in _KEPT_AS_WRITTEN:
         return _LEAVE if supported(m, known, hours) else _UNRESOLVED
     if not shape.plain:
         return _UNRESOLVED
-    f = _pick(m, shape, phrase, found, quoted or limited, limited, adjacent, clause)
+    f = _pick(m, shape, phrase, found, quoted or limited, limited, approximate, keys, bare_ok)
     if f is None:
         return _UNRESOLVED
     if quoted or limited:
         return _Decision(False, f, m.text)   # checked, bound, never rewritten
+    if displayed_value(f) != f.value:
+        # a figure we show rounded: what was said (its exact value, its rounded display, or a true
+        # rounding of it) stays as written, since printing the display could only say less
+        return _Decision(False, f, m.text)
     body = re.fullmatch(r"(~?-?)(.*)", display_number(f, symbols=False, tilde=not hedged), re.S)
     return _Decision(False, f, f"{body.group(1)}{shape.lead}{body.group(2)}{shape.trail}")
+
+
+_LIST_MARK_BEFORE = re.compile(r"[ \t]*(?:[-*+>][ \t]+)?(?:\*\*|__)?\Z")
+_LIST_MARK_AFTER = re.compile(r"(?:\*\*|__)?[.)]")
+
+
+def _stands_as_a_quantity(view: str, start: int, end: int, before: str, line_starts: list[int], keys) -> bool:
+    """Whether a bare number stands where a quantity stands, so a figure with no unit may name
+    it: not a list marker ("**4.** Review pricing"), not a table cell ("| 4 | Review |"), not
+    beside a rate or period phrase, and after a word that can precede a quantity ("is", "of",
+    "about", a comma ...) rather than a verb or a name ("Dial 4", "Room 12")."""
+    if keys:
+        return False
+    ls = line_starts[bisect_right(line_starts, start) - 1]
+    if ls >= start - 40 and _LIST_MARK_BEFORE.fullmatch(view[ls:start]) and _LIST_MARK_AFTER.match(view, end):
+        return False
+    if re.search(r"\|[ \t]*\Z", before) and re.match(r"[ \t]*(?:\||$)", view[end:end + 20]):
+        return False
+    word = re.search(r"([A-Za-z]+)[ \t]*\Z", before)
+    return not word or word.group(1).lower() in _PHRASE_STOP or word.group(1).lower() in _CUE_WORDS
 
 
 # -- one pass over the text -----------------------------------------------------------------------
@@ -873,6 +980,7 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
         return _Run(text, [], [], [])
     clauses = _Clauses(view)
     matched: dict[Decimal, list[Figure]] = {}
+    line_starts = [0] + [n.end() for n in re.finditer("\n", view)]
 
     # tokens first: they do not depend on ranges, and the number one becomes can be an end of one
     ms_ends = [m.end for m in ms]
@@ -880,8 +988,11 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
     numbers: list[Mention] = list(ms)
     for t in tokens:
         k = bisect_right(ms_ends, t.start()) - 1
-        d = _decide_token(t.group(1).strip(), view, t.start(), t.end(), known, ms_ends[k] if k >= 0 else 0,
-                          clauses.periods(t.start(), t.end()))
+        keys = clauses.phrases(t.start(), t.end())
+        d = _decide_token(t.group(1).strip(), view, t.start(), t.end(), known, ms_ends[k] if k >= 0 else 0, keys,
+                          _stands_as_a_quantity(view, t.start(), t.end(), view[max(0, t.start() - 40):t.start()],
+                                                line_starts, keys),
+                          clauses.limit_before(t.start()))
         token_decisions.append(d)
         if d.figure is not None:
             numbers.append(Mention(display_number(d.figure, tilde=False), t.start(), t.end(),
@@ -926,28 +1037,38 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
     items += [(m.start, m.end, i, False) for i, m in enumerate(ms)]
     items.sort(key=lambda it: (it[0], it[1]))
 
+    # "4/12" and "1:10" are ratios: their parts are not quantities any figure may name
+    ratio: set[int] = set()
+    for i in range(len(ms) - 1):
+        a, b = ms[i], ms[i + 1]
+        if view[a.end:b.start] in (":", "/") and a.form in ("digit", "word") and b.form in ("digit", "word"):
+            ratio.update((i, i + 1))
     decisions: list[_Decision] = []
     for start, end, index, is_token in items:
         if is_token:
             decisions.append(token_decisions[index])
             continue
         m = ms[index]
+        if index in ratio:
+            decisions.append(_UNRESOLVED)
+            continue
         reach = range_end.get(index, m.end)
         phrase: tuple[str, ...] = ()
-        adjacent = None
-        clause: frozenset[str] = frozenset()
+        keys: frozenset[str] = frozenset()
         if shapes[index].kind == "bare":
             phrase = _phrase_after(view, reach)
         if not (phrase and phrase[0] in _TIME_CANON):   # a time word is the number's unit, not a period it is paid in
-            adjacent = _period_phrase(view, m.start, reach)
-            clause = clauses.periods(m.start, reach)
+            keys = clauses.phrases(m.start, reach)
         q = bisect_right(quote_starts, m.start) - 1
         quoted = q >= 0 and m.end <= quotes[q][1]
         hedged, limited = _context(view, m.start, reach)
+        before = view[max(0, m.start - 40):m.start]
+        approximate = (not limited and bool(_APPROX_CUE.search(before)) and not clauses.limit_before(m.start))
+        bare_ok = shapes[index].kind != "bare" or _stands_as_a_quantity(view, m.start, m.end, before, line_starts, keys)
         if m.value not in matched:
             matched[m.value] = known.match(m.value)
         decisions.append(_decide_mention(m, shapes[index], phrase, matched[m.value], known, quoted, hedged, limited,
-                                         adjacent, clause, hours))
+                                         approximate, bare_ok, keys, hours))
 
     reverted: set[int] = set()
     for _ in range(len(items) + 1):
