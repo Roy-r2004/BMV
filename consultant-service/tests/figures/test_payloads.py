@@ -326,17 +326,18 @@ def test_other_prose_keeps_its_shape(client):
 
 def test_the_known_set_changing_after_a_text_was_stored_serves_no_pieces_and_leaves_the_text(client):
     """Pieces that would not join back to the stored text are not served: the page then
-    shows the text as stored. Here the turn was stored without the "~" the move's figure
-    now prints before a rounded total, so binding it again would change the text."""
+    shows the text as stored. Here the turn and a headline figure were stored when a price
+    still printed to the cent ("$28.00"); the figure now prints "$28", so binding the text
+    again would change it."""
     fields = _written()
     stored = json.loads(fields["answer_json"])
-    stored["turn"] = "Moving them to $28 is worth $45,000 a year."
+    stored["turn"] = "Moving them to $28.00 is worth about $45,000 a year."
     assert payload.answer_for_web(stored, K.known_for(Request(**fields)))["turn_segments"] == []
-    stored["figures"][0]["value"] = "$45,000"
+    stored["figures"][0]["value"] = "$28.00"
     fields["answer_json"] = json.dumps(stored)
     a = _decision(client, _seed(fields))["answer"]
-    assert a["turn"] == "Moving them to $28 is worth $45,000 a year." and a["turn_segments"] == []
-    assert a["figures"][0]["value"] == "$45,000" and a["figures"][0]["value_segments"] == []
+    assert a["turn"] == "Moving them to $28.00 is worth about $45,000 a year." and a["turn_segments"] == []
+    assert a["figures"][0]["value"] == "$28.00" and a["figures"][0]["value_segments"] == []
     # the rest still comes in pieces, and the figures its pieces name are still in the map
     assert a["headline_segments"] and any("figure" in p for p in a["headline_segments"])
 
