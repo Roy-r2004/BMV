@@ -1050,6 +1050,25 @@ def forward_dependency_findings(content: dict, canon: _canon.Canon) -> list[Find
     return out
 
 
+def is_plan_position(horizon: str) -> bool:
+    """Whether a playbook horizon names only positions on the plan's own time axis
+    ("week 1", "weeks 2 to 4", "Weeks 2-4", "month 3"), which are the playbook's way of
+    saying when and carry no quantity of their own. It uses the rules we already have:
+    the roadmap's span of weeks (`action_plan.week_span`), or the reader's (`read.mentions`:
+    a plan position is a date, read here as the start of a sentence, since a model writes
+    "week 1" in lower case) with a position word beside it (week, month, day or quarter),
+    so a calendar date ("May 12") is not one. Any other number is a quantity."""
+    from app.figures.read import _POSITIONS, mentions
+    from app.pipeline.action_plan import week_span
+
+    h = str(horizon or "").strip()
+    if week_span(h):
+        return True
+    found = mentions(h[:1].upper() + h[1:])
+    words = {w.strip(".,;:()").lower().rstrip("s") for w in h.split()}
+    return bool(found) and all(m.form == "date" for m in found) and bool(words & _POSITIONS)
+
+
 def structure_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
     """Laws proven on the structures themselves — no prose involved."""
     from app.pipeline.structural import structural_findings
@@ -1105,8 +1124,7 @@ def structure_findings(content: dict, canon: _canon.Canon) -> list[Finding]:
     for step in pb.get("steps") or []:
         for key in ("horizon", "when"):
             h = step.get(key) if isinstance(step, dict) else None
-            if isinstance(h, str) and re.search(r"\d", h) and "(proposed" not in h \
-                    and not re.search(r"week 1\b|immediately", h, re.IGNORECASE):
+            if isinstance(h, str) and re.search(r"\d", h) and "(proposed" not in h and not is_plan_position(h):
                 out.append(Finding(MISCLASSIFIED, f"playbook: {step.get('title')}",
                                    f"a schedule horizon is stated as fact: '{h}'",
                                    "a horizon we propose carries the approval label"))
