@@ -3,8 +3,8 @@
 `app/pipeline`, `app/prompts`, `tools` and the top-level suite that proves
 them were byte-identical at commit f9fc846, re-frozen at 820a5d8 after the owner's
 2026-09 rewrite (consultation flow, roadmap, screens) and since at each deliberate
-change the manifest's `recorded` sentence lists (the latest, 15ec65a, after the
-typed-figures step), and must stay so: the
+change the manifest's `recorded` sentence lists (the latest, 98a46f3, after the
+output-shape step), and must stay so: the
 engine imports r30, it never edits it, and the owner's contract says so in
 those words. This file is the enforcement.
 
@@ -78,7 +78,7 @@ def manifest() -> dict:
 def test_manifest_declares_its_rules(manifest):
     """The manifest says which commit it was recorded at and which trees it
     covers, so a reader never has to infer the scope from the file list."""
-    assert manifest["commit"] == "15ec65a"
+    assert manifest["commit"] == "98a46f3"
     assert tuple(manifest["roots"]) == FROZEN_ROOTS
     assert manifest["file_count"] == len(manifest["files"])
     assert manifest["file_count"] > 0
