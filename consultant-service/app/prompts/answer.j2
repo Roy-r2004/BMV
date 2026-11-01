@@ -16,8 +16,12 @@ Still unverified: {{ unverified }}
 THE DIAGNOSIS THAT HELD
 {{ leading }}
 
-EVERY FIGURE YOU MAY USE — their own, or computed from their own (the CAP- ones). Cite by id.
+THE CLAIMS BEHIND THEM — their own figures, or computed from their own (the CAP- ones). Cite their ids in "cites" and in the move.
 {{ claims }}
+
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block }}
+In every sentence and label you write, use only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. A length of time or a count that our plan proposes goes in its field ("action", "move"), not only in a sentence. Where a number is not a quantity, use words: "one of the reasons", never "1 of the reasons".
 
 WHAT TO WRITE
 
@@ -30,20 +34,20 @@ WHAT TO WRITE
 2. "sub": two or three sentences that give the evidence in their own figures and end on what that means for what they asked for. Every number must come from the figures above.
    "emphasis": a short phrase copied EXACTLY from your sub that carries the finding — it will be set in bold. Or "".
 
-3. "figures": up to two headline figures that prove it, each a short "value" (e.g. "$22 vs $32", "8 hrs") and a "label" under it (e.g. "you, and two comparable studios nearby"), with the claim ids it comes from in "cites". Every number in value and label must be in those claims. Do not repeat a capacity total — the page draws that already.
+3. "figures": up to two headline figures that prove it, each a short "value" (e.g. "$50 vs $100", "10 hrs") and a "label" under it (e.g. "you, and the comparable studios nearby"), with the claim ids it comes from in "cites". Every number in value and label must be one of the figures you may use. Do not repeat a capacity total — the page draws that already.
 
 4. "move": the value of doing the thing we recommend, as a product of terms, or null when their figures cannot support one. Each term is one factor:
-     {"label": "evening spots a week", "value": 144, "from": "CAP-05"}          <- one of the figures above, by id
+     {"label": "evening spots a week", "value": 100, "from": "CAP-05"}          <- one of the figures above, by id
      {"label": "weeks a year", "value": 52, "from": "constant"}               <- only calendar constants
-     {"label": "price rise per spot", "value": 6, "parts": [
-         {"value": 28, "from": "proposed", "label": "proposed evening price"},
-         {"value": 22, "from": "CF-04", "sign": -1}]}                          <- a difference; "proposed" is OUR number and will be labelled as ours
-   "label" is the move in a few words with its condition, e.g. "moving 6pm and 7pm to $28, if regulars stay".
+     {"label": "price rise per spot", "value": 50, "parts": [
+         {"value": 100, "from": "proposed", "label": "proposed evening price"},
+         {"value": 50, "from": "CF-04", "sign": -1}]}                          <- a difference; "proposed" is OUR number and will be labelled as ours
+   "label" is the move in a few words with its condition, e.g. "moving the busy evening slots to $100, if regulars stay".
    "unit" is "USD", "hours" or the unit the product comes out in. "period" is "year", "month" or "week".
    Use a "proposed" number only where the move needs one (a new price, a new slot). Never propose a number about the business as it is today. If the value would rest mostly on proposed numbers, return null — a guess dressed as a figure is worse than no figure.
 
 5. "action": what the owner can start WITHOUT software, as the button that starts it.
-   {"weeks": 6, "name": "six-week pilot"} for a trial they run and measure; {"weeks": 4, "name": "four-week plan"} when it is steps rather than a trial. Weeks between 2 and 12.
+   {"weeks": 4, "name": "pricing pilot"} for a trial they run and measure; {"weeks": 8, "name": "intake plan"} when it is steps rather than a trial. Keep every number out of the name (a name with one is replaced by "N-week plan", from "weeks"). Weeks between 2 and 12.
 
 Respond with ONLY this JSON, no fences:
 {

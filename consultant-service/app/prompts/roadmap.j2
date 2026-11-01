@@ -19,8 +19,12 @@ WHAT THE PLANS SAY TO BUILD, module by module (the first one listed is built fir
 {% endif %}
 {% if timeline %}When they want it: {{ timeline }}{% endif %}
 
-THEIR FIGURES — the only numbers about their business you may use. Cite by id.
+THEIR FIGURES — the claims behind the numbers about their business. Cite by id.
 {{ claims }}
+
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block }}
+Write only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. A phase's length goes in its "when" ("Weeks 1 to 2"), not only in a sentence. A label such as "Phase 2" or "Gate 1" is not a quantity and is fine. Where a number is not a quantity, use words: "one of the calls", never "1 of the calls".
 
 WRITE
 1. "title": "Implementation roadmap".

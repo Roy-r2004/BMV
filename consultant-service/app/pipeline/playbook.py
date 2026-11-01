@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures import known as _known
 from app.models import Request
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline import handoff
@@ -81,6 +82,7 @@ def write_playbook(
             req.business_description,
             diagnosis=handoff.for_build(req),
             ),
+            figures_block=_known.prompt_lines(_known.known_for(req, leave_out={"roadmap"})),
         )
         result = ask_until_usable(
             lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=4000),

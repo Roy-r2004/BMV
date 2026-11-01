@@ -19,6 +19,10 @@ Modules, each with its business spec ("spec": features, data, screens, ai, integ
 THE CANONICAL PILOT-GATE SENTENCE (never rewrite it; where pilot success criteria belong, write the literal token [[PILOT_GATE]] and the system substitutes this sentence):
 {{ pilot_gate_sentence | default("(no pilot gate defined — write no pilot criteria)") }}
 
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block | default("none") }}
+Every number about their business that you write is one of these, exactly as listed. Do not round one or invent another. A check or threshold copied from the specs keeps its label. Where a number is not a quantity, use words: "one of the parts", never "1 of the parts".
+
 TASK
 Write the Technical Plan in Markdown. Structure (exactly these ## headings):
 

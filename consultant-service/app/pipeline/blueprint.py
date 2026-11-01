@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures import known as _known
 from app.models import Request
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_text
 from app.pipeline import handoff
@@ -361,6 +362,7 @@ def write_blueprint(
         build_order_names="\n".join(f"{i}. {n}" for i, n in enumerate(registry.get("build_order_names") or [], 1))
         or "(derive from the modules' dependencies)",
         monthly_identity_note=_monthly_identity_note(business_case),
+        figures_block=_known.prompt_lines(_known.known_for(req, leave_out={"roadmap"})),
     )
     # Four front-matter sections joined the document (engagement scope,
     # current state, opportunity) — give it room to finish them all.
@@ -403,6 +405,7 @@ def write_technical_plan(
             diagnosis=handoff.for_build(req),
         ),
         pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
+        figures_block=_known.prompt_lines(_known.known_for(req, leave_out={"roadmap"})),
     )
     # Per-module anatomy (data model, agent brain/tools/guardrails, APIs)
     # makes this the longest document — give it the budget to finish.

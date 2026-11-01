@@ -19,8 +19,12 @@ WHO WORKS THERE (from the plans)
 {% endif %}
 {% if journey %}THE CUSTOMER'S JOURNEY: {{ journey }}{% endif %}
 
-THEIR OWN FIGURES — the only numbers about this business you may state as fact
+THEIR OWN FIGURES — the claims behind the numbers about this business you may state as fact
 {{ claims }}
+
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block }}
+In captions and in the story, write only these numbers, exactly as listed, or cite one as {% raw %}{{F:id}}{% endraw %} (it prints with its own $, % or unit: write no sign beside it, and a noun after it only for a plain count). Do not round one or invent another. The sample data inside a screen is the one place for numbers of your own. Where a number is not a quantity, use words: "one of the clinics", never "1 of the clinics".
 
 THE BLOCKS A SCREEN CAN BE MADE OF
 {{ block_guide }}

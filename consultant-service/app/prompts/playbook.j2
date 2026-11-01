@@ -22,6 +22,10 @@ Concept: {{ concept_name }}
 Modules and their specs: {{ modules }}
 Business case: {{ business_case }}
 
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block | default("none") }}
+Every number about their business that you write is one of these, exactly as listed. Do not round one or invent another. A review trigger or target that is not listed is a proposal and carries the label below. A length of time or a count that the plan proposes goes in the step's "horizon", not only in its detail. Where a number is not a quantity, use words: "one of the partners", never "1 of the partners".
+
 TASK
 Write the ordered execution playbook: 8-14 steps across three phases ("before", "during", "after" the build). Every step is a real action with a clear owner. Be the consultant who has done this many times: concrete, opinionated, honest about trade-offs.
 
@@ -32,7 +36,7 @@ Rules for the steps:
 - "after" steps must name the specific numbers to watch weekly (use the modules' KPIs) and the decision each number triggers.
 - Every step traces to a module, the business case, or a stated fact. No generic filler ("align stakeholders"), no invented prices, no calendar dates.
 - "horizon" is when the step happens relative to the journey — "week 1", "first 30 days", "during the build", "launch week", "every week after launch". A horizon, never a calendar date.
-- THRESHOLDS: every review trigger or target number in after-launch steps ("if below 85%...") that is not the client's own figure carries "(proposed — client approval required)". An unlabeled invented threshold is a defect.
+- THRESHOLDS: every review trigger or target number in after-launch steps ("if below 50%...") that is not the client's own figure carries "(proposed — client approval required)". An unlabeled invented threshold is a defect.
 
 Also write QUICK WINS: 3-5 actions the owner can execute in their FIRST 30 DAYS with what they already have — before any software exists. At least one must require no software at all (a policy change, a script for the phone, a supplier renegotiation, exporting and cleaning their client list). Each is real value on its own AND makes the build land better. This is the section that proves the plan works before a dollar is spent on building.
 

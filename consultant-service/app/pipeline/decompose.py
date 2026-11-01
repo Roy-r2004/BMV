@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.figures import known as _known
 from app.models import Request
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, log_usage, reply_json
 from app.pipeline import handoff
@@ -520,6 +521,8 @@ def decompose_business(
             min_modules=settings.MIN_MODULES_PER_REQUEST,
             max_modules=settings.MAX_MODULES_PER_REQUEST,
             preflight_feedback="\n".join(f"- {f}" for f in (feedback or [])),
+            # the registry is rebuilt from this decomposition, and the roadmap is written after it
+            figures_block=_known.prompt_lines(_known.known_for(req, leave_out={"registry", "roadmap"})),
         )
         modules, business_case = ask_until_usable(
             lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=6400),

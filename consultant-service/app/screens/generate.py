@@ -54,16 +54,16 @@ WORKERS = 4
 PROMPT_VERSION = "screens-v1"
 
 BLOCK_GUIDE = """Each block is {"kind": ..., "w": 1-3 (share of the row), ...fields}. Kinds and their fields:
-- kpis: items[2-6] of {value (short, "22/29", "$18,400", "26 min"), label, sub?}. A row of tiles; usually the first row.
+- kpis: items[2-6] of {value (short, "20/30", "$20,000", "30 min"), label, sub?}. A row of tiles; usually the first row.
 - list: title, rows[≤7] of {tag (≤2 words), tone (good|warn|bad|info|dim), text (one sentence), action? ("Open")}, footer?. A needs-attention list.
 - agenda: title, rows[≤7] of {time ("09:00"), title, sub?, now? (true for the current one)}. Today's programme.
-- table: title?, sub?, columns[≤6], rows[≤8] of cells; a cell is text, or {"chip": "Overdue", "tone": "bad"}, or {"action": "Send reminder"}, or {"strong": "$1,200"}; footer?.
+- table: title?, sub?, columns[≤6], rows[≤8] of cells; a cell is text, or {"chip": "Overdue", "tone": "bad"}, or {"action": "Send reminder"}, or {"strong": "$1,000"}; footer?.
 - pipeline: title?, columns[2-5] of {title, cards[≤4] of {title, tags[≤3] (short), lines[≤3], action?, alert?}}, footer?. A kanban of stages.
 - board: title?, sub?, groups[≤4] of {title, cells[≤20] of {code ("M3-A"), label? (a name or a state), state (occupied|free|reserved|preparing|closed)}}, legend[state names], side? {title, lines[≤4], actions[≤2]}. A live board of units.
 - record: initials, name, meta (one line of context), action?, tabs[≤5], active_tab. A file header; first row of a record screen.
 - stages: items[2-6] of {label, sub?, state (done|now|next)}. A journey or programme timeline; full width, one row.
 - progress: title, items[≤5] of {label, pct (0-100), status?}, footer?.
-- bars: title, sub?, items[2-8] of {label, value (number), display? ("$5.4k")}, horizontal? (true for a ranked list).
+- bars: title, sub?, items[2-8] of {label, value (number), display? ("$5k")}, horizontal? (true for a ranked list).
 - line: title, sub?, points[3-8] of {label, value, display?}. A trend.
 - form: title, sub?, fields[≤7] of {label, type (text|textarea|choice|scale|check|select), value?, help?, options[≤5]?, selected?}, note?, primary? (button), secondary?. A note, an enquiry, a check-in.
 - schedule: title, sub?, days[2-7], slots[≤6] of {time, cells[one per day] of {title, sub?, tone (info|good|warn|bad|dim)} or null}, legend[tone names], footer?. A week grid.
@@ -71,7 +71,7 @@ BLOCK_GUIDE = """Each block is {"kind": ..., "w": 1-3 (share of the row), ...fie
 - log: title, rows[≤7] of {time, who, text, blocked? (true when an access was refused)}. An activity log.
 - cards: title, sub?, items[≤8] of {title, text, state (connected|connect|on|off|none), action?}. Integrations, options, or what an AI agent handles.
 - note: text, tone (info|warn|good|bad|dim). One-line callout.
-- feed: title, rows[≤6] of {meta ("Today 11:00, individual session, M. Khoury"), text, tag?}. Recent entries.
+- feed: title, rows[≤6] of {meta ("Today 09:00, individual session, M. Khoury"), text, tag?}. Recent entries.
 - draft: title, badge ("AI draft"), note (what it was written from and that a person approves it), bullets[≤4] of {text, cite? ("3 notes")}, primary, secondary. An AI suggestion awaiting approval.
 - chat: title, sub?, messages[≤6] of {from (person|agent), text}, note?. A conversation an AI agent handled."""
 
@@ -159,6 +159,7 @@ def _inputs(req: Request) -> dict:
         pass
     answer_line = " ".join(x for x in (ans.get("headline"), ans.get("turn"), ans.get("sub")) if x).strip() \
         or (decision.get("consulting_summary") or "")[:300]
+    known = _known.known_for(req)
     return {
         "business_name": req.business_name or "the business",
         "description": (req.business_description or "")[:1500],
@@ -171,7 +172,8 @@ def _inputs(req: Request) -> dict:
         "journey": ", ".join(_journey(req)),
         "claims": _answer._claim_lines(claims) or "none given",
         # what the request knows (their figures, the week, the move, the roadmap) and the times they named
-        "known": _known.known_for(req),
+        "known": known,
+        "figures_block": _known.prompt_lines(known),
         "hours": _known.hours_for(req),
     }
 
@@ -243,7 +245,8 @@ def _plan(db: Session, request_id: int, inputs: dict) -> dict:
     base = dict(
         business_name=inputs["business_name"], description=inputs["description"], question=inputs["question"],
         answer=inputs["answer"], stage=inputs["stage"], concept_name=inputs["concept_name"], modules=inputs["modules"],
-        roles=inputs["roles"], journey=inputs["journey"], claims=inputs["claims"], block_guide=BLOCK_GUIDE,
+        roles=inputs["roles"], journey=inputs["journey"], claims=inputs["claims"],
+        figures_block=inputs["figures_block"], block_guide=BLOCK_GUIDE,
         accents=", ".join(schema.ACCENTS), icons=", ".join(sorted(schema.ICONS)),
         min_screens=schema.SCREENS_MIN, max_screens=schema.SCREENS_MAX,
     )
@@ -287,7 +290,7 @@ def _draw(inputs: dict, plan: dict, screen: dict, reference: dict | None = None,
         product=plan["product"], business_name=inputs["business_name"],
         nav_labels=", ".join(i["label"] for g in plan["nav"] for i in g["items"]),
         cast=plan["cast"], claims=inputs["claims"], screen=screen, module=module,
-        block_guide=BLOCK_GUIDE, example=example, example_note=example_note,
+        figures_block=inputs["figures_block"], block_guide=BLOCK_GUIDE, example=example, example_note=example_note,
     )
     logs, feedback = [], ""
     for attempt in (1, 2):

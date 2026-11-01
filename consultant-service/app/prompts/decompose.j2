@@ -16,6 +16,10 @@ Real facts pulled from their own site (verified, weight heavily if present): {{ 
 THE OWNER'S OWN NUMBERS (their answers to our discovery questions — the ONLY numbers you may compute with)
 {{ owner_numbers }}
 
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block | default("none") }}
+Start every calculation from these numbers, exactly as listed; do not round one or invent another. A result you work out from them, with the arithmetic shown, is yours to state. A length of time or a count that our plan proposes (the pilot's length, how many) goes in its own field, not only in a sentence. Where a number is not a quantity, use words: "one of the modules", never "1 of the modules".
+
 ANALYSIS SO FAR
 Business model archetype: {{ business_model }}
 Target customer profile: {{ target_customer_profile }}
@@ -36,8 +40,8 @@ TASK
 2. Build the BUSINESS CASE: exactly how this product makes or protects money for THIS business. Ground it in how they earn today.
 
 Number rules — absolute:
-- If owner numbers exist above: every figure you write must be one of those numbers or plain arithmetic on them, and must name the input it came from ("at your $85 average visit...", "of the 14 hours you told us about..."). State every assumption you introduce and make it conservative ("if reminders recover even a third of the no-shows"). Put the computed figures in payback_logic and in the relevant costs_removed / revenue_streams entries, and close each computed claim with "by your own figures".
-- DO THE ARITHMETIC. When two of their numbers combine into a third (a volume × a price, a rate × a capacity, hours × a frequency), compute it and write the RESULT as a number — that computed number is the consulting. Whenever two combinable inputs exist, payback_logic must contain at least one multiplied-out figure; restating inputs without computing ("a new center every 2 weeks will contribute revenue") is a failure — the standard is the product, written out ("a new center every 2 weeks is ~2 a month: each onboarding month adds ~$1,800 of recurring revenue at your planned price, by your own figures").
+- If owner numbers exist above: every figure you write must be one of those numbers or plain arithmetic on them, and must name the input it came from ("at your $100 average visit...", "of the 10 hours you told us about..."). State every assumption you introduce and make it conservative ("if reminders recover even a fifth of the no-shows"). Put the computed figures in payback_logic and in the relevant costs_removed / revenue_streams entries, and close each computed claim with "by your own figures".
+- DO THE ARITHMETIC. When two of their numbers combine into a third (a volume × a price, a rate × a capacity, hours × a frequency), compute it and write the RESULT as a number — that computed number is the consulting. Whenever two combinable inputs exist, payback_logic must contain at least one multiplied-out figure; restating inputs without computing ("a new center every 2 weeks will contribute revenue") is a failure — the standard is the product, written out ("a new center every 2 weeks is ~2 a month: each onboarding month adds ~$2,000 of recurring revenue at your planned price, by your own figures").
 {% if operating_stage == "opening" %}- This business has NOT launched: their numbers are targets and plans, not history. Compute forward from the plan and label it as their plan ("at your planned $30 ticket..."). Never predict that a target will be hit — frame value as capacity, readiness and avoided hires, not projected profits.
 {% endif %}- Where no owner number covers a claim: describe the mechanism only. Never invent currency amounts or percentages — a made-up number is worse than none.
 
@@ -73,10 +77,10 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
     },
     "pricing_levers": ["<a concrete way the product lets them charge more, retain longer, or sell wider>"],
     "payback_logic": "<3-4 sentences: the honest chain of reasoning from 'system goes live' to 'owner is better off' — computed from owner numbers where they exist, mechanisms otherwise>",
-    "cost_of_inaction": "<1-2 sentences: what staying as they are costs per month. If owner numbers exist, compute it from them and show the arithmetic ('14 hours a week is ~60 hours a month of your time on bookings, by your own figures'). Without owner numbers: the mechanism of the ongoing loss only — never an invented figure.>",
+    "cost_of_inaction": "<1-2 sentences: what staying as they are costs per month. If owner numbers exist, compute it from them and show the arithmetic ('7 hours a week is ~30 hours a month of your time on bookings, by your own figures'). Without owner numbers: the mechanism of the ongoing loss only — never an invented figure.>",
     "financial_model": {
       "lines": [
-        {"item": "<the loss or gain, in their vocabulary>", "arithmetic": "<the computation written out from named owner inputs, e.g. '3 no-shows/week x $95 x 52 weeks'>", "annual": "<the computed annual figure>"}
+        {"item": "<the loss or gain, in their vocabulary>", "arithmetic": "<the computation written out from named owner inputs, e.g. '2 no-shows/week x $100 x 52 weeks'>", "annual": "<the computed annual figure>"}
       ],
       "scenarios": [
         {"name": "Conservative", "assumption": "<the explicit labeled fraction, e.g. 'the agent prevents 1 in 3 failed attempts'>", "impact": "<the computed figure at that fraction, arithmetic shown, closed with 'by your own figures'>"},
@@ -95,7 +99,7 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "numerator": "<what is counted on top, e.g. 'deliveries completed on the first attempt'>",
       "denominator": "<what it is divided by, e.g. 'all delivery attempts in the pilot population'>",
       "baseline": "<an owner number cited as given, or exactly: measure in week 1>",
-      "target": "<exactly ONE target for the primary metric, EXPLICITLY relative ('a 25% relative reduction') or percentage-point ('3 percentage points'), stating rise or fall, labeled (proposed — client approval required)>",
+      "target": "<exactly ONE target for the primary metric, EXPLICITLY relative ('a 20% relative reduction') or percentage-point ('3 percentage points'), stating rise or fall, labeled (proposed — client approval required)>",
       "target_value": <the target as a number>,
       "change_kind": "percentage_point|relative",
       "secondary_metrics": ["<supporting metric, each one distinct — never conflate two different measurements>"],
@@ -122,8 +126,8 @@ MODULE METADATA rules — absolute:
 FINANCIAL MODEL rules — absolute:
 - UNIT DISCIPLINE: every figure carries its unit AND period (per day / per week / per month / per year). Use a 365-day year and a 30-day operating month, and keep each figure's frequency identical everywhere it appears. If the client's inputs are ambiguous or conflicting about a figure's frequency (a number that could be weekly or monthly), do NOT compute with it — add "confirm whether <the figure> is per week or per month" to missing_inputs instead.
 - CAPACITY IS NOT CASH: hours saved are "capacity released", stated in hours — never converted to dollars unless the client supplied the loaded labor cost. Never claim headcount is removed; state involvement as the client stated it.
-- Scenario impact strings are table cells: ONE concise line (e.g. "$17,500/year hard savings + ~84 support hours/month released"), never a paragraph of formulas — detailed arithmetic lives in `lines`.
-- SCENARIO COMPLETENESS: every mechanism the assumption promises produces exactly one impact clause — a computed dollar figure, a computed WHOLE-NUMBER volume, or the explicit note "(not yet monetized — needs <the missing input>)". A promised mechanism with no clause is a defect; a fractional count of discrete things ("31,937.5 inquiries") is a defect.
+- Scenario impact strings are table cells: ONE concise line (e.g. "$20,000/year hard savings + ~80 support hours/month released"), never a paragraph of formulas — detailed arithmetic lives in `lines`.
+- SCENARIO COMPLETENESS: every mechanism the assumption promises produces exactly one impact clause — a computed dollar figure, a computed WHOLE-NUMBER volume, or the explicit note "(not yet monetized — needs <the missing input>)". A promised mechanism with no clause is a defect; a fractional count of discrete things ("0.5 inquiries") is a defect.
 - `lines` annualize the owner's own numbers with the arithmetic written out; annualizing (x12, x52, x26 working days) is legitimate arithmetic on their inputs.
 - `scenarios` are the ONLY place a fraction the owner never gave may appear — and only as an explicitly labeled assumption (a conservative / expected / upside recovery rate) applied to their figures with the arithmetic shown. Three scenarios, always in that order.
 - Never guess a missing input — name it in `missing_inputs` instead. An hourly wage, a margin, a cost the owner never stated goes in `missing_inputs`, not in a computation.

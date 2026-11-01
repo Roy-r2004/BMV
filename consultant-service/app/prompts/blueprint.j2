@@ -35,6 +35,10 @@ THE CANONICAL PILOT-GATE SENTENCE (rendered by the system; you never rewrite it 
 BUILD ORDER (client-facing names, in the exact order to restate):
 {{ build_order_names | default("(derive from the modules' dependencies)") }}
 
+FIGURES YOU MAY USE (id | number | whose it is | what it is)
+{{ figures_block | default("none") }}
+Every number you write is one of these, exactly as listed. Do not round one or invent another. A length of time or a count that our plan proposes is stated only where the system renders it ([[PILOT_GATE]], a module's own fields), never in your own words alone. Where a number is not a quantity, use words: "one of the modules", never "1 of the modules".
+
 {{ monthly_identity_note | default("MONTHLY IDENTITY (binding): monthly figures use the 30-day operating month only (annual / 365 x 30); never divide a year by 12.") }}
 
 TASK
@@ -70,7 +74,7 @@ The business case, in plain words. One short paragraph of the payback logic, the
 - A "Costs removed" list: each cost and how it disappears (from business_case.costs_removed)
 - A "Pricing levers" list (from business_case.pricing_levers)
 - Close the section with **What staying manual costs:** business_case.cost_of_inaction restated in one sentence, attribution kept.
-The only numbers allowed are ones the business case itself computed from the owner's own inputs — restate them WITH their attribution ("at your $85 average visit...", "by your own figures"). Beyond those: mechanisms only, never an invented amount or percentage.
+The only numbers allowed are ones the business case itself computed from the owner's own inputs — restate them WITH their attribution ("at your $100 average visit...", "by your own figures"). Beyond those: mechanisms only, never an invented amount or percentage.
 
 ## The product, module by module
 One ### subsection PER MODULE, in the decomposition's order. Each subsection:
@@ -105,7 +109,7 @@ Rules:
 - DEPENDENCIES FLOW BACKWARD: a module's description may never rely on a module scheduled LATER in "What we'd build first" — an early module that consumes a later module's output describes its interim rules-based behavior instead.
 - "What we'd build first" restates BUILD ORDER by NAME in ITS EXACT ORDER, one reasoning line each — never reordered.
 - CANONICAL STATEMENTS: a module's purpose sentence keeps its meaning IDENTICAL in every restatement; the pilot gate is never restated except via [[PILOT_GATE]].
-- ATTRIBUTION WITHOUT REPETITION: the phrase "by your own figures" appears AT MOST once in the whole document. Attribution is carried by naming the input inline ("at your $1.80 re-attempt cost"), not by repeating the formula phrase.
+- ATTRIBUTION WITHOUT REPETITION: the phrase "by your own figures" appears AT MOST once in the whole document. Attribution is carried by naming the input inline ("at your $2 re-attempt cost"), not by repeating the formula phrase.
 - No vague intensifiers ("drastically", "significantly", "greatly improve") — name the mechanism or the computed figure instead.
 - CAPACITY IS NOT CASH: hours saved are capacity released, stated in hours; staffing claims restate the client's facts ("these inquiries currently involve five support staff"), never inferred conclusions ("requires five full-time staff").
 - EXACTLY the ## headings listed above and NO others. The financial model, evidence, journey, scoreboard, organization and risks render as their own designed layers — writing them as extra sections duplicates them in the finished volume.
