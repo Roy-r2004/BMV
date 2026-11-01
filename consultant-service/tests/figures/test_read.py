@@ -420,8 +420,6 @@ def test_a_fraction_in_a_quantity_use_reads_as_the_percent_number(text, value, s
     ("in the second half", []),
     ("half-price classes", []),
     ("half price classes", []),
-    ("a half", []),
-    ("a third time", [("third", "3", "ordinal")]),      # an order, read as one
     ("every quarter", []),
     ("per quarter", []),
     ("last quarter", []),
@@ -696,15 +694,18 @@ def test_a_fraction_after_a_lead_word_or_with_a_cardinal(text, span, value):
 
 @pytest.mark.parametrize("text", [
     "the first half", "second half", "half-price", "at half-price", "half price", "every quarter",
-    "per quarter", "last quarter", "next quarter", "this quarter", "thirds",
+    "per quarter", "last quarter", "next quarter", "this quarter",
 ])
 def test_fraction_words_that_are_not_quantities(text):
     assert [m for m in mentions(text) if m.form == "fraction"] == []
     assert mentions(text) == []
 
 
-def test_a_third_time_is_an_order_not_a_fraction():
-    assert readings("a third time") == [("third", "3", "ordinal")]
+def test_a_fraction_word_with_no_exception_is_read_as_a_fraction():
+    # the rule is inverted (re-review item 2): read unless a known exception applies
+    assert readings("a third time") == [("a third", "33.3333", "fraction")]
+    assert readings("a half") == [("a half", "50", "fraction")]
+    assert readings("thirds") == [("thirds", "33.3333", "fraction")]
 
 
 # D12. a word ordinal opening a sentence before a comma is an enumerator
@@ -783,6 +784,170 @@ def test_a_long_text_reads_quickly():
     elapsed = time.perf_counter() - started
     assert elapsed < 5, elapsed
     assert len(found) > 6000
+
+
+# -- re-review: prefer a false flag to a hidden number ----------------------------------------
+
+# 1. no quadratic walk: long underscore, asterisk and emphasis runs read quickly
+
+_LONG_RUNS = [   # (id, text, want); ids keep pytest's environment variable short
+    ("underscores-20k", "_" * 20000, []),
+    ("stars-underscores-20k-5", "**" + "_" * 20000 + "5", ["5"]),
+    ("letter-underscores-20k-5", "a" + "_" * 20000 + "5", []),
+    ("underscores-100k", "_" * 100000, []),
+    ("stars-100k", "*" * 100000, []),
+    ("stars-100k-5", "**" + "*" * 100000 + "5", ["5"]),
+    ("emphasis-100k", "__5__ " * 16700, ["5"] * 16700),
+    ("underscores-5-underscores", "_" * 50000 + "5" + "_" * 50000, ["5"]),
+]
+
+
+@pytest.mark.parametrize("text,want", [(t, w) for _, t, w in _LONG_RUNS], ids=[i for i, _, _ in _LONG_RUNS])
+def test_long_emphasis_runs_read_in_linear_time(text, want):
+    import time
+    started = time.perf_counter()
+    found = mentions(text)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 3, elapsed
+    assert [m.text for m in found] == want
+
+
+# 2. a fraction word is read unless a known exception applies
+
+@pytest.mark.parametrize("text", [
+    "roughly half will return", "up to half could churn", "at least half renew",
+    "approximately half renew", "Half renew each month", "close to half", "half or more",
+    "half as many", "cut costs in half", "half an hour",
+])
+def test_half_is_read_unless_an_exception_applies(text):
+    found = mentions(text)
+    assert [(m.text.lower(), m.value, m.form) for m in found] == [("half", D(50), "fraction")]
+
+
+@pytest.mark.parametrize("text", [
+    "the first half", "second half", "the last half", "the other half", "this half", "half-price",
+    "half-hour", "half price", "every quarter", "per quarter", "last quarter", "next quarter",
+    "this quarter", "each quarter",
+])
+def test_half_and_quarter_after_a_position_or_period_word_or_in_a_compound_are_not_read(text):
+    assert mentions(text) == []
+
+
+def test_half_a_dozen_and_cardinal_fractions_are_unchanged():
+    assert [(m.text, m.value, m.form) for m in mentions("half a dozen")] == [("half a dozen", D(6), "word")]
+    assert readings("one third") == [("one third", "33.3333", "fraction")]
+    assert readings("two thirds") == [("two thirds", "66.6667", "fraction")]
+    assert readings("three quarters") == [("three quarters", "75", "fraction")]
+
+
+# 3. "<Month> <day>" is a date only before the end, punctuation, a function word,
+#    a suffix, a time or a dash and another day; otherwise the number is a count
+
+@pytest.mark.parametrize("text,want", [
+    ("In May 12 members joined", [("12", "12", "digit")]),
+    ("In April 20 new clients signed up", [("20", "20", "digit")]),
+    ("By June 15 instructors had left", [("15", "15", "digit")]),
+])
+def test_a_month_followed_by_a_count_reads_the_count(text, want):
+    assert readings(text) == want
+
+
+@pytest.mark.parametrize("text,want", [
+    ("It opens May 12.", [("May 12", "12", "date")]),
+    ("on May 12", [("May 12", "12", "date")]),
+    ("May 12, 2025", [("May 12", "12", "date"), ("2025", "2025", "date")]),
+    ("May 12, we opened", [("May 12", "12", "date")]),
+    ("May 12th members", [("May 12th", "12", "date")]),
+    ("May 12 at 6pm", [("May 12", "12", "date"), ("6pm", "18", "time")]),
+    ("May 12 6pm", [("May 12", "12", "date"), ("6pm", "18", "time")]),
+    ("May 12-14", [("May 12", "12", "date"), ("14", "14", "date")]),
+    ("May 12 - June 3", [("May 12", "12", "date"), ("June 3", "3", "date")]),
+    ("May 12 the studio opens", [("May 12", "12", "date")]),
+    ("31 Oct", [("31 Oct", "31", "date")]),
+    ("the 3rd of March", [("3rd of March", "3", "date")]),
+])
+def test_a_month_and_day_in_date_position_is_a_date(text, want):
+    assert readings(text) == want
+
+
+# 4. a year needs its lead word and a date continuation
+
+@pytest.mark.parametrize("text,want", [
+    ("available in 2000 studios", [("2000", "2000", "digit")]),
+    ("after 2000 sessions", [("2000", "2000", "digit")]),
+    ("until 2000 members sign up", [("2000", "2000", "digit")]),
+    ("from 2000 to 2050 members", [("2000", "2000", "range"), ("2050", "2050", "range")]),
+    ("In 2025 revenue grew", [("2025", "2025", "digit")]),        # accepted cost
+])
+def test_a_year_shaped_number_before_a_noun_is_a_count(text, want):
+    assert readings(text) == want
+
+
+@pytest.mark.parametrize("text", [
+    "in 2025.", "in 2025, revenue grew", "In 2025 the studio grew", "since 2019 we have",
+    "from 2020 to 2025", "in 2025-2026", "during 2024 and in 2025", "Q3 2025", "FY 2025 May",
+    "until 2027 as planned",
+])
+def test_a_year_in_date_position_is_a_date(text):
+    found = mentions(text)
+    assert found and all(m.form == "date" for m in found), found
+
+
+# 5. after a label word, only one bare number word that ends the phrase is a label
+
+@pytest.mark.parametrize("text,want", [
+    ("Phase two thousand members", [("two thousand", "2000", "word")]),
+    ("Option three hundred dollars", [("three hundred dollars", "300", "money")]),
+    ("Phase two percent", [("two percent", "2", "percent")]),
+    ("Phase twelve weeks", [("twelve", "12", "word")]),
+    ("Step two and a half hours", [("two and a half", "2.5", "word")]),
+])
+def test_a_number_word_quantity_after_a_label_is_read(text, want):
+    assert readings(text) == want
+
+
+@pytest.mark.parametrize("text", ["Phase two", "Step three", "Phase two.", "(Step three)", "Phase two, then"])
+def test_a_bare_number_word_after_a_label_is_a_label(text):
+    assert mentions(text) == []
+
+
+# 6. a clock time after a label word is still a time
+
+def test_a_time_after_a_label_word_is_a_time():
+    assert readings("Step 6pm") == [("6pm", "18", "time")]
+    assert [m.text for m in unsupported("Step 6pm", NOTHING, hours={9})] == ["6pm"]
+    assert readings("Step 6") == []
+
+
+# 7. currency signs after the number, and the yen and rupee signs
+
+@pytest.mark.parametrize("text,span,value", [
+    ("40$", "40$", "40"),
+    ("40\u20ac", "40\u20ac", "40"),
+    ("40 \u20ac", "40 \u20ac", "40"),
+    ("\u00a5500", "\u00a5500", "500"),
+    ("500\u00a5", "500\u00a5", "500"),
+    ("\u20b9500", "\u20b9500", "500"),
+    ("\u20b91,200", "\u20b91,200", "1200"),
+])
+def test_a_currency_sign_after_the_number_or_yen_and_rupee_make_money(text, span, value):
+    assert readings(text) == [(span, value, "money")]
+
+
+def test_a_sign_that_opens_the_next_amount_is_not_a_suffix():
+    assert readings("40 $50") == [("40", "40", "digit"), ("$50", "50", "money")]
+
+
+# 8. more reference leads for lower-case label words
+
+@pytest.mark.parametrize("text", ["on page 7", "open page 7", "go to page 7", "turn to page 7", "Page 7 shows it"])
+def test_a_lower_case_label_after_on_open_or_to_is_a_label(text):
+    assert mentions(text) == []
+
+
+def test_a_lower_case_label_word_opening_a_sentence_is_read():
+    # no reference lead and no capital: "page 7" is read (a false flag, never a hidden number)
+    assert readings("page 7 shows the plan") == [("7", "7", "digit")]
 
 
 # -- the module stays its own grammar -----------------------------------------------------
