@@ -151,9 +151,12 @@ def test_equal_figures_of_one_kind_resolve_to_the_first_added():
 
 
 def test_equal_values_in_different_units_are_not_the_same_figure():
-    known = fs(ours("PL-01", "12", "weeks"), theirs("CF-02", "12", "reformers"))
+    known = fs(theirs("CF-01", "12", "classes"), theirs("CF-02", "12", "reformers"))
     r = bind("Of the 12 we start with the first.", known)
     assert r.bound == [] and [m.text for m in r.unresolved] == ["12"]
+    # a time figure never takes a bare number with no time word after it
+    r = bind("Of the 12 we start with the first.", fs(ours("PL-01", "12", "weeks"), theirs("CF-02", "12", "reformers")))
+    assert [f.id for f in r.bound] == ["CF-02"]
 
 
 # -- a theirs figure is never re-rounded -------------------------------------------------
@@ -414,7 +417,7 @@ _NO_NUMBERS = [
     "",
     "Hello.",
     "  spaced \t out\r\nand unicode \u00e9\u2014 text \u201cquoted\u201d  \n\n",
-    "See Phase two of the plan, Q3 and CF-04.",
+    "See Phase two, Q3 and CF-04.",
     "a sentence without any digits at all, e.g. this one",
 ]
 
@@ -717,8 +720,9 @@ def test_units_do_not_bind_to_a_percent_figure():
 def test_a_count_noun_does_not_bind_to_a_figure_in_time():
     known = fs(ours("PL-01", "6", "weeks"))
     _stays_unresolved("We have 6 members.", known, "6")
-    r = bind("Allow 6 or 8 weeks.", known)       # "or" is not a noun: no contradiction
-    assert [f.id for f in r.bound] == ["PL-01"] and [u.text for u in r.unresolved] == ["8"]
+    # a filler word is not agreement: only the time word itself is
+    _stays_unresolved("Allow 6 or 8 weeks.", known, "6", "8")
+    _stays_unresolved("The pilot lasts 6.", known, "6")
 
 
 def test_a_euro_mention_binds_only_to_a_euro_figure():
@@ -1033,4 +1037,200 @@ def test_a_token_followed_by_a_time_word_that_is_not_its_unit_is_unresolved():
 def test_a_time_word_after_a_number_does_not_bind_to_a_figure_in_a_noun_unit():
     _stays_unresolved("The pilot runs 12 days.", fs(derived("DV-01", "12.04", "classes", precision=2)), "12")
     _stays_unresolved("The pilot runs 12 days.", fs(derived("DV-01", "12.04", "GB", precision=2)), "12")
-    assert bind("The pilot runs 12 days.", fs(theirs("CF-01", "12", ""))).bound[0].id == "CF-01"
+    # nor to a figure with no unit: the case file has to say "days" before prose may
+    _stays_unresolved("The pilot runs 12 days.", fs(theirs("CF-01", "12", "")), "12")
+    _stays_unresolved("The pilot runs 12 days.", fs(theirs("CF-01", "12", "count")), "12")
+
+
+# ==============================================================================================
+# Second review round: ranges are not "whatever sits between two numbers", a time word is
+# evidence, clean_sentences keeps items and indents whole, tokens do not glue.
+# The range logic reads each mention's own text, so these hold whatever forms the reader gives
+# the ends of a range.
+# ==============================================================================================
+
+# -- 1. "to" and "-" between two numbers are not automatically a range -------------------------------------
+
+def test_a_percent_then_a_dollar_amount_is_two_quantities_not_a_range():
+    known = fs(theirs("CF-01", "10", "percent"), derived("DV-01", "22.1", "percent", precision=1),
+               theirs("CF-02", "22", "USD"))
+    r = bind("Raise the price by 10% to $22.", known)
+    assert r.text == "Raise the price by 10% to $22."
+    assert [f.id for f in r.bound] == ["CF-01", "CF-02"] and r.unresolved == []
+
+
+def test_a_dollar_amount_then_a_count_of_people_is_two_quantities_not_a_range():
+    known = fs(theirs("CF-01", "45", "USD"), derived("DV-01", "12.05", "USD", precision=2),
+               theirs("CF-02", "12", "count"))
+    r = bind("We pay $45 to 12 instructors each week.", known)
+    assert r.text == "We pay $45 to 12 instructors each week."
+    assert [f.id for f in r.bound] == ["CF-01", "CF-02"] and r.unresolved == []
+
+
+def test_a_percent_then_a_count_of_members_is_two_quantities_not_a_range():
+    known = fs(theirs("CF-01", "5", "percent"), derived("DV-01", "39.9", "percent", precision=1))
+    r = bind("We cut churn 5% to 40 members.", known)
+    assert r.text == "We cut churn 5% to 40 members."
+    assert [f.id for f in r.bound] == ["CF-01"] and [u.text for u in r.unresolved] == ["40"]
+
+
+def test_a_bare_end_with_no_noun_of_its_own_takes_the_shape_of_the_range():
+    known = fs(theirs("CF-01", "20", "USD"), theirs("CF-02", "30", "count"))
+    for text in ("Costs $20 to 30 a class.", "Costs $20-30 per class.", "Costs $20-30.", "Costs $20-30 each, ok."):
+        assert [u.text for u in bind(text, known).unresolved] == ["30"], text
+    r = bind("Costs $20 to 30 members.", known)       # "members" is 30's own noun: two quantities
+    assert r.unresolved == [] and [f.id for f in r.bound] == ["CF-01", "CF-02"]
+    pct = fs(theirs("CF-01", "10", "count"), theirs("CF-02", "15", "percent"))
+    for text in ("Churn 10-15% a year.", "from 10 to 15%", "Churn 10-15%."):
+        assert [u.text for u in bind(text, pct).unresolved] == ["10"], text
+
+
+def test_a_range_end_with_its_own_shape_is_never_overridden_by_the_other():
+    both = fs(theirs("CF-01", "5", "USD"), theirs("CF-02", "10", "percent"))
+    assert bind("Fees run from $5 to 10%.", both).unresolved == []        # a dollar and a percent: two quantities
+    pct_only = fs(theirs("CF-01", "5", "percent"), theirs("CF-02", "10", "percent"))
+    r = bind("Fees run from $5 to 10%.", pct_only)
+    assert [u.text for u in r.unresolved] == ["$5"]                       # the percent did not turn $5 into 5%
+    usd_only = fs(theirs("CF-01", "5", "USD"), theirs("CF-02", "10", "USD"))
+    r = bind("Fees run from $5 to 10%.", usd_only)
+    assert [u.text for u in r.unresolved] == ["10%"]                      # nor the dollar turn 10% into $10
+
+
+# -- 2. a time word is evidence ---------------------------------------------------------------------------------
+
+def test_a_unitless_count_never_takes_a_number_before_a_time_word():
+    _stays_unresolved("Staff need 12 hours of cover.", fs(derived("DV-01", "11.96", "count", precision=2)), "12")
+    _stays_unresolved("Staff need 12 hours of cover.", fs(derived("DV-01", "11.96", "", precision=2)), "12")
+
+
+def test_a_filler_word_is_not_agreement_with_a_figure_in_time():
+    _stays_unresolved("We run 40 per week.", fs(derived("DV-01", "40.1", "weeks", precision=1)), "40")
+    _stays_unresolved("We run 40 a week.", fs(derived("DV-01", "40.1", "weeks", precision=1)), "40")
+    r = bind("We run 40 weeks.", fs(derived("DV-01", "40.1", "weeks", precision=1)))
+    assert r.text == "We run 40.1 weeks." and [f.id for f in r.bound] == ["DV-01"]
+
+
+def test_the_figure_that_names_the_unit_wins_over_a_unitless_one():
+    known = fs(theirs("CF-01", "12", "count"), derived("DV-01", "12", "weeks"))
+    for k in (known, fs(derived("DV-01", "12", "weeks"), theirs("CF-01", "12", "count"))):
+        r = bind("It takes 12 weeks.", k)
+        assert r.text == "It takes 12 weeks." and [f.id for f in r.bound] == ["DV-01"] and r.unresolved == []
+    nouns = fs(theirs("CF-01", "12", "count"), derived("DV-02", "12", "classes"))
+    assert [f.id for f in bind("We run 12 classes.", nouns).bound] == ["DV-02"]
+    # with no unit named after it the number is ambiguous, as it was
+    assert [u.text for u in bind("Of the 12 we start.", nouns).unresolved] == ["12"]
+
+
+def test_a_noun_that_is_no_unit_still_takes_a_unitless_count():
+    known = fs(theirs("CF-01", "12", "count"))
+    assert [f.id for f in bind("We have 12 instructors.", known).bound] == ["CF-01"]
+
+
+# -- 3. clean_sentences keeps items, indents and blank lines whole ---------------------------------------------------
+
+KS = fs(theirs("CF-01", "22", "USD"), theirs("CF-02", "12", "reformers"))
+
+
+def test_a_wrapped_list_item_goes_whole_when_a_number_in_it_is_bad():
+    cleaned, removed = clean_sentences("- Rent is $22 and\n  we lose $9 each week.\n- Fine item.", KS)
+    assert cleaned == "- Fine item."
+    assert removed == ["- Rent is $22 and\n  we lose $9 each week."]
+
+
+def test_a_bad_first_line_takes_the_continuation_lines_of_its_item_with_it():
+    cleaned, removed = clean_sentences("- We lose $9 each week and\n  that adds up over time.\n- Rent is $22.", KS)
+    assert cleaned == "- Rent is $22."
+    assert removed == ["- We lose $9 each week and\n  that adds up over time."]
+
+
+def test_an_item_that_wraps_without_an_indent_keeps_its_unfinished_line_together():
+    cleaned, removed = clean_sentences("- We lose $9 each week and\nthat adds up over time.\n- Rent is $22.", KS)
+    assert cleaned == "- Rent is $22." and len(removed) == 1
+
+
+def test_a_numbered_item_and_the_indented_line_under_it_are_one_unit():
+    cleaned, removed = clean_sentences("1. Rent is $22.\n   We lose $9 a week.\n2. Next.", KS)
+    assert cleaned == "2. Next."
+    assert removed == ["1. Rent is $22.\n   We lose $9 a week."]
+
+
+def test_a_dropped_child_item_leaves_its_parent_and_its_siblings():
+    cleaned, removed = clean_sentences("- a\n  - b costs $9\n- c", KS)
+    assert cleaned == "- a\n- c" and removed == ["- b costs $9"]
+    cleaned, removed = clean_sentences("- a\n  - b\n  - c costs $9\n  - d\n- e", KS)
+    assert cleaned == "- a\n  - b\n  - d\n- e" and removed == ["- c costs $9"]
+
+
+def test_a_dropped_indented_paragraph_leaves_the_next_one_with_its_own_indent():
+    cleaned, removed = clean_sentences("Ok sentence.\n\n  Indented para $9.\n\nNext.", KS)
+    assert cleaned == "Ok sentence.\n\nNext." and removed == ["Indented para $9."]
+    cleaned, removed = clean_sentences("- a\n  - b costs $9\n  - d\n- e", KS)
+    assert cleaned == "- a\n  - d\n- e"
+
+
+def test_a_drop_never_turns_the_next_line_into_an_indented_code_block():
+    cleaned, removed = clean_sentences("A.\n\nBad $9.\n    Keep this line.\n\nEnd.", KS)
+    assert cleaned == "A.\n\nKeep this line.\n\nEnd." and removed == ["Bad $9."]
+
+
+def test_the_separator_after_a_drop_is_the_longer_break_and_the_next_units_indent():
+    assert B._rejoin("\n  ", "\n") == "\n"
+    assert B._rejoin("\n", "\n\n") == "\n\n"
+    assert B._rejoin("\n\n", "\n") == "\n\n"
+    assert B._rejoin("\n\n  ", "\n\n") == "\n\n"
+    assert B._rejoin("\n", "\n  ") == "\n  "
+    assert B._rejoin(" ", "\n") == "\n"
+    assert B._rejoin("\n", "") == ""
+    assert B._rejoin("\n\n", "\n    ") == "\n\n"        # a blank line and then four columns is a code block
+    assert B._rejoin("\n", "\n    ") == "\n    "         # the text already had it
+
+
+def test_a_plain_lead_in_with_a_colon_splits_into_sentences():
+    cleaned, removed = clean_sentences("Why it matters: rent is $22. You lose $9 too. Fine end.", KS)
+    assert cleaned == "Why it matters: rent is $22. Fine end." and removed == ["You lose $9 too."]
+
+
+def test_unfinished_label_lines_are_separate_units_but_a_wrapped_sentence_is_not():
+    cleaned, removed = clean_sentences("Rent: $999\nClasses: $22\nReformers: 12", KS)
+    assert cleaned == "Classes: $22\nReformers: 12" and removed == ["Rent: $999"]
+    cleaned, removed = clean_sentences("The cost is\n$999 a year, which hurts. Fine.", KS)
+    assert cleaned == "Fine."
+
+
+# -- 4. tokens do not glue ---------------------------------------------------------------------------------------------
+
+TA = fs(theirs("A", "22", "USD"), theirs("N", "12", "count"), ours("PL-01", "6", "weeks"),
+        theirs("CF-05", "22", "USD"), theirs("G1", "24", "GB"), theirs("P", "25", "percent"))
+
+
+def test_a_token_stuck_to_a_scale_letter_or_a_word_is_unresolved():
+    for text in ("{{F:A}}k", "{{F:A}}M", "{{F:A}}m", "{{F:A}}bn", "{{F:A}}th", "x{{F:A}}", "{{F:A}}x"):
+        r = bind(text, TA)
+        assert r.text == text and r.bound == [] and len(r.unresolved) == 1, text
+    assert bind("USD{{F:A}}", TA).text == "USD22"      # a currency code in front is a currency
+
+
+def test_a_token_before_a_noun_prints_the_number_only_and_only_where_the_noun_can_stand():
+    assert bind("{{F:N}} members", TA).text == "12 members"
+    assert bind("{{F:PL-01}} weeks", TA).text == "6 weeks"            # the unit is said once
+    for text in ("{{F:PL-01}} members", "{{F:CF-05}} members", "{{F:G1}} apples"):
+        r = bind(text, TA)
+        assert r.text == text and r.bound == [] and len(r.unresolved) == 1, text
+    assert bind("{{F:CF-05}} extra", TA).text == "$22 extra"
+    assert bind("{{F:CF-05}} a class", TA).text == "$22 a class"
+    assert bind("{{F:PL-01}} in total", TA).text == "6 weeks in total"
+
+
+def test_a_lowercase_or_odd_case_token_is_a_token():
+    assert bind("{{f:CF-05}} a class", TA).text == "$22 a class"
+    assert bind("{{ f : CF-05 }} a class", TA).text == "$22 a class"
+    r = bind("see {{f:NOPE}} here", TA)
+    assert r.text == "see {{f:NOPE}} here" and isinstance(r.unresolved[0], UnresolvedToken)
+    r = bind("see {{f:CF-05", TA)
+    assert r.unresolved and r.text == "see {{f:CF-05"
+
+
+def test_when_the_text_starts_with_a_drop_the_first_kept_line_keeps_its_own_indent():
+    assert clean_sentences("\tTabbed $9.\n\tTabbed $22.", KS) == ("\tTabbed $22.", ["Tabbed $9."])
+    assert clean_sentences("  Bad $9. Good $22.", KS) == ("  Good $22.", ["Bad $9."])
+    assert clean_sentences("- Bad $9\n  - Child $22\n- Last", KS) == ("  - Child $22\n- Last", ["- Bad $9"])

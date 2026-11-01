@@ -11,12 +11,18 @@ stand for:
                 is not a dollar); a percent mention only to a percent figure; a
                 bare number (no currency sign, no percent) only to a figure that is
                 neither money nor percent, so "1,000 square feet" can never be read
-                from a dollar amount. When the word after a bare number is a unit of
-                time ("10 days") it must agree with a figure in time ("10.03 weeks"
-                is not it), and a count noun ("6 members") is not a figure in weeks.
-                Any other unit (classes, GB) needs a noun after the number, if there
-                is one, to be that unit. A range takes its shape from the whole range:
-                "$20-30" is two money ends, "10-15%" two percent ends.
+                from a dollar amount. A time word right after a bare number
+                ("10 days") is evidence: the figure must be in that very unit
+                ("10.03 weeks" is not it), a figure with no unit never matches, and
+                a filler word ("40 per week") is not agreement with a figure in
+                time. Any other unit (classes, GB) needs the noun after the number,
+                if there is one, to be that unit, and a figure that names the unit
+                beats a unitless one. Two numbers joined by "-" or "to" are not
+                automatically a range: they share a shape only when one is bare and
+                the other carries it ("10-15%", "$20-30 a class"), and the bare one
+                has no noun of its own after it. "10% to $22" and "$45 to 12
+                instructors" are two quantities, each with its own shape; a shape
+                an end carries is never overridden by the other.
     value       a mention equal to the figure's value, or to the value as it displays
                 (44928 shown as ~45,000), is exact; any other mention within half a
                 percent is near. Exact beats near. A near mention is rewritten only
@@ -49,9 +55,12 @@ A token `{{F:<id>}}` is replaced by that figure's number. A currency sign before
 it, or a percent sign or a unit word after it, is not doubled: the number prints
 without its own symbol, and the neighbour must fit the figure (a "%" after a dollar
 figure is unresolved). Where nothing next to it names the unit, the figure prints
-whole ("$22", "25%", "6 weeks", "24 GB"). A token with an unknown id, one stuck to
-digits ("12{{F:A}}"), and any "{{F:" still in the output (nested or unclosed
-braces) are unresolved and reported, never left silently.
+whole ("$22", "25%", "6 weeks", "24 GB"). A noun after it names what is counted: a
+unitless or percent figure stands before it ("12 members"), a figure in time, money
+or another unit does not (it would say "6 members" for weeks). A token with an
+unknown id, one stuck to digits or letters ("12{{F:A}}", "{{F:A}}k"), and any "{{F:"
+still in the output (nested or unclosed braces) are unresolved and reported, never
+left silently. "{{f:id}}" in any case is a token.
 
 `BindResult.unresolved` holds `Mention` records for numbers and `UnresolvedToken`
 records for tokens. Both have `.text`, `.start` and `.end`, and the positions are
@@ -147,30 +156,35 @@ def _currency_of(lead: str, trail: str) -> str | None:
     return _WORD_CURRENCY.get(word.lower()) or (word if word in _MONEY_UNITS else None)
 
 
-def _shape(text: str, form: str) -> _Shape:
+def _shape(text: str) -> _Shape:
+    """How the mention presents its number, read from its own text only: the
+    reader's form is not trusted here, because a range end carries a shape it was
+    handed by its neighbour."""
     lead = _LEAD.match(text)
     cur = lead.group("cur") or ""
     t = _TRAIL.search(text, lead.end())
     trail = t.group() if t else ""
-    if "%" in trail or "per" in trail.lower() or form == "percent":
+    if "%" in trail or "per" in trail.lower():
         return _Shape(cur, trail, "percent", None)
-    if cur or trail or form == "money":
+    if cur or trail:
         return _Shape(cur, trail, "money", _currency_of(cur, trail))
     return _Shape(cur, trail, "bare", None)
 
 
-def _share_range(a: _Shape, b: _Shape) -> tuple[_Shape, _Shape]:
-    """The two ends of a range take their shape from the whole range: a percent
-    anywhere makes both ends percents, a currency anywhere makes both ends money.
-    An end that names its own currency keeps it ("$1,000 to EUR 900")."""
-    kinds = {a.kind, b.kind}
-    kind = "percent" if "percent" in kinds else "money" if "money" in kinds else "bare"
-
-    def end(own: _Shape, other: _Shape) -> _Shape:
-        named = own.currency if (own.lead or own.trail) else None
-        return own._replace(kind=kind, currency=None if kind != "money" else named or other.currency)
-
-    return end(a, b), end(b, a)
+def _share_range(a: _Shape, b: _Shape, noun_after: bool) -> tuple[_Shape, _Shape]:
+    """Two numbers joined by "-" or "to" share a shape only when one of them is
+    bare and the other carries a shape ("10-15%", "$20-30 a class"), and the bare
+    one has no noun of its own right after it. Otherwise each keeps its own:
+    "10% to $22" and "$45 to 12 instructors" are two quantities, not a range. An
+    end that carries a shape is never overridden by the other."""
+    bare_a, bare_b = a.kind == "bare", b.kind == "bare"
+    if bare_a == bare_b:
+        return a, b
+    if bare_a:
+        return a._replace(kind=b.kind, currency=b.currency), b
+    if noun_after:
+        return a, b
+    return a, b._replace(kind=a.kind, currency=a.currency)
 
 
 # Ends of a range are numbers read as plain quantities.
@@ -205,22 +219,36 @@ def _stem(word: str) -> str:
     return w
 
 
+def _unit_words(unit: str) -> set[str]:
+    return {_stem(w) for w in re.findall(r"[A-Za-z]+", unit)}
+
+
 def _unit_fits(word: str | None, unit: str) -> bool:
     """Whether the word after a bare number can be the unit of a figure in `unit`.
-    No word, a word that names nothing ("of", "and"), and a figure with no unit of
-    its own contradict nothing. A time word needs a figure in the same time unit; a
-    figure in time needs the word, when there is a noun, to be that time word; any
-    other unit (classes, GB) needs a noun after the number to be that unit."""
-    if word is None or unit in ("", "count"):
-        return True
-    figure_time, word_time = _TIME_CANON.get(unit.lower()), _TIME_CANON.get(word)
-    if figure_time:
-        return word_time == figure_time or (word_time is None and word in _FUNCTION_WORDS)
+    A time word after the number means the figure must be in that same time unit:
+    a figure with no unit or "count", or in another unit, never matches it. A
+    figure in time needs its own unit word, and a filler word ("per", "a", "of")
+    or none at all is not agreement. A figure with no unit of its own takes any
+    other word; any other unit (classes, GB) needs a noun after the number to be
+    that unit."""
+    figure_time = _TIME_CANON.get(unit.lower())
+    word_time = _TIME_CANON.get(word) if word else None
     if word_time:
+        return figure_time == word_time
+    if figure_time:
         return False
-    if word in _FUNCTION_WORDS:
+    if word is None or unit in ("", "count") or word in _FUNCTION_WORDS:
         return True
-    return _stem(word) in {_stem(w) for w in re.findall(r"[A-Za-z]+", unit)}
+    return _stem(word) in _unit_words(unit)
+
+
+def _names_unit(word: str | None, unit: str) -> bool:
+    """Whether the word after a number names this very unit (not a unitless one)."""
+    if word is None or unit in ("", "count") or word in _FUNCTION_WORDS:
+        return False
+    if word in _TIME_CANON or unit.lower() in _TIME_CANON:
+        return _TIME_CANON.get(word) == _TIME_CANON.get(unit.lower())
+    return _stem(word) in _unit_words(unit)
 
 
 def _admissible(f: Figure, shape: _Shape, word: str | None) -> bool:
@@ -234,6 +262,9 @@ def _admissible(f: Figure, shape: _Shape, word: str | None) -> bool:
 def _pick(m: Mention, shape: _Shape, word: str | None, known: FigureSet, quoted: bool) -> Figure | None:
     """The one figure `m` names, or None when it names none or cannot choose."""
     cands = [f for f in known.match(m.value) if _admissible(f, shape, word)]
+    named = [f for f in cands if _names_unit(word, f.unit)]
+    if named:
+        cands = named   # "12 weeks": the figure in weeks is more specific than a unitless 12
     equal = [f for f in cands if f.value == m.value]
     shown = [f for f in cands if f.value != m.value and displayed_value(f) == m.value]
     near = [f for f in cands if f.value != m.value and displayed_value(f) != m.value]
@@ -262,8 +293,12 @@ _HEDGE = re.compile(
 # a client's quotation: text between straight or curly double quotes
 _QUOTE = re.compile(r'"[^"]{0,400}"|\u201c[^\u201d]{0,400}\u201d')
 
-_TOKEN = re.compile(r"\{\{\s*F\s*:\s*([^{}]*?)\s*\}\}")
-_OPENER = re.compile(r"\{\{\s*F\s*:")
+_TOKEN = re.compile(r"\{\{\s*F\s*:\s*([^{}]*?)\s*\}\}", re.I)
+_OPENER = re.compile(r"\{\{\s*F\s*:", re.I)
+
+# words that follow a figure without naming what it counts, besides the function words
+_QUALIFIERS = frozenset(
+    "more less extra total monthly weekly daily yearly annually annual overall net gross apiece only".split())
 
 
 class _Decision(NamedTuple):
@@ -292,12 +327,16 @@ def _same_unit_word(word: str, unit_word: str) -> bool:
 
 def _decide_token(figure_id: str, text: str, start: int, end: int, known: FigureSet, hedged: bool) -> _Decision:
     f = known.get(figure_id)
-    if f is None or text[start - 1:start].isdigit() or text[end:end + 1].isdigit():
+    if f is None:
         return _UNRESOLVED
-    after = _NEXT_WORD.match(text, end)
-    if after and _contradicts(after.group(1), f.unit):
-        return _UNRESOLVED
+    before, after_char = text[start - 1:start], text[end:end + 1]
     lead = _LEAD_BEFORE.search(text[max(0, start - 8):start])
+    if before.isdigit() or after_char.isalnum() or (before.isalpha() and not lead):
+        return _UNRESOLVED   # 12{{F:A}}, {{F:A}}12, {{F:A}}k: stuck to another number or a scale
+    after = _NEXT_WORD.match(text, end)
+    word = after.group(1).lower() if after else None
+    if word and _contradicts(word, f.unit):
+        return _UNRESOLVED
     trail = _TRAIL_HEAD.match(text, end)
     if trail and ("%" in trail.group() or "per" in trail.group().lower()):
         fits = f.unit == "percent"
@@ -305,13 +344,16 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
         currency = _currency_of(lead.group() if lead else "", trail.group() if trail else "")
         fits = currency is not None and f.unit == currency
     else:
-        # nothing beside it names the unit: the figure prints whole, but a unit word
-        # the sentence already has right after it is not said twice
-        shown = display_number(f, tilde=not hedged)
+        # nothing beside it names the unit
+        number = display_number(f, tilde=not hedged)
         unit_word = display(f)[len(display_number(f)):].strip()
-        if unit_word and not (after and _same_unit_word(after.group(1), unit_word)):
-            shown += " " + unit_word
-        return _Decision(False, f, shown)
+        if word and unit_word and _same_unit_word(word, unit_word):
+            return _Decision(False, f, number)             # the unit is already said, once
+        if word and word not in _FUNCTION_WORDS and word not in _QUALIFIERS:
+            # a noun follows and names what is counted: only a figure with no unit of its
+            # own can stand before it; a unit or a symbol the noun would contradict cannot
+            return _Decision(False, f, number) if f.unit in ("", "count", "percent") else _UNRESOLVED
+        return _Decision(False, f, number + (" " + unit_word if unit_word else ""))
     if not fits:
         return _UNRESOLVED
     return _Decision(False, f, display_number(f, symbols=False, tilde=not hedged))
@@ -355,7 +397,7 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
     if not ms and not tokens and not _OPENER.search(text):
         return _Run(text, [], [], [])
 
-    shapes = [_shape(m.text, m.form) for m in ms]
+    shapes = [_shape(m.text) for m in ms]
     partner: dict[int, int] = {}   # the other end of a range, by index
     for i in range(len(ms) - 1):
         a, b = ms[i], ms[i + 1]
@@ -366,7 +408,9 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
             partner[i], partner[i + 1] = i + 1, i
     for i, j in partner.items():
         if i < j:
-            shapes[i], shapes[j] = _share_range(shapes[i], shapes[j])
+            nxt = _NEXT_WORD.match(text, ms[j].end)
+            noun_after = bool(nxt) and nxt.group(1).lower() not in _FUNCTION_WORDS
+            shapes[i], shapes[j] = _share_range(shapes[i], shapes[j], noun_after)
 
     quotes = [(q.start(), q.end()) for q in _QUOTE.finditer(text)]
     quote_starts = [q[0] for q in quotes]
@@ -469,13 +513,14 @@ _CLOCK = frozenset({"a.m.", "p.m."})                    # these may end a senten
 _INITIAL = re.compile(r"[A-Z]\.")                        # J. Smith
 _SPACE = re.compile(r"\s+")
 
-# A line that is its own unit: a bullet or quote mark, a numbered item, a heading, a
-# table row, a bold lead ("**Rent:** $999", "**Costs**"), or a short "Label: value"
-# line. Such a line is never split into sentences, and never joined to its neighbours.
-_STRUCTURE = re.compile(
-    r"[ \t]*(?:[-*+\u2022\u2013>][ \t]+|\d{1,3}[.)][ \t]+|#{1,6}[ \t]+|\|"
-    r"|(?:\*\*|__)[^\n]{1,80}?(?:\*\*|__)"
-    r"|[A-Z][\w&/()'-]*(?:[ \t]+[\w&/()'-]+){0,2}:[ \t]+\S)")
+# Lines have a role. An ITEM starts with a bullet or a number; the lines that wrap
+# it (indented, or running on without a full stop) are its CONTINUATION and belong
+# to it. A SINGLE line is a heading, a quote, a table row, or a bold lead
+# ("**Rent:** $999", "**Costs**"). Item, continuation and single lines are never
+# split into sentences, so each item and row is one unit; a plain "Label: value" is
+# ordinary prose and splits into sentences like any other.
+_ITEM = re.compile(r"[ \t]*(?:[-*+\u2022\u2013][ \t]+|\d{1,3}[.)][ \t]+)")
+_SINGLE = re.compile(r"[ \t]*(?:#{1,6}[ \t]+|>[ \t]|\||(?:\*\*|__)[^\n]{1,80}?(?:\*\*|__))")
 
 
 def _stop_before(text: str, i: int) -> int:
@@ -506,29 +551,65 @@ def _ends_sentence_inline(text: str, a: int, b: int) -> bool:
     return not next_char.islower()       # "5. and then ..." is not a new sentence
 
 
+def _closes_line(text: str) -> bool:
+    """Whether a line of text ends a sentence or introduces what follows."""
+    t = text.rstrip()
+    j = len(t)
+    while j > 0 and t[j - 1] in _CLOSERS:
+        j -= 1
+    return j > 0 and (t[j - 1] in _TERMINATORS or t[j - 1] in ":;")
+
+
+def _roles(text: str, starts: list[int]) -> list[str]:
+    """The role of each line: blank, item, cont, single or prose."""
+    roles: list[str] = []
+    prev, prev_text = "blank", ""
+    for i, s in enumerate(starts):
+        e = starts[i + 1] - 1 if i + 1 < len(starts) else len(text)
+        line = text[s:e]
+        if not line.strip():
+            role = "blank"
+        elif _ITEM.match(line):
+            role = "item"
+        elif _SINGLE.match(line):
+            role = "single"
+        elif prev in ("item", "cont") and (line[0] in " \t" or not _closes_line(prev_text)):
+            role = "cont"
+        else:
+            role = "prose"
+        roles.append(role)
+        prev, prev_text = role, line
+    return roles
+
+
 def _units(text: str) -> list[tuple[int, int, int]]:
     """Split into sentence-like units as (start, body end, end): the body, then the
-    white space that separates it from the next unit. Leading white space belongs
-    to the first body. Nothing is lost: the units cover the text.
+    white space (line breaks and the next line's indent) that separates it from the
+    next unit. Leading white space belongs to the first body. Nothing is lost: the
+    units cover the text.
 
-    A blank line, a line that ends a sentence (or a colon), and each structure line
-    end a unit. A line that merely wraps does not, so a sentence broken over two
-    lines stays whole, never a dangling half."""
-    line_starts = [0] + [m.end() for m in re.finditer("\n", text)]
-    is_structure = [bool(_STRUCTURE.match(text, s)) for s in line_starts]
+    Prose splits at a sentence end, at a blank line, after a line that ends a
+    sentence or a colon, and where an unfinished line is followed by a line that
+    starts with a capital (a heading or label, not a wrapped sentence). A line that
+    merely wraps does not split, so a sentence broken over two lines stays whole.
+    Every list item, with its continuation lines, every table row, heading and bold
+    lead is one unit."""
+    starts = [0] + [m.end() for m in re.finditer("\n", text)]
+    roles = _roles(text, starts)
     cuts: list[tuple[int, int]] = []
     for m in _SPACE.finditer(text):
         a, b = m.span()
         if a == 0 or b == len(text):
             continue
-        before = bisect_right(line_starts, a - 1) - 1
-        if "\n" in m.group():
-            j = _stop_before(text, a)
-            ends = (m.group().count("\n") >= 2 or is_structure[before]
-                    or is_structure[bisect_right(line_starts, b) - 1]
-                    or (j > 0 and (text[j - 1] in _TERMINATORS or text[j - 1] in ":;")))
+        la, lb = bisect_right(starts, a - 1) - 1, bisect_right(starts, b) - 1
+        if "\n" not in m.group():
+            ends = roles[la] == "prose" and _ends_sentence_inline(text, a, b)
+        elif roles[lb] == "cont":
+            ends = False
+        elif roles[la] != "prose" or roles[lb] != "prose":
+            ends = True
         else:
-            ends = not is_structure[before] and _ends_sentence_inline(text, a, b)
+            ends = (m.group().count("\n") >= 2 or _closes_line(text[starts[la]:a]) or text[b].isupper())
         if ends:
             cuts.append((a, b))
     units: list[tuple[int, int, int]] = []
@@ -540,6 +621,26 @@ def _units(text: str) -> list[tuple[int, int, int]]:
     return units
 
 
+def _rejoin(before: str, after: str) -> str:
+    """The separator between two kept units once the unit between them is dropped:
+    `before` is what stood in front of the dropped unit, `after` what followed it
+    (and holds the indent of the unit that now comes next). The line breaks are the
+    longer of the two, so a blank line is never lost and a paragraph never runs into
+    a list; the indent is the next unit's own, never the dropped unit's. If that
+    would put a blank line and then a line indented four columns or more (a code
+    block in markdown) where the text had none, the indent goes."""
+    if "\n" not in before or not after:
+        return after
+    nl_b, nl_a = before.count("\n"), after.count("\n")
+    run_b, run_a = before[:before.rfind("\n") + 1], after[:after.rfind("\n") + 1]
+    indent = after[after.rfind("\n") + 1:]
+    run = run_a if nl_a >= nl_b else run_b
+    columns = len(indent.replace("\t", "    "))
+    if columns >= 4 and run.count("\n") >= 2 and nl_a < 2:
+        indent = ""
+    return run + indent
+
+
 def clean_sentences(text: str, known: FigureSet, *, hours: set[int] | None = None) -> tuple[str, list[str]]:
     """Bind `text`, then remove each sentence that still holds an unresolved
     number or token. Returns the cleaned text and the removed sentences (as
@@ -548,11 +649,15 @@ def clean_sentences(text: str, known: FigureSet, *, hours: set[int] | None = Non
     A sentence ends at ".", "!" or "?" followed by space, except after "e.g.",
     "i.e.", a title such as "Dr.", an initial, or before a lowercase word; a
     decimal point is never followed by space. A blank line, a line that ends a
-    sentence, and every list item, table row, heading and label line are units of
-    their own, so one bad cell drops only its row and one bad label line only that
-    line. Dropping a unit never removes a blank line between paragraphs, nor merges
-    a paragraph into a list. Nothing is added: the kept sentences are the bound
-    text's own characters."""
+    sentence, and every list item (with the lines that wrap it), table row, heading
+    and bold label line are units of their own, so one bad cell drops only its row,
+    one bad child item only itself, and a bad number in a wrapped item takes the
+    whole item and never leaves its continuation behind. A plain "Why it matters:
+    rent is $22." is prose and splits into sentences. Dropping a unit never removes
+    a blank line between paragraphs, nor merges a paragraph into a list; the next
+    kept line keeps its own indent, and a drop never leaves a line indented four
+    columns after a blank line that was not so before. Nothing is added: the kept
+    sentences are the bound text's own characters."""
     r = _run(text, known, hours)
     if not r.unresolved:
         return r.text, []
@@ -563,6 +668,7 @@ def clean_sentences(text: str, known: FigureSet, *, hours: set[int] | None = Non
 
     kept: list[list[str]] = []          # [body, separator]
     removed: list[str] = []
+    lead = ""                           # the indent of the first kept line, when the text starts with a drop
     for i, (s, body_end, e) in enumerate(units):
         body, sep = t[s:body_end], t[body_end:e]
         if i not in bad:
@@ -570,12 +676,14 @@ def clean_sentences(text: str, known: FigureSet, *, hours: set[int] | None = Non
             continue
         removed.append(body.strip())
         if sep and "\n" not in sep:
+            if not kept:
+                lead = lead or body[:len(body) - len(body.lstrip())]
             continue                    # more follows on this line: the space goes with it
         if kept:
-            before = kept[-1][1]
-            if (before and "\n" not in before) or sep.count("\n") > before.count("\n"):
-                kept[-1][1] = sep       # the line ends where the dropped one did; a blank line is never lost
-    joined = "".join(body + sep for body, sep in kept)
+            kept[-1][1] = _rejoin(kept[-1][1], sep)
+        else:
+            lead = sep[sep.rfind("\n") + 1:] if "\n" in sep else ""
+    joined = lead + "".join(body + sep for body, sep in kept)
     if not joined.strip():
         return "", removed
     return joined.rstrip() + t[len(t.rstrip()):], removed
