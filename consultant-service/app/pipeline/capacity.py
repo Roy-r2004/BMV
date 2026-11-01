@@ -28,6 +28,7 @@ not name their class times, the columns carry no times.
 import json
 import logging
 import math
+import re
 from decimal import Decimal
 
 from app.ai import provider
@@ -70,8 +71,21 @@ def owner_texts(req) -> list[str]:
 
 #: A count in the week is never money in any currency, a share or a length of time:
 #: "$12", "22 AUD", "CAD 22" and "22 minutes" do not vouch for 22 seats.
-#: The one exception is the days a week, which are counted in days ("6 days a week").
+#: The exceptions are counts whose own unit is that length of time: the days a week
+#: ("6 days a week"), and a pool sold in hours ("30 hours a week, 24 of them used").
 _NOT_A_COUNT = frozenset({*_MONEY_UNITS, "percent", *(one for one, _ in _TIME_UNITS)})
+#: A time word, singular or plural, by the singular a figure's unit carries.
+_TIME_WORD = {word: one for one, many in _TIME_UNITS for word in (one, many)}
+
+
+def _time_unit_of(*names: str) -> str | None:
+    """The unit of time a pool is counted in, when its unit names one ("hour",
+    "coaching hours"), else None."""
+    for name in names:
+        for word in re.findall(r"[A-Za-z]+", name or ""):
+            if word.lower() in _TIME_WORD:
+                return _TIME_WORD[word.lower()]
+    return None
 #: How a count is written: digits, a number word, the end of a range. Money ("A$22",
 #: whose currency the case file does not name), a percent, a multiplier, an ordinal
 #: or a fraction is not a count, whatever unit its figure ended up with.
@@ -197,8 +211,11 @@ def shape(raw: dict, texts: list[str]) -> dict | None:
     quote = quote[:300] if quote and figures.quoted(quote, texts) else ""
 
     if kind == "total":
-        cap = _num(raw.get("total_capacity"), allowed)
-        taken = _num(raw.get("total_taken"), allowed)
+        # a pool sold in hours is counted in hours: "30 hours a week" vouches for a pool of 30 hours
+        sold_in = _time_unit_of(unit, unit_plural)
+        pool = _counts(texts, counted_in=sold_in) if sold_in else allowed
+        cap = _num(raw.get("total_capacity"), pool)
+        taken = _num(raw.get("total_taken"), pool)
         if not cap or cap <= 0 or (taken is not None and taken > cap):
             return None
         period = str(raw.get("period") or "").strip().lower()

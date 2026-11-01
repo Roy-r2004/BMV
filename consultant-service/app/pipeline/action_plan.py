@@ -21,8 +21,11 @@ The lengths the roadmap proposes are ours, and it says so: each phase whose
 (PLAN-PHASE-n-WEEKS), the plan has its length (PLAN-WEEKS, the one the answer
 proposed, or else the end of the last phase) and its number of phases
 (PLAN-PHASES). They are stored in the roadmap's `figures` (`model.as_json`), and
-prose that says "four weeks" or "three phases" binds to them. The "when" itself
-is the roadmap's structure, written as the prompt asks, and is not bound.
+prose that says "four weeks" or "three phases" binds to them. A "when" that is a
+span of weeks and nothing else is the roadmap's structure: it is held to the plan
+(a phase may not run past the plan's last week) and not bound. Any other "when"
+("Month 3 on", "When revenue hits $10k") is bound like the prose, so a quantity in
+it must name a figure.
 """
 
 import json
@@ -55,8 +58,10 @@ def _text(v, limit: int) -> str:
     return re.sub(r"\s+", " ", str(v or "")).strip()[:limit]
 
 
-# "Weeks 3 to 6", "Week 2", "weeks 1-2": a span of weeks, first to last
-_WEEK_SPAN = re.compile(r"^\s*weeks?\s+(\d{1,3})(?:\s*(?:-|\u2013|\u2014|to|through)\s*(\d{1,3}))?\s*$", re.I)
+# "Weeks 3 to 6", "Week 2", "weeks 1-2", "Week 1 and 2": a span of weeks, first to last,
+# and nothing else in the field
+_WEEK_SPAN = re.compile(
+    r"^\s*weeks?\s+(\d{1,3})(?:\s*(?:-|\u2013|\u2014|to|through|and)\s*(\d{1,3}))?\s*$", re.I)
 
 
 def week_span(when: str) -> tuple[int, int] | None:
@@ -110,9 +115,10 @@ def shape(raw: dict, known: FigureSet, hours: set[int] | None = None,
         own = ([_ours(_known.phase_weeks_id(len(phases) + 1), span[1] - span[0] + 1, "week",
                       f"how long phase {len(phases) + 1} takes")] if span else [])
         against = _known.with_extra(known, base + own)
-        # "when" is bound too: a plan position ("Weeks 1 to 2") reads as a date and
-        # passes; a quantity in it ("When revenue hits $10k") must name a figure
-        bound = [checked(t, f"phase {i + 1}", against) for t in (when, title, do, you)]
+        # A span of weeks is the field's whole text and was held to the plan above; any
+        # other "when" is bound, so a quantity in it ("When revenue hits $10k") must name a figure
+        bound = [when if span else checked(when, f"phase {i + 1}", against),
+                 *(checked(t, f"phase {i + 1}", against) for t in (title, do, you))]
         if any(b is None for b in bound):
             continue
         phases.append({"when": bound[0], "title": bound[1], "do": bound[2],
@@ -221,6 +227,9 @@ def write(db: Session, request_id: int) -> dict | None:
             timeline=req.timeline or "",
             claims=_answer._claim_lines(claims),
             figures_block=_known.prompt_lines(known),
+            # no phase runs past the plan: its length when the answer proposed one, else the longest plan we make
+            plan_proposed=plan_weeks is not None,
+            plan_ceiling=int(plan_weeks.value) if plan_weeks is not None else settings.PLAN_WEEKS_MAX,
         )
     except Exception as exc:
         logger.warning("roadmap could not be prepared: %s", str(exc)[:200])

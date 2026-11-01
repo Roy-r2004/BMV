@@ -1,3 +1,4 @@
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -18,6 +19,16 @@ def _env_int_within(name: str, default: int, low: int, high: int) -> int:
     except ValueError:
         value = default
     return max(low, min(high, value))
+
+
+def _at_most(name: str, value: int, ceiling_name: str, ceiling: int) -> int:
+    """`value`, held at or below another setting it may not pass (a shortest
+    length above the longest is moved down to it, and the log says so)."""
+    if value > ceiling:
+        logging.getLogger("consultant.config").warning(
+            "%s=%s is above %s=%s; using %s", name, value, ceiling_name, ceiling, ceiling)
+        return ceiling
+    return value
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -98,8 +109,10 @@ class Settings:
     # past it. Per business, so bounded: the default 6 within 2..26, the shortest
     # 1..12, the longest 4..104.
     PLAN_WEEKS_DEFAULT: int = _env_int_within("PLAN_WEEKS_DEFAULT", 6, 2, 26)
-    PLAN_WEEKS_MIN: int = _env_int_within("PLAN_WEEKS_MIN", 2, 1, 12)
     PLAN_WEEKS_MAX: int = _env_int_within("PLAN_WEEKS_MAX", 12, 4, 104)
+    # the shortest may not pass the longest (both are set from the environment)
+    PLAN_WEEKS_MIN: int = _at_most("PLAN_WEEKS_MIN", _env_int_within("PLAN_WEEKS_MIN", 2, 1, 12),
+                                   "PLAN_WEEKS_MAX", PLAN_WEEKS_MAX)
     # How many figures a prompt lists under "Figures you may use"
     # (app/figures/known.py prompt_lines). Theirs and derived come first; the rest
     # are counted in one closing line. A prompt cannot grow with a pasted

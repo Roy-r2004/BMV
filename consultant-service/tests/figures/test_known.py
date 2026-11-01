@@ -275,7 +275,7 @@ def _plan(raw_phases, plan_weeks=None):
 
 
 def test_a_phase_span_past_the_plan_is_refused_and_its_length_vouches_for_nothing():
-    ok = {"when": "Weeks 3 to 4", "title": "Watch the evenings", "do": "We track fill against 10 of 12.", "by": "us"}
+    ok = {"when": "Weeks 3 to 4", "title": "Watch the evenings", "do": "We track evening fill each week.", "by": "us"}
     long = {"when": "Weeks 1 to 20", "title": "Move the price", "do": "Over 20 weeks we move it.", "by": "us"}
     plan, problems = _plan([long, ok, dict(ok, when="Weeks 5 to 6")], plan_weeks=K.plan_weeks_figure(6))
     assert [p["when"] for p in plan["phases"]] == ["Weeks 3 to 4", "Weeks 5 to 6"]
@@ -388,6 +388,55 @@ def test_the_client_texts_have_one_source():
     assert discovery._answers(req.ops_numbers_json) == casefile.answers(req.ops_numbers_json) == ["We run 12."]
 
 
+# -- re-review fixes ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("when", ["Week 1 to 2", "Week 2 to 4", "Weeks 3 - 6", "Weeks 1 – 2",
+                                  "Week 1 through 3", "Week 1 and 2"])
+def test_a_when_that_is_a_span_of_weeks_is_kept_as_written(when):
+    ok = {"when": when, "title": "Set the price", "do": "We move it to $22.", "by": "us"}
+    plan, _ = _plan([ok, dict(ok, when="Weeks 5 to 6")], plan_weeks=K.plan_weeks_figure(6))
+    assert [p["when"] for p in plan["phases"]] == [when, "Weeks 5 to 6"]
+
+
+@pytest.mark.parametrize("when", ["When revenue hits $10k", "Month 1 to 3 then $5k"])
+def test_any_other_when_is_bound_and_a_quantity_in_it_drops_the_phase(when):
+    ok = {"when": "Weeks 1 to 2", "title": "Set the price", "do": "We move it to $22.", "by": "us"}
+    plan, problems = _plan([ok, dict(ok, when="Weeks 3 to 4"), dict(ok, when=when)])
+    assert [p["when"] for p in plan["phases"]] == ["Weeks 1 to 2", "Weeks 3 to 4"] and problems
+
+
+def test_a_pool_sold_in_hours_is_counted_in_hours():
+    from app.pipeline import capacity
+    pool = {"shape": "total", "unit": "hour", "unit_plural": "hours", "total_capacity": 30, "total_taken": 24,
+            "period": "week"}
+    pic = capacity.shape(pool, ["I can do 30 hours a week and use 24 of them."])
+    assert pic["capacity"] == 30 and pic["taken"] == 24
+    # a length of time still vouches for no count of anything else
+    seats = {"shape": "weekly_grid", "unit": "seat", "per_slot": 22, "slots_per_day": 6, "days_per_week": 6}
+    assert capacity.shape(seats, ["Six sittings a day, six days a week. A sitting takes 22 minutes."]) is None
+    assert capacity.shape(dict(pool, unit="order", unit_plural="orders"),
+                          ["I can do 30 hours a week and use 24 of them."]) is None
+
+
+def test_the_shortest_plan_may_not_pass_the_longest(caplog):
+    import os
+    import subprocess
+    import sys
+
+    from app import config
+    with caplog.at_level("WARNING", logger="consultant.config"):
+        assert config._at_most("PLAN_WEEKS_MIN", 12, "PLAN_WEEKS_MAX", 8) == 8
+    assert "PLAN_WEEKS_MIN=12 is above PLAN_WEEKS_MAX=8" in caplog.text
+    assert config._at_most("PLAN_WEEKS_MIN", 2, "PLAN_WEEKS_MAX", 8) == 2
+    # at load, from the environment (a fresh interpreter, so this process's settings are untouched)
+    env = dict(os.environ, PLAN_WEEKS_MIN="12", PLAN_WEEKS_MAX="5")
+    out = subprocess.run([sys.executable, "-c", "from app.config import settings as s; "
+                          "print(s.PLAN_WEEKS_MIN, s.PLAN_WEEKS_MAX)"],
+                         env=env, capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(
+                             os.path.dirname(os.path.abspath(__file__)))), timeout=60)
+    assert out.stdout.split() == ["5", "5"]
+
+
 # -- the set, as a prompt shows it -------------------------------------------------------
 
 def _theirs(n: int, value=22, unit="USD", quote="I charge $22 a class") -> Figure:
@@ -438,20 +487,63 @@ def test_an_empty_set_is_none():
     assert K.prompt_lines(FigureSet()) == "none"
 
 
-def test_the_list_is_bounded_with_theirs_and_derived_kept_first(monkeypatch):
+def test_the_list_is_bounded_and_what_is_left_out_is_theirs_and_derived(monkeypatch):
     from app.config import settings
     monkeypatch.setattr(settings, "PROMPT_FIGURE_LINES", 12)
     figs = ([_theirs(n, n) for n in range(1, 8)] + [_derived(f"CAP-{n:02d}", n) for n in range(1, 6)]
             + [_ours(f"PROP-{n}", n, "USD") for n in range(1, 6)])
     lines = K.prompt_lines(FigureSet(figs)).splitlines()
     assert len(lines) == 12
-    assert [l.split(" | ")[0] for l in lines[:-1]] == ([f"T{n}-1" for n in range(1, 8)]
-                                                       + [f"CAP-{n:02d}" for n in range(1, 5)])
-    assert lines[-1] == ("... and 6 more figures exist but are not listed here (1 worked out, 5 our estimate); "
+    # all five proposals stay; the room left is shared by derived and theirs, the latest of each
+    assert [l.split(" | ")[0] for l in lines[:-1]] == (["T5-1", "T6-1", "T7-1", "CAP-03", "CAP-04", "CAP-05"]
+                                                       + [f"PROP-{n}" for n in range(1, 6)])
+    assert lines[-1] == ("... and 6 more figures exist but are not listed here (4 yours, 2 worked out); "
                          "write only the numbers listed above")
     monkeypatch.setattr(settings, "PROMPT_FIGURE_LINES", 17)          # exactly as many as there are: no summary
     assert len(K.prompt_lines(FigureSet(figs)).splitlines()) == 17
     assert "more figures" not in K.prompt_lines(FigureSet(figs))
+
+
+def test_eighty_of_theirs_never_push_out_the_move_or_the_plans_length(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "PROMPT_FIGURE_LINES", 60)
+    ours = K.move_figures(MOVE) + [K.plan_weeks_figure(6)]            # MOVE, PROP-1, PLAN-WEEKS
+    assert [f.id for f in ours] == ["MOVE", "PROP-1", "PLAN-WEEKS"]
+    lines = K.prompt_lines(FigureSet([_theirs(n, n) for n in range(1, 81)] + ours)).splitlines()
+    ids = [l.split(" | ")[0] for l in lines]
+    assert len(lines) == 60
+    assert ids[-4:-1] == ["MOVE", "PROP-1", "PLAN-WEEKS"]
+    assert ids[:-4] == [f"T{n}-1" for n in range(25, 81)]            # the 56 latest of theirs
+    assert lines[-1] == ("... and 24 more figures exist but are not listed here (24 yours); "
+                         "write only the numbers listed above")
+    # and with derived figures in the mix, the proposals still stay
+    mixed = [_theirs(n, n) for n in range(1, 81)] + [_derived(f"CAP-{n:02d}", n) for n in range(1, 41)] + ours
+    lines = K.prompt_lines(FigureSet(mixed)).splitlines()
+    ids = [l.split(" | ")[0] for l in lines]
+    assert len(lines) == 60 and {"MOVE", "PROP-1", "PLAN-WEEKS"} <= set(ids)
+    assert sum(i.startswith("T") for i in ids) == 28 and sum(i.startswith("CAP") for i in ids) == 28
+
+
+def test_more_proposals_than_half_the_room_still_leave_the_client_some(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "PROMPT_FIGURE_LINES", 10)
+    ours = K.move_figures(MOVE) + [K.plan_weeks_figure(6)] + [_ours(f"PT-{n:02d}", n) for n in range(1, 8)]
+    ids = [l.split(" | ")[0] for l in K.prompt_lines(FigureSet([_theirs(n, n) for n in range(1, 21)] + ours)).splitlines()]
+    assert len(ids) == 10
+    assert ids[-5:-1] == ["MOVE", "PROP-1", "PLAN-WEEKS", "PT-01"]    # the plan's own figures first, then the rest
+    assert ids[:-5] == [f"T{n}-1" for n in range(16, 21)]             # budget 9: four proposals, five of theirs
+
+
+def test_derived_lends_its_room_to_theirs_and_theirs_to_derived(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "PROMPT_FIGURE_LINES", 20)
+    few_derived = [_theirs(n, n) for n in range(1, 31)] + [_derived(f"CAP-{n:02d}", n) for n in range(1, 4)]
+    ids = [l.split(" | ")[0] for l in K.prompt_lines(FigureSet(few_derived + [_ours()])).splitlines()]
+    assert sum(i.startswith("CAP") for i in ids) == 3 and sum(i.startswith("T") for i in ids) == 15
+    few_theirs = [_theirs(n, n) for n in range(1, 4)] + [_derived(f"CAP-{n:02d}", n) for n in range(1, 31)]
+    ids = [l.split(" | ")[0] for l in K.prompt_lines(FigureSet(few_theirs + [_ours()])).splitlines()]
+    assert sum(i.startswith("T") for i in ids) == 3 and sum(i.startswith("CAP") for i in ids) == 15
+    assert "PLAN-WEEKS" in ids and ids[-1].startswith("...")
 
 
 def test_the_bound_is_a_setting_held_between_ten_and_two_hundred(monkeypatch):
@@ -639,4 +731,103 @@ def test_the_screen_prompts_list_the_figures(monkeypatch):
     assert seen[0][0] == "screen.j2"
     _shows(seen[0][1])
     assert "$20,000" in seen[0][1] and "$18,400" not in seen[0][1]       # the block guide's example
+    db.close()
+
+
+def test_the_roadmap_prompt_says_the_plan_length_is_a_ceiling_and_when_holds_only_weeks(monkeypatch):
+    import pytest
+    from app.config import settings
+    from app.pipeline import action_plan
+    from app.pipeline.failure import StageFailed
+    answer = {"headline": "x", "action": {"weeks": 6, "name": "pricing pilot", "figure": as_json(K.plan_weeks_figure(6))}}
+
+    seen = _recording(monkeypatch, action_plan)
+    db, rid = _stored_row(ops_numbers_json=_pairs(("What do you charge?", "$22 a class")), answer_json=json.dumps(answer))
+    with pytest.raises(StageFailed):
+        action_plan.write(db, rid)
+    text = seen[0][1]
+    assert "PLAN-WEEKS | 6 weeks | our estimate" in text                       # the figure is listed ...
+    assert "THE PLAN IS 6 WEEKS LONG (PLAN-WEEKS in the list above): that is a ceiling." in text
+    assert "none runs past week 6" in text and "a phase that does is refused" in text
+    assert "holds week positions only: no money, no percent, no other number" in text
+    db.close()
+
+    seen = _recording(monkeypatch, action_plan)               # ... and with no plan length proposed, the longest plan
+    db, rid = _stored_row(ops_numbers_json=_pairs(("What do you charge?", "$22 a class")))
+    with pytest.raises(StageFailed):
+        action_plan.write(db, rid)
+    assert f"NO PLAN RUNS LONGER THAN {settings.PLAN_WEEKS_MAX} WEEKS: that is a ceiling." in seen[0][1]
+    assert "PLAN-WEEKS |" not in seen[0][1]
+    db.close()
+
+
+# -- the analysis, decision and diagnosis prompts carry it too: their replies are bound ------
+
+STAGE_PROMPTS = ("analyze.j2", "decide.j2", "diagnose.j2", "test_hypothesis.j2", "challenge.j2")
+
+
+def test_the_prompts_whose_replies_are_bound_have_the_block_and_teach_the_token():
+    for name in STAGE_PROMPTS:
+        text = _template(name)
+        assert "FIGURES YOU MAY USE" in text and "{{ figures_block }}" in text, name
+        assert "exactly as listed" in text and TOKEN in text and "never \"1 of" in text, name
+
+
+def _stage_model(monkeypatch, replies: dict) -> list[str]:
+    """The model answers a prompt from the reply whose key it starts with; returns the prompts sent."""
+    seen: list[str] = []
+
+    def chat(model, messages, **kw):
+        prompt = messages[0]["content"]
+        seen.append(prompt)
+        for start, reply in replies.items():
+            if prompt.startswith(start):
+                return {"choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}}
+        raise AssertionError("no reply for: " + prompt[:60])
+
+    monkeypatch.setattr("app.ai.provider.chat", chat)
+    return seen
+
+
+def test_the_analysis_prompt_lists_their_figures_and_only_theirs(monkeypatch):
+    from app.pipeline import analyze
+    seen = _stage_model(monkeypatch, {"You are a senior business analyst": {
+        "business_model": "Appointments", "target_customer_profile": "Regulars.", "pain_points": ["Full evenings."],
+        "growth_opportunity": "Fill the mornings."}})
+    db, rid = _full_row()
+    analyze.analyze_business(db, rid)
+    assert "FIGURES YOU MAY USE" in seen[0] and "{{ figures_block }}" not in seen[0]
+    assert "T1-1 | $22 | yours | $22 a class" in seen[0]
+    assert "CAP-05" not in seen[0]            # the week is read after the analysis, as the check knows
+    db.close()
+
+
+def test_the_decision_prompt_lists_their_figures_and_their_week(monkeypatch):
+    from app.pipeline import decide
+    seen = _stage_model(monkeypatch, {"You are the partner who signs": {
+        "intervention_kind": "software", "consulting_summary": "Fill the quiet hours."}})
+    db, rid = _full_row()
+    decide.decide(db, rid, {})
+    _shows(seen[0])
+    assert "MOVE |" not in seen[0]            # the answer is written after the decision
+    db.close()
+
+
+def test_the_diagnosis_and_its_two_reviewers_list_the_figures_the_check_reads(monkeypatch):
+    from app.pipeline import diagnose
+    hypotheses = [{"id": f"H{n}", "statement": s, "area": "capacity", "software_can_fix": True,
+                   "would_support": "a full week", "would_refute": "an empty week", "cites": [], "from_owner": False}
+                  for n, s in enumerate(("Evenings are full.", "Mornings are empty.", "Prices are too low."), 1)]
+    seen = _stage_model(monkeypatch, {
+        "You are a diagnostic consultant": {"hypotheses": hypotheses},
+        "You are testing one hypothesis": {"verdict": "supported", "because": "The evenings are full.", "cites": []},
+        "You are a skeptical partner": {"kills": False, "because": "It held.", "weakness": ""}})
+    db, rid = _full_row()
+    diagnose.diagnose(db, rid, {})
+    kinds = {"You are a diagnostic consultant": 0, "You are testing one hypothesis": 0, "You are a skeptical partner": 0}
+    for prompt in seen:
+        kinds[next(k for k in kinds if prompt.startswith(k))] += 1
+        _shows(prompt)
+    assert kinds["You are a diagnostic consultant"] == 1 and kinds["You are testing one hypothesis"] == 3
+    assert kinds["You are a skeptical partner"] == 2
     db.close()
