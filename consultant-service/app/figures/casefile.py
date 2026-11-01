@@ -69,7 +69,7 @@ from app.config import settings
 from app.figures.bind import _NUMBER_WORDS, _PHRASE_STOP, _SIGN_CURRENCY, _SKIP_WORDS, _WORD_CURRENCY
 from app.figures.model import Figure, FigureSet, TheirsSource, as_json, from_json
 from app.figures.read import _CURRENCY_CODES, Mention, mentions
-from app.figures.words import GENERIC_NOUNS, TIME_CANON as _TIME_CANON
+from app.figures.words import TIME_CANON as _TIME_CANON
 
 #: Characters of one text that are read for numbers. A bound on work, far above
 #: anything a form takes; text past it is not read.
@@ -281,9 +281,11 @@ def _counted_unit(after: str) -> str:
     "twelve reformers", "classes" for "8 classes a day"), else "". A noun is the first
     word after the count once "more", "new", "total" and the like (the binder's skip
     words) and a number-led compound ("six 50-minute classes": classes) are passed over.
-    A word that says nothing about what is counted (a function word, an adverb, or a
-    GENERIC_NOUNS word: "2 others nearby"), punctuation, the end, or a word longer than
-    NOUN_MAX leaves it without a unit ("12 of 40 members" is 12 with none and 40 members)."""
+    A function word or an adverb, punctuation, the end, or a word longer than NOUN_MAX
+    leaves it without a unit ("12 of 40 members" is 12 with none and 40 members). A
+    generic noun ("2 others nearby", "6 things") is the unit like any other, so the binder
+    can tell a count whose noun says nothing (words.GENERIC_NOUNS, a wildcard there) from
+    one with no noun at all."""
     unit = _time_unit(after)
     if unit:
         return unit
@@ -299,7 +301,7 @@ def _counted_unit(after: str) -> str:
             return _TIME_CANON[word]
         if not _NOUN.fullmatch(word) or not 2 <= len(word) <= NOUN_MAX:
             return ""
-        return "" if word in _PHRASE_STOP or word in GENERIC_NOUNS else word
+        return "" if word in _PHRASE_STOP else word
 
 
 def _unit(m: Mention, after: str) -> str:

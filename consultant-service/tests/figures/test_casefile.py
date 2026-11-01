@@ -250,14 +250,21 @@ def test_the_model_saying_the_same_counts_in_its_own_words_binds_to_them():
         assert not found.unresolved and [f.unit for f in found.bound] == ["classes", "day"]
 
 
-def test_a_noun_that_says_nothing_about_what_is_counted_gives_no_unit():
-    assert _units("2 others nearby charge $32.") == [(Decimal(2), ""), (Decimal(32), "USD")]
-    assert _units("We have 6 things, 10 people, 3 ones, 4 items, 5 units and 7 places.") == [
-        (Decimal(6), ""), (Decimal(10), ""), (Decimal(3), ""), (Decimal(4), ""), (Decimal(5), ""), (Decimal(7), "")]
-    assert [u for _, u in _units("We have 8 person, 9 folks, 3 some, 4 any, 5 all, 6 both, 7 each, 2 every, 1 more.")
-            ] == [""] * 9
+def test_a_generic_noun_is_the_unit_so_it_is_told_apart_from_no_noun_at_all():
+    from app.figures.model import Figure
+    from app.figures.words import GENERIC_NOUNS
+
+    assert _units("2 others nearby charge $32.") == [(Decimal(2), "others"), (Decimal(32), "USD")]
+    assert _units("We have 6 things, 10 People, 3 ones, 4 items, 5 units and 7 places.") == [
+        (Decimal(6), "things"), (Decimal(10), "people"), (Decimal(3), "ones"), (Decimal(4), "items"),
+        (Decimal(5), "units"), (Decimal(7), "places")]
+    assert {u for _, u in _units("We have 8 person, 9 folks and 1 unit.")} == {"person", "folks", "unit"} <= GENERIC_NOUNS
+    # a count with no noun after it, or with a function word, stays without a unit
+    assert [u for _, u in _units("We have 6 both, 7 each, 2 every, 1 more, 4 those.")] == [""] * 5
     assert _units("Two other studios charge $32.")[0] == (Decimal(2), "studios")   # "other" before a noun is passed over
-    assert _units("Two others and 3 other.") == [(Decimal(2), ""), (Decimal(3), "")]
+    assert _units("Two others and 3 other.") == [(Decimal(2), "others"), (Decimal(3), "")]   # "other" alone names nothing
+    [fig] = casefile.build(_req(main_problem="2 others nearby"))
+    assert isinstance(fig, Figure) and display(fig) == "2 others" and display_number(fig) == "2"
 
 
 def test_a_count_with_no_noun_straight_after_it_has_no_unit():
