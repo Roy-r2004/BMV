@@ -21,9 +21,15 @@ The same row and the same reader give the same ids on every build.
 
 The case file is stored in `Request.case_file_json` as a JSON list of figures.
 A row made before the column existed has none: `load` builds the set from the
-row's columns and does not write it. `save`, `add_evidence` and `remove_evidence`
-stage the column on the row and leave the commit to the caller, so the case file
-reaches the database in the commit that writes whatever it describes.
+row's columns and does not write it. `save` rebuilds the whole case file from the
+row's columns and stages it on the row, leaving the commit to the caller, so the
+case file reaches the database in the commit that writes whatever it describes. It
+is rebuilt, not patched, when the client's files change (`evidence.save` calls it),
+so there is one way in and the case file cannot drift from the claims.
+
+How many figures one text and one request may hold is bounded in `app/config.py`
+(`CASE_FILE_FIGURES_PER_TEXT`, `CASE_FILE_FIGURES_PER_REQUEST`); a build stops at
+the bound, in the order the texts are read.
 
 Only the client's words are read: the interview answers (never the questions,
 which we wrote), the free-text columns, and the values of the claims read out of
@@ -48,6 +54,7 @@ from dataclasses import replace
 from decimal import Decimal
 from typing import Iterable
 
+from app.config import settings
 from app.figures.model import Figure, FigureSet, TheirsSource, as_json, from_json
 from app.figures.read import Mention, mentions
 
@@ -76,6 +83,9 @@ _ELLIPSIS = "\u2026"
 # dots is retried from every position and takes quadratic time (50,000 dots took a minute).
 _SENTENCE_END = re.compile(r"(?<![.!?])[.!?]+[\"')\u201d\u2019]*(?=\s+[^a-z\s])|\n+")
 _TRAILING_NUMBER = re.compile(r"(\d+)\s*$")
+# A currency code the amount is written with ("$50 AUD", "CAD 100"): the reader keeps it in
+# the mention's text.
+_CODE_IN = re.compile(r"(?<![A-Za-z])[A-Z]{3}(?![A-Za-z])")
 
 
 # -- reading the row -------------------------------------------------------------------
@@ -139,8 +149,12 @@ def _precision(value: Decimal) -> int:
 
 def _currency(text: str) -> str:
     """The unit of a money mention, from how it was written. Only a currency it
-    names is returned: A$ and NZ$ are not US dollars, and a bare figure is not
-    given a currency it does not carry."""
+    names is returned: a code written with the amount ("$50 AUD", "CAD 100") is
+    that currency whatever sign is beside it, and A$ and NZ$ are not US dollars. A
+    bare figure is not given a currency it does not carry."""
+    named = _CODE_IN.search(text)
+    if named:
+        return named.group()
     upper = text.upper()
     if "\u20ac" in text or "EUR" in upper:
         return "EUR"
@@ -152,7 +166,8 @@ def _currency(text: str) -> str:
 
 
 def _unit(m: Mention) -> str:
-    if m.form == "percent":
+    # a fraction is read as the percent number ("a third" is 33.3333), so it prints with its sign
+    if m.form in ("percent", "fraction"):
         return "percent"
     return _currency(m.text) if m.form == "money" else ""
 
@@ -165,14 +180,18 @@ def _figure(id: str, m: Mention, source: TheirsSource) -> Figure | None:
         return None
 
 
-def _text_figures(text: str, prefix: str, *, turn: int | None, field: str | None) -> list[Figure]:
-    """One figure per stored number in `text`, named `<prefix>-<n>`."""
+def _text_figures(text: str, prefix: str, *, turn: int | None, field: str | None,
+                  limit: int) -> list[Figure]:
+    """One figure per stored number in `text`, named `<prefix>-<n>`, the first
+    `limit` of them in text order."""
     text = text[:MAX_TEXT_CHARS]
     spans = _sentence_spans(text)
     starts = [s for s, _ in spans]
     out: list[Figure] = []
     n = 0
     for m in mentions(text):
+        if len(out) >= limit:
+            break
         if m.form in _NOT_STORED_FORMS:
             continue
         n += 1
@@ -210,12 +229,15 @@ def _sheet(source: object, file: str | None, cell: str | None) -> str | None:
     return None
 
 
-def _claim_figures(claims: Iterable) -> list[Figure]:
-    """The figures in evidence claims (the CE- claims `evidence.extract` writes).
-    A claim holds one number, the one verified against its cell; `text` is the
-    extraction's own description of the cell, kept as the quote."""
+def _claim_figures(claims: Iterable, limit: int) -> list[Figure]:
+    """The first `limit` figures in evidence claims (the CE- claims
+    `evidence.extract` writes). A claim holds one number, the one verified against
+    its cell; `text` is the extraction's own description of the cell, kept as the
+    quote."""
     out: list[Figure] = []
     for position, claim in enumerate(claims, 1):
+        if len(out) >= limit:
+            break
         if not isinstance(claim, dict):
             continue
         value = _value_text(claim.get("value"))
@@ -256,8 +278,10 @@ def _place(known: dict[str, Figure], figure: Figure) -> None:
 
 def build(req) -> list[Figure]:
     """Every theirs figure in the row's interview answers, free-text columns and
-    evidence claims, in that order. Reads only; never touches the column."""
+    evidence claims, in that order. Reads only; never touches the column. It stops
+    at the bounds in `settings`: so many figures from one text, so many in all."""
     figures: dict[str, Figure] = {}
+    per_text, per_request = settings.CASE_FILE_FIGURES_PER_TEXT, settings.CASE_FILE_FIGURES_PER_REQUEST
 
     for turn, pair in enumerate(_loads_list(getattr(req, "ops_numbers_json", None)), 1):
         answer = pair.get("answer") if isinstance(pair, dict) else None
@@ -265,7 +289,8 @@ def build(req) -> list[Figure]:
             continue
         qid = pair.get("id")
         field = qid.strip() if isinstance(qid, str) and qid.strip() else None
-        for figure in _text_figures(answer, f"T{turn}", turn=turn, field=field):
+        for figure in _text_figures(answer, f"T{turn}", turn=turn, field=field,
+                                    limit=min(per_text, per_request - len(figures))):
             _place(figures, figure)
 
     question, seen = _scope_question(req), set()
@@ -279,10 +304,12 @@ def build(req) -> list[Figure]:
         if not words or words in seen or (field == "desired_outcome" and words == question):
             continue   # empty, the same words again, or the question we wrote
         seen.add(words)
-        for figure in _text_figures(text.strip(), f"F-{field}", turn=None, field=field):
+        for figure in _text_figures(text.strip(), f"F-{field}", turn=None, field=field,
+                                    limit=min(per_text, per_request - len(figures))):
             _place(figures, figure)
 
-    for figure in _claim_figures(_loads_list(getattr(req, "evidence_json", None))):
+    for figure in _claim_figures(_loads_list(getattr(req, "evidence_json", None)),
+                                 limit=per_request - len(figures)):
         _place(figures, figure)
     return list(figures.values())
 
@@ -306,28 +333,9 @@ def load(req) -> FigureSet:
     return stored if stored is not None else FigureSet(build(req))
 
 
-def _stage(db, req, figures: Iterable[Figure]) -> None:
-    req.case_file_json = json.dumps([as_json(f) for f in figures])
-    db.add(req)
-
-
 def save(db, req) -> None:
-    """Stage the case file built from the row's columns on `req`. The caller
+    """Stage the case file, built from the row's columns, on `req`. The caller
     commits. An empty case file is stored as "[]", so it is not mistaken for a row
     from before this step."""
-    _stage(db, req, build(req))
-
-
-def add_evidence(db, req, claims: Iterable) -> None:
-    """Add the figures in `claims` to the stored case file (built first if the row
-    has none). A figure already there is not added twice. The caller commits."""
-    figures = {f.id: f for f in load(req)}
-    for figure in _claim_figures(claims):
-        _place(figures, figure)
-    _stage(db, req, figures.values())
-
-
-def remove_evidence(db, req, file: str) -> None:
-    """Take the figures read from `file` out of the stored case file and leave the
-    rest. The caller commits, and removes the file's claims from `evidence_json`."""
-    _stage(db, req, [f for f in load(req) if getattr(f.source, "file", None) != file])
+    req.case_file_json = json.dumps([as_json(f) for f in build(req)])
+    db.add(req)

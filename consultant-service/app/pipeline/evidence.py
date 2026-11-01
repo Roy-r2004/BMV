@@ -348,6 +348,12 @@ def save(db: Session, req: Request, claims: list[dict]) -> None:
     # The case file holds the figures in these claims too, so it moves with
     # them: every write of the claims (the upload and delete routes, and the
     # files read at the start of a diagnosis) lands here, and the case file is
-    # staged in the same commit.
-    casefile.save(db, req)
+    # staged in the same commit. A failure of ours to build it must never cost
+    # the client their file: the claims are committed anyway, and the case file
+    # is left empty, which makes it build again from the row when it is read.
+    try:
+        casefile.save(db, req)
+    except Exception:
+        logger.warning("the case file could not be built; the claims are saved without it", exc_info=True)
+        req.case_file_json = None
     db.commit()

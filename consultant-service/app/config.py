@@ -86,6 +86,13 @@ class Settings:
     # fault and a paid run should not end on the first one; the provider's own
     # failures are retried in the provider and never again here. Held to 1..3.
     STAGE_REPLY_ATTEMPTS: int = _env_int_within("STAGE_REPLY_ATTEMPTS", 2, 1, 3)
+    # How many figures the case file (app/figures/casefile.py) keeps: from one
+    # text (an answer, a field) and from the whole request. A build stops at the
+    # bound, in the order the texts are read, so a pasted spreadsheet cannot make
+    # the stored case file, or the time to build it, unbounded. Held to 20..1000
+    # and 100..5000.
+    CASE_FILE_FIGURES_PER_TEXT: int = _env_int_within("CASE_FILE_FIGURES_PER_TEXT", 200, 20, 1000)
+    CASE_FILE_FIGURES_PER_REQUEST: int = _env_int_within("CASE_FILE_FIGURES_PER_REQUEST", 1000, 100, 5000)
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
     # Managing Consultant"). A document a person signs reads senior; one

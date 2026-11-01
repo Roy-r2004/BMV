@@ -3,8 +3,9 @@
 Pins: one theirs Figure per number in an interview answer, a free-text column or a
 claim read out of an uploaded file, each with its turn, field, file and cell; ids
 that do not move; a row made before the column existed still works and is not
-written to by a read; the file figures follow the client's files (add, remove);
-and nothing the model wrote (a brief fact, the scope question) becomes "theirs".
+written to by a read; the file figures follow the client's files (the whole case file
+is rebuilt when they change); a failure of ours to build it never costs the client
+their data; and nothing the model wrote (a brief fact, the scope question) becomes "theirs".
 """
 import json
 from decimal import Decimal
@@ -147,6 +148,20 @@ def test_the_unit_comes_from_how_the_number_was_written_and_never_claims_a_curre
     assert units == {Decimal(35): "USD", Decimal(40): "EUR", Decimal(45): "GBP", Decimal(50): "",
                      Decimal(55): "USD", Decimal(60): "USD", Decimal(65): "USD",
                      Decimal(70): "percent", Decimal(75): ""}
+
+
+def test_a_currency_code_written_with_the_amount_beats_the_sign_beside_it():
+    req = _req(main_problem="Fees are $80 AUD, $90 CAD, CAD 100, \u20ac110 USD, and $120.")
+    units = {f.value: f.unit for f in casefile.build(req)}
+    assert units == {Decimal(80): "AUD", Decimal(90): "CAD", Decimal(100): "CAD", Decimal(110): "USD",
+                     Decimal(120): "USD"}
+
+
+def test_a_fraction_is_stored_as_a_percent_so_it_prints_with_its_sign():
+    req = _req(main_problem="A third of members come on Fridays.")
+    [fig] = casefile.build(req)
+    assert (fig.unit, fig.value) == ("percent", Decimal("33.3333"))
+    assert display(fig).endswith("%")
 
 
 def test_a_figure_prints_the_value_they_gave_without_the_zeros_a_magnitude_adds():
@@ -330,40 +345,16 @@ def test_save_stages_the_case_file_and_leaves_the_commit_to_the_caller(db):
 # -- the client's files ----------------------------------------------------------------------
 
 def test_removing_a_file_removes_only_its_figures(db):
-    row = _persist(db, main_problem="We lose 8 hours a week.",
-                   evidence_json=json.dumps([_claim(1, 100, file="a.csv"), _claim(2, 200, file="b.csv"),
-                                             _claim(3, 300, file="a.csv", cell="C9")]))
-    casefile.save(db, row)
-    db.commit()
-    assert len(casefile.load(row)) == 4
+    from app.pipeline import evidence
 
-    casefile.remove_evidence(db, row, "a.csv")
-    db.commit()
+    a1, b1, a2 = _claim(1, 100, file="a.csv"), _claim(2, 200, file="b.csv"), _claim(3, 300, file="a.csv", cell="C9")
+    row = _persist(db, main_problem="We lose 8 hours a week.")
+    evidence.save(db, row, [a1, b1, a2])
+    assert len(casefile.load(_fresh(row.id))) == 4
+
+    evidence.save(db, row, [b1])   # both claims from a.csv go
     left = casefile.load(_fresh(row.id))
     assert sorted((f.id, f.value) for f in left) == [("E2-1", Decimal(200)), ("F-main_problem-1", Decimal(8))]
-    casefile.remove_evidence(db, row, "never-sent.csv")   # a file we never had: nothing changes
-    db.commit()
-    assert len(casefile.load(_fresh(row.id))) == 2
-
-
-def test_adding_a_files_claims_adds_their_figures_once(db):
-    row = _persist(db, main_problem="We lose 8 hours a week.")
-    casefile.save(db, row)
-    db.commit()
-    claims = [_claim(1, 100), _claim(2, 250, cell="B9")]
-    casefile.add_evidence(db, row, claims)
-    casefile.add_evidence(db, row, claims)   # again: nothing changes
-    db.commit()
-    got = casefile.load(_fresh(row.id))
-    assert [f.id for f in got] == ["F-main_problem-1", "E1-1", "E2-1"]
-    assert got.get("E2-1").source.cell == "B9"
-
-
-def test_adding_to_an_old_row_builds_the_rest_first(db):
-    row = _persist(db, main_problem="We lose 8 hours a week.")
-    casefile.add_evidence(db, row, [_claim(1, 100)])
-    db.commit()
-    assert sorted(f.id for f in casefile.load(_fresh(row.id))) == ["E1-1", "F-main_problem-1"]
 
 
 def test_saving_evidence_keeps_the_case_file_in_the_same_commit(db):
@@ -450,6 +441,16 @@ def test_the_question_id_they_sent_is_kept_trimmed_and_bounded_and_nothing_else_
     assert requests_router.QUESTION_ID_MAX >= 40   # the interview's ids are cut to 40 (discovery.casefile_sources)
 
 
+def test_a_question_id_is_kept_only_if_it_is_made_of_letters_digits_and_a_few_marks():
+    from app.routers import requests as requests_router
+
+    ids = ["a b", "q;1", "<b>", "a/b", "q1\nq2", "q'1", "field:evil_x", "A.b-c_d:9"]
+    raw = json.dumps([{"id": i, "question": "Q?", "answer": "1"} for i in ids])
+    kept = json.loads(requests_router._sanitize_ops_numbers(raw))
+    assert [p.get("id") for p in kept] == [None, None, None, None, None, None, "field:evil_x", "A.b-c_d:9"]
+    assert all(p["question"] == "Q?" and p["answer"] == "1" for p in kept)   # the pair itself is kept
+
+
 def test_a_failure_to_build_the_case_file_does_not_stop_an_engagement_starting(client, monkeypatch):
     def broken(db, req):
         raise RuntimeError("the reader fell over")
@@ -500,6 +501,72 @@ def test_uploading_a_file_through_the_route_adds_its_figures_to_the_case_file(cl
     assert "F-main_problem-1" in got
 
 
+def _break_the_case_file(monkeypatch):
+    def fell_over(req):
+        raise RuntimeError("the reader fell over")
+
+    monkeypatch.setattr(casefile, "build", fell_over)
+
+
+def _file_gives(monkeypatch, value=310):
+    from app.pipeline import evidence
+
+    monkeypatch.setattr(evidence, "extract", lambda db_, rid, tables, name, start_index=0:
+                        ([_claim(start_index + 1, value, file=name)], 0))
+
+
+def test_an_upload_is_kept_when_the_case_file_cannot_be_built(client, db, monkeypatch):
+    row = _persist(db, public_id="casefile-boom", main_problem="We lose 8 hours a week.")
+    casefile.save(db, row)
+    db.commit()
+    assert _fresh(row.id).case_file_json is not None   # one is stored, and about to be out of date
+    _file_gives(monkeypatch)
+    _break_the_case_file(monkeypatch)
+
+    r = client.post(f"/api/requests/{row.public_id}/evidence",
+                    files={"file": ("march.csv", b"day,bookings\n1,310\n2,290\n", "text/csv")})
+    assert r.status_code == 200 and r.json()["added"] == 1
+    stored = _fresh(row.id)
+    assert [c["id"] for c in json.loads(stored.evidence_json)] == ["CE-01"]   # the client's file is kept
+    assert stored.case_file_json is None   # not left stale: the next read builds it again
+
+
+def test_a_deleted_claim_is_gone_even_when_the_case_file_cannot_be_built(client, db, monkeypatch):
+    row = _persist(db, public_id="casefile-boom-del", main_problem="We lose 8 hours a week.",
+                   evidence_json=json.dumps([_claim(1, 100), _claim(2, 200, cell="B5")]))
+    _break_the_case_file(monkeypatch)
+    r = client.delete(f"/api/requests/{row.public_id}/evidence/CE-01")
+    assert r.status_code == 200
+    stored = _fresh(row.id)
+    assert [c["id"] for c in json.loads(stored.evidence_json)] == ["CE-02"] and stored.case_file_json is None
+
+
+def test_a_stashed_file_is_not_dropped_when_the_case_file_cannot_be_built(db, monkeypatch):
+    from app.pipeline import evidence
+
+    row = _persist(db, main_problem="We lose 8 hours a week.")
+    evidence.stash(row.id, "march.csv", b"day,bookings\n1,310\n2,290\n")
+    _file_gives(monkeypatch)
+    _break_the_case_file(monkeypatch)
+
+    assert evidence.ingest_pending(db, row.id) == [("march.csv", 1)]   # read, not counted as nothing found
+    stored = _fresh(row.id)
+    assert [c["id"] for c in json.loads(stored.evidence_json)] == ["CE-01"] and stored.case_file_json is None
+
+
+def test_a_correction_that_cannot_reach_the_case_file_is_still_saved(client, db, monkeypatch):
+    row = _persist(db, public_id="casefile-boom-rev", status="awaiting_approval", is_generating=False,
+                   main_problem="We lose 8 hours a week.")
+    casefile.save(db, row)
+    db.commit()
+    _break_the_case_file(monkeypatch)
+    r = client.post(f"/api/requests/{row.public_id}/decision/revise",
+                    data={"note": "You have the evening numbers wrong, it is 11 of 12."})
+    assert r.status_code == 200 and r.json()["started"] is True
+    stored = _fresh(row.id)
+    assert "11 of 12" in stored.business_description and stored.case_file_json is None
+
+
 def test_a_correction_they_send_through_the_route_reaches_the_case_file(client, db):
     row = _persist(db, public_id="casefile-rev", status="awaiting_approval", is_generating=False,
                    main_problem="We lose 8 hours a week.")
@@ -545,9 +612,65 @@ def test_a_long_question_is_shortened_in_the_plain_source():
     from app.routers import discovery
 
     question = "How " + "much " * 60 + "does it cost?"
-    sources, origins = discovery.casefile_lines(None, json.dumps([{"id": "q1", "question": question, "answer": "$5"}]), "{}")
-    assert origins["q1"].startswith('From your answer to "How much') and len(origins["q1"]) < 200
-    assert sources["q1"].startswith(question[:200])
+    lines = discovery.casefile_lines(None, json.dumps([{"id": "q1", "question": question, "answer": "$5"}]), "{}")
+    assert lines.origins["q1"].startswith('From your answer to "How much') and len(lines.origins["q1"]) < 200
+    assert lines.sources["q1"].startswith(question[:200])
+    assert lines.theirs["q1"] == "$5"   # the answer alone
+
+
+def test_the_plain_source_follows_the_kind_of_line_not_the_id_the_page_sent():
+    from app.routers import discovery
+
+    ops = json.dumps([{"id": "field:evil_x", "question": "How many reformers?", "answer": "We have 12"},
+                      {"id": "main_problem_2", "question": "How full?", "answer": "10 of 12"}])
+    lines = discovery.casefile_lines("Bookings eat 8 hours.", ops, json.dumps({"business_description": "6 coaches"}))
+    assert lines.origins["field:evil_x"] == 'From your answer to "How many reformers?"'
+    assert lines.origins["main_problem_2"] == 'From your answer to "How full?"'
+    assert lines.origins["main_problem"] == "From what you told us about the problem"
+    assert lines.origins["field:business_description"] == "From what you wrote about your business description"
+    raw = {"figures": [{"source": "field:evil_x", "token": "We have 12", "value": "12", "label": "reformers"}]}
+    [fig] = discovery.shape_casefile(raw, lines.sources, False, None, lines.origins, lines.theirs)["figures"]
+    assert fig["source"] == 'From your answer to "How many reformers?"' and fig["source_id"] == "field:evil_x"
+    # with no origins given, the sentence does not guess from the id either
+    [bare] = discovery.shape_casefile(raw, lines.sources, False)["figures"]
+    assert bare["source"] == "From what you told us"
+
+
+def test_a_number_only_in_our_question_is_not_theirs():
+    from app.routers import discovery
+
+    ops = json.dumps([{"id": "q1", "question": "Is it true you run 5 classes a day and charge $35?",
+                       "answer": "Yes, roughly. About 12 reformers."}])
+    lines = discovery.casefile_lines(None, ops, "{}")
+
+    def shaped(token, value, label):
+        raw = {"figures": [{"source": "q1", "token": token, "value": value, "label": label}]}
+        return discovery.shape_casefile(raw, lines.sources, False, None, lines.origins, lines.theirs)["figures"]
+
+    assert shaped("5 classes a day", "5", "classes a day") == []   # only our question says it
+    assert shaped("$35", "$35", "the price") == []
+    assert shaped("About 12 reformers", "12", "5 classes a day") == []   # a label may not bring our number in either
+    [kept] = shaped("About 12 reformers", "12", "reformers")
+    assert kept["kind"] == "theirs" and kept["source"].startswith("From your answer to")
+    # given only the whole line (the old call), the question's number was accepted: that is what this fixes
+    old = {"figures": [{"source": "q1", "token": "5 classes a day", "value": "5", "label": "classes a day"}]}
+    assert len(discovery.shape_casefile(old, lines.sources, False)["figures"]) == 1
+
+
+def test_the_interview_route_does_not_call_a_number_from_our_question_theirs(client, monkeypatch):
+    from app.pipeline import capacity
+    from app.routers import discovery
+
+    reply = {"figures": [
+        {"source": "q1", "token": "5 classes a day", "value": "5", "label": "classes a day"},
+        {"source": "q1", "token": "About 12 reformers", "value": "12", "label": "reformers"}]}
+    monkeypatch.setattr(discovery.provider, "chat", lambda *a, **k: {
+        "choices": [{"message": {"content": json.dumps(reply)}}], "usage": {}})
+    monkeypatch.setattr(capacity, "read", lambda texts, stage="operating", earlier=None: (None, None, None))
+    r = client.post("/api/discovery/casefile", data={"ops_numbers": json.dumps([
+        {"id": "q1", "question": "Is it true you run 5 classes a day and charge $35?",
+         "answer": "Yes, roughly. About 12 reformers."}])})
+    assert [f["value"] for f in r.json()["figures"]] == ["12"]
 
 
 # -- the column ------------------------------------------------------------------------------
@@ -589,3 +712,43 @@ def test_a_run_of_punctuation_does_not_make_the_sentence_split_take_quadratic_ti
     started = time.perf_counter()
     casefile._sentence_spans(text)
     assert time.perf_counter() - started < 2.0
+
+
+# -- bounds ------------------------------------------------------------------------------------
+
+def test_a_pasted_wall_of_numbers_cannot_make_the_case_file_unbounded():
+    from app.config import settings
+    from app.figures.model import as_json
+
+    req = _req(main_problem="1 " * (casefile.MAX_TEXT_CHARS // 2))   # 50,000 characters, 25,000 numbers
+    figures = casefile.build(req)
+    assert len(figures) == settings.CASE_FILE_FIGURES_PER_TEXT
+    assert [f.id for f in figures][:2] == ["F-main_problem-1", "F-main_problem-2"]   # the first ones, in text order
+    assert len(json.dumps([as_json(f) for f in figures])) < 1_000_000
+
+
+def test_the_request_bound_stops_a_build_in_the_order_the_texts_are_read(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_TEXT", 20)
+    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_REQUEST", 30)
+    req = _req(ops_numbers_json=_pairs({"question": "a", "answer": "1 " * 25}), main_problem="2 " * 100,
+               revenue_today="3 " * 5, evidence_json=json.dumps([_claim(1)]))
+    ids = [f.id for f in casefile.build(req)]
+    assert ids == [f"T1-{i}" for i in range(1, 21)] + [f"F-main_problem-{i}" for i in range(1, 11)]
+
+
+def test_the_evidence_figures_stop_at_the_request_bound_too(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "CASE_FILE_FIGURES_PER_REQUEST", 3)
+    claims = [_claim(n, 100 + n, cell=f"B{n}") for n in range(1, 9)]
+    req = _req(main_problem="8 hours", evidence_json=json.dumps(claims))
+    assert [f.id for f in casefile.build(req)] == ["F-main_problem-1", "E1-1", "E2-1"]
+
+
+def test_the_bounds_are_held_to_their_ranges():
+    from app.config import settings
+
+    assert 20 <= settings.CASE_FILE_FIGURES_PER_TEXT <= 1000
+    assert 100 <= settings.CASE_FILE_FIGURES_PER_REQUEST <= 5000

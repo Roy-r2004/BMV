@@ -3,6 +3,7 @@ import json
 import secrets
 import logging
 import os
+import re
 import threading
 from datetime import datetime
 
@@ -142,6 +143,10 @@ def _teaser_payload(req: Request) -> dict:
 #: The longest question id kept with an answer. The interview's ids are cut to
 #: the same length where it quotes them back (discovery.casefile_sources).
 QUESTION_ID_MAX = 40
+#: What a question id may be made of: letters, digits and _ . : - . The page makes
+#: ids of that kind (q1, field:x); the id is client-built JSON and ends up in the
+#: stored case file, so anything else is dropped, as if no id had been sent.
+_QUESTION_ID = re.compile(r"[A-Za-z0-9_.:\-]+")
 
 
 def _sanitize_ops_numbers(raw: str | None) -> str | None:
@@ -150,9 +155,10 @@ def _sanitize_ops_numbers(raw: str | None) -> str | None:
     count and length. Malformed input stores None, never a 500: the
     numbers are optional garnish on the request, not a precondition.
 
-    The id of the question the page sent with the answer is kept (trimmed and
-    cut to QUESTION_ID_MAX), so the case file can say which question a figure
-    answers; a pair that came with none stores none.
+    The id of the question the page sent with the answer is kept (trimmed, cut to
+    QUESTION_ID_MAX, and only if it is made of the characters in _QUESTION_ID), so
+    the case file can say which question a figure answers; a pair that came with
+    none, or with one that is not, stores none.
 
     The count bound tracks what the interview can actually collect. It was a
     flat 8, from when one fixed round asked at most 6; an adaptive interview
@@ -179,6 +185,8 @@ def _sanitize_ops_numbers(raw: str | None) -> str | None:
             raw_id = p.get("id")
             has_id = isinstance(raw_id, (str, int)) and not isinstance(raw_id, bool)
             qid = str(raw_id).strip()[:QUESTION_ID_MAX] if has_id else ""
+            if not _QUESTION_ID.fullmatch(qid):
+                qid = ""
             cleaned.append({"id": qid, "question": question, "answer": answer} if qid
                            else {"question": question, "answer": answer})
     return json.dumps(cleaned) if cleaned else None
@@ -260,6 +268,7 @@ def _stage_case_file(db: Session, req: Request) -> None:
         casefile.save(db, req)
     except Exception:
         logger.warning("the case file could not be built; the row goes without one", exc_info=True)
+        req.case_file_json = None   # a stale one would be read as current
 
 
 def _brief(req: Request) -> dict | None:

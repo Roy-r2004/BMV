@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+from typing import NamedTuple
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -620,37 +621,55 @@ CASEFILE_MAX_FIGURES = 8
 ORIGIN_QUESTION_MAX = 100
 
 
-def _origin(source_id: str, question: str = "") -> str:
-    """Where a figure came from, in the words they would use. `source_id` is the
-    id of the line it was quoted from (see casefile_lines)."""
-    if source_id == "main_problem":
+def _origin(kind: str, name: str = "") -> str:
+    """Where a figure came from, in the words they would use. `kind` is what sort
+    of line it was quoted from, known by the code that built the line (see
+    casefile_lines), never read back out of an id the page sent: "problem", "field"
+    (`name` is the form field) or "answer" (`name` is the question)."""
+    if kind == "problem":
         return "From what you told us about the problem"
-    if source_id.startswith("field:"):
-        return f"From what you wrote about your {source_id[len('field:'):].replace('_', ' ')}"
-    question = " ".join(question.split())
-    if not question:
-        return "From one of your answers"
-    if len(question) > ORIGIN_QUESTION_MAX:
-        question = question[:ORIGIN_QUESTION_MAX].rstrip() + "\u2026"
-    return f'From your answer to "{question}"'
+    if kind == "field":
+        return f"From what you wrote about your {name.replace('_', ' ')}"
+    if kind == "answer":
+        question = " ".join(name.split())
+        if not question:
+            return "From one of your answers"
+        if len(question) > ORIGIN_QUESTION_MAX:
+            question = question[:ORIGIN_QUESTION_MAX].rstrip() + "\u2026"
+        return f'From your answer to "{question}"'
+    return "From what you told us"
+
+
+class CaseFileLines(NamedTuple):
+    """What they have said, each line under an id. `sources` are the lines the
+    model reads and a figure has to be in; an interview line is "<our question> -
+    <their answer>". `theirs` is the part of each line that is their own words (the
+    answer alone for an interview line), the only part a figure may be quoted
+    from, since a number in our question is not theirs. `origins` say where each
+    line came from in plain words."""
+    sources: dict[str, str]
+    theirs: dict[str, str]
+    origins: dict[str, str]
 
 
 def casefile_lines(main_problem: str | None, ops_numbers: str | None,
-                   known: str | None) -> tuple[dict[str, str], dict[str, str]]:
-    """Everything they have said, by id: the lines a figure has to be in, and for
-    each line where it came from in plain words."""
+                   known: str | None) -> CaseFileLines:
+    """Everything they have said, by id."""
     sources: dict[str, str] = {}
+    theirs: dict[str, str] = {}
     origins: dict[str, str] = {}
     if (main_problem or "").strip():
-        sources["main_problem"] = main_problem.strip()[:2000]
-        origins["main_problem"] = _origin("main_problem")
+        sources["main_problem"] = theirs["main_problem"] = main_problem.strip()[:2000]
+        origins["main_problem"] = _origin("problem")
     try:
         for p in json.loads(ops_numbers or "[]"):
             if isinstance(p, dict) and str(p.get("answer") or "").strip():
                 qid = str(p.get("id") or f"q{len(sources)}")[:40]
                 question = str(p.get("question") or "").strip()[:200]
-                sources[qid] = f"{question} — {str(p['answer']).strip()[:600]}"
-                origins[qid] = _origin(qid, question)
+                answer = str(p["answer"]).strip()[:600]
+                sources[qid] = f"{question} — {answer}"
+                theirs[qid] = answer
+                origins[qid] = _origin("answer", question)
     except (TypeError, ValueError):
         pass
     try:
@@ -658,28 +677,32 @@ def casefile_lines(main_problem: str | None, ops_numbers: str | None,
         if isinstance(raw_known, dict):
             for k, v in raw_known.items():
                 if k in FILLABLE and str(v or "").strip():
-                    sources[f"field:{k}"] = str(v).strip()[:1000]
-                    origins[f"field:{k}"] = _origin(f"field:{k}")
+                    sources[f"field:{k}"] = theirs[f"field:{k}"] = str(v).strip()[:1000]
+                    origins[f"field:{k}"] = _origin("field", k)
     except (TypeError, ValueError):
         pass
-    return sources, origins
+    return CaseFileLines(sources, theirs, origins)
 
 
 def casefile_sources(main_problem: str | None, ops_numbers: str | None,
                      known: str | None) -> dict[str, str]:
     """Everything they have said, by id — the lines a figure has to be in."""
-    return casefile_lines(main_problem, ops_numbers, known)[0]
+    return casefile_lines(main_problem, ops_numbers, known).sources
 
 
 def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
                    derived: list[float] | None = None,
-                   origins: dict[str, str] | None = None) -> dict:
+                   origins: dict[str, str] | None = None,
+                   theirs: dict[str, str] | None = None) -> dict:
     """Keep only what is really in their words. Pure. `derived` are the
     capacity totals computed from those words, which the summary may use.
 
-    Every figure kept was quoted from a line of theirs, so each says `kind:
+    Every figure kept was quoted from their own words, so each says `kind:
     "theirs"` and carries `source`, where it came from in plain words (from
-    `origins`, which `casefile_lines` builds); `source_id` is the id of the line."""
+    `origins`, which `casefile_lines` builds); `source_id` is the id of the line.
+    `theirs` is the part of each line that is their own words (an interview line
+    also holds our question, and a number only our question has is not theirs); a
+    line with no entry there is taken to be theirs throughout."""
     from app.pipeline import figures
 
     out: dict = {"figures": []}
@@ -688,7 +711,7 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
         if not isinstance(f, dict):
             continue
         src = str(f.get("source") or "")
-        text = sources.get(src)
+        text = (theirs or {}).get(src) or sources.get(src)
         token = str(f.get("token") or "").strip()
         value = str(f.get("value") or "").strip()[:24]
         label = str(f.get("label") or "").strip()[:60]
@@ -712,18 +735,19 @@ def shape_casefile(raw: dict, sources: dict[str, str], playback: bool,
         if key in seen:
             continue
         seen.add(key)
-        out["figures"].append({"kind": "theirs", "source": (origins or {}).get(src) or _origin(src),
+        out["figures"].append({"kind": "theirs", "source": (origins or {}).get(src) or _origin(""),
                                "source_id": src, "token": token, "value": value, "label": label})
         if len(out["figures"]) >= CASEFILE_MAX_FIGURES:
             break
     if playback and isinstance(raw, dict):
         all_text = list(sources.values())
+        their_text = [(theirs or {}).get(k) or v for k, v in sources.items()]
         summary = str(raw.get("summary") or "").strip()[:600]
         allowed = figures.given(all_text) | {float(v) for v in derived or []}
         hours = figures.given_hours(all_text)
         out["summary"] = summary if summary and not figures.unsupported(summary, allowed, hours=hours) else ""
         words = str(raw.get("their_words") or "").strip()[:400]
-        out["their_words"] = words if words and figures.quoted(words, all_text) else ""
+        out["their_words"] = words if words and figures.quoted(words, their_text) else ""
         fix = raw.get("their_fix")
         fix = str(fix).strip().rstrip(".")[:80] if fix else ""
         out["their_fix"] = fix if fix and not figures.unsupported(fix, figures.given(all_text), hours=hours) else None
@@ -755,7 +779,7 @@ def casefile(
 
     if auth_client.resolve_user(authorization) is None:
         raise HTTPException(status_code=401, detail="Sign in to start your engagement")
-    sources, origins = casefile_lines(main_problem, ops_numbers, known)
+    sources, theirs, origins = casefile_lines(main_problem, ops_numbers, known)
     if not sources:
         return {"figures": [], "capacity": None}
 
@@ -789,7 +813,7 @@ def casefile(
                   purpose="casefile:capacity", usage=cap_usage, success=cap_error is None, error=cap_error)
 
     out = shape_casefile(raw, sources, playback,
-                         [d["value"] for d in (picture or {}).get("derived") or []], origins)
+                         [d["value"] for d in (picture or {}).get("derived") or []], origins, theirs)
     out["capacity"] = picture
     return out
 
