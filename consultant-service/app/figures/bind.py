@@ -15,9 +15,12 @@ stand for:
                 ("10 days") is evidence: the figure must be in that very unit
                 ("10.03 weeks" is not it), a figure with no unit never matches, and
                 a filler word ("40 per week") is not agreement with a figure in
-                time. Any other unit (classes, GB) needs the noun after the number,
-                if there is one, to be that unit, and a figure that names the unit
-                beats a unitless one. Only an unspaced hyphen or en dash, " to ", and "and"
+                time. The noun after a count must be the figure's own unit
+                (plural or singular; "more", "extra", "new" and the like are skipped):
+                "Hire 4 more instructors" is not 4 reformers, "Add 3 classes" is not
+                3 intro classes. A figure with no noun takes a number only when no
+                noun follows it, and a figure that names the unit beats a unitless
+                one. Only an unspaced hyphen or en dash, " to ", and "and"
                 after "between" or "from" join two numbers into a range; a spaced
                 dash, an em dash or a clause break never does. Two numbers so joined
                 share a shape only when one is bare and the other carries it
@@ -28,9 +31,12 @@ stand for:
                 instructors" are two quantities, each with its own shape; a shape
                 an end carries is never overridden by the other. The numbers tokens
                 become are ends of ranges too, so binding twice changes nothing.
-    period      a period the sentence names around a money, percent or count
-                ("a month", "per week", "weekly") must be the figure's own period if it
-                has one: a weekly figure never binds to "$9,500 a month".
+    period      a period the sentence names by the number ("a month", "per week",
+                "weekly") must be the figure's own period if it has one. With none by
+                the number, any period the whole clause names (a sentence, a bullet, a
+                table row, before or after the number) must include the figure's: a
+                weekly figure never binds to "$9,500 a month" or "Each month you lose
+                $1,950".
     value       a mention equal to the figure's value, or to the value as it displays
                 (44928 shown as ~45,000), is exact; any other mention within half a
                 percent is near. The tier decides first (exact beats near); the figure
@@ -39,14 +45,20 @@ stand for:
                 figure, and only if it is a true rounding of it: the figure rounded to
                 the mention's own last significant place (45,000 for 44,928, 1,000
                 for 995); against a theirs or reference figure it is unresolved,
-                since we never silently correct a client's own number. After a
-                comparative or a bound ("over", "under", "at least", "up to", "more
-                than", "nearly", "exactly" ...) only an exact match binds: it is a
-                claim about a limit, not a rounding. Figures of
+                since we never silently correct a client's own number. Figures of
                 different values at the same distance make the mention ambiguous, so
                 "about $4,700" between 4,720 and 4,680 names neither.
-    equal       figures of one value and unit: the most trusted kind wins (theirs,
-                derived, reference, ours), then the first added.
+    limits      after a comparative or a bound ("over", "under", "at least", "up to",
+                "more than", "within", "max", "cap of", "exactly", "nearly" ..., also
+                after the number: "or more", "+", "max"), even with a hedge word
+                between, the number binds only when it equals the figure's own value,
+                not its rounded display, and is never rewritten: "over $45,000" is
+                not certified by 44,928 shown as ~$45,000. A token after a limit is
+                unresolved when its figure is shown rounded.
+    equal       figures of one value that print the same way are one answer whatever
+                their units or kinds: the figure that names the noun, then the most
+                trusted kind (theirs, derived, reference, ours), then the lowest id.
+                One value printed two ways (12 and 12.0, "~12" and "12") is a choice.
 
 An unresolved mention is left as written and reported.
 
@@ -60,6 +72,10 @@ after a hedge word ("about", "around", "roughly", "approximately", "nearly",
 which stay exactly as written: they may be prepositions, and the sentence already
 hedges.
 
+Not prose: URLs, markdown link targets and titles, image paths, inline code, fenced
+blocks and path-like tokens (".../guides/22") are blanked before the reader sees
+them and come back byte for byte; the text of a link is still read.
+
 Never rewritten: times and dates, and the kinds whose words carry the meaning,
 multipliers ("3x", "twice"), ordinals ("3rd") and fractions ("half"). They stay as
 written when a figure supports them (`read.supported`) and are reported unresolved
@@ -70,9 +86,10 @@ A token `{{F:<id>}}` is replaced by that figure's number. A currency sign before
 it, or a percent sign or a unit word after it, is not doubled: the number prints
 without its own symbol, and the neighbour must fit the figure (a "%" after a dollar
 figure is unresolved). Where nothing next to it names the unit, the figure prints
-whole ("$22", "25%", "6 weeks", "24 GB"). A noun after it names what is counted: a
-unitless or percent figure stands before it ("12 members"), a figure in time, money
-or another unit does not (it would say "6 members" for weeks). A token with an
+whole ("$22", "25%", "6 weeks", "24 GB"). A noun after it names what is counted: it
+must be the figure's own unit ("12 members" for a figure in members) or the figure a
+percent; a figure with no unit, in time, in money or in another unit would be made to
+say what the noun does not ("6 members" for weeks). A token with an
 unknown id, one stuck to digits or letters ("12{{F:A}}", "{{F:A}}k"), and any "{{F:"
 still in the output (nested or unclosed braces) are unresolved and reported, never
 left silently. "{{f:id}}" in any case is a token.
@@ -101,9 +118,10 @@ The module imports the reader and the model only. It has no top-level import of
 from __future__ import annotations
 
 import re
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Context, Decimal
+from functools import lru_cache
 from typing import NamedTuple
 
 from app.figures.model import _TIME_UNITS, Figure, FigureSet, display, display_number, displayed_value
@@ -186,6 +204,7 @@ def _currency_of(lead: str, trail: str) -> str | None:
     return _SIGN_CURRENCY.get(word) or _WORD_CURRENCY.get(word.lower()) or (word if word in _MONEY_UNITS else None)
 
 
+@lru_cache(maxsize=8192)
 def _shape(text: str) -> _Shape:
     """How the mention presents its number, read from its own text only: the
     reader's form is not trusted here, because a range end carries a shape it was
@@ -291,40 +310,78 @@ def _unit_words(unit: str) -> set[str]:
     return {_stem(w) for w in re.findall(r"[A-Za-z]+", unit)}
 
 
-def _unit_fits(word: str | None, unit: str) -> bool:
-    """Whether the word after a bare number can be the unit of a figure in `unit`.
-    A time word after the number means the figure must be in that same time unit:
-    a figure with no unit or "count", or in another unit, never matches it. A
-    figure in time needs its own unit word, and a filler word ("per", "a", "of")
-    or none at all is not agreement. A figure with no unit of its own takes any
-    other word; any other unit (classes, GB) needs a noun after the number to be
-    that unit."""
+# Words that end the noun phrase after a number, besides the function words: adverbs and
+# the period adjectives. "more", "extra", "new", "additional", "total" and the like do not
+# end it; they are skipped, and the noun is what comes after them.
+_ADVERBS = frozenset(
+    "here there now today tomorrow yesterday again already too also just still even ever never always often soon "
+    "later early late away ahead back together apart instead anyway really very quite rather mostly mainly simply "
+    "currently recently actually usually normally typically daily weekly monthly yearly annually annual overall "
+    "net gross apiece only".split())
+_PHRASE_STOP = _FUNCTION_WORDS | _ADVERBS
+_SKIP_WORDS = frozenset("more extra new additional total other further another fewer less".split())
+# A "noun" that only stands for one said elsewhere ("two others nearby"): a figure in it takes
+# whatever noun the number is given, and gives no evidence of its own.
+_PROFORMS = frozenset("others other ones one some many few rest those these them".split())
+
+
+def _phrase_after(view: str, pos: int) -> tuple[str, ...]:
+    """The words that name what the number at `pos` counts: up to four words after it,
+    skipping "more", "extra" and the like, stopping at a function word, an adverb,
+    punctuation or a number. "180 empty seats a week" gives ("empty", "seats")."""
+    words: list[str] = []
+    m = _NEXT_WORD.match(view, pos)
+    while m and len(words) < 4:
+        w = m.group(1).lower()
+        if w in _PHRASE_STOP:
+            break
+        if w not in _SKIP_WORDS:
+            if words and w in _TIME_CANON:
+                break
+            words.append(w)
+        m = _NEXT_WORD.match(view, m.end())
+    return tuple(words)
+
+
+def _unit_fits(phrase: tuple[str, ...], unit: str) -> bool:
+    """Whether the words after a bare number can name what a figure in `unit` counts.
+    A time word after the number means the figure must be in that same time unit: a
+    figure with no unit or "count", or in another unit, never matches it, and a figure
+    in time needs its own time word (a filler like "per" or "a", or nothing, is not
+    agreement). A figure with no unit of its own takes the number only when no noun
+    follows it. A figure in a noun unit (reformers, classes, intro classes, GB) takes it
+    when no noun follows, or when the noun phrase holds all of the unit's words:
+    "Hire 4 more instructors" is not 4 reformers, "Add 3 classes" is not 3 intro classes."""
+    word = phrase[0] if phrase else None
     figure_time = _TIME_CANON.get(unit.lower())
     word_time = _TIME_CANON.get(word) if word else None
     if word_time:
         return figure_time == word_time
     if figure_time:
         return False
-    if word is None or unit in ("", "count") or word in _FUNCTION_WORDS:
+    if unit in ("", "count"):
+        return not phrase
+    if not phrase or unit in _PROFORMS:
         return True
-    return _stem(word) in _unit_words(unit)
+    return _unit_words(unit) <= {_stem(w) for w in phrase}
 
 
-def _names_unit(word: str | None, unit: str) -> bool:
-    """Whether the word after a number names this very unit (not a unitless one)."""
-    if word is None or unit in ("", "count") or word in _FUNCTION_WORDS:
+def _names_unit(phrase: tuple[str, ...], unit: str) -> bool:
+    """Whether the words after a number name this very unit (not a unitless one)."""
+    if not phrase or unit in ("", "count") or unit in _PROFORMS:
         return False
-    if word in _TIME_CANON or unit.lower() in _TIME_CANON:
+    word = phrase[0]
+    if _TIME_CANON.get(word) or _TIME_CANON.get(unit.lower()):
         return _TIME_CANON.get(word) == _TIME_CANON.get(unit.lower())
-    return _stem(word) in _unit_words(unit)
+    return _unit_words(unit) <= {_stem(w) for w in phrase}
 
 
-def _admissible(f: Figure, shape: _Shape, word: str | None) -> bool:
+def _admissible(f: Figure, shape: _Shape, phrase: tuple[str, ...]) -> bool:
     if shape.kind == "percent":
         return f.unit == "percent"
     if shape.kind == "money":
         return shape.currency is not None and f.unit == shape.currency
-    return f.unit not in _MONEY_UNITS and f.unit != "percent" and _unit_fits(word, f.unit)
+    return f.unit not in _MONEY_UNITS and f.unit != "percent" and _unit_fits(phrase, f.unit)
 
 
 _CTX = Context(prec=500)
@@ -352,40 +409,61 @@ def _figure_period(period: str | None) -> str | None:
     return None
 
 
-def _pick(m: Mention, shape: _Shape, word: str | None, known: FigureSet, exact_only: bool,
-          period: str | None = None) -> Figure | None:
-    """The one figure `m` names, or None when it names none or cannot choose.
+def _period_ok(period: str | None, adjacent: str | None, clause: frozenset[str] | set[str]) -> bool:
+    """Whether a figure's period fits what the sentence says. The period phrase right by
+    the number must be the figure's own; otherwise, if the clause names periods at all,
+    the figure's period must be one of them ("Each month you lose $1,950" is not a weekly
+    figure). A figure with no period, or a clause that names none, does not block."""
+    fp = _figure_period(period)
+    if fp is None:
+        return True
+    if adjacent is not None:
+        return fp == adjacent
+    return not clause or fp in clause
+
+
+def _pick(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure], exact_only: bool,
+          strict: bool = False, adjacent: str | None = None,
+          clause: frozenset[str] | set[str] = frozenset()) -> Figure | None:
+    """The one figure `m` names among `found` (the figures near its value), or None
+    when it names none or cannot choose.
 
     The tier decides first: a figure equal to the mention, or to what it displays,
     beats any figure that is only near. Within a tier, the figure that names the
-    very unit the next word gives beats a unitless one. A near figure is taken only
+    very unit the next words give beats a unitless one; figures of one value that print
+    alike are not ambiguous, only unequal ones are. A near figure is taken only
     if it is derived or ours and the mention is a true rounding of it, and never for
-    text that must match exactly (a quotation, "over $45,000"). A period the
-    sentence names ("a month") must be the figure's, if the figure has one."""
-    cands = [f for f in known.match(m.value) if _admissible(f, shape, word)
-             and (period is None or _figure_period(f.period) in (None, period))]
+    text that must match exactly (a quotation). `strict` is for a limit ("over
+    $45,000", "at most 12"): only a figure whose own value equals the mention's, not
+    its rounded display, may bind. A period the sentence names must be the figure's."""
+    cands = [f for f in found if _admissible(f, shape, phrase) and _period_ok(f.period, adjacent, clause)]
     equal = [f for f in cands if f.value == m.value]
-    shown = [f for f in cands if f.value != m.value and displayed_value(f) == m.value]
-    near = [f for f in cands if f.value != m.value and displayed_value(f) != m.value]
-    pool, is_near = equal or shown, not (equal or shown)
-    if is_near:
-        pool = near
+    if strict:
+        pool, is_near = equal, False
+    else:
+        shown = [f for f in cands if f.value != m.value and displayed_value(f) == m.value]
+        near = [f for f in cands if f.value != m.value and displayed_value(f) != m.value]
+        pool, is_near = equal or shown, not (equal or shown)
+        if is_near:
+            pool = near
     if not pool or (is_near and exact_only):
         return None
-    named = [f for f in pool if _names_unit(word, f.unit)]
+    named = [f for f in pool if _names_unit(phrase, f.unit)]
     if named:
         pool = named   # "12 weeks": the figure in weeks is more specific than a unitless 12
     if len({f.value for f in pool}) > 1:
         return None   # figures of different values: a rounding that names none of them
-    if len({f.unit for f in pool}) > 1:
-        return None   # the same value in two units: 12 weeks or 12 reformers?
-    winner = min(pool, key=lambda f: _TRUST[f.kind])   # min keeps the first of equals
+    if len({display_number(f, symbols=False) for f in pool}) > 1:
+        return None   # one value printed two ways (12 and 12.00, "~12" and "12"): a choice the page would show
+    # Figures of one value that print the same are one answer whatever their units or kinds:
+    # the most trusted kind, then the first id. (Unit specificity already narrowed the pool.)
+    winner = min(pool, key=lambda f: (_TRUST[f.kind], f.id))
     if is_near and (winner.kind in ("theirs", "reference") or not _rounds_to(winner.value, m.value)):
         return None   # the model altered the client's own number, or changed one of ours
     return winner
 
 
-# -- hedges, comparatives, periods and quotations ------------------------------------------------
+# -- hedges, limits, periods, non-prose and quotations ----------------------------------------------
 
 # A hedge word right before a number (with an article between: "roughly a 25%"), an
 # article alone, or a "~" / approximately-equal sign: the sentence already hedges, so
@@ -394,12 +472,24 @@ _HEDGE = re.compile(
     rf"(?:(?<![A-Za-z])(?:(?:about|around|roughly|approximately|nearly|circa|almost){_SP}+(?:(?:a|an|the){_SP}+)?"
     rf"|(?:a|an|the){_SP}+)|[~\u2248]{_SP}*)\Z", re.I)
 
-# A comparative or a bound introduces the number: it is a claim about a limit, not a
-# rounding, so only a figure equal to it (or to what it displays) may bind.
+# A comparative or a limit introduces the number ("over $45,000", "within $7,500", "a cap of
+# 12", "under about $7,500") or follows it ("$7,500 max", "12+", "40 or more", "$1,953.60
+# exactly"). It is a claim about a bound, not a rounding: it certifies only a figure whose
+# own value equals the number, and the number is never rewritten.
+_LIMIT_WORDS = (
+    rf"over|under|above|below|beyond|exceeds?|exceeding|nearly|almost|exactly|within|in{_SP}+excess{_SP}+of"
+    rf"|at{_SP}+(?:least|most)|up{_SP}+to|upwards?{_SP}+of|north{_SP}+of"
+    rf"|(?:no|not){_SP}+(?:more|less|fewer){_SP}+than"
+    rf"|(?:more|less|fewer|greater|higher|lower|smaller|larger|bigger){_SP}+than"
+    rf"|(?:maximum|minimum|max|min)(?:{_SP}+of)?|cap(?:ped)?(?:{_SP}+(?:at|of))?"
+    rf"|limit(?:ed)?(?:{_SP}+(?:to|of|at))?|top(?:{_SP}+of)?")
 _COMPARATIVE = re.compile(
-    rf"(?<![A-Za-z])(?:over|under|above|below|beyond|exceeds?|exceeding|nearly|almost|exactly|at{_SP}+(?:least|most)"
-    rf"|up{_SP}+to|(?:no|not){_SP}+(?:more|less|fewer){_SP}+than"
-    rf"|(?:more|less|fewer|greater|higher|lower|smaller|larger|bigger){_SP}+than){_SP}+\Z", re.I)
+    rf"(?<![A-Za-z])(?:{_LIMIT_WORDS})(?![A-Za-z]){_SP}+"
+    rf"(?:(?:about|around|roughly|approximately|circa|some|nearly|almost){_SP}+)?(?:(?:a|an|the){_SP}+)?\Z", re.I)
+_COMPARATIVE_AFTER = re.compile(
+    rf"{_SP}*(?:\+(?!\d)|(?:or|and){_SP}+(?:more|less|fewer|higher|lower|greater|smaller|up|above|below|over|under)"
+    rf"(?![A-Za-z])|(?:max|min|maximum|minimum|tops|exactly)(?![A-Za-z])|at{_SP}+(?:most|least)(?![A-Za-z]))",
+    re.I)
 
 # the period a phrase names: "a month", "per week", "each year", "/day", "weekly"
 _PERIOD_AFTER = re.compile(
@@ -408,10 +498,16 @@ _PERIOD_AFTER = re.compile(
     re.I)
 _PERIOD_BEFORE = re.compile(
     r"(?<![A-Za-z])(?P<adv>daily|weekly|monthly|yearly|annual)(?![A-Za-z])(?:[ \t,:]+\w+){0,3}[ \t,:]*\Z", re.I)
+# any period named anywhere in a clause: "a week", "each month", "in a typical year", "weekly"
+_PERIOD_ANY = re.compile(
+    rf"(?:(?<![A-Za-z])(?:per|a|an|each|every|in{_SP}+a{_SP}+typical|in{_SP}+an{_SP}+average){_SP}+|/{_SP}*)"
+    rf"(?P<u>day|week|month|year|yr|wk|mo|annum)(?![A-Za-z])"
+    rf"|(?<![A-Za-z])(?P<adv>daily|weekly|monthly|yearly|annually|annual)(?![A-Za-z])", re.I)
+_CLAUSE_BREAK = re.compile(r"[.!?;](?=\s|$)|\n")
 
 
 def _period_phrase(text: str, start: int, end: int) -> str | None:
-    """The period the sentence names around the number at text[start:end]: the
+    """The period the sentence names right around the number at text[start:end]: the
     phrase after it ("a month", "weekly") or, failing that, an adjective just
     before it ("monthly rent of")."""
     m = _PERIOD_AFTER.match(text, end)
@@ -422,11 +518,94 @@ def _period_phrase(text: str, start: int, end: int) -> str | None:
     return _PERIOD_WORDS.get(b.group("adv").lower()) if b else None
 
 
-def _context(text: str, start: int) -> tuple[bool, bool]:
-    """(hedged, comparative) for the number starting at `start`."""
+class _Clauses:
+    """Where the clauses of a text are: a clause is a sentence, a bullet or a table row."""
+
+    def __init__(self, text: str) -> None:
+        breaks = list(_CLAUSE_BREAK.finditer(text))
+        self.text = text
+        self._starts = [b.start() for b in breaks]
+        self._ends = [b.end() for b in breaks]
+        self._seen: dict[tuple[int, int], frozenset[str]] = {}   # a clause is read once, however many numbers it holds
+
+    def periods(self, start: int, end: int) -> frozenset[str]:
+        """Every period the clause around text[start:end] names, before and after."""
+        i = bisect_right(self._ends, start)
+        left = self._ends[i - 1] if i else 0
+        j = bisect_left(self._starts, end)
+        right = self._starts[j] if j < len(self._starts) else len(self.text)
+        if (left, right) not in self._seen:
+            self._seen[(left, right)] = frozenset(
+                _PERIOD_WORDS[(m.group("u") or m.group("adv")).lower()]
+                for m in _PERIOD_ANY.finditer(self.text, left, right))
+        return self._seen[(left, right)]
+
+
+def _context(text: str, start: int, end: int) -> tuple[bool, bool]:
+    """(hedged, limited) for the number at text[start:end]: hedged when a hedge word, an
+    article or a "~" stands right before it or a limit introduces or follows it; limited
+    when a limit does."""
     before = text[max(0, start - 40):start]
-    comparative = bool(_COMPARATIVE.search(before))
-    return bool(_HEDGE.search(before)) or comparative, comparative
+    limited = bool(_COMPARATIVE.search(before)) or bool(_COMPARATIVE_AFTER.match(text, end))
+    return bool(_HEDGE.search(before)) or limited, limited
+
+
+# -- what is not prose: links, code and paths are neither read nor touched ---------------------
+
+_FENCE = re.compile(r"(```|~~~).*?(?:\1|\Z)", re.S)
+_INLINE_CODE = re.compile(r"(`{1,2})(?!`)[^`\n]{1,200}?\1(?!`)")
+_MD_TARGET = re.compile(r"\]\(([^()\s]{1,300}(?:[ \t]+\"[^\"\n]{0,200}\")?)\)")   # the target and its title
+_URL = re.compile(r"(?i)(?<![A-Za-z0-9])(?:https?://|www\.)[^\s<>\"']+")
+_PATH_CHARS = re.compile(r"[A-Za-z0-9_.~%@:+\-/]+")
+_DOMAIN_PATH = re.compile(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/\S*")
+_DATE_LIKE = re.compile(r"[\d/.\-]+")
+
+
+def _mask(text: str) -> str:
+    """`text` with every link target, URL, code span, fenced block and path-like token
+    blanked to spaces (line breaks kept), same length, so the reader never sees a number
+    in them and the positions still match the text."""
+    spans: list[tuple[int, int]] = []
+    for pattern in (_FENCE, _INLINE_CODE):
+        spans.extend(m.span() for m in pattern.finditer(text))
+    spans.extend(m.span(1) for m in _MD_TARGET.finditer(text))
+    for m in _URL.finditer(text):
+        url = m.group()
+        while url and (url[-1] in ".,;:!?'\"]}" or (url[-1] == ")" and url.count(")") > url.count("("))):
+            url = url[:-1]
+        spans.append((m.start(), m.start() + len(url)))
+    reach = 0                         # the word around each slash, found from the slash so a long run stays linear
+    i = text.find("/")
+    while i != -1:
+        if i >= reach:
+            a = i
+            while a > 0 and not text[a - 1].isspace():
+                a -= 1
+            b = i
+            while b < len(text) and not text[b].isspace():
+                b += 1
+            reach = b
+            raw = text[a:b]
+            lead = len(raw) - len(raw.lstrip("([{<\"'"))
+            core = raw[lead:].rstrip(")]}>\"'.,;:!?")
+            if core and not _DATE_LIKE.fullmatch(core):     # 5/22, 24/7, 1/2: the reader's business
+                if (core.count("/") >= 2 and _PATH_CHARS.fullmatch(core)) or _DOMAIN_PATH.fullmatch(core):
+                    spans.append((a + lead, a + lead + len(core)))
+        i = text.find("/", max(i + 1, reach))
+    if not spans:
+        return text
+    spans.sort()
+    out: list[str] = []
+    pos = 0
+    for a, b in spans:
+        if b <= pos:
+            continue
+        a = max(a, pos)
+        out.append(text[pos:a])
+        out.append(re.sub(r"[^\n]", " ", text[a:b]))
+        pos = b
+    out.append(text[pos:])
+    return "".join(out)
 
 
 # a client's quotation: text between straight or curly double quotes
@@ -434,11 +613,6 @@ _QUOTE = re.compile(r'"[^"]{0,400}"|\u201c[^\u201d]{0,400}\u201d')
 
 _TOKEN = re.compile(r"\{\{\s*F\s*:\s*([^{}]*?)\s*\}\}", re.I)
 _OPENER = re.compile(r"\{\{\s*F\s*:", re.I)
-
-# words that follow a figure without naming what it counts, besides the function words
-_QUALIFIERS = frozenset(
-    "more less extra total monthly weekly daily yearly annually annual overall net gross apiece only".split())
-
 
 class _Decision(NamedTuple):
     leave: bool                 # supported, and kept exactly as written
@@ -460,20 +634,15 @@ def _contradicts(word: str, unit: str) -> bool:
     return bool(word_time) and _TIME_CANON.get(unit.lower()) != word_time
 
 
-def _same_unit_word(word: str, unit_word: str) -> bool:
-    a, b = _TIME_CANON.get(word.lower()), _TIME_CANON.get(unit_word.lower())
-    if a or b:
-        return a == b
-    return _stem(word) in {_stem(w) for w in re.findall(r"[A-Za-z]+", unit_word)}
-
-
 def _kind_of_unit(unit: str) -> str:
     return "percent" if unit == "percent" else "money" if unit in _MONEY_UNITS else "bare"
 
 
-def _decide_token(figure_id: str, text: str, start: int, end: int, known: FigureSet, floor: int = 0) -> _Decision:
+def _decide_token(figure_id: str, text: str, start: int, end: int, known: FigureSet, floor: int = 0,
+                  clause: frozenset[str] | set[str] = frozenset()) -> _Decision:
     """`floor` is where the previous mention ended: a currency code that belongs to
-    that mention ("22 USD {{F:A}}") is not the lead of this token."""
+    that mention ("22 USD {{F:A}}") is not the lead of this token. `clause` holds the
+    periods the clause names."""
     f = known.get(figure_id)
     if f is None:
         return _UNRESOLVED
@@ -488,10 +657,11 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
     word = after.group(1).lower() if after else None
     if word and _contradicts(word, f.unit):
         return _UNRESOLVED
-    period = _period_phrase(text, start, end)
-    if period and _figure_period(f.period) not in (None, period):
+    if not _period_ok(f.period, _period_phrase(text, start, end), clause):
         return _UNRESOLVED   # a weekly figure is not "a month"
-    hedged, _ = _context(text, start)
+    hedged, limited = _context(text, start, end)
+    if limited and display_number(f, symbols=False).startswith("~"):
+        return _UNRESOLVED   # "over {{F:M}}" for a rounded figure would certify a bound it cannot
     kind = _kind_of_unit(f.unit)
     trail = _TRAIL_HEAD.match(text, end)
     if trail and ("%" in trail.group() or "per" in trail.group().lower()):
@@ -501,36 +671,41 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
         fits = currency is not None and f.unit == currency
         if fits and lead and not trail:
             lead_start = base + lead.start()
-            if not _context(text, lead_start)[0] and display_number(f, symbols=False).startswith("~"):
+            if not _context(text, lead_start, end)[0] and display_number(f, symbols=False).startswith("~"):
                 # "$ {{F:M}}" for a rounded figure: the sign and the "~" read as one, "~$45,000"
                 return _Decision(False, f, display_number(f), lead_start, kind)
-            hedged = _context(text, lead_start)[0]
+            hedged = _context(text, lead_start, end)[0]
     else:
         # nothing beside it names the unit
         number = display_number(f, tilde=not hedged)
         unit_word = display(f)[len(display_number(f)):].strip()
-        if word and unit_word and _same_unit_word(word, unit_word):
-            return _Decision(False, f, number, None, kind)  # the unit is already said, once
-        if word and word not in _FUNCTION_WORDS and word not in _QUALIFIERS:
-            # a noun follows and names what is counted: only a figure with no unit of its
-            # own can stand before it; a unit or a symbol the noun would contradict cannot
-            return _Decision(False, f, number, None, kind) if f.unit in ("", "count", "percent") else _UNRESOLVED
+        phrase = _phrase_after(text, end)
+        if phrase:
+            # a noun follows and names what is counted: it must be the figure's own unit (then the
+            # unit is already said, once), or the figure a percent. A figure with no unit, in money,
+            # or in another unit would be made to say what the noun does not
+            if f.unit == "percent":
+                return _Decision(False, f, number, None, kind)
+            if f.unit in ("", "count") or f.unit in _MONEY_UNITS or not _unit_fits(phrase, f.unit):
+                return _UNRESOLVED
+            return _Decision(False, f, number, None, kind)
         return _Decision(False, f, number + (" " + unit_word if unit_word else ""), None, kind)
     if not fits:
         return _UNRESOLVED
     return _Decision(False, f, display_number(f, symbols=False, tilde=not hedged), None, kind)
 
 
-def _decide_mention(m: Mention, shape: _Shape, word: str | None, known: FigureSet, quoted: bool,
-                    hedged: bool, comparative: bool, period: str | None, hours: set[int] | None) -> _Decision:
+def _decide_mention(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure], known: FigureSet,
+                    quoted: bool, hedged: bool, limited: bool, adjacent: str | None,
+                    clause: frozenset[str] | set[str], hours: set[int] | None) -> _Decision:
     if m.form in _KEPT_AS_WRITTEN:
         return _LEAVE if supported(m, known, hours) else _UNRESOLVED
     if not shape.plain:
         return _UNRESOLVED
-    f = _pick(m, shape, word, known, quoted or comparative, period)
+    f = _pick(m, shape, phrase, found, quoted or limited, limited, adjacent, clause)
     if f is None:
         return _UNRESOLVED
-    if quoted:
+    if quoted or limited:
         return _Decision(False, f, m.text)   # checked, bound, never rewritten
     body = re.fullmatch(r"(~?-?)(.*)", display_number(f, symbols=False, tilde=not hedged), re.S)
     return _Decision(False, f, f"{body.group(1)}{shape.lead}{body.group(2)}{shape.trail}")
@@ -621,7 +796,7 @@ def _assemble(text, items, ms, tokens, decisions, reverted):
     # a "{{F:" still in the output (nested or unclosed braces) is a token nobody resolved
     starts = [r[0] for r in token_spans]
     extra = []
-    for o in _OPENER.finditer(out):
+    for o in _OPENER.finditer(_mask(out)):
         k = bisect_right(starts, o.start()) - 1
         if k < 0 or o.start() >= token_spans[k][1]:
             extra.append(UnresolvedToken(o.group(), o.start(), o.end(), ""))
@@ -634,9 +809,10 @@ def _unstable(out: str, expect: list[_Expect], token_spans: list[tuple[int, int]
     """The replacements to take back: those whose number the reader no longer reads as
     the figure's (two tokens fused into "$2212"; "two" made "2" before "200-person" and
     read as 2,200), and those standing next to a number another change has disturbed."""
+    view = _mask(out)
     t_ends = [t[1] for t in token_spans]
     reread = []
-    for r in mentions(out):
+    for r in mentions(view):
         i = bisect_right(t_ends, r.start)
         if i < len(token_spans) and token_spans[i][0] < r.end:
             continue
@@ -660,7 +836,7 @@ def _unstable(out: str, expect: list[_Expect], token_spans: list[tuple[int, int]
                if len(hits[ei]) != 1 or not reads_as(e, reread[hits[ei][0]]) or len(owners[hits[ei][0]]) > 1}
     # a replacement that lands inside braces which now read as a token
     known_tokens = set(token_spans)
-    for t in _TOKEN.finditer(out):
+    for t in _TOKEN.finditer(view):
         if (t.start(), t.end()) not in known_tokens:
             failing.update(ei for ei, e in enumerate(expect) if e.replaced and e.start < t.end() and e.end > t.start())
     for ri, r in enumerate(reread):     # a number the reader finds that nobody expected
@@ -682,18 +858,21 @@ def _unstable(out: str, expect: list[_Expect], token_spans: list[tuple[int, int]
 
 def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
     text = text or ""
-    tokens = list(_TOKEN.finditer(text))
+    view = _mask(text)          # what is read: the text without its links, code and paths
+    tokens = list(_TOKEN.finditer(view))
     token_starts = [t.start() for t in tokens]
     token_ends = [t.end() for t in tokens]
     ms: list[Mention] = []
-    for m in mentions(text):
+    for m in mentions(view):
         # the digits inside a token's id are the id's, not a number the model wrote
         i = bisect_right(token_ends, m.start)
         if i < len(tokens) and token_starts[i] < m.end:
             continue
         ms.append(m)
-    if not ms and not tokens and not _OPENER.search(text):
+    if not ms and not tokens and not _OPENER.search(view):
         return _Run(text, [], [], [])
+    clauses = _Clauses(view)
+    matched: dict[Decimal, list[Figure]] = {}
 
     # tokens first: they do not depend on ranges, and the number one becomes can be an end of one
     ms_ends = [m.end for m in ms]
@@ -701,7 +880,8 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
     numbers: list[Mention] = list(ms)
     for t in tokens:
         k = bisect_right(ms_ends, t.start()) - 1
-        d = _decide_token(t.group(1).strip(), text, t.start(), t.end(), known, ms_ends[k] if k >= 0 else 0)
+        d = _decide_token(t.group(1).strip(), view, t.start(), t.end(), known, ms_ends[k] if k >= 0 else 0,
+                          clauses.periods(t.start(), t.end()))
         token_decisions.append(d)
         if d.figure is not None:
             numbers.append(Mention(display_number(d.figure, tilde=False), t.start(), t.end(),
@@ -720,13 +900,13 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
             continue
         if a.form in _NOT_A_RANGE_END or b.form in _NOT_A_RANGE_END:
             continue
-        joiner = _joiner(text, a, b)
+        joiner = _joiner(view, a, b)
         if joiner is None:
             continue
         paired = True
-        nxt = _NEXT_WORD.match(text, b.end)
+        nxt = _NEXT_WORD.match(view, b.end)
         word = nxt.group(1).lower() if nxt else None
-        before = text[max(0, a.start - 12):a.start]
+        before = view[max(0, a.start - 12):a.start]
         shape_of[i], shape_of[i + 1] = _share_range(
             shape_of[i], shape_of[i + 1], joiner=joiner,
             from_between=joiner == "and" or bool(_FROM_BETWEEN.search(before)),
@@ -739,7 +919,7 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
         if id(n) in real:
             shapes[real[id(n)]] = shape_of[i]
 
-    quotes = [(q.start(), q.end()) for q in _QUOTE.finditer(text)]
+    quotes = [(q.start(), q.end()) for q in _QUOTE.finditer(view)]
     quote_starts = [q[0] for q in quotes]
 
     items: list[tuple[int, int, int, bool]] = [(t.start(), t.end(), i, True) for i, t in enumerate(tokens)]
@@ -753,22 +933,27 @@ def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
             continue
         m = ms[index]
         reach = range_end.get(index, m.end)
-        word = period = None
+        phrase: tuple[str, ...] = ()
+        adjacent = None
+        clause: frozenset[str] = frozenset()
         if shapes[index].kind == "bare":
-            nxt = _NEXT_WORD.match(text, reach)
-            word = nxt.group(1).lower() if nxt else None
-        if word not in _TIME_CANON:   # a time word is the number's unit, not a period it is paid in
-            period = _period_phrase(text, m.start, reach)
+            phrase = _phrase_after(view, reach)
+        if not (phrase and phrase[0] in _TIME_CANON):   # a time word is the number's unit, not a period it is paid in
+            adjacent = _period_phrase(view, m.start, reach)
+            clause = clauses.periods(m.start, reach)
         q = bisect_right(quote_starts, m.start) - 1
         quoted = q >= 0 and m.end <= quotes[q][1]
-        hedged, comparative = _context(text, m.start)
-        decisions.append(_decide_mention(m, shapes[index], word, known, quoted, hedged, comparative, period, hours))
+        hedged, limited = _context(view, m.start, reach)
+        if m.value not in matched:
+            matched[m.value] = known.match(m.value)
+        decisions.append(_decide_mention(m, shapes[index], phrase, matched[m.value], known, quoted, hedged, limited,
+                                         adjacent, clause, hours))
 
     reverted: set[int] = set()
     for _ in range(len(items) + 1):
         run, expect, token_spans = _assemble(text, items, ms, tokens, decisions, reverted)
-        if not run.spans:
-            break
+        if run.text == text:
+            break           # nothing was written that differs from what was there: nothing to read back
         bad = _unstable(run.text, expect, token_spans) - reverted
         if not bad:
             break

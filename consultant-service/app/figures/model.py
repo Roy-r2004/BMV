@@ -22,6 +22,7 @@ registry are copied below with the registry line that defines each, and
 from __future__ import annotations
 
 import math
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Context, Decimal, InvalidOperation
 from typing import Iterable, Iterator, Literal
@@ -501,6 +502,7 @@ class FigureSet:
 
     def __init__(self, figures: Iterable[Figure] = ()) -> None:
         self._by_id: dict[str, Figure] = {}
+        self._index: tuple[list[Decimal], list[Figure], dict[Decimal, list[Figure]], dict[str, int]] | None = None
         for f in figures:
             self.add(f)
 
@@ -512,6 +514,7 @@ class FigureSet:
         known = self._by_id.get(f.id)
         if known is None:
             self._by_id[f.id] = f
+            self._index = None
         elif known != f:
             raise ValueError(f"two different figures share the id {f.id}")
 
@@ -538,6 +541,18 @@ class FigureSet:
             out[f.kind] += 1
         return out  # type: ignore[return-value]
 
+    def _built(self):
+        """The figures sorted by value, and by the value each one displays, built
+        when first needed and dropped when a figure is added."""
+        if self._index is None:
+            ordered = sorted(self._by_id.values(), key=lambda f: f.value)
+            shown: dict[Decimal, list[Figure]] = {}
+            for f in self._by_id.values():
+                shown.setdefault(_rounded(f.value, f.precision), []).append(f)
+            self._index = ([f.value for f in ordered], ordered, shown,
+                           {fid: n for n, fid in enumerate(self._by_id)})
+        return self._index
+
     def match(self, value: Decimal, unit: str | None = None) -> list[Figure]:
         """Every figure `value` could be a mention of: equal to it within half a
         percent, or equal to it as the figure displays it (44928 shown as 45,000
@@ -546,6 +561,14 @@ class FigureSet:
             raise TypeError("match takes a Decimal")
         if not value.is_finite():
             return []
-        return [f for f in self
+        values, ordered, shown, position = self._built()
+        # a figure within half a percent of `value` lies within one percent of it
+        a, b = _CTX.multiply(value, Decimal("0.99")), _CTX.divide(value, Decimal("0.99"))
+        lo, hi = (a, b) if a <= b else (b, a)
+        near = ordered[bisect_left(values, lo):bisect_right(values, hi)]
+        found = {f.id: f for f in near}
+        for f in shown.get(value, ()):
+            found[f.id] = f
+        return [f for f in sorted(found.values(), key=lambda f: position[f.id])
                 if (unit is None or f.unit == unit)
                 and (_within(f.value, value) or _rounded(f.value, f.precision) == value)]

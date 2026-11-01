@@ -85,7 +85,7 @@ def test_the_exact_number_also_prints_as_the_figure_displays_it():
 
 
 def test_a_figure_that_displays_with_no_tilde_prints_with_none():
-    known = fs(derived("DV-02", "864", "", precision=0))
+    known = fs(derived("DV-02", "864", "classes", precision=0))
     r = bind("about 864 classes", known)
     assert r.text == "about 864 classes"                  # nothing to double: the hedge stays
     assert [f.id for f in r.bound] == ["DV-02"]
@@ -146,15 +146,25 @@ def test_equal_figures_resolve_to_the_most_trusted_kind(better, worse):
         assert r.unresolved == []
 
 
-def test_equal_figures_of_one_kind_resolve_to_the_first_added():
-    r = bind("It costs $22.", fs(theirs("CF-02", "22", "USD"), theirs("CF-01", "22", "USD")))
-    assert [f.id for f in r.bound] == ["CF-02"]
+def test_equal_figures_of_one_kind_resolve_to_the_lowest_id_whatever_the_order_added():
+    for known in (fs(theirs("CF-02", "22", "USD"), theirs("CF-01", "22", "USD")),
+                  fs(theirs("CF-01", "22", "USD"), theirs("CF-02", "22", "USD"))):
+        assert [f.id for f in bind("It costs $22.", known).bound] == ["CF-01"]
 
 
-def test_equal_values_in_different_units_are_not_the_same_figure():
-    known = fs(theirs("CF-01", "12", "classes"), theirs("CF-02", "12", "reformers"))
+def test_one_value_in_two_units_is_one_answer_when_no_noun_tells_them_apart():
+    # both print "12": nothing the page shows would differ, so the number binds, to the lowest id
+    known = fs(theirs("CF-02", "12", "reformers"), theirs("CF-01", "12", "classes"))
     r = bind("Of the 12 we start with the first.", known)
-    assert r.bound == [] and [m.text for m in r.unresolved] == ["12"]
+    assert r.text == "Of the 12 we start with the first." and [f.id for f in r.bound] == ["CF-01"] and r.unresolved == []
+    # a noun after the number does tell them apart
+    assert [f.id for f in bind("We have 12 reformers.", known).bound] == ["CF-02"]
+    assert [f.id for f in bind("We run 12 classes.", known).bound] == ["CF-01"]
+    # and a figure that prints the value another way is a real choice
+    odd = fs(theirs("CF-01", "12", "classes"), theirs("CF-02", "12.0", "reformers"))
+    _stays_unresolved("Of the 12 we start.", odd, "12")
+    mixed = fs(theirs("CF-02", "12", ""), derived("DV-01", "12", "classes"))
+    assert [f.id for f in bind("Of the 12 we start.", mixed).bound] == ["CF-02"]     # the more trusted kind wins
     # a time figure never takes a bare number with no time word after it
     r = bind("Of the 12 we start with the first.", fs(ours("PL-01", "12", "weeks"), theirs("CF-02", "12", "reformers")))
     assert [f.id for f in r.bound] == ["CF-02"]
@@ -229,7 +239,7 @@ def test_a_percent_mention_does_not_bind_to_a_money_figure():
 
 def test_a_number_word_becomes_digits_and_the_unit_word_after_it_is_kept():
     known = fs(theirs("CF-06", "12", "count"))
-    assert bind("You have twelve classes today.", known).text == "You have 12 classes today."
+    _stays_unresolved("You have twelve classes today.", known, "twelve")      # a count names no noun
     known = fs(theirs("CF-06", "12", "classes"))
     assert bind("You have twelve classes today.", known).text == "You have 12 classes today."
 
@@ -246,7 +256,7 @@ def test_a_rounded_estimate_gets_its_tilde_and_the_unit_word_stays_once():
 
 
 def test_a_magnitude_letter_or_word_is_replaced_with_the_figures_digits():
-    known = fs(theirs("CF-01", "10000", "USD"), theirs("CF-02", "1500000", ""))
+    known = fs(theirs("CF-01", "10000", "USD"), theirs("CF-02", "1500000", "visits"))
     assert bind("a $10k budget", known).text == "a $10,000 budget"
     assert bind("1.5 million visits", known).text == "1,500,000 visits"
 
@@ -279,8 +289,7 @@ def test_a_percent_range_keeps_the_percent_sign_it_had():
 
 # -- the hedge word before a figure that carries its own tilde --------------------------------
 
-@pytest.mark.parametrize("hedge", ["about", "around", "roughly", "approximately", "nearly", "circa",
-                                   "About", "ROUGHLY"])
+@pytest.mark.parametrize("hedge", ["about", "around", "roughly", "approximately", "circa", "About", "ROUGHLY"])
 def test_a_hedge_word_before_a_tilde_figure_stays_and_the_tilde_is_left_off(hedge):
     known = fs(derived("DV-01", "44928", "USD", precision=-3))
     assert bind(f"We lose {hedge} $44,928 a year", known).text == f"We lose {hedge} $45,000 a year"
@@ -483,9 +492,9 @@ def test_only_the_offending_sentence_is_dropped():
 
 
 def test_a_text_with_nothing_unresolved_is_just_bound():
-    text = "A class is $22 over six weeks.  Done!"
+    text = "A class is $22 for six weeks.  Done!"
     cleaned, removed = clean_sentences(text, KNOWN)
-    assert cleaned == "A class is $22 over 6 weeks.  Done!" and removed == []
+    assert cleaned == "A class is $22 for 6 weeks.  Done!" and removed == []
 
 
 def test_the_first_and_the_last_sentence_can_go():
@@ -601,7 +610,7 @@ def test_a_cleaned_text_binds_to_itself():
 # -- segments --------------------------------------------------------------------------------------------------------
 
 def test_segments_join_back_to_the_bound_text_exactly():
-    text = "A class is $22; we lose about $44,928 a year over six weeks, not $9,999."
+    text = "A class is $22; we lose about $44,928 a year for six weeks, not $9,999."
     segs = segments(text, KNOWN)
     assert "".join(s["text"] for s in segs) == bind(text, KNOWN).text
     assert [s for s in segs if "figure" in s] == [
@@ -692,7 +701,7 @@ def test_a_noun_after_a_bare_number_must_be_the_figures_unit():
     _stays_unresolved("We run 12 classes a week.", fs(derived("DV-01", "12.04", "GB", precision=2)), "12")
     r = bind("We run 12 classes a week.", fs(derived("DV-01", "12.04", "classes", precision=2)))
     assert r.text == "We run 12.04 classes a week."
-    assert bind("We run 12 class slots.", fs(derived("DV-01", "12.04", "", precision=2))).text == "We run 12.04 class slots."
+    _stays_unresolved("We run 12 class slots.", fs(derived("DV-01", "12.04", "", precision=2)), "12")   # no unit: no noun
 
 
 def test_days_do_not_bind_to_a_figure_in_weeks():
@@ -1063,7 +1072,7 @@ def test_a_percent_then_a_dollar_amount_is_two_quantities_not_a_range():
 
 def test_a_dollar_amount_then_a_count_of_people_is_two_quantities_not_a_range():
     known = fs(theirs("CF-01", "45", "USD"), derived("DV-01", "12.05", "USD", precision=2),
-               theirs("CF-02", "12", "count"))
+               theirs("CF-02", "12", "instructors"))
     r = bind("We pay $45 to 12 instructors each week.", known)
     assert r.text == "We pay $45 to 12 instructors each week."
     assert [f.id for f in r.bound] == ["CF-01", "CF-02"] and r.unresolved == []
@@ -1080,6 +1089,7 @@ def test_a_bare_end_with_no_noun_of_its_own_takes_the_shape_of_the_range():
     known = fs(theirs("CF-01", "20", "USD"), theirs("CF-02", "30", "count"))
     for text in ("Costs $20 to 30 a class.", "Costs $20-30 per class.", "Costs $20-30.", "Costs $20-30 each, ok."):
         assert [u.text for u in bind(text, known).unresolved] == ["30"], text
+    known = fs(theirs("CF-01", "20", "USD"), theirs("CF-02", "30", "members"))
     r = bind("Costs $20 to 30 members.", known)       # "members" is 30's own noun: two quantities
     assert r.unresolved == [] and [f.id for f in r.bound] == ["CF-01", "CF-02"]
     pct = fs(theirs("CF-01", "10", "count"), theirs("CF-02", "15", "percent"))
@@ -1119,13 +1129,17 @@ def test_the_figure_that_names_the_unit_wins_over_a_unitless_one():
         assert r.text == "It takes 12 weeks." and [f.id for f in r.bound] == ["DV-01"] and r.unresolved == []
     nouns = fs(theirs("CF-01", "12", "count"), derived("DV-02", "12", "classes"))
     assert [f.id for f in bind("We run 12 classes.", nouns).bound] == ["DV-02"]
-    # with no unit named after it the number is ambiguous, as it was
-    assert [u.text for u in bind("Of the 12 we start.", nouns).unresolved] == ["12"]
+    # with no noun after it both print "12": the more trusted kind answers
+    assert [f.id for f in bind("Of the 12 we start.", nouns).bound] == ["CF-01"]
 
 
-def test_a_noun_that_is_no_unit_still_takes_a_unitless_count():
+def test_a_unitless_count_takes_a_number_only_when_no_noun_follows_it():
     known = fs(theirs("CF-01", "12", "count"))
-    assert [f.id for f in bind("We have 12 instructors.", known).bound] == ["CF-01"]
+    _stays_unresolved("We have 12 instructors.", known, "12")
+    for text in ("We have 12.", "We have 12, then more.", "We have 12 of them.", "We have 12 per class.", "Hire 12 now."):
+        assert [f.id for f in bind(text, known).bound] == ["CF-01"], text
+    named = fs(theirs("CF-01", "12", "instructors"))
+    assert [f.id for f in bind("We have 12 instructors.", named).bound] == ["CF-01"]
 
 
 # -- 3. clean_sentences keeps items, indents and blank lines whole ---------------------------------------------------
@@ -1213,7 +1227,10 @@ def test_a_token_stuck_to_a_scale_letter_or_a_word_is_unresolved():
 
 
 def test_a_token_before_a_noun_prints_the_number_only_and_only_where_the_noun_can_stand():
-    assert bind("{{F:N}} members", TA).text == "12 members"
+    _stays_unresolved("{{F:N}} members", TA, "{{F:N}}")                      # a count names no noun
+    assert bind("{{F:M}} members", fs(theirs("M", "12", "members"))).text == "12 members"
+    assert bind("{{F:M}} members", fs(theirs("M", "12", "member"))).text == "12 members"
+    _stays_unresolved("{{F:M}} reformers", fs(theirs("M", "12", "members")), "{{F:M}}")
     assert bind("{{F:PL-01}} weeks", TA).text == "6 weeks"            # the unit is said once
     for text in ("{{F:PL-01}} members", "{{F:CF-05}} members", "{{F:G1}} apples"):
         r = bind(text, TA)
@@ -1305,9 +1322,9 @@ def test_the_joiners_that_remain_still_join():
 # -- 2. the tier decides first, specificity only within it ------------------------------------------------
 
 def test_the_clients_exact_number_beats_a_more_specific_near_figure():
-    known = fs(theirs("CF-01", "12", "count"), ours("PL-01", "12.05", "reformers", precision=2))
+    known = fs(theirs("CF-01", "12", "reformers"), ours("PL-01", "12.05", "reformers", precision=2))
     _binds_each_on_its_own("You have 12 reformers.", known, "CF-01")
-    known = fs(theirs("CF-01", "12", "count"), derived("DV-01", "12.04", "classes", precision=2))
+    known = fs(theirs("CF-01", "12", "classes"), derived("DV-01", "12.04", "classes", precision=2))
     _binds_each_on_its_own("You run 12 classes a week.", known, "CF-01")
 
 
@@ -1342,7 +1359,7 @@ def test_the_same_amount_binds_when_the_period_agrees_or_is_absent():
 
 
 def test_a_period_blocks_percents_and_counts_too_and_not_through_a_time_word():
-    known = fs(theirs("CF-01", "30", "percent", period="week"), theirs("CF-02", "12", "count", period="week"))
+    known = fs(theirs("CF-01", "30", "percent", period="week"), theirs("CF-02", "12", "classes", period="week"))
     _stays_unresolved("Churn is 30% a month.", known, "30%")
     _stays_unresolved("We run 12 classes a month.", known, "12")
     assert bind("We run 12 classes a week.", known).bound[0].id == "CF-02"
@@ -1374,10 +1391,10 @@ def test_every_comparative_binds_only_on_an_exact_match(lead):
     assert r.text == f"Costs are {lead} $44,928 now." and [f.id for f in r.bound] == ["DV-01"]
 
 
-def test_a_comparative_over_a_figure_that_displays_as_the_mention_binds_without_a_tilde():
+def test_a_comparative_over_a_figure_that_only_displays_as_the_mention_is_unresolved():
+    # 44,928 shown as ~45,000 does not certify "over $45,000": the limit needs the exact value
     known = fs(derived("DV-01", "44928", "USD", precision=-3))
-    r = bind("Costs are over $45,000 now.", known)
-    assert r.text == "Costs are over $45,000 now." and [f.id for f in r.bound] == ["DV-01"]
+    _stays_unresolved("Costs are over $45,000 now.", known, "$45,000")
 
 
 def test_about_and_around_are_hedges_and_not_limits():
@@ -1405,7 +1422,7 @@ def test_a_near_mention_is_rewritten_only_when_it_is_the_figure_rounded_to_its_o
 # -- 6. the round trip: what is written must read back as what was meant ---------------------------------------------------------------
 
 def test_a_replacement_that_would_read_back_as_another_number_is_taken_back():
-    known = fs(ours("PL-02", "2", ""), ours("PL-03", "200", ""))
+    known = fs(ours("PL-02", "2", ""), ours("PL-03", "200", "person"))
     text = "Run two 200-person events."
     r = bind(text, known)
     assert r.text == text                                   # "2 200-person" would read as 2,200
@@ -1443,7 +1460,7 @@ def test_a_currency_code_that_belongs_to_the_number_before_is_not_the_lead_of_a_
 
 def test_a_number_a_token_becomes_can_be_an_end_of_a_range():
     # "{{F:A}} to 6": once A prints as $22 this reads "$22 to 6", so the 6 shares the dollars
-    known = fs(theirs("A", "22", "USD"), theirs("B", "6", "count"))
+    known = fs(theirs("A", "22", "USD"), theirs("B", "6", "members"))
     r = bind("{{F:A}} to 6 a class", known)
     assert r.text == "$22 to 6 a class" and [u.text for u in r.unresolved] == ["6"]
     r = bind("{{F:A}} to 6 members", known)
@@ -1592,3 +1609,269 @@ def test_a_tilde_before_the_second_number_of_a_range_does_not_break_the_range():
     assert r.text == "From $22 to ~45,000 a year." and [f.id for f in r.bound] == ["A", "D"]
     again = bind(bind("From $22 to 45,000 a year.", known).text, known)
     assert again.text == "From $22 to ~45,000 a year."
+
+
+# ==============================================================================================
+# Fourth review round: a limit certifies only what it can, the whole clause names the period,
+# links and code are not prose, a count noun must match, and one value printed one way is one answer.
+# The figures are the reviewer's studio, with the nouns the case file now stores.
+# ==============================================================================================
+
+STUDIO = fs(
+    theirs("PRICE", "22", "USD"), theirs("CAP", "12", "reformers"), theirs("MEM", "180", "members"),
+    theirs("CLS", "40", "classes", period="week"), theirs("RENT", "4000", "USD", period="month"),
+    theirs("OCC", "62", "percent"), theirs("INS", "4", "instructors"), theirs("OPEN", "6", "days"),
+    derived("REVW", "6547.2", "USD", precision=-2, period="week"), derived("EMPTY", "182.4", "seats", precision=0, period="week"),
+    derived("LOSTW", "1953.6", "USD", precision=-1, period="week"),
+    derived("LOSTY", "101587.2", "USD", precision=-3, period="year"),
+    derived("LEAVE", "9", "members", precision=0, period="month"),
+    ours("NEWP", "25", "USD"), ours("PILOT", "6", "weeks"), ours("INTRO", "3", "intro classes"),
+)
+
+
+# -- 1. a limit certifies only what it can ---------------------------------------------------------------------
+
+def test_a_limit_over_a_figure_that_is_only_shown_that_way_is_unresolved():
+    _stays_unresolved("Costs are over $45,000.", fs(derived("DV-01", "44928", "USD", precision=-3)), "$45,000")
+    _stays_unresolved("Empty seats: fewer than 182 a week.", STUDIO, "182")
+    _stays_unresolved("Keep costs within $7,500.", fs(derived("DV-01", "7480", "USD")), "$7,500")
+
+
+def test_a_limit_binds_on_the_exact_value_and_prints_exactly_as_written():
+    r = bind("You lose more than $101,587.20 a year.", STUDIO)
+    assert r.text == "You lose more than $101,587.20 a year." and [f.id for f in r.bound] == ["LOSTY"]
+    assert r.unresolved == []
+    r = bind("Empty seats cost about $1,950 a week ($1,953.60 exactly).", STUDIO)
+    assert r.text == "Empty seats cost about $1,950 a week ($1,953.60 exactly)." and r.unresolved == []
+    assert [f.id for f in r.bound] == ["LOSTW"]
+    r = bind("It is exactly $1,953.60 a week.", STUDIO)
+    assert r.text == "It is exactly $1,953.60 a week." and [f.id for f in r.bound] == ["LOSTW"]
+    _stays_unresolved("It is exactly $1,950 a week.", STUDIO, "$1,950")        # the rounded display is not the value
+
+
+@pytest.mark.parametrize("lead", ["within", "maximum of", "minimum of", "max", "min", "cap", "capped at", "limit of",
+                                  "top", "north of", "upwards of", "in excess of", "not more than", "no less than",
+                                  "Within", "UPWARDS OF"])
+def test_a_limit_word_before_the_number_makes_it_exact_only(lead):
+    near = fs(derived("DV-01", "7480", "USD"))
+    exact = fs(derived("DV-01", "7500", "USD"))
+    _stays_unresolved(f"Keep costs {lead} $7,500 now.", near, "$7,500")
+    r = bind(f"Keep costs {lead} $7,500 now.", exact)
+    assert r.text == f"Keep costs {lead} $7,500 now." and [f.id for f in r.bound] == ["DV-01"]
+
+
+@pytest.mark.parametrize("tail", ["max", "min", "maximum", "at most", "at least", "or more", "or less", "and up", "+", "exactly"])
+def test_a_limit_word_after_the_number_makes_it_exact_only(tail):
+    near = fs(derived("DV-01", "7480", "USD"))
+    exact = fs(derived("DV-01", "7500", "USD"))
+    text = f"Keep costs to $7,500 {tail} now." if tail != "+" else "Keep costs to $7,500+ now."
+    _stays_unresolved(text, near, "$7,500")
+    r = bind(text, exact)
+    assert r.text == text and [f.id for f in r.bound] == ["DV-01"]
+
+
+def test_a_hedge_between_the_limit_and_the_number_does_not_loosen_it():
+    near = fs(derived("DV-01", "7480", "USD"))
+    exact = fs(derived("DV-01", "7500", "USD"))
+    for text in ("Keep costs under about $7,500.", "Keep costs at most roughly $7,500.", "Keep costs over around $7,500."):
+        _stays_unresolved(text, near, "$7,500")
+        assert bind(text, exact).text == text, text
+
+
+def test_a_token_after_a_limit_is_unresolved_when_the_figure_is_shown_rounded():
+    rounded = fs(derived("M", "44928", "USD", precision=-3))
+    exact = fs(theirs("M", "22", "USD"))
+    for text in ("Costs are over {{F:M}}.", "Costs are exactly {{F:M}}.", "Costs are {{F:M}} or more.", "Keep it within {{F:M}}."):
+        r = bind(text, rounded)
+        assert r.text == text and r.bound == [] and len(r.unresolved) == 1, text
+    assert bind("Costs are over {{F:M}}.", exact).text == "Costs are over $22."
+    assert bind("Costs are {{F:M}} or more.", exact).text == "Costs are $22 or more."
+    # a plain hedge still lets the figure print without a second "~"
+    assert bind("Costs are about {{F:M}}.", rounded).text == "Costs are about $45,000."
+
+
+# -- 2. the whole clause names the period -----------------------------------------------------------------------------
+
+def test_a_period_named_anywhere_in_the_clause_must_be_the_figures():
+    _stays_unresolved("That's about $1,950 in lost revenue a month.", STUDIO, "$1,950")
+    _stays_unresolved("Each month, you lose about $1,950.", STUDIO, "$1,950")
+    _stays_unresolved("You lose about $102,000 in lost revenue a month.", STUDIO, "$102,000")
+    _stays_unresolved("About 182 seats sit empty a month.", STUDIO, "182")
+    _stays_unresolved("9 members leave every week.", STUDIO, "9")
+    _stays_unresolved("In a typical year you lose about $1,950.", STUDIO, "$1,950")
+    _stays_unresolved("Weekly rent: $4,000.", STUDIO, "$4,000")
+    _stays_unresolved("| Loss | $1,950 | monthly |", STUDIO, "$1,950")
+
+
+def test_a_token_is_held_to_the_period_of_its_whole_clause():
+    r = bind("Each month you lose {{F:LOSTW}}.", STUDIO)
+    assert r.text == "Each month you lose {{F:LOSTW}}." and r.bound == [] and len(r.unresolved) == 1
+    assert bind("Each week you lose {{F:LOSTW}}.", STUDIO).text == "Each week you lose ~$1,950."
+    assert bind("You lose {{F:LOSTW}} in lost revenue a week.", STUDIO).text == "You lose ~$1,950 in lost revenue a week."
+
+
+def test_a_period_that_agrees_or_is_not_named_does_not_block():
+    assert [f.id for f in bind("Each week, you lose about $1,950.", STUDIO).bound] == ["LOSTW"]
+    assert [f.id for f in bind("9 members leave each month.", STUDIO).bound] == ["LEAVE"]
+    assert [f.id for f in bind("About 182 seats sit empty.", STUDIO).bound] == ["EMPTY"]
+    assert [f.id for f in bind("Your annual loss is about $102,000.", STUDIO).bound] == ["LOSTY"]
+    r = bind("Empty seats cost you about $1,950 a week, or about $102,000 a year.", STUDIO)
+    assert [f.id for f in r.bound] == ["LOSTW", "LOSTY"] and r.unresolved == []
+    r = bind("Rent is $4,000 a month and you lose about $1,950 a week.", STUDIO)
+    assert [f.id for f in r.bound] == ["RENT", "LOSTW"] and r.unresolved == []
+
+
+def test_a_swapped_period_is_still_refused_when_the_phrase_stands_by_the_number():
+    # the clause names both; the phrase right by each number decides
+    _stays_unresolved("Rent is $1,950 a month and you lose $4,000 a week.", STUDIO, "$1,950", "$4,000")
+
+
+# -- 3. links, code and paths are not prose ------------------------------------------------------------------------------
+
+def test_a_url_is_neither_read_nor_touched():
+    for text in ("See https://example.com/p/1200 for more.", "See http://example.com/p/1200.", "Go to www.example.com/p/1200 now.",
+                 "See (https://example.com/p/1200).", "Docs: https://example.com/a/1200?x=22&y=9#top, then stop."):
+        r = bind(text, STUDIO)
+        assert r.text == text and r.unresolved == [] and r.bound == [], text
+        assert clean_sentences(text, STUDIO) == (text, []), text
+
+
+def test_a_link_target_is_masked_and_the_link_text_is_still_read():
+    for text in ("See [plan](https://x.com/1200).", "See [plan](guides/1200).", "See ![chart](img/1200.png) here.",
+                 'See [plan](https://x.com/1200 "the 1200 plan").'):
+        r = bind(text, STUDIO)
+        assert r.text == text and r.unresolved == [], text
+    r = bind("See [we lose $9 a week](https://x.com/22) now.", STUDIO)
+    assert [u.text for u in r.unresolved] == ["$9"]
+    r = bind("See [we charge $22](https://x.com/9) now.", STUDIO)
+    assert [f.id for f in r.bound] == ["PRICE"] and r.unresolved == []
+
+
+def test_code_spans_and_fenced_blocks_are_left_alone():
+    for text in ("Run `seats=1200` now.", "Run ``seats = 1200`` now.", "Use `{{F:NOPE}}` as written.",
+                 "Code:\n```\nseats = 1200\nprice = 9\n```\nDone.", "Code:\n~~~python\nseats = 1200\n~~~\nDone."):
+        r = bind(text, STUDIO)
+        assert r.text == text and r.unresolved == [], text
+        assert clean_sentences(text, STUDIO) == (text, []), text
+    r = bind("Run `seats=1200` and pay $9.", STUDIO)
+    assert [u.text for u in r.unresolved] == ["$9"]
+    r = bind("Run `seats=1200` and pay $22.", STUDIO)
+    assert r.text == "Run `seats=1200` and pay $22." and [f.id for f in r.bound] == ["PRICE"]
+
+
+def test_a_path_like_token_is_left_alone_and_a_rate_is_still_read():
+    for text in ("Read .../guides/22 first.", "Open /api/plans/1200/edit please.", "See docs/plan/1200 for more.",
+                 "Try example.com/p/1200 today."):
+        r = bind(text, STUDIO)
+        assert r.text == text and r.unresolved == [], text
+    r = bind("You lose $1,950/week.", STUDIO)
+    assert [f.id for f in r.bound] == ["LOSTW"]                  # "$1,950/week" is a rate: read, with its period
+    _stays_unresolved("You lose $1,950/month.", STUDIO, "$1,950")
+
+
+def test_a_bound_number_next_to_a_url_leaves_the_url_byte_identical():
+    text = "See https://x.com/p/44928 then lose $44,928 a year, `seats=1200`, [plan](u/9/9)."
+    known = fs(derived("DV-01", "44928", "USD", precision=-3))
+    r = bind(text, known)
+    assert r.text == "See https://x.com/p/44928 then lose ~$45,000 a year, `seats=1200`, [plan](u/9/9)."
+    assert [f.id for f in r.bound] == ["DV-01"] and r.unresolved == []
+    assert "".join(s["text"] for s in segments(text, known)) == r.text
+
+
+# -- 4. the noun after a count ---------------------------------------------------------------------------------------------------
+
+def test_a_count_binds_only_to_a_figure_whose_unit_is_that_noun():
+    _stays_unresolved("Hire 4 more instructors.", fs(theirs("CAP", "4", "reformers")), "4")
+    _stays_unresolved("About 180 empty seats a week.", STUDIO, "180")
+    _stays_unresolved("Add 3 classes on Saturday.", STUDIO, "3")
+    assert [f.id for f in bind("Hire 4 more reformers.", fs(theirs("CAP", "4", "reformers"))).bound] == ["CAP"]
+    assert [f.id for f in bind("You have 180 members.", STUDIO).bound] == ["MEM"]
+    assert [f.id for f in bind("Add 3 intro classes on Saturday.", STUDIO).bound] == ["INTRO"]
+    assert [f.id for f in bind("Add 3 new intro classes.", STUDIO).bound] == ["INTRO"]
+    assert [f.id for f in bind("Add 3 additional intro classes.", STUDIO).bound] == ["INTRO"]
+    assert [f.id for f in bind("You have 4 total instructors.", STUDIO).bound] == ["INS"]
+
+
+def test_the_noun_is_compared_without_its_plural_and_the_adjectives_in_front_of_it():
+    reformers = fs(theirs("CAP", "1", "reformers"))
+    assert [f.id for f in bind("You have 1 reformer.", reformers).bound] == ["CAP"]
+    assert [f.id for f in bind("You have 1 extra reformer.", reformers).bound] == ["CAP"]
+    assert [f.id for f in bind("You have 1 big reformer.", reformers).bound] == ["CAP"]    # more words in front are fine
+    assert [f.id for f in bind("A 12-reformer room.", fs(theirs("CAP", "12", "reformers"))).bound] == ["CAP"]
+    studies = fs(theirs("S", "3", "studies"))
+    assert [f.id for f in bind("You run 3 studies.", studies).bound] == ["S"]
+    assert [f.id for f in bind("You run 3 boxes.", fs(theirs("B", "3", "box"))).bound] == ["B"]
+
+
+def test_a_figure_with_no_noun_takes_a_number_only_when_no_noun_follows_it():
+    bare = fs(theirs("A", "4", ""))
+    for text in ("You have 4.", "You have 4, ok.", "You have 4 of them.", "You have 4 a week.", "Hire 4 more."):
+        assert [f.id for f in bind(text, bare).bound] == ["A"], text
+    _stays_unresolved("You have 4 instructors.", bare, "4")
+    _stays_unresolved("Hire 4 more instructors.", bare, "4")
+    # a figure that names a noun takes a number that names none
+    named = fs(theirs("A", "4", "instructors"))
+    for text in ("You have 4.", "You have 4 of them.", "Hire 4 more."):
+        assert [f.id for f in bind(text, named).bound] == ["A"], text
+
+
+def test_derived_capacity_figures_keep_their_own_noun():
+    known = fs(derived("CAP-01", "144", "classes", period="week"), derived("CAP-02", "48", "seats", period="week"))
+    assert [f.id for f in bind("We run 144 classes a week.", known).bound] == ["CAP-01"]
+    _stays_unresolved("We run 144 seats a week.", known, "144")
+    _stays_unresolved("We run 144 members.", known, "144")
+
+
+# -- the addendum: ambiguity is a different printed result, not a different unit ----------------------------------------------------------
+
+HALO = fs(theirs("CF-01", "12", "reformers"), theirs("CF-02", "12", ""), theirs("CF-03", "10", ""))
+
+
+def test_the_same_value_in_two_units_is_one_answer_when_nothing_tells_them_apart():
+    r = bind("10 of 12 are full.", HALO)
+    assert r.text == "10 of 12 are full." and r.unresolved == [] and {f.id for f in r.bound} == {"CF-03", "CF-01"}
+    r = bind("You have 12 reformers.", HALO)
+    assert [f.id for f in r.bound] == ["CF-01"]
+    r = bind("You have 12.", HALO)
+    assert [f.id for f in r.bound] == ["CF-01"]                  # the same literal either way: lowest id
+    r = bind("You have 12 reformers and 10 of 12 are full.", HALO)
+    assert r.unresolved == [] and r.text == "You have 12 reformers and 10 of 12 are full."
+
+
+def test_the_most_trusted_kind_answers_then_the_lowest_id():
+    for known in (fs(ours("A", "12", "x"), theirs("Z", "12", "reformers"), derived("M", "12", "y")),
+                  fs(theirs("Z", "12", "reformers"), derived("M", "12", "y"), ours("A", "12", "x"))):
+        assert [f.id for f in bind("Of the 12 we start.", known).bound] == ["Z"]
+    known = fs(derived("B", "12", "x"), derived("A", "12", "y"), ours("C", "12", "z"))
+    assert [f.id for f in bind("Of the 12 we start.", known).bound] == ["A"]
+
+
+def test_figures_that_print_differently_stay_ambiguous():
+    _stays_unresolved("Of the 12 we start.", fs(theirs("A", "12", "x"), theirs("B", "12.0", "y")), "12")
+    _stays_unresolved("It is $4,700.", fs(theirs("A", "4720", "USD"), derived("B", "4680", "USD")), "$4,700")
+
+
+# -- 5. speed -----------------------------------------------------------------------------------------------------------------------------
+
+def test_a_hundred_thousand_characters_of_small_numbers_bind_in_seconds():
+    known = fs(*[theirs(f"F{i}", str(i + 1), "") for i in range(24)])
+    text = "12 " * 33000
+    t0 = time.perf_counter()
+    r = bind(text, known)
+    assert time.perf_counter() - t0 < 8
+    assert len(r.bound) == 1 and r.unresolved == []
+
+
+def test_twenty_thousand_numbers_against_four_hundred_figures_bind_in_seconds():
+    known = fs(*[derived(f"F{i}", str(i * 7 + 3), "") for i in range(400)])
+    text = " ".join(str(n % 3000) for n in range(20000))
+    t0 = time.perf_counter()
+    bind(text, known)
+    assert time.perf_counter() - t0 < 12
+
+
+def test_a_figure_in_a_stand_in_noun_takes_whatever_noun_the_number_is_given():
+    others = fs(theirs("A", "2", "others"))
+    assert [f.id for f in bind("You and two studios nearby.", others).bound] == ["A"]
+    assert [f.id for f in bind("Two others nearby.", others).bound] == ["A"]
+    _stays_unresolved("It takes 2 days.", others, "2")                       # a time word still needs a time figure

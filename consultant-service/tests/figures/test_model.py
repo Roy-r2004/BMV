@@ -753,3 +753,55 @@ def test_match_does_not_depend_on_the_callers_decimal_context():
         ctx.prec = 2
         # and the bound 5.0251 must not be cut to 5.0, which would refuse a gap of 5.02
         assert [f.id for f in fs.match(D("1005.02"))] == ["A"]
+
+
+# -- match is indexed, and says exactly what the plain scan says ---------------------------------
+
+def _scan(figures, value, unit=None):
+    """The definition of match, written the slow way."""
+    return [f for f in figures
+            if (unit is None or f.unit == unit)
+            and (M._within(f.value, value) or M._rounded(f.value, f.precision) == value)]
+
+
+def test_the_indexed_match_equals_the_plain_scan_on_random_figures_and_values():
+    import random
+    rng = random.Random(7)
+    units = ["", "USD", "percent", "weeks", "reformers"]
+    figures = []
+    for i in range(160):
+        mag = rng.choice([D("0.01"), D("1"), D("10"), D("1000"), D("100000")])
+        value = (D(rng.randint(-300, 3000)) * mag / D(rng.choice([1, 3, 7]))).quantize(D("0.0001"))
+        precision = rng.choice([-3, -2, -1, 0, 0, 1, 2])
+        kind = rng.choice(["derived", "ours"])
+        figures.append(Figure(f"F{i}", value, rng.choice(units), None, kind,
+                              Working((), "mul", "w") if kind == "derived" else Proposal("n"), precision))
+    figures.append(Figure("Z", D("0"), "", None, "ours", Proposal("n"), 0))
+    known = FigureSet(figures)
+    probes = {D("0"), D("-0"), D("1"), D("-1")}
+    for f in figures:
+        shown = M._rounded(f.value, f.precision)
+        for v in (f.value, shown, f.value * D("1.004"), f.value * D("0.996"), f.value * D("1.006"), -f.value):
+            probes.add(v)
+    for _ in range(200):
+        probes.add(D(rng.randint(-400000, 400000)) / D(rng.choice([1, 10, 100])))
+    for v in probes:
+        assert known.match(v) == _scan(figures, v), v
+        assert known.match(v, "USD") == _scan(figures, v, "USD"), v
+
+
+def test_a_figure_added_after_a_match_is_found_by_the_next_one():
+    known = FigureSet([theirs("A", "22")])
+    assert [f.id for f in known.match(D("22"))] == ["A"]
+    known.add(theirs("B", "22.05", precision=2))
+    assert [f.id for f in known.match(D("22"))] == ["A", "B"]
+
+
+def test_matching_twenty_thousand_numbers_against_four_hundred_figures_is_quick():
+    import time
+    figures = [Figure(f"F{i}", D(i * 7 + 3), "USD", None, "derived", Working((), "mul", "w"), 0) for i in range(400)]
+    known = FigureSet(figures)
+    t0 = time.perf_counter()
+    for n in range(20000):
+        known.match(D(n % 3000))
+    assert time.perf_counter() - t0 < 2.0
