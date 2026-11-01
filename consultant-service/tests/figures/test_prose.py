@@ -178,7 +178,8 @@ def test_the_analysis_loses_a_sentence_with_a_number_nobody_gave_and_keeps_its_n
 
 
 def test_a_number_the_client_gave_stays_in_the_analysis(monkeypatch):
-    """$22 is in their description and 12 in their answer; 'twelve' is bound to the digits."""
+    """$22 is in their description and 12 in their answer. A number word the client's figure
+    supports ('Twelve') is kept as written: words stay words."""
     _model_says(monkeypatch, {
         "business_model": "Appointments",
         "target_customer_profile": "Members who pay $22 a class.",
@@ -188,7 +189,7 @@ def test_a_number_the_client_gave_stays_in_the_analysis(monkeypatch):
     result = _analyze(_row())
 
     assert result["target_customer_profile"] == "Members who pay $22 a class."
-    assert result["pain_points"] == ["12 reformers sit idle in the mornings."]
+    assert result["pain_points"] == ["Twelve reformers sit idle in the mornings."]
 
 
 def test_a_pain_point_that_empties_is_dropped_and_the_others_stay(monkeypatch):
@@ -305,7 +306,7 @@ def test_a_number_the_client_gave_stays_in_the_decision(monkeypatch):
 
     result = _decide(_row())
 
-    assert result["consulting_summary"] == "You charge $22 a class and have 12 reformers."
+    assert result["consulting_summary"] == "You charge $22 a class and have twelve reformers."
 
 
 def test_a_figure_we_worked_out_from_their_week_stays_in_the_decision(monkeypatch):
@@ -419,7 +420,7 @@ def test_a_number_the_client_gave_stays_in_a_statement(monkeypatch):
 
     result = _diagnose(_row())
 
-    assert result["hypotheses"][0]["statement"] == "At $22 a class 12 reformers cannot earn enough."
+    assert result["hypotheses"][0]["statement"] == "At $22 a class twelve reformers cannot earn enough."
 
 
 def test_a_figure_we_worked_out_from_their_week_stays_in_a_statement(monkeypatch):
@@ -516,7 +517,7 @@ def test_what_the_tests_and_the_reviewers_write_is_checked_too(monkeypatch):
     result = _diagnose(request_id)
 
     test = result["hypotheses"][0]["test"]
-    assert test["because"] == "The evenings are full. 12 reformers share them."
+    assert test["because"] == "The evenings are full. Twelve reformers share them."
     assert test["would_need"] == ""
     for challenge in result["challenges"]:
         assert challenge["because"] == "Nothing found." and challenge["weakness"] == "It rests on one week."
@@ -917,6 +918,29 @@ def test_the_log_names_the_unresolved_number_or_token_not_the_innocent_ones_in_t
     assert "$9,000" in line and "{{F:CAP-99}}" in line and "consulting_summary" in line
     assert "12" not in line.split("numbers nobody gave:")[1].replace("$9,000", "")
     assert "reformers" not in line and "a class" not in line
+
+
+# -- number words are checked like digits ---------------------------------------------------------
+
+def test_a_number_word_nobody_gave_is_dropped_in_every_stage_and_one_they_gave_is_kept_as_written(monkeypatch):
+    """Words stay words: a supported 'twelve' is not rewritten to '12'. That must not let
+    a number written as a word through: 'twenty' is in nobody's figures and its sentence goes."""
+    _model_says(monkeypatch, {
+        "business_model": "Appointments", "target_customer_profile": "Members.",
+        "pain_points": ["Twenty reformers sit idle in the mornings.", "Twelve reformers sit idle."],
+        "growth_opportunity": "Fill the mornings. Twenty reformers sit idle."})
+    result = _analyze(_row())
+    assert result["pain_points"] == ["Twelve reformers sit idle."]
+    assert result["growth_opportunity"] == "Fill the mornings."
+
+    _model_says(monkeypatch, {**DECISION, "consulting_summary": "Fill the mornings. Twenty reformers sit idle. "
+                                                                 "Twelve reformers stay."})
+    assert _decide(_row())["consulting_summary"] == "Fill the mornings. Twelve reformers stay."
+
+    _diagnosis_says(monkeypatch, [
+        _hypothesis(1, "Evenings are full. Twenty reformers sit idle. Twelve reformers stay."),
+        _hypothesis(2, STATEMENTS[1]), _hypothesis(3, STATEMENTS[2])])
+    assert _diagnose(_row())["hypotheses"][0]["statement"] == "Evenings are full. Twelve reformers stay."
 
 
 # -- the parts of the row that are not about this run ----------------------------------------
