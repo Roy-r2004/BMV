@@ -334,6 +334,71 @@ def test_a_failure_in_the_report_is_a_plain_message(db, capsys, monkeypatch):
     assert code == 2 and out == "" and err.strip() == "The audit could not be completed."
 
 
+# -- client text never acts on the owner's terminal ------------------------------------------------
+
+#: A clear-screen, a set-window-title and a bell, then a right-to-left override, as a client could type them.
+RLO = "\N{RIGHT-TO-LEFT OVERRIDE}"
+HOSTILE = "\x1b[2J\x1b]0;pwned\x07" + RLO + "\r\x08"
+
+
+def _hostile_row(db):
+    md = CLEAN_MD.replace("a calmer front desk.", f"a calmer front desk {HOSTILE}that loses 37 calls on a busy day.")
+    return _seed(db, mvp_blueprint=md, business_name=f"Beacon {HOSTILE}Physiotherapy",
+                 ops_numbers_json=json.dumps(FACTS + [{"question": "Anything else?", "answer": f"We {HOSTILE}hope so"}]))
+
+
+def _unsafe(text: str) -> list[str]:
+    import unicodedata
+
+    return sorted({f"U+{ord(c):04X}" for c in text if c != "\n" and unicodedata.category(c) in ("Cc", "Cf", "Cs", "Co", "Cn")})
+
+
+def test_a_clients_escape_sequences_never_reach_the_terminal_and_the_number_is_still_found(db, capsys):
+    row = _hostile_row(db)
+    assert "\x1b" in row.mvp_blueprint and RLO in row.business_name
+    code, out, err = _run(capsys, row.public_id)
+    assert code == 1
+    assert _unsafe(out + err) == [], _unsafe(out + err)
+    assert "\x1b" not in out and RLO not in out and "\x07" not in out and "\r" not in out and "\x08" not in out
+    (line,) = _table_lines(out)
+    cells = re.split(r"\s{2,}", line)
+    assert cells[:3] == ["Volume I", "page not located", "37"] and "loses 37 calls" in cells[3]
+    assert "pwned" in out                                # the words stay; only what acts on a terminal is gone
+    assert out.splitlines()[0].startswith("Number audit for audit-") and "Physiotherapy" in out.splitlines()[0]
+
+
+def test_json_of_the_same_package_is_ascii_escaped(db, capsys):
+    row = _hostile_row(db)
+    code, raw, _ = _run(capsys, row.public_id, "--json")
+    assert code == 1
+    assert _unsafe(raw) == [] and all(ord(c) < 128 for c in raw)
+    report = json.loads(raw)
+    assert report["documents"][0]["findings"][0]["number"] == "37"
+    assert "\x1b" not in raw and "\\u001b" in raw        # escaped, so it is data and not a command
+
+
+@pytest.mark.parametrize("text", [HOSTILE, "a\x00b\x7fc\x9bd", "x\N{ZERO WIDTH SPACE}y\N{LEFT-TO-RIGHT ISOLATE}z\N{ZERO WIDTH NO-BREAK SPACE}", "lone \ud800 surrogate",
+                                  "private \ue000 use", "unassigned \u0378", "tab\tand\nnewline\r\nlines",
+                                  "\N{LINE SEPARATOR}line\N{PARAGRAPH SEPARATOR}separators"])
+def test_safe_replaces_everything_a_terminal_could_act_on(text):
+    got = audit.safe(text)
+    assert _unsafe(got) == [] and "\n" not in got and "\t" not in got
+    assert audit.safe("plain words 37 \N{MULTIPLICATION SIGN} ok") == "plain words 37 \N{MULTIPLICATION SIGN} ok"
+    assert audit.safe("\x1b[2J") == "?[2J"
+    assert audit.safe("a \N{RIGHT-TO-LEFT OVERRIDE} b") == "a ? b"
+    assert len(audit.safe("w" * 1000, 50)) == 50 and audit.safe("w" * 1000, 50).endswith("...")
+    assert audit.safe(None) == ""
+
+
+def test_the_last_pass_before_printing_scrubs_what_a_field_missed():
+    import io
+
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", newline="\n")
+    audit._say("Not found: \x1b[31mred\x1b[0m\N{RIGHT-TO-LEFT OVERRIDE}\nsecond line", stream)
+    stream.flush()
+    assert stream.buffer.getvalue() == b"Not found: ?[31mred?[0m?\nsecond line\n"
+
+
 # -- the words ------------------------------------------------------------------------------------
 
 def test_a_long_snippet_is_cut_around_its_number():

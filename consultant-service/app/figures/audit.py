@@ -30,7 +30,13 @@ read). A request that does not exist prints a plain message and exits 2. A build
 that fails never prints its error: the audit says "could not check <document>"
 and goes on with the others.
 
-`--json` prints the same report as one JSON document.
+`--json` prints the same report as one JSON document (ASCII-escaped by
+`json.dumps`). The text report quotes client and model text (the words around a
+number, the business name), so every such string is made safe first (`safe`):
+controls such as ESC, CR, backspace and DEL, format characters such as a
+right-to-left override, and surrogate, private-use and unassigned characters
+become "?", whitespace collapses and the length is bounded. A client's answer
+cannot act on the owner's terminal.
 """
 from __future__ import annotations
 
@@ -38,6 +44,7 @@ import argparse
 import json
 import logging
 import sys
+import unicodedata
 from contextlib import contextmanager
 from typing import Sequence
 
@@ -179,6 +186,30 @@ def exit_code(report: dict) -> int:
 
 # -- the words ---------------------------------------------------------------------------------
 
+#: The Unicode categories a terminal can act on or that change what it shows:
+#: controls (ESC, CR, backspace, DEL, the C1 set), format characters (bidi
+#: overrides, zero-width joiners), surrogates, private use and unassigned.
+_UNSAFE_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Cn"})
+
+#: The longest any one printed field runs, in characters.
+FIELD_MAX = 240
+
+
+def _scrub(text: str) -> str:
+    """`text` with every character a terminal could act on replaced by "?"
+    (newlines are the caller's own and stay)."""
+    return "".join(c if c == "\n" or unicodedata.category(c) not in _UNSAFE_CATEGORIES else "?" for c in text)
+
+
+def safe(text: object, limit: int = FIELD_MAX) -> str:
+    """One field of client or model text made safe to print in TEXT mode: runs
+    of whitespace become one space, every control, format, surrogate, private-use
+    or unassigned character becomes "?", and the length is bounded. (JSON mode
+    is ASCII-escaped by `json.dumps`.)"""
+    text = _scrub(" ".join(str(text if text is not None else "").split()))
+    return text if len(text) <= limit else text[:max(0, limit - 3)].rstrip() + "..."
+
+
 def _table(rows: list[tuple[str, ...]], head: tuple[str, ...]) -> list[str]:
     widths = [max(len(head[i]), *(len(r[i]) for r in rows)) for i in range(len(head))]
     line = lambda r: "  ".join(c.ljust(w) for c, w in zip(r, widths)).rstrip()   # noqa: E731
@@ -186,9 +217,13 @@ def _table(rows: list[tuple[str, ...]], head: tuple[str, ...]) -> list[str]:
 
 
 def render_text(report: dict) -> str:
-    out = [f"Number audit for {report['request'] or report['id']}"
-           + (f" ({report['business']})" if report.get("business") else ""), ""]
-    rows = [(d["document"], f["place"], f["number"], f["snippet"], f["reason"])
+    """The report as the terminal shows it. Every string that comes from client or
+    model text goes through `safe` first, so nothing in a client's answer can act on
+    the owner's terminal."""
+    out = [f"Number audit for {safe(report['request'] or report['id'], 80)}"
+           + (f" ({safe(report['business'], 80)})" if report.get("business") else ""), ""]
+    rows = [(safe(d["document"], 40), safe(f["place"], 40), safe(f["number"], 40),
+             safe(f["snippet"], SNIPPET_MAX + 6), safe(f["reason"]))
             for d in report["documents"] for f in d["findings"]]
     if rows:
         out += _table(rows, ("Document", "Page", "Number", "Snippet", "Reason")) + [""]
@@ -196,11 +231,11 @@ def render_text(report: dict) -> str:
             out += ["A page is not located until the document has been built (downloaded) since the last change.", ""]
     else:
         out += ["No number nobody owns was found.", ""]
-    out += [d["summary"] for d in report["documents"]]
-    out += ["", f"Package status: {report['status_line']}"]
+    out += [safe(d["summary"]) for d in report["documents"]]
+    out += ["", f"Package status: {safe(report['status_line'])}"]
     if report["other_reasons"]:
         shown = report["other_reasons"][:OTHER_REASONS_MAX]
-        out += ["Other reasons it is a draft:"] + [f"  - {' '.join(r.split())[:240]}" for r in shown]
+        out += ["Other reasons it is a draft:"] + [f"  - {safe(r)}" for r in shown]
         if len(report["other_reasons"]) > len(shown):
             out.append(f"  - and {len(report['other_reasons']) - len(shown)} more")
     out.append("")
@@ -213,8 +248,11 @@ def render_text(report: dict) -> str:
 
 
 def _say(text: str, stream=None) -> None:
-    """Print without ever failing on a terminal that cannot show a character."""
+    """Print without ever failing on a terminal that cannot show a character, and
+    never a character the terminal could act on (a last pass behind `safe`; it
+    leaves the report's own newlines and spacing)."""
     stream = stream or sys.stdout
+    text = _scrub(text)
     try:
         stream.write(text + "\n")
     except UnicodeEncodeError:
