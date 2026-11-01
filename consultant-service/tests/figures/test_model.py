@@ -584,8 +584,10 @@ def test_match_handles_zero_and_refuses_non_decimals():
 # -- labels and the package boundary -----------------------------------------
 
 def test_label_words_are_the_closed_list():
-    assert labels.LABEL_WORDS == ("phase", "step", "section", "exhibit", "volume", "page", "module",
-                                  "screen", "part", "appendix", "table", "slide", "footnote", "option")
+    # the original words stay; the list may grow only by words a renderer or prompt names
+    original = {"phase", "step", "section", "exhibit", "volume", "page", "module",
+                "screen", "part", "appendix", "table", "slide", "footnote", "option"}
+    assert original <= set(labels.LABEL_WORDS)
     assert isinstance(labels.LABEL_WORDS, tuple)
     assert len(set(labels.LABEL_WORDS)) == len(labels.LABEL_WORDS)
     assert all(w == w.lower() and w.isalpha() for w in labels.LABEL_WORDS)

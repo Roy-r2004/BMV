@@ -1129,6 +1129,17 @@ def test_a_plan_position_is_a_date_and_a_quantity_after_it_is_read(text, want):
     assert readings(text) == want
 
 
+# 9b. the roadmap's structure words are label words
+
+@pytest.mark.parametrize("text,want", [
+    ("Stage 2", []), ("Tier 3", []), ("Level 4.", []), ("Gate 1", []), ("Wave 2", []), ("Sprints 1-3", []),
+    ("in round 2", []), ("Milestone 3", []),
+    ("Tier 3 costs $50", ["$50"]), ("Milestone 12 members", ["12"]), ("round 2 numbers", ["2"]),
+])
+def test_the_roadmap_structure_words_are_labels(text, want):
+    assert [m.text for m in mentions(text)] == want
+
+
 # 10. minor
 
 def test_a_half_dozen_and_a_half_million_read_the_quantity():

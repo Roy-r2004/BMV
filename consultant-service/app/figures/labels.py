@@ -11,4 +11,6 @@ from __future__ import annotations
 LABEL_WORDS: tuple[str, ...] = (
     "phase", "step", "section", "exhibit", "volume", "page", "module", "screen",
     "part", "appendix", "table", "slide", "footnote", "option",
+    # the structure words the roadmap prompts name (Task 9 names them in the prompts)
+    "tier", "stage", "level", "gate", "wave", "sprint", "round", "milestone",
 )
