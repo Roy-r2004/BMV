@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app import produced
 from app.config import settings
 from app.database import get_db
 from app.figures import payload as figure_payload
@@ -22,7 +23,7 @@ from app.pipeline import compositing, screen_story
 from app.pipeline import action_plan as plan_stage
 from app.pipeline import answer as answer_stage
 from app.pipeline import capacity as capacity_stage
-from app.routers.requests import PDF_KINDS, build_zip, pdf_file
+from app.routers.requests import build_zip
 
 router = APIRouter(prefix="/api/shared", tags=["shared"])
 
@@ -76,11 +77,8 @@ def shared_package(token: str, db: Session = Depends(get_db)):
         "decisions": plan_stage.load_decisions(req),
         "summary": decision.get("consulting_summary") or req.consulting_analysis,
         "unverified": decision.get("unverified") or [],
-        "documents": {
-            "blueprint": bool(req.mvp_blueprint),
-            "technical": bool(req.technical_plan),
-            "operations": bool(req.procedures_json or req.org_json or req.checklists_json),
-        },
+        "documents": _document_flags(req),
+        "files": produced.package_files(req),
         "screens": screens,
     }
 
@@ -93,13 +91,35 @@ def shared_system(token: str, db: Session = Depends(get_db)):
     return screens_stage.payload(_load(token, db))
 
 
+def _document_flags(req: Request) -> dict:
+    """The booleans the share page already reads, taken from the one list."""
+    by_key = {item["key"]: item["available"] for item in produced.package_files(req)}
+    return {"blueprint": by_key["blueprint"], "technical": by_key["technical"], "operations": by_key["operations"]}
+
+
 @router.get("/{token}/export/{kind}")
 def shared_export(token: str, kind: str, db: Session = Depends(get_db)):
+    from app.storyline.files import UnknownFile, files_for, render_file
+    from app.storyline.roadmap import NotReady
+
     req = _load(token, db)
     if kind == "zip":
         out_path, stub = build_zip(req)
-        return FileResponse(out_path, media_type="application/zip", filename=f"{stub}-engagement.zip")
-    if kind not in PDF_KINDS:
-        raise HTTPException(status_code=404, detail="Unknown document")
-    out_path, filename = pdf_file(req, kind)
-    return FileResponse(out_path, media_type="application/pdf", filename=filename)
+        headers = {"X-Skipped": ", ".join(build_zip.skipped)} if build_zip.skipped else {}
+        return FileResponse(out_path, media_type="application/zip", filename=f"{stub}-engagement.zip", headers=headers)
+    from app.figures.law import UnstampedSample
+
+    try:
+        out_path = render_file(req, kind)
+    except UnknownFile:
+        raise HTTPException(status_code=404, detail="That file is not one of this package.")
+    except (NotReady, ValueError):
+        raise HTTPException(status_code=400, detail="That file is not ready yet.")
+    except (UnstampedSample, RuntimeError):
+        raise HTTPException(status_code=503, detail="That file cannot be printed on this server right now.")
+    item = next(f for f in files_for(req) if f.key == kind)
+    media = {
+        "pdf": "application/pdf",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }[item.kind]
+    return FileResponse(out_path, media_type=media, filename=item.filename)

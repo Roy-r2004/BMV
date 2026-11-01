@@ -62,3 +62,12 @@ def documents_for(req) -> list[dict]:
     if _has_ai_team(req):
         out.append({"key": "ai_team", "title": "Your AI team", "state": "ready"})
     return out
+
+
+def package_files(req) -> list[dict]:
+    """The shelf: six files and the zip. The preview, the share link and the
+    progress screen read this one list. `documents_for` stays the account of
+    what a running engagement has written so far."""
+    from app.storyline.files import payload
+
+    return payload(req)

@@ -520,6 +520,8 @@ def get_progress(request_ref: str, review_token: str | None = None,
         "failure": failure,
         # Which documents exist so far, so a stopped run shows what it did write.
         "documents": produced.documents_for(req),
+        # The shelf: the same list the preview and the share link offer.
+        "files": produced.package_files(req),
         "updated_at": req.updated_at.isoformat() if req.updated_at else None,
         # How long this run has been going, computed HERE rather than from a
         # timestamp the browser has to interpret. created_at is a naive
@@ -1132,6 +1134,7 @@ def get_preview(request_ref: str, review_token: str | None = None,
         # package page, not left for them to find in the fine print.
         "unverified": recommendations.get("unverified") or [],
         "shared": bool(req.share_token),
+        "files": produced.package_files(req),
     }
 
 
@@ -1255,17 +1258,21 @@ def review_save_docs(
         raise HTTPException(status_code=403, detail="Reviewer token required")
     req = _load_request(request_ref, db)
     request_id = req.id
+    rebuilt = []
     if mvp_blueprint and mvp_blueprint.strip():
         req.mvp_blueprint = mvp_blueprint
+        rebuilt.append("blueprint")
     if technical_plan and technical_plan.strip():
         req.technical_plan = technical_plan
+        rebuilt.append("technical")
     db.commit()
     # an edited document goes back through the integrity layer: its report is
     # bound to the content hash, so the release gate sees the edit either way
     from app.pipeline import integrity
 
     report = integrity.enforce(db, request_id)
-    return {"id": req.id, "saved": True, "integrity_clean": bool(report.get("clean")), "integrity_findings": len(report.get("findings") or [])}
+    return {"id": req.id, "saved": True, "rebuilt": rebuilt,
+            "integrity_clean": bool(report.get("clean")), "integrity_findings": len(report.get("findings") or [])}
 
 
 @router.get("/review-queue")
@@ -1335,41 +1342,45 @@ def export_zip_route(request_ref: str, review_token: str | None = None,
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
 
     out_path, file_stub = build_zip(req)
+    headers = {}
+    if build_zip.skipped:
+        headers["X-Skipped"] = ", ".join(build_zip.skipped)
     return FileResponse(
         out_path,
         media_type="application/zip",
         filename=f"{file_stub}-engagement.zip",
+        headers=headers,
     )
 
 
 def build_zip(req: Request) -> tuple[str, str]:
-    """Every document this engagement has, zipped. Volumes that aren't ready
-    are skipped."""
+    """Every file the list says is available, zipped. A file that is not
+    ready, or a proposal that lost its sample stamp, is skipped and named
+    in `build_zip.skipped` for the X-Skipped header. The zip itself is not
+    a member of the zip."""
     import zipfile
 
+    from app.figures.law import UnstampedSample
     from app.screens import export as screens_export
+    from app.storyline.files import files_for, render_file
+    from app.storyline.roadmap import NotReady
 
     file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "engagement"))
     built = []
-    for kind, name in (
-        ("blueprint", "Volume I - The Blueprint.pdf"),
-        ("technical", "Volume II - The Technical Plan.pdf"),
-        ("operations", "Volume III - The Operations Manual.pdf"),
-    ):
-        try:
-            built.append((export_pdf.build_pdf(req, kind), name))
-        except ValueError:
+    skipped = []
+    for item in files_for(req):
+        if item.key == "zip" or not item.available:
             continue
-    from app.figures.law import UnstampedSample
-
-    try:
-        built.append((screens_export.build_system_pdf(req), "Volume IV - Your System, Screen by Screen.pdf"))
-    except (screens_export.NotReady, RuntimeError):
-        pass
-    except UnstampedSample:
-        # a drawn screen lost its SAMPLE DATA stamp: the proposal is not drawn,
-        # and the rest of the package still goes out
-        logger.error("request %s: the proposal has a sample region without its stamp", req.id)
+        try:
+            built.append((render_file(req, item.key), item.filename))
+        except UnstampedSample:
+            # a drawn screen lost its SAMPLE DATA stamp: the proposal is not
+            # drawn, and the rest of the package still goes out
+            logger.error("request %s: the proposal has a sample region without its stamp", req.id)
+            skipped.append(item.key)
+        except (NotReady, screens_export.NotReady, ValueError, RuntimeError):
+            skipped.append(item.key)
+    build_zip.skipped = skipped
     if not built:
         raise HTTPException(status_code=400, detail="Documents not ready yet")
 
@@ -1469,3 +1480,39 @@ def export_pptx_route(request_ref: str, review_token: str | None = None,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         filename=f"{file_stub}.pptx",
     )
+
+
+_MEDIA = {
+    "pdf": "application/pdf",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "zip": "application/zip",
+}
+
+
+@router.get("/{request_ref}/export/{key}")
+def export_file(request_ref: str, key: str, review_token: str | None = None,
+                authorization: str | None = Header(None), db: Session = Depends(get_db)):
+    """Any file on the package list. The older /export/pdf/{kind} and
+    /export/pptx routes stay. An unknown key is a plain 404."""
+    if key == "zip":
+        return export_zip_route(request_ref, review_token, authorization, db)
+    from app.storyline.files import UnknownFile, files_for, render_file
+    from app.storyline.roadmap import NotReady
+
+    req = _load_request(request_ref, db)
+    _require_view(req, review_token, authorization)
+    if _pending_for(req, review_token):
+        raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
+    from app.figures.law import UnstampedSample
+
+    try:
+        out_path = render_file(req, key)
+    except UnknownFile:
+        raise HTTPException(status_code=404, detail="That file is not one of this package.")
+    except (NotReady, ValueError):
+        raise HTTPException(status_code=400, detail="That file is not ready yet.")
+    except (UnstampedSample, RuntimeError):
+        logger.error("request %s: %s could not be printed", req.id, key)
+        raise HTTPException(status_code=503, detail="That file cannot be printed on this server right now.")
+    item = next(f for f in files_for(req) if f.key == key)
+    return FileResponse(out_path, media_type=_MEDIA[item.kind], filename=item.filename)
