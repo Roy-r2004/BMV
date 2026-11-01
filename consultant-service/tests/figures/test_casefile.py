@@ -231,6 +231,35 @@ def test_a_plain_count_takes_the_noun_after_it_as_its_unit():
     assert display(fig) == "12 reformers" and display_number(fig) == "12"   # the number alone stays alone
 
 
+def test_a_number_led_compound_between_the_count_and_its_noun_is_passed_over():
+    assert _units("We run six 50-minute classes a day, six days a week.") == [
+        (Decimal(6), "classes"), (Decimal(50), "minute"), (Decimal(6), "day")]
+    assert _units("Book two 90-minute sessions.") == [(Decimal(2), "sessions"), (Decimal(90), "minute")]
+    assert _units("We rent 3 half-hour slots.") == [(Decimal(3), "slots")]
+    assert _units("We hire 5 part-time staff.") == [(Decimal(5), "part-time")]   # not number-led: a noun
+    assert _units("We have 5 50-minute") == [(Decimal(5), ""), (Decimal(50), "minute")]   # a measure with no noun after it
+
+
+def test_the_model_saying_the_same_counts_in_its_own_words_binds_to_them():
+    from app.figures.bind import bind
+
+    req = _req(main_problem="We run six 50-minute classes a day, six days a week.")
+    known = FigureSet(casefile.build(req))
+    for prose in ("We run six classes a day, six days a week.", "You run 6 classes a day and 6 days a week."):
+        found = bind(prose, known)
+        assert not found.unresolved and [f.unit for f in found.bound] == ["classes", "day"]
+
+
+def test_a_noun_that_says_nothing_about_what_is_counted_gives_no_unit():
+    assert _units("2 others nearby charge $32.") == [(Decimal(2), ""), (Decimal(32), "USD")]
+    assert _units("We have 6 things, 10 people, 3 ones, 4 items, 5 units and 7 places.") == [
+        (Decimal(6), ""), (Decimal(10), ""), (Decimal(3), ""), (Decimal(4), ""), (Decimal(5), ""), (Decimal(7), "")]
+    assert [u for _, u in _units("We have 8 person, 9 folks, 3 some, 4 any, 5 all, 6 both, 7 each, 2 every, 1 more.")
+            ] == [""] * 9
+    assert _units("Two other studios charge $32.")[0] == (Decimal(2), "studios")   # "other" before a noun is passed over
+    assert _units("Two others and 3 other.") == [(Decimal(2), ""), (Decimal(3), "")]
+
+
 def test_a_count_with_no_noun_straight_after_it_has_no_unit():
     assert _units("Of 40 members, 12 of 40 members came.") == [(Decimal(40), "members"), (Decimal(12), ""),
                                                               (Decimal(40), "members")]

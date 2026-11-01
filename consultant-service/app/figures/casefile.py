@@ -66,10 +66,10 @@ from decimal import Decimal
 from typing import Iterable, Iterator, NamedTuple
 
 from app.config import settings
-from app.figures.bind import _FUNCTION_WORDS, _SIGN_CURRENCY, _WORD_CURRENCY
+from app.figures.bind import _NUMBER_WORDS, _PHRASE_STOP, _SIGN_CURRENCY, _SKIP_WORDS, _WORD_CURRENCY
 from app.figures.model import Figure, FigureSet, TheirsSource, as_json, from_json
 from app.figures.read import _CURRENCY_CODES, Mention, mentions
-from app.figures.words import TIME_CANON as _TIME_CANON
+from app.figures.words import GENERIC_NOUNS, TIME_CANON as _TIME_CANON
 
 #: Characters of one text that are read for numbers. A bound on work, far above
 #: anything a form takes; text past it is not read.
@@ -123,13 +123,17 @@ _AFTER_CHARS = 80   # room for a time word or a noun (NOUN_MAX) behind a few ski
 _TIME_WORD_AFTER = re.compile(r"(?:-|[^\S\r\n]*)([A-Za-z]+)")
 #: The longest noun kept as a count's unit.
 NOUN_MAX = 30
-# Words that sit between a count and what it counts ("12 new members", "8 more classes").
-# "of" is not one: "12 of 40 members" counts nothing the 12 can name (it is a function word).
-_SKIPPED_BEFORE_NOUN = frozenset({"more", "extra", "new", "additional", "total"})
-# The word that follows a count, after a space or a hyphen: letters, with hyphens and
+# What the binder skips between a count and its noun ("12 new members", "8 more classes") and
+# where it stops reading a noun phrase (function words, adverbs): the case file reads the noun
+# the same way, so a figure's unit is a word the binder finds in the sentence too. "of" is a
+# stop, not a word passed over: "12 of 40 members" counts nothing the 12 can name.
+# The word after a count, after a space or a hyphen: letters and digits with hyphens and
 # apostrophes inside. A word cut short by another kind of letter ("caf" of a word with an
-# accent) is not read as a noun.
-_NOUN_AFTER = re.compile(r"(?:-|[^\S\r\n]+)([A-Za-z]+(?:['-][A-Za-z]+)*)(?![^\W\d_])")
+# accent) is not read.
+_NEXT_TOKEN = re.compile(r"(?:-|[^\S\r\n]+)([A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*)(?![^\W\d_])")
+_NOUN = re.compile(r"[a-z]+(?:['-][a-z]+)*")
+_DIGITS = re.compile(r"\d[\d.,]*")
+_NUMBER_LEAD = _NUMBER_WORDS | {"quarter"}
 
 
 # -- reading the row -------------------------------------------------------------------
@@ -264,28 +268,38 @@ def _time_unit(after: str) -> str:
     return _TIME_CANON.get(word.group(1).lower(), "") if word else ""
 
 
+def _number_led(token: str) -> bool:
+    """A hyphen compound that starts with a number or a number word ("50-minute",
+    "half-hour", "two-bedroom"): a measure of the noun that follows, not the noun."""
+    head, hyphen, _ = token.partition("-")
+    return bool(hyphen) and (_DIGITS.fullmatch(head) is not None or head in _NUMBER_LEAD)
+
+
 def _counted_unit(after: str) -> str:
     """What a plain count counts, from the words after it: a time unit ("week" for
     "12 weeks", "8 hrs a week"), else the noun as typed in lower case ("reformers" for
     "twelve reformers", "classes" for "8 classes a day"), else "". A noun is the first
-    word after the count once "more", "new", "total" and the like are passed over; a
-    function word, punctuation, the end, or a word longer than NOUN_MAX leaves it
-    without a unit ("12 of 40 members" is 12 with none and 40 members)."""
+    word after the count once "more", "new", "total" and the like (the binder's skip
+    words) and a number-led compound ("six 50-minute classes": classes) are passed over.
+    A word that says nothing about what is counted (a function word, an adverb, or a
+    GENERIC_NOUNS word: "2 others nearby"), punctuation, the end, or a word longer than
+    NOUN_MAX leaves it without a unit ("12 of 40 members" is 12 with none and 40 members)."""
     unit = _time_unit(after)
     if unit:
         return unit
     pos = 0
     while True:
-        found = _NOUN_AFTER.match(after, pos)
+        found = _NEXT_TOKEN.match(after, pos)
         if not found:
             return ""
-        word = found.group(1).lower()
-        if word in _SKIPPED_BEFORE_NOUN:
-            pos = found.end()
+        word, pos = found.group(1).lower(), found.end()
+        if word in _SKIP_WORDS or _number_led(word):
             continue
         if word in _TIME_CANON:
             return _TIME_CANON[word]
-        return "" if word in _FUNCTION_WORDS or not 2 <= len(word) <= NOUN_MAX else word
+        if not _NOUN.fullmatch(word) or not 2 <= len(word) <= NOUN_MAX:
+            return ""
+        return "" if word in _PHRASE_STOP or word in GENERIC_NOUNS else word
 
 
 def _unit(m: Mention, after: str) -> str:

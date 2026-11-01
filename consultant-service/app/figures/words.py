@@ -17,3 +17,13 @@ TIME_CANON: dict[str, str] = {word: one for one, many in _TIME_UNITS for word in
 TIME_CANON.update({"sec": "second", "secs": "second", "min": "minute", "mins": "minute", "hr": "hour",
                    "hrs": "hour", "wk": "week", "wks": "week", "mo": "month", "mos": "month",
                    "yr": "year", "yrs": "year"})
+
+
+# Nouns that say nothing about WHAT a count counts ("2 others nearby", "6 things", "10
+# people"). A client number followed by one has no unit, so any noun the model later puts
+# on that number is the model's word for the same thing and not a different count. Singular
+# and plural are both listed, and the pronouns and determiners that stand where a noun
+# would ("those", "some", "each").
+GENERIC_NOUNS: frozenset[str] = frozenset(
+    "other others one ones thing things item items unit units person persons people folk folks place places "
+    "them those these some any all both each every more".split())
