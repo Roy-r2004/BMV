@@ -82,6 +82,80 @@ def test_a_binder_that_fails_still_reports_every_number(monkeypatch):
     assert [f.number for f in s.findings] == ["37", "12"]
 
 
+def test_a_stage_that_fails_part_way_records_each_number_once(monkeypatch):
+    real = law.snippet
+    calls = {"n": 0}
+
+    def flaky(text, start, end):
+        calls["n"] += 1
+        if calls["n"] == 2:                     # the binder's second finding fails
+            raise RuntimeError("snippet bug")
+        return real(text, start, end)
+
+    monkeypatch.setattr(law, "snippet", flaky)
+    with law.scope(FigureSet(), where="Volume I") as s:
+        law.check("They lose 37 calls and 41 hours.")
+    assert [f.number for f in s.findings] == ["37", "41"]
+
+
+def test_a_working_passes_its_constants_and_a_fraction_of_a_percent_we_hold():
+    known = known_for_texts(["About 12% of visits are no-shows, at $95 a visit."])
+    with law.scope(known, where="Volume I") as s:
+        law.check("900 × 0.12 × $95 × 52", region="working", constants=[52, 12],
+                  fractions_as_percent=True)
+    # "900 x" is read with its operator; it is the one operand nobody gave
+    assert [(f.number.split()[0], f.region) for f in s.findings] == [("900", "working")]
+
+
+def test_the_record_path_takes_only_a_whole_number_id(tmp_path, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "UPLOADS_DIR", str(tmp_path))
+    assert law.findings_path(12, "Volume I").endswith("12-law-volume-i.json")
+    assert law.findings_path("12", "Volume I") == law.findings_path(12, "Volume I")
+    for bad in (None, True, "abc", 12.5, "../12", "12/x"):
+        assert law.findings_path(bad, "Volume I") is None
+
+
+def test_saves_of_one_document_never_share_a_temporary_file(tmp_path, monkeypatch):
+    import threading
+    from datetime import datetime
+
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "UPLOADS_DIR", str(tmp_path))
+    results = []
+
+    def save(n):
+        results.append(law.save(7, "Volume I", [law.Finding(str(n), f"x {n}", "Volume I", n)],
+                                built_at=datetime(2026, 1, 1)))
+
+    threads = [threading.Thread(target=save, args=(n,)) for n in range(1, 9)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert all(results)
+    left = os.listdir(os.path.join(str(tmp_path), "exports"))
+    assert left == ["7-law-volume-i.json"], left
+    with open(os.path.join(str(tmp_path), "exports", left[0]), encoding="utf-8") as fh:
+        assert len(json.load(fh)["findings"]) == 1
+
+
+def test_an_unstamped_sample_is_not_a_value_error():
+    assert not issubclass(law.UnstampedSample, ValueError)
+
+
+@pytest.mark.parametrize("numbers", ["number half a dozen matches", "number twelve hundred matches",
+                                     "number $9,000 matches", "numbers 35, half a dozen and 12 match"])
+def test_the_clients_sentence_covers_numbers_written_with_spaces(numbers):
+    from app.pipeline.method_note import GENERIC_REASON, plain_reason
+
+    reason = f"Volume I, page 7: the {numbers}" + REASON_TAIL
+    assert plain_reason(reason) != GENERIC_REASON
+    assert plain_reason("also " + reason) == GENERIC_REASON
+
+
 def test_findings_are_stable_and_sorted():
     def run():
         with law.scope(FigureSet(), where="Volume I") as s:
@@ -194,6 +268,82 @@ def test_acceptance_the_same_blueprint_without_it_is_not_a_draft_because_of_the_
     assert status["status"] == "final", status["reasons"]
     assert law.recorded(row)["Volume I"] == []
     assert status["law"]["Volume I"] == "checked"
+    # every document of the package was checked before the cover was stamped
+    assert set(status["law"].values()) <= {"checked", "not produced"}, status["law"]
+
+
+# -- the package-level gate ------------------------------------------------------------------
+
+def _cover_text(path: str) -> str:
+    import pymupdf
+
+    doc = pymupdf.open(path)
+    try:
+        return doc[0].get_text()
+    finally:
+        doc.close()
+
+
+def test_a_finding_in_volume_two_stamps_volume_one_draft_even_when_volume_one_is_built_first(db):
+    from app.pipeline import export_pdf as ep
+    from tests._integrity_stub import stamp_clean
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD, technical_plan="## The build\nWe will add 37 screens.\n")
+    path = ep.build_pdf(row, "blueprint")
+    assert "DRAFT" in _cover_text(path)
+    status = ep.release_status(row)
+    assert status["status"] == "draft"
+    assert _law_reasons(status) == ["Volume II, page not located: the number 37 matches" + REASON_TAIL]
+    # the data changes and Volume II is clean: Volume I is rebuilt, and FINAL
+    row.technical_plan = "## The build\nWe will add the screens.\n"
+    stamp_clean(row)
+    db.commit()
+    db.refresh(row)
+    path = ep.build_pdf(row, "blueprint")
+    assert "DRAFT" not in _cover_text(path)
+    assert ep.release_status(row)["status"] == "final"
+
+
+def test_a_cached_volume_is_rebuilt_when_the_package_status_changes(db):
+    from app.pipeline import export_pdf as ep
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD)
+    path = ep.build_pdf(row, "blueprint")
+    assert "DRAFT" not in _cover_text(path)
+    mtime = os.path.getmtime(path)
+    assert ep.build_pdf(row, "blueprint") == path and os.path.getmtime(path) == mtime   # served
+    # another document of the package now holds a finding, with no data change
+    law.save(row.id, "Volume II", [law.Finding("37", "add 37 screens", "Volume II", 3)])
+    assert ep.release_status(row)["status"] == "draft"
+    path = ep.build_pdf(row, "blueprint")
+    assert os.path.getmtime(path) != mtime and "DRAFT" in _cover_text(path)
+
+
+def test_the_deck_and_the_proposal_are_checked_with_the_package(db):
+    from app.pipeline import export_pdf as ep
+    from app.screens import schema
+
+    system, _ = schema.shape_system(_system())
+    row = _seed(db, mvp_blueprint=CLEAN_MD, roles_json="[]", concept_name="BeaconOS",
+                business_analysis_json=json.dumps({"pain_points": ["The front desk misses 37 calls a week"]}),
+                screens_json=json.dumps(system))
+    path = ep.build_pdf(row, "blueprint")
+    assert "DRAFT" in _cover_text(path)
+    deck = law.recorded(row)["The deck"]
+    assert [(f.number, f.page) for f in deck] == [("37", 2)]
+    # the proposal's own story words, each placed on a proposal page without printing it
+    proposal = law.recorded(row)["Volume IV"]
+    assert proposal and all(isinstance(f.page, int) for f in proposal)
+
+
+def test_the_engines_reading_of_a_package_makes_its_records_whole(db):
+    from app.engine.legacy import r30_adapter
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD, technical_plan="## The build\nWe will add 37 screens.\n")
+    assert law.recorded(row)["Volume II"] is None
+    outputs = r30_adapter.load_outputs(row)
+    assert outputs.release["status"] == "draft"
+    assert [f.number for f in law.recorded(row)["Volume II"]] == ["37"]
 
 
 def test_the_draft_stamp_of_a_volume_comes_from_its_own_findings(db):
@@ -241,6 +391,65 @@ def test_a_verified_financial_line_passes_and_an_unverified_one_is_flagged(db):
     assert _pages_holding(path, "$14,820")            # the verified line printed, and passed
 
 
+CONVERSION = {"item": "Missed bookings", "arithmetic": "40 calls × 30% conversion × $95 × 52",
+              "annual": "$59,280/year", "arithmetic_verified": True, "unit": "USD"}
+CALLS = [{"question": "How many calls do you get in a week?", "answer": "We get 40 calls a week"},
+         {"question": "What does one visit cost?", "answer": "$95 a visit"}]
+
+
+def test_an_operand_nobody_gave_in_a_verified_working_is_a_finding(db):
+    """Review Focus 5, the operands: the product is verified, the 30% is not
+    the client's, so the working holds a number nobody owns."""
+    from app.pipeline import export_pdf as ep
+
+    bc = {"financial_model": {"lines": [CONVERSION]}}
+    row = _seed(db, mvp_blueprint=CLEAN_MD, business_case_json=json.dumps(bc), ops_numbers_json=json.dumps(CALLS))
+    path = ep.build_pdf(row, "blueprint")
+    found = law.recorded(row)["Volume I"]
+    assert [(f.number, f.region) for f in found] == [("30%", "working")]
+    assert found[0].page == _pages_holding(path, "30% conversion")[0]
+
+
+def test_a_verified_working_whose_operands_are_theirs_passes(db):
+    from app.pipeline import export_pdf as ep
+
+    facts = CALLS + [{"question": "How many callers book?", "answer": "About 30% of callers book"}]
+    bc = {"financial_model": {"lines": [CONVERSION]}}
+    row = _seed(db, mvp_blueprint=CLEAN_MD, business_case_json=json.dumps(bc), ops_numbers_json=json.dumps(facts))
+    ep.build_pdf(row, "blueprint")
+    assert law.recorded(row)["Volume I"] == []
+
+
+def test_a_number_in_a_discovery_question_is_checked(db):
+    from app.pipeline import export_pdf as ep
+
+    facts = [{"question": "Do you get more than 25 calls on a busy day?", "answer": "Yes, most days"}]
+    row = _seed(db, mvp_blueprint=CLEAN_MD, ops_numbers_json=json.dumps(facts))
+    ep.build_pdf(row, "blueprint")
+    assert [(f.number, f.region) for f in law.recorded(row)["Volume I"]] == [("25", "evidence question")]
+
+
+def test_the_scoreboard_passes_an_owned_number_and_flags_an_unowned_one(db):
+    from app.pipeline import export_pdf as ep
+
+    facts = [{"question": "How many calls go unanswered?", "answer": "About 12 calls a day go unanswered"}]
+    board = [{"metric": "Unanswered calls", "baseline": "12 calls a day", "target": "4 calls a day",
+              "owner": "you", "review": "weekly"}]
+    row = _seed(db, mvp_blueprint=CLEAN_MD, ops_numbers_json=json.dumps(facts), scoreboard_json=json.dumps(board))
+    ep.build_pdf(row, "blueprint")
+    assert [f.number for f in law.recorded(row)["Volume I"]] == ["4"]
+
+
+def test_the_pilot_gate_passes_its_own_proposals_and_flags_an_unowned_number(db):
+    from app.pipeline import export_pdf as ep
+
+    gate = {"primary_metric": "no-shows", "duration": "6 weeks", "duration_value": 6, "duration_unit": "week",
+            "population": "every new patient", "target": "20% fewer no-shows"}
+    row = _seed(db, mvp_blueprint=CLEAN_MD, business_case_json=json.dumps({"pilot_gate": gate}))
+    ep.build_pdf(row, "blueprint")
+    assert [f.number for f in law.recorded(row)["Volume I"]] == ["20%"]
+
+
 def test_a_rebuild_replaces_stale_findings(db):
     from app.pipeline import export_pdf as ep
     from tests._integrity_stub import stamp_clean
@@ -255,7 +464,7 @@ def test_a_rebuild_replaces_stale_findings(db):
     # the data changed: the old build's findings are no longer this package's
     status = ep.release_status(row)
     assert _law_reasons(status) == []
-    assert status["law"]["Volume I"] == "not yet rendered"
+    assert status["law"]["Volume I"] == "not yet checked"
     ep.build_pdf(row, "blueprint")
     assert law.recorded(row)["Volume I"] == []
     assert ep.release_status(row)["status"] == "final"
@@ -303,6 +512,18 @@ def test_the_decks_own_furniture_passes(db):
                                          {"id": "b", "name": "Billing", "purpose": "bills visits"}]))
     export_pptx.build_presentation(row, {"pain_points": ["Calls go unanswered"]}, {}, {"concept_name": "BeaconOS"}, [])
     assert law.recorded(row)["The deck"] == []
+
+
+def test_a_concept_name_with_a_digit_is_drawn_on_the_deck_as_in_the_pdf(db):
+    from app.pipeline import export_pdf as ep
+    from app.pipeline import export_pptx
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD, concept_name="Studio 54 Desk")
+    export_pptx.build_presentation(row, {"pain_points": ["Calls go unanswered"]}, {},
+                                   {"concept_name": "Studio 54 Desk"}, [])
+    assert law.recorded(row)["The deck"] == []
+    ep.build_pdf(row, "blueprint")
+    assert law.recorded(row)["Volume I"] == []
 
 
 # -- the screens and the proposal ---------------------------------------------------------------

@@ -95,7 +95,7 @@ _KINDS: tuple[tuple[re.Pattern, str], ...] = tuple((re.compile(pattern), sentenc
     # the release law (`app.figures.law.page_reasons`): "<document>, <page or
     # slide>: the number(s) <numbers> match(es) none of ..."; the numbers are the open part
     (r"(?:Volume I|Volume II|Volume III|Volume IV|The deck), (?:page|slide) (?:\d+|not located): "
-     r"the (?:number \S+ matches|numbers .+ match) none of the client's figures, our workings, our estimates "
+     r"the (?:number .+? matches|numbers .+? match) none of the client's figures, our workings, our estimates "
      r"or a cited reference",
      "Some figures in the documents are not yet tied to your figures, our workings, our estimates or a "
      "cited source."),

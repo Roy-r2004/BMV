@@ -460,6 +460,11 @@ def load_outputs(row: Any) -> R30Outputs:
     r30's own: a shape the engine invented would drift from what r30 ships."""
     content = _integrity.load(row)
     report = _integrity.current_report(row)
+    # The release law's records must be whole before r30's gate is read. They
+    # sit beside the exports; the row itself is still never written.
+    from app.figures import law as _law
+
+    _law.ensure_records(row)
     return R30Outputs(
         request_id=int(getattr(row, "id", 0) or 0),
         status=str(getattr(row, "status", "") or ""),

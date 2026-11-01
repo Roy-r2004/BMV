@@ -613,6 +613,11 @@ def default_legacy_status(request_id: int) -> Mapping[str, Any]:
         row = db.get(Request, int(request_id))
         if row is None:
             return {"found": False, "reasons": [], "integrity_current": False, "integrity_findings": []}
+        # the release law's records must be whole before the gate is read; this
+        # writes only those records beside the exports, never the row
+        from app.figures import law
+
+        law.ensure_records(row)
         gate = export_pdf.release_status(row)
         report = integrity.current_report(row)
         return {"found": True, "status": gate["status"], "reasons": list(gate["reasons"]),

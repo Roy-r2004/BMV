@@ -30,11 +30,15 @@ region is text inside `sample_region()`: the law does not read it, and the
 template that opens one must carry the SAMPLE DATA stamp (`stamped`), or it
 refuses to render.
 
-`save` and `recorded` keep each document's findings beside its file, stamped
-with the time its build started. `recorded` returns them only while that build
-is newer than the request's last data change, so findings from a superseded
-build never survive, and a rebuild replaces them. `page_reasons` turns them into
-the release gate's reasons, one per page.
+`save` and `record` keep each document's findings beside its file, stamped
+with the time its check started and the release status its cover carries. A
+record counts only while its check is newer than the request's last data
+change, so findings from a superseded build never survive, and a rebuild
+replaces them. `ensure_records` runs the law-only pass of every document of the
+package that has no fresh record (content through the law, nothing printed), so
+a cover is always stamped from the whole package's status; a cached file is
+served only while the status it was stamped with is still the package's.
+`page_reasons` turns the records into the release gate's reasons, one per page.
 """
 from __future__ import annotations
 
@@ -46,7 +50,9 @@ import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
+import tempfile
 from datetime import datetime
+from decimal import Decimal
 from typing import Iterable, Iterator, Sequence
 
 from app.figures.model import FigureSet
@@ -175,7 +181,7 @@ def stamped(html: object) -> bool:
     return SAMPLE_STAMP.lower() in str(html or "").lower()
 
 
-class UnstampedSample(ValueError):
+class UnstampedSample(Exception):
     """A sample region was drawn without the SAMPLE DATA stamp: its numbers would
     read as the client's, so it is not drawn at all."""
 
@@ -210,31 +216,60 @@ def snippet(text: str, start: int, end: int) -> str:
     return _printed(left + text[start:end] + right)
 
 
-def _record(s: Scope, number: str, text: str, start: int, end: int, region: str | None,
-            page: int | None) -> None:
-    s._found.append(Finding(str(number), snippet(text, start, end), str(region or s.where),
-                            page if isinstance(page, int) and not isinstance(page, bool) else None))
+def _finding(s: Scope, number: str, text: str, start: int, end: int, region: str | None,
+             page: int | None) -> Finding:
+    return Finding(str(number), snippet(text, start, end), str(region or s.where),
+                   page if isinstance(page, int) and not isinstance(page, bool) else None)
 
 
-def check(text, *, region: str | None = None, page: int | None = None):
+def _exempt(m, known: FigureSet, constants: frozenset, fractions_as_percent: bool) -> bool:
+    """Whether an unresolved number in a working is one of the working's own
+    constants, or a share written as a fraction of a percent figure we hold
+    (0.12 for the client's 12%, the registry's own convention)."""
+    value = getattr(m, "value", None)
+    # in a working "0.12 x" is an operand and its operator, which the reader
+    # reads as a multiplier: the same number either way
+    if value is None or getattr(m, "form", None) not in ("digit", "word", "range", "multiplier"):
+        return False
+    if value in constants:
+        return True
+    if fractions_as_percent and 0 < value < 1:
+        return any(f.unit == "percent" for f in known.match(value * 100))
+    return False
+
+
+def check(text, *, region: str | None = None, page: int | None = None,
+          constants: Iterable = (), fractions_as_percent: bool = False):
     """`text` with each number that names a figure of the active scope printed
     as that figure's value; every number that names none is recorded as a
     `Finding` and left as written. `region` overrides the scope's document name
-    in the finding; `page` is the page or slide when the caller already knows it.
+    in the finding ("working", "evidence question"); `page` is the page or slide
+    when the caller already knows it.
+
+    A working (the arithmetic behind a derived figure) passes its own constants:
+    `constants` are the values the code that verified it allows besides figures
+    (the calendar constants, the line's period step), and with
+    `fractions_as_percent` a share written as 0.12 matches the 12% we hold.
 
     Outside a scope, inside a sample region or declared furniture, and for
     anything that is not a string, the text comes back untouched. Never raises:
     if the binder fails, every number the reader finds (or, failing that, every
-    digit run) is recorded as a finding, and the text comes back as it was."""
+    digit run) is recorded as a finding, and the text comes back as it was. A
+    stage that fails part-way records nothing, so no number is recorded twice."""
     s = _ACTIVE.get()
     if s is None or _UNREAD.get() > 0 or not isinstance(text, str) or not text:
         return text
     try:
+        allowed = frozenset(Decimal(str(c)) for c in constants)
+    except Exception:
+        allowed = frozenset()
+    try:
         from app.figures.bind import bind
 
         r = bind(text, s.known, hours=s.hours)
-        for u in r.unresolved:
-            _record(s, u.text, r.text, u.start, u.end, region, page)
+        found = [_finding(s, u.text, r.text, u.start, u.end, region, page) for u in r.unresolved
+                 if not _exempt(u, s.known, allowed, fractions_as_percent)]
+        s._found.extend(found)
         return r.text
     except Exception as exc:                                   # a law that raises stops a build
         logger.warning("the release law could not bind a text (%s); its numbers are findings",
@@ -242,14 +277,16 @@ def check(text, *, region: str | None = None, page: int | None = None):
     try:
         from app.figures.read import mentions
 
-        for m in mentions(text):
-            _record(s, m.text, text, m.start, m.end, region, page)
+        found = [_finding(s, m.text, text, m.start, m.end, region, page) for m in mentions(text)
+                 if not _exempt(m, s.known, allowed, fractions_as_percent)]
+        s._found.extend(found)
         return text
     except Exception:
         pass
     try:
-        for m in _DIGIT_RUN.finditer(text):
-            _record(s, m.group(0), text, m.start(), m.end(), region, page)
+        found = [_finding(s, m.group(0), text, m.start(), m.end(), region, page)
+                 for m in _DIGIT_RUN.finditer(text)]
+        s._found.extend(found)
     except Exception:                                          # pragma: no cover - last resort
         pass
     return text
@@ -315,6 +352,14 @@ def locate_pages(pdf_path: str, findings: Iterable[Finding], *,
     except Exception as exc:
         logger.warning("could not read %s to locate the law's findings (%s)", pdf_path, type(exc).__name__)
         return sorted_findings(findings)
+    return locate_in_texts(texts, findings)
+
+
+def locate_in_texts(texts: Sequence[str], findings: Iterable[Finding]) -> list[Finding]:
+    """`locate_pages` over page texts the caller already has (page 1 first), for
+    a document whose pages are known without printing it."""
+    findings = [f for f in findings if isinstance(f, Finding)]
+    texts = [_SPACE.sub(" ", str(t or "")) for t in texts]
     by_snippet: dict[str, list[int]] = {}
     for i, f in enumerate(findings):
         by_snippet.setdefault(f.snippet, []).append(i)
@@ -340,36 +385,48 @@ def _slug(where: str) -> str:
 
 def findings_path(request_id: object, where: str) -> str | None:
     """Where a document's findings are kept: beside its file in the exports
-    folder, named after the request, so they go wherever the file goes."""
-    if request_id is None or isinstance(request_id, bool):
+    folder, named after the request, so they go wherever the file goes. None
+    for anything that is not a request's whole-number id."""
+    if isinstance(request_id, bool):
+        return None
+    try:
+        rid = int(request_id)
+    except (TypeError, ValueError):
+        return None
+    if str(rid) != str(request_id).strip():
         return None
     from app.config import settings
 
-    return os.path.join(settings.UPLOADS_DIR, "exports", f"{request_id}-law-{_slug(where)}.json")
+    return os.path.join(settings.UPLOADS_DIR, "exports", f"{rid}-law-{_slug(where)}.json")
 
 
 def save(request_id: object, where: str, findings: Iterable[Finding], *,
-         built_at: datetime | None = None) -> bool:
-    """Keep a document's findings, replacing what an earlier build kept.
-    `built_at` is when the build started (naive UTC). Never raises; False when
-    nothing could be kept."""
+         built_at: datetime | None = None, stamped: str | None = None, absent: bool = False) -> bool:
+    """Keep a document's findings, replacing what an earlier check kept.
+    `built_at` is when the build started (naive UTC). `stamped` is the release
+    status the built file carries on its cover (None when no file was made: a
+    law-only pass). `absent` records that the package has no such document yet
+    (its stage has not produced it). Never raises; False when nothing could be
+    kept. Each save writes its own temporary file, so two builds of the same
+    document cannot write into each other's."""
     path = findings_path(request_id, where)
     if path is None:
         return False
     record = {"where": where, "built_at": (built_at or datetime.utcnow()).isoformat(),
-              "findings": [as_json(f) for f in sorted_findings(findings)]}
+              "stamped": stamped if isinstance(stamped, str) else None, "absent": bool(absent),
+              "findings": [] if absent else [as_json(f) for f in sorted_findings(findings)]}
     body = json.dumps(record)
+    folder = os.path.dirname(path)
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        os.makedirs(folder, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp", dir=folder)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(body)
     except OSError as exc:
         logger.warning("could not keep the law's findings for %s (%s)", where, type(exc).__name__)
         return False
     # Windows refuses a replace while another process (a virus scanner reading
-    # the file just written) holds either file open: wait for it briefly, then
-    # write in place rather than lose the record.
+    # the file just written) holds either file open: wait for it briefly.
     for attempt in range(_REPLACE_ATTEMPTS):
         try:
             os.replace(tmp, path)
@@ -377,50 +434,115 @@ def save(request_id: object, where: str, findings: Iterable[Finding], *,
         except OSError:
             time.sleep(_REPLACE_WAIT * (attempt + 1))
     try:
-        with open(path, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(body)
-        return True
-    except OSError as exc:
-        logger.warning("could not keep the law's findings for %s (%s)", where, type(exc).__name__)
-        return False
+        os.remove(tmp)
+    except OSError:
+        pass
+    logger.warning("could not keep the law's findings for %s (the file stayed locked)", where)
+    return False
 
 
-def _load(request_id: object, where: str, updated_at: datetime | None) -> list[Finding] | None:
-    """A document's kept findings, when its build started after the request's
-    last data change; None when it was never built since (or cannot be read)."""
+def record(request_id: object, where: str, updated_at: datetime | None) -> dict | None:
+    """A document's kept record (`findings` as `Finding`s, `stamped`, `absent`),
+    when its check started after the request's last data change; None when it
+    was never checked since (or the record cannot be read)."""
     path = findings_path(request_id, where)
     if path is None or not isinstance(updated_at, datetime) or not os.path.isfile(path):
         return None
     try:
         with open(path, encoding="utf-8") as fh:
-            record = json.load(fh)
-        built_at = datetime.fromisoformat(str(record.get("built_at")))
+            raw = json.load(fh)
+        built_at = datetime.fromisoformat(str(raw.get("built_at")))
     except (OSError, ValueError, TypeError, AttributeError):
         return None
     if built_at.tzinfo is not None or not built_at > updated_at:
         return None
-    items = record.get("findings") if isinstance(record.get("findings"), list) else []
-    return [f for f in (from_json(d) for d in items) if f is not None]
+    items = raw.get("findings") if isinstance(raw.get("findings"), list) else []
+    stamped = raw.get("stamped")
+    return {"findings": [f for f in (from_json(d) for d in items) if f is not None],
+            "stamped": stamped if isinstance(stamped, str) else None,
+            "absent": raw.get("absent") is True}
 
 
 def fresh(request_id: object, where: str, updated_at: datetime | None) -> bool:
-    """Whether the document has kept findings from a build newer than the
-    request's last data change (an empty list counts: it was checked)."""
-    return _load(request_id, where, updated_at) is not None
+    """Whether the document has a record from a check newer than the request's
+    last data change (an empty list counts: it was checked)."""
+    return record(request_id, where, updated_at) is not None
+
+
+def _records(req) -> dict[str, dict | None]:
+    request_id = getattr(req, "id", None)
+    updated_at = getattr(req, "updated_at", None)
+    out = {where: record(request_id, where, updated_at) for where, _ in DOCUMENTS}
+    s = _ACTIVE.get()
+    if s is not None and request_id is not None and s.request_id == request_id:
+        out[s.where] = {"findings": list(s.pending if s.pending is not None else s._found),
+                        "stamped": None, "absent": False}
+    return out
 
 
 def recorded(req) -> dict[str, list[Finding] | None]:
     """Each document's findings as the release gate should read them: the kept
-    findings of its latest build when that build is newer than the request's
-    last data change, None when it has not been rendered since. While a document
-    of this request is being built, what its earlier pass found stands in for it."""
+    findings of its latest check when that check is newer than the request's
+    last data change ([] for a document the package does not have), None when it
+    has not been checked since. While a document of this request is being
+    built, what its earlier pass found stands in for it."""
+    return {where: (None if r is None else r["findings"]) for where, r in _records(req).items()}
+
+
+def states(req) -> dict[str, str]:
+    """Each document's state in the team's words: "checked", "N number(s)
+    nobody owns", "not produced" (the package has none yet) or "not yet
+    checked" (nothing has read it since the last data change)."""
+    out = {}
+    for where, r in _records(req).items():
+        if r is None:
+            out[where] = "not yet checked"
+        elif r["absent"]:
+            out[where] = "not produced"
+        elif not r["findings"]:
+            out[where] = "checked"
+        else:
+            n = len(r["findings"])
+            out[where] = f"{n} number{'s' if n != 1 else ''} nobody owns"
+    return out
+
+
+def _checkers():
+    """The law-only pass of each document, by the module that draws it."""
+    from app.pipeline import export_pdf, export_pptx
+    from app.screens import export as screens_export
+
+    return (("Volume I", lambda r: export_pdf.check_volume(r, "blueprint")),
+            ("Volume II", lambda r: export_pdf.check_volume(r, "technical")),
+            ("Volume III", lambda r: export_pdf.check_volume(r, "operations")),
+            ("Volume IV", screens_export.check_proposal),
+            ("The deck", export_pptx.check_deck))
+
+
+def ensure_records(req) -> dict[str, list[Finding] | None]:
+    """Make sure every document of the package has a record newer than the
+    request's last data change, running each missing one's law-only pass (its
+    content through the law, no file printed), so the package's release status
+    is whole before any cover is stamped. Returns `recorded(req)`. A request
+    with no id or no `updated_at` cannot hold a fresh record and is left as it
+    is. Never raises: a pass that fails leaves its document unchecked."""
     request_id = getattr(req, "id", None)
     updated_at = getattr(req, "updated_at", None)
-    out = {where: _load(request_id, where, updated_at) for where, _ in DOCUMENTS}
-    s = _ACTIVE.get()
-    if s is not None and request_id is not None and s.request_id == request_id:
-        out[s.where] = list(s.pending if s.pending is not None else s._found)
-    return out
+    if findings_path(request_id, "x") is None or not isinstance(updated_at, datetime):
+        return recorded(req)
+    try:
+        checkers = _checkers()
+    except Exception:
+        logger.warning("the release law's checkers could not be loaded", exc_info=True)
+        return recorded(req)
+    for where, check_document in checkers:
+        if record(request_id, where, updated_at) is not None:
+            continue
+        try:
+            check_document(req)
+        except Exception:
+            logger.warning("the release law could not check %s", where, exc_info=True)
+    return recorded(req)
 
 
 def page_reasons(by_document: dict[str, list[Finding] | None]) -> list[tuple[str, str, str]]:

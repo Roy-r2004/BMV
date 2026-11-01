@@ -350,6 +350,36 @@ def build_presentation(
     return prs
 
 
+def deck_inputs(req: Request) -> tuple[dict, dict, dict] | None:
+    """The deck's inputs as the export route reads them off the row, or None
+    while the plan the deck needs is not there yet."""
+    if not getattr(req, "roles_json", None):
+        return None
+
+    def loads(raw, default):
+        try:
+            return json.loads(raw) if raw else default
+        except (TypeError, ValueError):
+            return default
+
+    plan = {"concept_name": getattr(req, "concept_name", None), "roles": loads(req.roles_json, []),
+            "visual_theme": loads(getattr(req, "visual_theme_json", None), {})}
+    return (loads(getattr(req, "business_analysis_json", None), {}),
+            loads(getattr(req, "consulting_recommendations_json", None), {}), plan)
+
+
+def check_deck(req: Request) -> None:
+    """The deck's law-only pass (`law.ensure_records`): the deck is built in
+    memory exactly as the route builds it, with its screens, so its slide
+    numbers are the downloaded deck's, and never saved. A deck the package
+    cannot have yet is recorded as not produced."""
+    inputs = deck_inputs(req)
+    if inputs is None:
+        law.save(getattr(req, "id", None), "The deck", [], built_at=datetime.utcnow(), absent=True)
+        return
+    build_presentation(req, *inputs, list(getattr(req, "images", None) or []))
+
+
 def _build_presentation(
     req: Request,
     analysis: dict,
@@ -439,9 +469,10 @@ def _build_presentation(
     # Two lines of room, because a long concept name makes this headline
     # wrap and PowerPoint will not shrink it — at a one-line box the second
     # line was drawn straight through the panels below.
+    # the deck's own headline around the concept name: drawn, as the PDF draws the name
     _add_text(
         slide, f"What we have — and where {concept} takes you", MARGIN, Inches(1.02),
-        Inches(11.8), Inches(1.5), size=30, color=TEXT, font=FONT_DISPLAY,
+        Inches(11.8), Inches(1.5), size=30, color=TEXT, font=FONT_DISPLAY, drawn=True,
     )
 
     # Capped at 3 per column with a wide clearance gap before the summary —
@@ -807,7 +838,7 @@ def _build_presentation(
     chrome(slide, label="The next step")
     _add_text(
         slide, f"Ready to make {concept} real?", MARGIN, Inches(1.15), Inches(11.8), Inches(1),
-        size=34, color=TEXT, font=FONT_DISPLAY,
+        size=34, color=TEXT, font=FONT_DISPLAY, drawn=True,
     )
     # The honest paths, stated on the deck the client keeps: this document
     # set is complete enough to execute without us — and the deep-dive is

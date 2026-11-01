@@ -696,8 +696,9 @@ def release_status(req: Request) -> dict:
             reasons.append(f"integrity layer: {len(rep['findings'])} finding(s)")
     # the release law, read from each document's latest build (`law.recorded`):
     # a number on a page that names none of the request's figures. One reason
-    # per page. A document not rendered since the last data change has no
-    # findings to give, and says so under "law" (rendering it is what checks it).
+    # per page. This only reads the records (cheap); `law.ensure_records` is
+    # what makes them whole, and every build calls it before stamping a cover.
+    # A document not checked since the last data change says so under "law".
     recorded = law.recorded(req)
     for where, place, said in law.page_reasons(recorded):
         reasons.append(f"{where}, {place}: {said} none of the client's figures, our workings, "
@@ -708,15 +709,7 @@ def release_status(req: Request) -> dict:
     dc = _reg.document_control(req)
     status = "draft" if reasons else ("client_approved" if dc["complete"] else "final")
     return {"status": status, "status_label": STATUS_LABELS[status], "reasons": reasons, "client_approval": dc,
-            "law": {where: _law_state(found) for where, found in recorded.items()}}
-
-
-def _law_state(found: list | None) -> str:
-    if found is None:
-        return "not yet rendered"
-    if not found:
-        return "checked"
-    return f"{len(found)} number{'s' if len(found) != 1 else ''} nobody owns"
+            "law": law.states(req)}
 
 
 def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
@@ -1164,6 +1157,44 @@ def _pilot_gate_flowables(business_case: dict) -> list:
     return flows
 
 
+_PERIOD_STEPS = (1, 12, 26, 52, 365)          # the steps `decompose` lets a product annualize by
+
+
+def _period_step(line: dict):
+    """The period step a verified line annualizes by (x12, x26, x52, x365), as
+    the decomposition found it: the step that turns the product of the
+    arithmetic's numbers into the printed result. None when no step fits."""
+    from decimal import Decimal
+
+    from app.figures.read import mentions
+
+    try:
+        values = [m.value / 100 if m.form == "percent" else m.value
+                  for m in mentions(str(line.get("arithmetic") or ""))]
+        results = [m.value for m in mentions(str(line.get("annual") or ""))]
+        if len(values) < 2 or not results or not results[0]:
+            return None
+        product = Decimal(1)
+        for v in values:
+            product *= v
+        step, rel = min(((p, abs(product * p - results[0]) / abs(results[0])) for p in _PERIOD_STEPS),
+                        key=lambda pair: pair[1])
+        return step if rel <= Decimal("0.05") and step != 1 else None
+    except Exception:
+        return None
+
+
+def _working(line: dict) -> str:
+    """A verified line's arithmetic, through the law as a working: each operand
+    must be a figure we hold, or a calendar constant (`figures.CONSTANTS`), or
+    the line's own period step; a share written as 0.12 matches our 12%."""
+    from app.pipeline.figures import CONSTANTS
+
+    allowed = list(CONSTANTS) + ([_period_step(line)] if _period_step(line) else [])
+    text = _strip_artifacts(str(line.get("arithmetic") or ""))
+    return _inline(law.check(text, region="working", constants=allowed, fractions_as_percent=True))
+
+
 def _financial_model_flowables(business_case: dict) -> list:
     """The quantified case: the owner's numbers annualized, three labeled
     scenarios, and the inputs still missing — computed upstream by the
@@ -1195,12 +1226,13 @@ def _financial_model_flowables(business_case: dict) -> list:
         for l in lines:
             item = _rich(str(l.get("item") or ""))
             # A verified line's result is a derived figure (`registry.derived_claims`,
-            # in the volume's known set) and its arithmetic is that figure's own
-            # working, whose product the decomposition verified (and repaired to the
-            # exact product): drawn as the figure's record, like the period step in it.
-            # An unverified line is prose like any other, so its result is a number
-            # nobody worked out and the law records it.
-            arith = (_drawn if l.get("arithmetic_verified") else _rich)(str(l.get("arithmetic") or ""))
+            # in the volume's known set). Its arithmetic is that figure's working:
+            # the decomposition verified the product, not who owns each operand, so
+            # every operand must be a figure we hold, save the calendar constants
+            # and the line's own period step (`_working`). An unverified line is
+            # prose like any other, so its result is a number nobody worked out
+            # and the law records it.
+            arith = (_working(l) if l.get("arithmetic_verified") else _rich(str(l.get("arithmetic") or "")))
             annual = _rich(_quantity(l.get("annual"),
                                      str(l.get("arithmetic") or "") + " " + str(l.get("item") or ""),
                                      unit=l.get("unit")))
@@ -1269,9 +1301,10 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
     if facts or req.revenue_today or req.main_problem:
         flows.append(Paragraph("Facts you supplied", _S["h2toc"]))
     for f in facts:
-        # the question is our record of what we asked, quoted (drawn); the
-        # answer is the client's own words, content whose numbers are theirs
-        q = _drawn(str(f.get("question") or ""))
+        # the question was written by the interviewing model, so it is content
+        # like any other (a number in it must be a figure we hold); the answer is
+        # the client's own words, whose numbers are theirs
+        q = _inline(law.check(_strip_artifacts(str(f.get("question") or "")), region="evidence question"))
         a = _rich(str(f.get("answer") or ""))
         if q or a:
             flows.append(Paragraph(f"<b>{q}</b> — {a}", _S["bullet"], bulletText="•"))
@@ -1815,14 +1848,12 @@ def build_pdf(req: Request, kind: str) -> str:
     # download button reads as broken. Serve the file already on disk while
     # it is newer than the run's last data change (a rerun or a reviewer
     # edit bumps updated_at, which invalidates it).
-    # The release law's findings for the file are kept beside it, so a file
-    # served from here still reports them; one with none kept is rebuilt.
+    # The release law keeps a record beside the file, with the status its
+    # cover was stamped with. Before any cover is stamped, every document of
+    # the package is checked (`law.ensure_records`), so the stamp is the
+    # PACKAGE's status; the file on disk is served only while that stamp is
+    # still the package's status (another document's findings can change it).
     where = VOLUMES.get(kind, "Volume III")
-    cached = os.path.join(settings.UPLOADS_DIR, "exports", f"{req.id}-{kind}.pdf")
-    if os.path.isfile(cached) and req.updated_at is not None:
-        if (datetime.utcfromtimestamp(os.path.getmtime(cached)) > req.updated_at
-                and law.fresh(req.id, where, req.updated_at)):
-            return cached
     started = datetime.utcnow()
 
     if kind == "blueprint":
@@ -1839,18 +1870,32 @@ def build_pdf(req: Request, kind: str) -> str:
     if kind != "operations" and not md:
         raise ValueError(f"{kind} document not ready")
 
+    law.ensure_records(req)
+    cached = os.path.join(settings.UPLOADS_DIR, "exports", f"{req.id}-{kind}.pdf")
+    kept = law.record(req.id, where, req.updated_at)
+    if os.path.isfile(cached) and req.updated_at is not None and kept is not None:
+        if (datetime.utcfromtimestamp(os.path.getmtime(cached)) > req.updated_at
+                and kept["stamped"] is not None and kept["stamped"] == release_status(req)["status"]):
+            return cached
+
     business_case = _loads(req.business_case_json, {})
     known, hours = document_known(req, business_case)
 
-    # Two passes over the same flowables. The cover's status (and the method
-    # note's list of what is not verified) is decided while the flowables are
-    # made, before the law has read the pages after it; the first pass is how
-    # the second knows what this very volume holds.
-    with law.scope(known, where=where, hours=hours, request_id=req.id) as first:
-        _volume_flows(req, kind, md, label, sub, business_case)
-    with law.scope(known, where=where, hours=hours, request_id=req.id, pending=first.findings) as final:
+    # The cover's status (and the method note's list of what is not verified)
+    # is decided while the flowables are made, before the law has read the
+    # pages after it. What this volume holds comes from its record (the law-only
+    # pass `ensure_records` just ran, or an earlier build); a row that cannot
+    # keep records gets a first pass of its own.
+    if kept is not None:
+        pending = kept["findings"]
+    else:
+        with law.scope(known, where=where, hours=hours, request_id=req.id) as first:
+            _volume_flows(req, kind, md, label, sub, business_case)
+        pending = first.findings
+    with law.scope(known, where=where, hours=hours, request_id=req.id, pending=pending) as final:
         flows = _volume_flows(req, kind, md, label, sub, business_case)
-        draft = _is_draft(req)
+        stamped = release_status(req)["status"]
+    draft = stamped == "draft"
 
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
@@ -1874,12 +1919,37 @@ def build_pdf(req: Request, kind: str) -> str:
     # the running header and the footer (`_page_chrome`) are drawn in these
     # bands above and below the body frame; the law's snippets are not sought there
     law.save(req.id, where, law.locate_pages(out_path, final.findings, margins=(15 * mm, 19 * mm)),
-             built_at=started)
+             built_at=started, stamped=stamped)
     return out_path
 
 
 #: The release law's name for each volume (`law.DOCUMENTS`).
 VOLUMES = {"blueprint": "Volume I", "technical": "Volume II", "operations": "Volume III"}
+_VOLUME_LABELS = {"blueprint": ("The Blueprint", "Volume I — strategy"),
+                  "technical": ("The Technical Plan", "Volume II — the build"),
+                  "operations": ("The Operations Manual", "Volume III — running it day to day")}
+
+
+def check_volume(req: Request, kind: str) -> None:
+    """The law-only pass of one volume (`law.ensure_records`): its flowables
+    made inside the law, no PDF laid out, no page located. A volume the package
+    does not have yet is recorded as not produced. Raises nothing it can help."""
+    where = VOLUMES[kind]
+    started = datetime.utcnow()
+    md = req.mvp_blueprint if kind == "blueprint" else req.technical_plan if kind == "technical" else None
+    if kind != "operations" and not md:
+        law.save(req.id, where, [], built_at=started, absent=True)
+        return
+    label, sub = _VOLUME_LABELS[kind]
+    business_case = _loads(req.business_case_json, {})
+    known, hours = document_known(req, business_case)
+    try:
+        with law.scope(known, where=where, hours=hours, request_id=req.id) as found:
+            _volume_flows(req, kind, md, label, sub, business_case)
+    except ValueError:                                  # "operations manual not ready"
+        law.save(req.id, where, [], built_at=started, absent=True)
+        return
+    law.save(req.id, where, found.findings, built_at=started)
 
 
 def gate_figures(gate: dict | None) -> list:
