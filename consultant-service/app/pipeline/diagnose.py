@@ -43,7 +43,8 @@ from app.pipeline._shared import (
     log_usage, reply_json,
 )
 from app.pipeline import evidence
-from app.pipeline.analyze import clean_prose, cut_prose, log_removed
+from app.pipeline.analyze import (Checked, NumberCheckFailed, Removed, check_text, cut_prose, log_removed,
+                                   remember_hint, retry_hint, with_hint)
 from app.pipeline.failure import StageFailed
 from app.pipeline.registry import client_fact_claims
 from app.templating import render
@@ -62,9 +63,12 @@ STALE_AT_DIAGNOSIS = frozenset({"answer", "registry", "roadmap"})
 BECAUSE_CHARS = 400
 NOTE_CHARS = 300
 
-#: Checks the text of one model-written field: binds its numbers to the figures
-#: the request knows and takes out each sentence that holds one nobody owns.
-Clean = Callable[[str], str]
+#: Checks the text of one model-written field (`clean(text, where="")`): binds its numbers
+#: to the figures the request knows and takes out each sentence that holds one nobody
+#: owns. `where` names the field, for the log and the hint. `Check` gives the whole
+#: result (what is left, how many sentences went, and the numbers that caused it).
+Clean = Callable[..., str]
+Check = Callable[..., Checked]
 
 #: The two angles the skeptics attack from. Distinct on purpose: two
 #: reviewers given the same brief agree with each other, which reads as
@@ -149,75 +153,93 @@ def _call(prompt: str, model: str, max_tokens: int) -> tuple[dict, dict | None]:
     return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage")
 
 
-def _ask(prompt: str, model: str, max_tokens: int, use, record):
+def _ask(prompt: str, model: str, max_tokens: int, use, record, hints: list[str] | None = None):
     """One call whose reply must be usable, asked again when it is not (see
     `ask_until_usable`). Touches no session itself: `record` is told of each
-    call, so it can run on a worker thread."""
+    call, so it can run on a worker thread. When `use` raises `NumberCheckFailed`,
+    its hint is added to the prompt of the next ask (`hints` is where it is kept)."""
+    hints = [] if hints is None else hints
     return ask_until_usable(
-        lambda: provider.chat(model, [{"role": "user", "content": prompt}], max_tokens=max_tokens),
-        lambda body: use(reply_json(body)),
+        lambda: provider.chat(model, [{"role": "user", "content": with_hint(prompt, hints)}],
+                              max_tokens=max_tokens),
+        remember_hint(lambda body: use(reply_json(body)), hints),
         record,
     )
 
 
-def _enough_explanations(known_ids: set[str], clean: Clean):
+def _enough_explanations(known_ids: set[str], check: Check, figures: str):
     """The `use` for the diagnostician's reply: its usable explanations, or a
     ValueError when there are fewer than `MIN_HYPOTHESES`. One explanation is
     not a diagnosis, it is an opinion, and dressing a single guess up as a
     tested conclusion is the thing this stage exists to prevent.
 
     An explanation whose every sentence held a number nobody owns has no
-    statement left and is not usable, so a reply made of them is asked for again."""
+    statement left and is not usable, so a reply made of them is asked for again,
+    and when that is why there are too few the error is a `NumberCheckFailed`: its
+    hint names those explanations by id and the numbers in each (never their
+    sentences), and `figures` is the figures list the prompt shows."""
 
     def use(raw: dict) -> list[dict]:
-        emptied: list[str] = []
-        hypotheses = _sanitize_hypotheses(raw.get("hypotheses"), known_ids, clean, emptied)
+        hypotheses, emptied = _sanitize_hypotheses(raw.get("hypotheses"), known_ids, check)
         if len(hypotheses) < MIN_HYPOTHESES:
             # the cause is recorded (failure_json, the team's email): say when it was the number check
             by_check = (f"; {len(emptied)} had no statement left once the sentences holding a number "
                         f"nobody gave were taken out" if emptied else "")
-            raise ValueError(
-                f"the model gave {len(hypotheses)} usable explanation{'' if len(hypotheses) == 1 else 's'}, "
-                f"and a diagnosis needs {MIN_HYPOTHESES}{by_check}")
+            message = (f"the model gave {len(hypotheses)} usable explanation{'' if len(hypotheses) == 1 else 's'}, "
+                       f"and a diagnosis needs {MIN_HYPOTHESES}{by_check}")
+            if not emptied:
+                raise ValueError(message)
+            causes: dict[str, list[str]] = {}
+            for hid, numbers in emptied:
+                held = causes.setdefault(hid, [])
+                held.extend(n for n in numbers if n not in held)
+            raise NumberCheckFailed(message, retry_hint(
+                f"A diagnosis needs at least {MIN_HYPOTHESES} explanations, and these lost their statement "
+                "because every sentence of it held a number that is not in the figures list. The explanation "
+                "(by the id you gave it) and the numbers:", causes, figures))
         return hypotheses
 
     return use
 
 
-def _sanitize_hypotheses(raw: list, known_ids: set[str], clean: Clean, emptied: list[str]) -> list[dict]:
+def _sanitize_hypotheses(raw: list, known_ids: set[str],
+                         check: Check) -> tuple[list[dict], list[tuple[str, list[str]]]]:
     """Keep the shape honest and drop citations to claims that do not exist.
 
     A fabricated id is worse than no id: downstream it reads exactly like a
     real one, and the client is shown a conclusion resting on a number they
     never gave. The same goes for a number in the prose: each text is checked
-    (`clean`) and only then cut to the length stored, at a word or sentence end,
+    (`check`) and only then cut to the length stored, at a word or sentence end,
     so a cut can never leave a piece of a figure that matches one the client
     gave. An explanation with no statement left is dropped like one that had
-    none, and its id is appended to `emptied` when it was the check that
-    emptied it.
+    none. Returns the explanations kept, and (id, the numbers that caused it) for
+    each one the number check emptied.
     """
-    out = []
+    out, emptied = [], []
     for i, h in enumerate(raw or [], start=1):
         if not isinstance(h, dict) or not str(h.get("statement") or "").strip():
             continue
-        statement = cut_prose(clean(str(h["statement"])), 400)
+        hid = str(h.get("id") or f"H{i}")[:8]
+        checked = check(str(h["statement"]), f"{hid} statement")
+        statement = cut_prose(checked.text, 400)
         if not statement.strip():
-            emptied.append(str(h.get("id") or f"H{i}")[:8])
+            if checked.sentences:
+                emptied.append((hid, checked.causes))
             continue
         cites = [c for c in (h.get("cites") or []) if isinstance(c, str) and c in known_ids]
         out.append({
-            "id": str(h.get("id") or f"H{i}")[:8],
+            "id": hid,
             "statement": statement,
             "area": str(h.get("area") or "other")[:40],
             "software_can_fix": bool(h.get("software_can_fix")),
-            "would_support": cut_prose(clean(str(h.get("would_support") or "")), 300),
-            "would_refute": cut_prose(clean(str(h.get("would_refute") or "")), 300),
+            "would_support": cut_prose(check(str(h.get("would_support") or ""), f"{hid} would_support").text, 300),
+            "would_refute": cut_prose(check(str(h.get("would_refute") or ""), f"{hid} would_refute").text, 300),
             "cites": cites,
             "from_owner": bool(h.get("from_owner")),
         })
         if len(out) >= MAX_HYPOTHESES:
             break
-    return out
+    return out, emptied
 
 
 def _rank(h: dict) -> tuple:
@@ -290,10 +312,15 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
         # no check, no diagnosis: stopped like any other failure, and the old one cleared
         logger.warning("the figures a diagnosis is checked against could not be read: %s", str(exc)[:200])
         raise _stopped(db, request_id, exc) from exc
-    removed: list[str] = []
+    removed = Removed()
 
-    def clean(text: str) -> str:
-        return clean_prose(text, known, hours, removed)
+    def check(text: str, where: str = "") -> Checked:
+        checked = check_text(text, known, hours)
+        removed.add(where, checked.sentences, checked.causes)
+        return checked
+
+    def clean(text: str, where: str = "") -> str:
+        return check(text, where).text
 
     def report() -> None:
         """Say what the check took out so far, then forget it: the retry and the failure included."""
@@ -309,6 +336,7 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
     # session, and two threads doing that at once is the same unsafe access as
     # writing to it.
     main_problem = req.main_problem or "unspecified"
+    figures = prompt_lines(known)
     context = {
         "business_name": req.business_name or "",
         "business_description": req.business_description or "",
@@ -316,7 +344,7 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
         "site_research": (analysis.get("business_model") or "none given"),
         "evidence": evidence,
         # shared by the three prompts that write for the client, and shown the same figures the check reads
-        "figures_block": prompt_lines(known),
+        "figures_block": figures,
     }
 
     corrections = briefing_corrections(req.business_description)
@@ -325,6 +353,8 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
 
     objections = ""
     for attempt in (1, 2):
+        # what the last unusable reply held that the check took out, told to this pass's next ask
+        hints: list[str] = []
         try:
             hypotheses = _ask(render(
                 "diagnose.j2",
@@ -335,8 +365,9 @@ def diagnose(db: Session, request_id: int, analysis: dict) -> dict:
                 corrections=corrections,
                 objections=objections,
                 **context,
-            ), settings.REASONING_MODEL, DIAGNOSE_TOKENS, _enough_explanations(known_ids, clean),
-                ledger(db, request_id, model=settings.REASONING_MODEL, purpose=f"diagnose:{attempt}"))
+            ), settings.REASONING_MODEL, DIAGNOSE_TOKENS, _enough_explanations(known_ids, check, figures),
+                ledger(db, request_id, model=settings.REASONING_MODEL, purpose=f"diagnose:{attempt}"),
+                hints)
         except Exception as exc:
             # a failed call, or replies too thin to be a diagnosis every time
             report()
@@ -425,8 +456,8 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
     with ThreadPoolExecutor(max_workers=MAX_HYPOTHESES) as pool:
         tested = list(pool.map(test, hypotheses))
     for h, (result, calls, error) in zip(hypotheses, tested):
-        result["because"] = cut_prose(clean(result["because"]), BECAUSE_CHARS)
-        result["would_need"] = cut_prose(clean(result["would_need"]), NOTE_CHARS)
+        result["because"] = cut_prose(clean(result["because"], "test because"), BECAUSE_CHARS)
+        result["would_need"] = cut_prose(clean(result["would_need"], "test would_need"), NOTE_CHARS)
         h["test"] = result
         for usage, call_error in calls or [(None, error)]:
             log_usage(db, request_id, provider="openrouter", model=settings.ANALYSIS_MODEL,
@@ -491,7 +522,7 @@ def _test_and_challenge(db: Session, request_id: int, hypotheses: list[dict],
                           "better_explanation": cut_prose(result["better_explanation"], NOTE_CHARS)})
         for field, limit in (("because", BECAUSE_CHARS), ("weakness", NOTE_CHARS),
                              ("better_explanation", NOTE_CHARS)):
-            result[field] = cut_prose(clean(result[field]), limit)
+            result[field] = cut_prose(clean(result[field], f"reviewer {field}"), limit)
         challenges.append(result)
         log_usage(db, request_id, provider="openrouter", model=settings.QA_MODEL,
                   purpose=f"challenge:{result['angle']}", usage=usage,

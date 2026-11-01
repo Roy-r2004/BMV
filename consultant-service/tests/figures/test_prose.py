@@ -21,11 +21,12 @@ import threading
 
 import pytest
 
+from app import mailer
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import AiUsageEvent, Request
 from app.pipeline import analyze, capacity, decide, diagnose, orchestrator
-from app.pipeline.failure import StageFailed
+from app.pipeline.failure import StageFailed, client_reason, fail_run
 
 QUESTION = "How many classes do you run, out of the 8 slots we could offer?"
 ANSWER = "12 reformers, 6 classes a day, 6 days a week."
@@ -116,7 +117,8 @@ def _model_says_by_template(monkeypatch, replies: dict) -> dict[str, list[str]]:
         return text
 
     def chat(model, messages, **kwargs):
-        name = rendered[messages[0]["content"]]
+        # a prompt asked again carries the hint after the text that was rendered
+        name = next(n for text, n in rendered.items() if messages[0]["content"].startswith(text))
         reply = replies[name]
         with lock:
             sent.setdefault(name, []).append(messages[0]["content"])
@@ -738,6 +740,183 @@ def test_the_log_is_written_when_the_diagnosis_fails_for_want_of_statements(monk
     line = _logged(caplog, "consultant.diagnose")
     assert "took 4 sentence(s) out of the diagnosis" in line     # two sentences in each of the two replies
     assert "$50,000" in line and "14" in line and "They lose" not in line
+
+
+# -- the next ask says what was taken out ---------------------------------------------------------
+
+def _hint_after(prompts: list[str]) -> str:
+    """What the second prompt adds to the first: the same prompt, then the hint."""
+    first, second = prompts[0], prompts[1]
+    assert "COULD NOT BE USED" not in first and second.startswith(first)
+    return second[len(first):]
+
+
+def _fails_for_the_client_in_its_own_words(request_id: int, stopped, monkeypatch) -> None:
+    """The stage's stop, run through `fail_run`: the client reads the stage's own sentence,
+    and nothing of the hint, the figures list or the numbers. The recorded cause is ours."""
+    monkeypatch.setattr(mailer, "send_now", lambda to, subject, body: True)
+    db = SessionLocal()
+    try:
+        told = fail_run(db, request_id, stopped.value.stage, stopped.value.cause)
+    finally:
+        db.close()
+    row = _read(request_id)
+    assert row.progress_detail == client_reason(stopped.value.stage, told)
+    for text in (row.progress_detail, row.stage_label):
+        assert "figures list" not in text and "{{F:" not in text and not any(ch.isdigit() for ch in text)
+    assert "COULD NOT BE USED" not in (row.failure_json or "")
+
+
+def test_the_second_analysis_ask_names_the_fields_and_the_numbers_but_not_the_sentences(monkeypatch):
+    prompts = _model_says(monkeypatch, NO_FINDINGS, FINDINGS)
+    request_id = _row()
+
+    result = _analyze(request_id)
+
+    hint = _hint_after(prompts)
+    assert result == FINDINGS and len(prompts) == 2
+    for name in ("target_customer_profile", "pain_points", "growth_opportunity"):
+        assert f"- {name}: the number" in hint
+    for number in ("$85,000", "40%", "15%"):
+        assert number in hint
+    assert "not in the figures list" in hint and "{{F:id}}" in hint and "in words" in hint
+    assert "FIGURES YOU MAY USE" in hint and "$22" in hint       # the exact list, with the client's own figure
+    for sentence_text in ("They earn", "Rent rose", "of the market"):
+        assert sentence_text not in hint
+
+
+def test_two_analysis_replies_the_check_empties_still_end_in_the_stage_failing(monkeypatch):
+    prompts = _model_says(monkeypatch, NO_FINDINGS)
+    request_id = _row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _analyze(request_id)
+
+    assert stopped.value.stage == "analyzing" and len(prompts) == settings.STAGE_REPLY_ATTEMPTS
+    assert "$85,000" in stopped.value.cause and "COULD NOT BE USED" not in stopped.value.cause
+    _fails_for_the_client_in_its_own_words(request_id, stopped, monkeypatch)
+
+
+def test_the_second_decision_ask_names_the_fields_and_the_numbers_but_not_the_sentences(monkeypatch):
+    good = {**DECISION, "consulting_summary": "Fill the quiet mornings first."}
+    prompts = _model_says(monkeypatch, EMPTIED_SUMMARY, good)
+    request_id = _row()
+
+    result = _decide(request_id)
+
+    hint = _hint_after(prompts)
+    assert result["consulting_summary"] == "Fill the quiet mornings first." and len(prompts) == 2
+    assert "- consulting_summary: the numbers $9,000 and 20" in hint
+    for name in ("central_problem", "why_not_the_others", "unverified", "recommended_features"):
+        assert f"- {name}: the number" in hint
+    for number in ("30", "15%", "25%", "18"):
+        assert number in hint
+    assert "not in the figures list" in hint and "{{F:id}}" in hint and "FIGURES YOU MAY USE" in hint
+    for sentence_text in ("That adds", "It saves", "turn away", "discount engine"):
+        assert sentence_text not in hint
+
+
+def test_two_decision_replies_the_check_empties_still_end_in_the_stage_failing(monkeypatch):
+    prompts = _model_says(monkeypatch, EMPTIED_SUMMARY)
+    request_id = _row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _decide(request_id)
+
+    assert stopped.value.stage == "consulting" and len(prompts) == settings.STAGE_REPLY_ATTEMPTS
+    assert "$9,000" in stopped.value.cause and "COULD NOT BE USED" not in stopped.value.cause
+    _fails_for_the_client_in_its_own_words(request_id, stopped, monkeypatch)
+
+
+THIN_AFTER_THE_CHECK = [
+    _hypothesis(1, "They lose $50,000 a year."), _hypothesis(2, "They lose 14 members a month."),
+    _hypothesis(3, STATEMENTS[2])]
+GOOD_EXPLANATIONS = [_hypothesis(1, STATEMENTS[0]), _hypothesis(2, STATEMENTS[1]), _hypothesis(3, STATEMENTS[2])]
+
+
+def test_the_second_diagnosis_ask_names_the_emptied_explanations_and_their_numbers(monkeypatch):
+    """H1 and H2 each had one sentence, and it held a number nobody gave, so one explanation
+    is left and a diagnosis needs two. The retry says which, by id, and with which numbers."""
+    sent = _model_says_by_template(monkeypatch, {
+        "diagnose.j2": [{"hypotheses": THIN_AFTER_THE_CHECK}, {"hypotheses": GOOD_EXPLANATIONS}],
+        "test_hypothesis.j2": TESTED, "challenge.j2": NOT_KILLED})
+    request_id = _row()
+
+    result = _diagnose(request_id)
+
+    hint = _hint_after(sent["diagnose.j2"])
+    assert [h["statement"] for h in result["hypotheses"]] == list(STATEMENTS)
+    assert "- H1: the number $50,000" in hint and "- H2: the number 14" in hint and "H3" not in hint
+    assert "at least 2 explanations" in hint and "{{F:id}}" in hint and "FIGURES YOU MAY USE" in hint
+    assert "They lose" not in hint
+    # only the diagnostician is told; the tests and the reviewers are asked as before
+    assert not any("COULD NOT BE USED" in p for p in sent["test_hypothesis.j2"] + sent["challenge.j2"])
+    assert _ledger(request_id)[:2] == [("diagnose:1", False), ("diagnose:1", True)]
+
+
+def test_two_diagnosis_replies_the_check_empties_still_end_in_the_stage_failing(monkeypatch):
+    sent = _model_says_by_template(monkeypatch, {
+        "diagnose.j2": {"hypotheses": THIN_AFTER_THE_CHECK},
+        "test_hypothesis.j2": TESTED, "challenge.j2": NOT_KILLED})
+    request_id = _row()
+
+    with pytest.raises(StageFailed) as stopped:
+        _diagnose(request_id)
+
+    assert stopped.value.stage == "diagnosing" and len(sent["diagnose.j2"]) == settings.STAGE_REPLY_ATTEMPTS
+    assert "2 had no statement left" in stopped.value.cause and "COULD NOT BE USED" not in stopped.value.cause
+    assert _read(request_id).diagnosis_json is None
+    _fails_for_the_client_in_its_own_words(request_id, stopped, monkeypatch)
+
+
+def test_a_diagnosis_with_enough_explanations_left_is_not_asked_again(monkeypatch):
+    """Two of three keep a statement: the list shrinks to two and the diagnosis goes on, with no retry."""
+    sent = _model_says_by_template(monkeypatch, {
+        "diagnose.j2": {"hypotheses": [_hypothesis(1, "They lose $50,000 a year."),
+                                       _hypothesis(2, STATEMENTS[1]), _hypothesis(3, STATEMENTS[2])]},
+        "test_hypothesis.j2": TESTED, "challenge.j2": NOT_KILLED})
+
+    result = _diagnose(_row())
+
+    assert len(sent["diagnose.j2"]) == 1 and [h["id"] for h in result["hypotheses"]] == ["H2", "H3"]
+
+
+def test_a_reply_that_was_thin_to_begin_with_is_asked_again_without_a_hint(monkeypatch):
+    """The number check did not empty anything, so there is nothing to tell the model."""
+    sent = _model_says_by_template(monkeypatch, {
+        "diagnose.j2": [{"hypotheses": [_hypothesis(1, STATEMENTS[0])]}, {"hypotheses": GOOD_EXPLANATIONS}],
+        "test_hypothesis.j2": TESTED, "challenge.j2": NOT_KILLED})
+
+    _diagnose(_row())
+
+    first, second = sent["diagnose.j2"]
+    assert first == second
+
+
+def test_retry_hint_says_one_two_or_many_numbers_and_never_a_sentence():
+    hint = analyze.retry_hint("Problem.", {"a": ["48"], "b": ["48", "15"], "c": ["48", "15", "200"], "d": []}, "FIG")
+    assert "- a: the number 48\n" in hint and "- b: the numbers 48 and 15\n" in hint
+    assert "- c: the numbers 48, 15 and 200\n" in hint and "- d: a number that is not listed\n" in hint
+    assert hint.endswith("FIG") and hint.startswith("YOUR LAST REPLY COULD NOT BE USED. Problem.")
+
+
+# -- the log names the numbers that caused a drop ----------------------------------------------------
+
+def test_the_log_names_the_unresolved_number_or_token_not_the_innocent_ones_in_the_same_sentence(monkeypatch, caplog):
+    """'12 reformers' is the client's own and binds; '$9,000' and the unknown figure token are
+    what made each sentence go. Only those are logged."""
+    summary = ("You have 12 reformers and charge $9,000 a class. "
+               "You have 12 reformers and pay {{F:CAP-99}} a week. Keep the price.")
+    _model_says(monkeypatch, {**DECISION, "consulting_summary": summary})
+
+    with caplog.at_level("INFO", logger="consultant.decide"):
+        result = _decide(_row())
+
+    line = _logged(caplog, "consultant.decide")
+    assert result["consulting_summary"] == "Keep the price."
+    assert "$9,000" in line and "{{F:CAP-99}}" in line and "consulting_summary" in line
+    assert "12" not in line.split("numbers nobody gave:")[1].replace("$9,000", "")
+    assert "reformers" not in line and "a class" not in line
 
 
 # -- the parts of the row that are not about this run ----------------------------------------

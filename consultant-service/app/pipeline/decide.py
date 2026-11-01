@@ -40,7 +40,8 @@ from app.figures.model import FigureSet
 from app.models import Request
 from app.pipeline import consult
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
-from app.pipeline.analyze import clean_prose, cut_prose, has_text, log_removed
+from app.pipeline.analyze import (NumberCheckFailed, Removed, clean_prose, cut_prose, has_text, log_removed,
+                                   remember_hint, retry_hint, with_hint)
 from app.pipeline.failure import StageFailed
 from app.templating import render
 
@@ -80,19 +81,20 @@ def builds(result: dict | None) -> bool:
     return kind not in [k for k in KINDS if k != SOFTWARE]
 
 
-def _employees(employees: list, known: FigureSet, hours: set[int], removed: list[str]) -> list:
+def _employees(employees: list, known: FigureSet, hours: set[int], removed: Removed) -> list:
     """The recommended AI employees with the text of each checked. An employee whose
     title held text and has none left is dropped; one whose reason lost a sentence
     stays, with the sentences that remain."""
     kept = []
     for employee in employees:
         if not isinstance(employee, dict):
-            cleaned = clean_prose(employee, known, hours, removed)
+            cleaned = clean_prose(employee, known, hours, removed, "recommended_ai_employees")
             if has_text(employee) and not has_text(cleaned):
                 continue
             kept.append(cleaned)
             continue
-        cleaned = {k: clean_prose(v, known, hours, removed) if k in EMPLOYEE_PROSE_KEYS else v
+        cleaned = {k: clean_prose(v, known, hours, removed, "recommended_ai_employees")
+                   if k in EMPLOYEE_PROSE_KEYS else v
                    for k, v in employee.items()}
         if has_text(employee.get("title")) and not has_text(cleaned.get("title")):
             continue
@@ -100,21 +102,23 @@ def _employees(employees: list, known: FigureSet, hours: set[int], removed: list
     return kept
 
 
-def _decision(body: dict, known: FigureSet, hours: set[int]) -> dict:
+def _decision(body: dict, known: FigureSet, hours: set[int], figures: str) -> dict:
     """The decision in a reply, its prose checked against what the client gave and
     what we worked out.
 
     The summary is the recommendation to the owner: when the model wrote one and the
-    check leaves nothing of it, the reply is unusable (ValueError), so it is asked for
-    again and then the stage stops, as for a reply that cannot be read. A reply that
-    never had a summary is accepted as before, and nothing else is required: any other
-    field that loses every sentence is left empty, like one the model did not write."""
+    check leaves nothing of it, the reply is unusable (`NumberCheckFailed`, a ValueError
+    that carries the hint for the next ask), so it is asked for again and then the stage
+    stops, as for a reply that cannot be read. A reply that never had a summary is
+    accepted as before, and nothing else is required: any other field that loses every
+    sentence is left empty, like one the model did not write. `figures` is the figures
+    list the prompt shows."""
     result = reply_json(body)
     summary_written = has_text(result.get("consulting_summary"))
-    removed: list[str] = []
+    removed = Removed()
     for key in PROSE_KEYS:
         if key in result:
-            result[key] = clean_prose(result[key], known, hours, removed)
+            result[key] = clean_prose(result[key], known, hours, removed, key)
     if isinstance(result.get("unverified"), list):
         # cut AFTER the check, at a word or sentence end, so a cut can never leave a piece
         # of a figure ("$2200" cut to "$22") that matches a number the client gave
@@ -124,7 +128,13 @@ def _decision(body: dict, known: FigureSet, hours: set[int]) -> dict:
         result["recommended_ai_employees"] = _employees(result["recommended_ai_employees"], known, hours, removed)
     log_removed(logger, "decision", removed)
     if summary_written and not has_text(result.get("consulting_summary")):
-        raise ValueError("every sentence of the recommendation held a number nobody gave")
+        numbers = list(dict.fromkeys(c for held in removed.causes.values() for c in held))
+        raise NumberCheckFailed(
+            "every sentence of the recommendation held a number nobody gave"
+            + (f" ({', '.join(numbers)})" if numbers else ""),
+            retry_hint("Sentences holding numbers that are not in the figures list were taken out of your "
+                       "decision, and no consulting_summary was left. Where they were, and the numbers:",
+                       removed.causes, figures))
     return result
 
 
@@ -137,6 +147,7 @@ def decide(db: Session, request_id: int, analysis: dict) -> dict:
         # Their figures and the week worked out from them; the diagnosis was made from those.
         known = known_for(req, leave_out=STALE_AT_DECISION)
         hours = hours_for(req)
+        figures = prompt_lines(known)
         prompt = render(
             "decide.j2",
             business_name=req.business_name or "",
@@ -150,12 +161,15 @@ def decide(db: Session, request_id: int, analysis: dict) -> dict:
                 req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
                 req.business_description,
             ),
-            figures_block=prompt_lines(known),
+            figures_block=figures,
         )
+        # What the last unusable reply held that the check took out, told to the next ask.
+        hints: list[str] = []
         result = ask_until_usable(
-            lambda: provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}],
+            lambda: provider.chat(settings.REASONING_MODEL,
+                                  [{"role": "user", "content": with_hint(prompt, hints)}],
                                   max_tokens=DECIDE_TOKENS),
-            lambda body: _decision(body, known, hours),
+            remember_hint(lambda body: _decision(body, known, hours, figures), hints),
             ledger(db, request_id, model=settings.REASONING_MODEL, purpose="decide"),
         )
     except Exception as exc:
