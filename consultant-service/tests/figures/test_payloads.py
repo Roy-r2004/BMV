@@ -241,8 +241,9 @@ def test_the_decision_names_every_figure_in_its_answer_the_week_and_the_roadmap_
     kinds = {e["kind"] for e in figures.values()}
     assert kinds == {"theirs", "derived", "ours"}      # the three kinds this request names (reference: none exist yet)
     assert {e["tag"] for e in figures.values()} == {"yours", "worked out", "our estimate"}
-    for key in ("MOVE", "PROP-1", "PLAN-WEEKS", "PLAN-PHASE-1-WEEKS", "PLAN-PHASE-2-WEEKS", "PLAN-PHASES", "CAP-01", "CAP-05"):
+    for key in ("MOVE", "PROP-1", "PLAN-WEEKS", "PLAN-PHASE-1-WEEKS", "PLAN-PHASE-2-WEEKS", "CAP-01", "CAP-05"):
         assert key in figures, key
+    assert "PLAN-PHASES" not in figures        # the roadmap's phase count is drawn nowhere, so it is not sent
     assert figures["MOVE"]["kind"] == "ours" and figures["PROP-1"]["display"] == "$28"
     assert figures["CAP-01"]["kind"] == "derived" and figures["CAP-01"]["display"] == "432 reformer spots"
     for e in figures.values():
@@ -305,7 +306,7 @@ def test_the_preview_the_plan_and_the_shared_link_carry_the_same_map(client):
     assert shared["figures"] == public
     assert preview["answer"] == decision["answer"] and shared["answer"] == decision["answer"]
     # the roadmap alone needs only what it names
-    assert set(plan["figures"]) == {"PLAN-WEEKS", "PLAN-PHASE-1-WEEKS", "PLAN-PHASE-2-WEEKS", "PLAN-PHASES"}
+    assert set(plan["figures"]) == {"PLAN-WEEKS", "PLAN-PHASE-1-WEEKS", "PLAN-PHASE-2-WEEKS"}
     assert plan["plan"]["phases"][0]["when"] == "Weeks 1 to 2"
 
 
@@ -315,8 +316,53 @@ def test_other_prose_keeps_its_shape(client):
     assert body["decision"]["central_problem"] == DECISION["central_problem"]
     assert body["decision"]["unverified"] == DECISION["unverified"]
     stored = json.loads(_written()["answer_json"])
-    for key in ("headline", "turn", "sub", "emphasis", "move", "action"):
+    for key in ("headline", "turn", "sub", "emphasis", "action"):
         assert body["answer"][key] == stored[key]
+    # the move is what was stored, and now says which figures it and its proposal are
+    move = body["answer"]["move"]
+    assert move.pop("figure_id") == "MOVE" and [p.pop("figure_id") for p in move["proposed"]] == ["PROP-1"]
+    assert move == stored["move"]
+
+
+def test_the_known_set_changing_after_a_text_was_stored_serves_no_pieces_and_leaves_the_text(client):
+    """Pieces that would not join back to the stored text are not served: the page then
+    shows the text as stored. Here the turn was stored without the "~" the move's figure
+    now prints before a rounded total, so binding it again would change the text."""
+    fields = _written()
+    stored = json.loads(fields["answer_json"])
+    stored["turn"] = "Moving them to $28 is worth $45,000 a year."
+    assert payload.answer_for_web(stored, K.known_for(Request(**fields)))["turn_segments"] == []
+    stored["figures"][0]["value"] = "$45,000"
+    fields["answer_json"] = json.dumps(stored)
+    a = _decision(client, _seed(fields))["answer"]
+    assert a["turn"] == "Moving them to $28 is worth $45,000 a year." and a["turn_segments"] == []
+    assert a["figures"][0]["value"] == "$45,000" and a["figures"][0]["value_segments"] == []
+    # the rest still comes in pieces, and the figures its pieces name are still in the map
+    assert a["headline_segments"] and any("figure" in p for p in a["headline_segments"])
+
+
+def test_one_figure_that_cannot_be_described_does_not_drop_the_map(monkeypatch, caplog):
+    known = FigureSet([_f("ours", Proposal("a"), "1", id="A"), _f("ours", Proposal("b"), "2", id="B")])
+    real = payload.entry
+
+    def entry(f, *a, **k):
+        if f.id == "A":
+            raise RuntimeError("secret internal detail")
+        return real(f, *a, **k)
+    monkeypatch.setattr(payload, "entry", entry)
+    with caplog.at_level("WARNING"):
+        got = payload.figure_map(known, ["A", "B"])
+    assert list(got) == ["B"]
+    assert "A" in caplog.text and "secret" not in caplog.text
+
+
+def test_the_move_and_its_proposals_say_which_figures_they_are(client):
+    a = _decision(client, _seed(_written()))["answer"]
+    assert a["move"]["figure_id"] == "MOVE" and [p["figure_id"] for p in a["move"]["proposed"]] == ["PROP-1"]
+    assert a["action"]["figure"]["id"] == "PLAN-WEEKS"
+    # the plan's length and the move's figures are in the map under the ids the answer names
+    figures = _decision(client, _seed(_written()))["figures"]
+    assert a["move"]["figure_id"] in figures and a["move"]["proposed"][0]["figure_id"] in figures
 
 
 # -- rows from before ------------------------------------------------------------------------

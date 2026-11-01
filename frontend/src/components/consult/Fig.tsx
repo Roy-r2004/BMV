@@ -6,78 +6,75 @@
  * (the payload's `figures` map: how it prints, its kind, the tag word and one
  * plain sentence on where it came from), and this file only draws it.
  *
- * The tag is a button. Pressing it opens the source sentence right below the
- * figure, in place, and pressing it again closes it. It is a real button
- * (keyboard: Enter and Space open it, Escape closes it; `aria-expanded` says
- * which) and its touch area is wider than the pill, so it works with one thumb
- * on a phone. Nothing here depends on hovering.
+ * A figure is a button. Pressing it opens the source sentence right below it, in
+ * place, and pressing it again closes it. It is a real button (keyboard: Enter
+ * and Space open it, Escape closes it; `aria-expanded` says which), its name says
+ * the figure first ("$22, yours: where this comes from"), its touch area is 44px
+ * tall whatever the size of the text, and it takes the design system's focus
+ * ring. Nothing here depends on hovering.
+ *
+ * In a sentence the first figure of each kind carries the full tag chip; later
+ * figures of that kind in the same stretch of text are only underlined, in the
+ * kind's colour, and are the same button. A row of tags (`Tags`) is for a figure
+ * that is drawn some other way (a big number, a chart).
  *
  * A payload from before figures had tags has no map and no segments; every
  * export here then draws plain text and nothing else.
  */
-import { Fragment, useId, useState, type ReactNode } from 'react';
+import { Fragment, useId, useState, type CSSProperties, type ReactNode } from 'react';
 
 import type { FigureJson, FigureKind, FigureMap, FigureSegment } from '../../api/consultant';
 
-// The tag's colours are the ones the data request's legend already uses: green
-// for what they told us, amber and dashed for what we estimated.
-const CHIP: Record<FigureKind, string> = {
-  theirs: 'cx-chip--green',
-  derived: 'cx-chip--blue',
-  ours: 'cx-chip--amber',
-  reference: 'cx-chip--dim',
+// The colours are the ones the data request's legend already uses: green for
+// what they told us, amber and dashed for what we estimated. They are inline
+// styles, because the answer's heading restyles every span inside it.
+const COLOUR: Record<FigureKind, { color: string; background: string; border: string }> = {
+  theirs: { color: 'var(--cx-green)', background: 'var(--cx-green-soft)', border: '1px solid transparent' },
+  derived: { color: '#1d4ed8', background: 'var(--cx-blue-soft)', border: '1px solid transparent' },
+  ours: { color: 'var(--cx-amber)', background: 'var(--cx-amber-bg)', border: '1px dashed var(--cx-amber)' },
+  reference: { color: 'var(--cx-txt2)', background: '#eef2f9', border: '1px solid transparent' },
 };
+const colourOf = (kind: FigureKind) => COLOUR[kind] ?? COLOUR.reference;
 
-// Inline styles, because the answer's heading restyles every span inside it and
-// the data request restyles every small: these must hold wherever they land.
 const BODY = { fontFamily: 'var(--cx-body)', letterSpacing: 0, textTransform: 'none' } as const;
 
-function TagButton({ info, label, open, controls, onToggle }: {
-  info: FigureJson;
-  label: string;
-  open: boolean;
-  controls: string;
-  onToggle: () => void;
-}) {
+// The design system's focus ring (consult.css: .cx-btn:focus-visible), and a target
+// that is 44px tall however small the text: the pseudo-element is the extra reach (it is
+// measured from the padding box, so the chip's 1px border is allowed for).
+const FOCUS = 'focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[color:rgba(37,99,235,0.45)]';
+
+const nameOf = (figure: string, info: FigureJson) => `${figure}, ${info.tag}: where this comes from`;
+
+function Chevron({ open }: { open: boolean }) {
   return (
-    <button
-      type="button"
-      className={`cx-chip ${CHIP[info.kind] ?? 'cx-chip--dim'} relative cursor-pointer gap-1 align-middle before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]`}
-      style={{
-        ...BODY,
-        display: 'inline-flex',
-        height: 22,
-        minHeight: 22,
-        padding: '0 8px',
-        marginLeft: 4,
-        fontSize: 11.5,
-        lineHeight: 1,
-        whiteSpace: 'nowrap',
-        border: info.kind === 'ours' ? '1px dashed var(--cx-amber)' : '1px solid transparent',
-      }}
-      aria-expanded={open}
-      aria-controls={open ? controls : undefined}
-      aria-label={`${label}: where this comes from`}
-      onClick={onToggle}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && open) {
-          e.stopPropagation();
-          onToggle();
-        }
-      }}
+    <svg
+      width="8"
+      height="8"
+      viewBox="0 0 8 8"
+      aria-hidden="true"
+      style={{ flex: 'none', transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
     >
-      {label}
-      <svg
-        width="8"
-        height="8"
-        viewBox="0 0 8 8"
-        aria-hidden="true"
-        style={{ flex: 'none', transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
-      >
-        <path d="M1 2.5 4 5.5 7 2.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
+      <path d="M1 2.5 4 5.5 7 2.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
+}
+
+function chipStyle(kind: FigureKind, height: number): CSSProperties {
+  return {
+    ...BODY,
+    ...colourOf(kind),
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    height,
+    padding: '0 8px',
+    borderRadius: 999,
+    fontSize: 11.5,
+    fontWeight: 600,
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+    verticalAlign: 'middle',
+  };
 }
 
 /** The sentence that says where a figure came from, opened under it. */
@@ -105,37 +102,85 @@ function Source({ id, info, lead }: { id: string; info: FigureJson; lead?: strin
   );
 }
 
-/** A figure inside a sentence: its text, its tag, and its source below when the
- *  tag is pressed. With no entry in the map it is only its text. */
-export default function Fig({ id, text, figures }: { id: string; text: string; figures?: FigureMap | null }) {
+const closeOnEscape = (open: boolean, toggle: () => void) => (e: { key: string; stopPropagation: () => void }) => {
+  if (e.key === 'Escape' && open) {
+    e.stopPropagation();
+    toggle();
+  }
+};
+
+/** A figure inside a sentence: its text, and (with `chip`) its tag beside it. Pressing
+ *  either opens the source below. With no entry in the map it is only its text. */
+export default function Fig({ id, text, figures, chip = true }: {
+  id: string;
+  text: string;
+  figures?: FigureMap | null;
+  /** The full tag chip beside the number, or only the number underlined. */
+  chip?: boolean;
+}) {
   const info = figures?.[id];
   const [open, setOpen] = useState(false);
   const panel = useId();
   if (!info) return <>{text}</>;
+  const toggle = () => setOpen((v) => !v);
+  const colour = colourOf(info.kind).color;
   return (
     <>
-      <span style={{ display: 'inline', color: 'inherit', whiteSpace: 'nowrap' }}>
+      <button
+        type="button"
+        className={`relative cursor-pointer before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] ${FOCUS}`}
+        style={{
+          display: 'inline',
+          margin: 0,
+          padding: 0,
+          border: 0,
+          background: 'none',
+          font: 'inherit',
+          letterSpacing: 'inherit',
+          color: 'inherit',
+          textAlign: 'inherit',
+          whiteSpace: 'nowrap',
+          ...(chip ? {} : { textDecoration: 'underline', textDecorationColor: colour, textDecorationThickness: 2, textUnderlineOffset: 4 }),
+        }}
+        aria-expanded={open}
+        aria-controls={open ? panel : undefined}
+        aria-label={nameOf(text, info)}
+        data-figure={text}
+        onClick={toggle}
+        onKeyDown={closeOnEscape(open, toggle)}
+      >
         {text}
-        <TagButton info={info} label={info.tag} open={open} controls={panel} onToggle={() => setOpen((v) => !v)} />
-      </span>
+        {chip ? (
+          <span style={{ ...chipStyle(info.kind, 22), marginLeft: 4 }}>
+            {info.tag}
+            <Chevron open={open} />
+          </span>
+        ) : null}
+      </button>
       {open ? <Source id={panel} info={info} /> : null}
     </>
   );
 }
 
 /** Prose in the pieces the server sent: plain text, and a Fig for each bound
- *  number. With no pieces (an older payload) it is the plain text. */
+ *  number. The first figure of each kind carries the chip, the rest are underlined.
+ *  With no pieces (an older payload) it is the plain text. */
 export function Segments({ segments, text, figures }: {
   segments?: FigureSegment[] | null;
   text: string;
   figures?: FigureMap | null;
 }): ReactNode {
   if (!segments?.length) return <>{text}</>;
+  const seen = new Set<FigureKind>();
   return (
     <>
-      {segments.map((s, i) =>
-        s.figure ? <Fig key={i} id={s.figure} text={s.text} figures={figures} /> : <Fragment key={i}>{s.text}</Fragment>,
-      )}
+      {segments.map((s, i) => {
+        if (!s.figure) return <Fragment key={i}>{s.text}</Fragment>;
+        const kind = figures?.[s.figure]?.kind;
+        const chip = !kind || !seen.has(kind);
+        if (kind) seen.add(kind);
+        return <Fig key={i} id={s.figure} text={s.text} figures={figures} chip={chip} />;
+      })}
     </>
   );
 }
@@ -147,7 +192,8 @@ export interface TagItem {
 
 /** Tags in a row, for a figure that is drawn some other way (a big number, a
  *  chart). One source opens at a time, below the row. With `labelled`, each tag
- *  carries its figure's number, so a row of several says which is which. */
+ *  carries its figure's number, so a row of several says which is which. The
+ *  tags are far enough apart that the 44px touch areas do not overlap. */
 export function Tags({ items, labelled = false, lead, className = 'mt-2' }: {
   items: TagItem[];
   labelled?: boolean;
@@ -160,21 +206,31 @@ export function Tags({ items, labelled = false, lead, className = 'mt-2' }: {
   if (!items.length) return null;
   const shown = items.find((i) => i.key === open);
   return (
-    <div className={className} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, ...BODY }}>
+    <div className={className} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px 10px', ...BODY }}>
       {lead ? <span className="cx-faint" style={{ fontSize: 13 }}>{lead}</span> : null}
-      {items.map(({ key, info }) => (
-        <span key={key} style={{ display: 'inline-flex', marginLeft: -4 }}>
-          <TagButton
-            info={info}
-            label={labelled ? `${info.display} · ${info.tag}` : info.tag}
-            open={open === key}
-            controls={panel}
-            onToggle={() => setOpen(open === key ? null : key)}
-          />
-        </span>
-      ))}
+      {items.map(({ key, info }) => {
+        const isOpen = open === key;
+        const toggle = () => setOpen(isOpen ? null : key);
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`relative cursor-pointer before:absolute before:-inset-x-1 before:-inset-y-[9px] before:content-[''] ${FOCUS}`}
+            style={{ ...chipStyle(info.kind, 28), padding: '0 10px', cursor: 'pointer' }}
+            aria-expanded={isOpen}
+            aria-controls={isOpen ? panel : undefined}
+            aria-label={nameOf(info.display, info)}
+            data-figure={info.display}
+            onClick={toggle}
+            onKeyDown={closeOnEscape(isOpen, toggle)}
+          >
+            {labelled ? `${info.display} · ${info.tag}` : info.tag}
+            <Chevron open={isOpen} />
+          </button>
+        );
+      })}
       {shown ? (
-        <span style={{ flexBasis: '100%' }}>
+        <span style={{ flexBasis: '100%', marginTop: -8 }}>
           <Source id={panel} info={shown.info} lead={labelled && items.length > 1 ? `${shown.info.display}:` : undefined} />
         </span>
       ) : null}

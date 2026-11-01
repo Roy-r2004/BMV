@@ -142,6 +142,20 @@ function Book({ cover, title, body, action, extra, meta }: {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+// The roadmap's own figures, as the server lists them with the roadmap: each phase's
+// length (the phase's number is in its id) and the length of the whole plan.
+const PHASE_WEEKS = /^PLAN-PHASE-(\d+)-WEEKS$/;
+function planFigures(roadmap: Roadmap | null) {
+  const phase = new Map<number, string>();
+  let length: string | undefined;
+  for (const f of roadmap?.figures ?? []) {
+    const m = PHASE_WEEKS.exec(f.id);
+    if (m) phase.set(Number(m[1]), f.id);
+    else if (f.unit === 'week') length ??= f.id;
+  }
+  return { phase, length };
+}
+
 export default function Package({
   businessName,
   answer,
@@ -200,6 +214,7 @@ export default function Package({
   const ready = roadmap?.status === 'ready';
   const writingRoadmap = roadmap?.status === 'writing';
   const failedRoadmap = roadmap?.status === 'failed';
+  const own = planFigures(roadmap);
   const assumptions = Array.from(
     new Set([...(roadmap?.assumptions ?? []), ...unverified].map((s) => s.trim()).filter(Boolean)),
   );
@@ -328,7 +343,7 @@ export default function Package({
         <div className="cx-pane cx-road" id="cx-roadmap">
           <h3>{roadmap?.title || 'How it gets done'}</h3>
           <p>{roadmap?.summary || 'We do the work. You make the calls.'}</p>
-          {ready && phases.length ? <FigTags ids={['PLAN-WEEKS']} figures={figures} lead="Length of the plan" labelled /> : null}
+          {ready && phases.length && own.length ? <FigTags ids={[own.length]} figures={figures} lead="Length of the plan" labelled /> : null}
           {ready && phases.length ? (
             <ol className="cx-phases">
               {phases.map((ph, i) => (
@@ -337,10 +352,10 @@ export default function Package({
                   <div>
                     <h4>{ph.title}</h4>
                     <p>{ph.do}</p>
-                    <div className="who">
+                    <div className="who" style={{ alignItems: 'flex-start' }}>
                       <span className="cx-chip cx-chip--blue">{ph.by === 'together' ? 'Together' : 'We do it'}</span>
                       {ph.you ? <span className="cx-chip cx-chip--dim">You: {ph.you}</span> : null}
-                      <FigTags ids={[`PLAN-PHASE-${i + 1}-WEEKS`]} figures={figures} labelled className="" />
+                      {own.phase.has(i + 1) ? <FigTags ids={[own.phase.get(i + 1)!]} figures={figures} labelled className="" /> : null}
                     </div>
                   </div>
                 </li>

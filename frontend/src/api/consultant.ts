@@ -504,9 +504,11 @@ export interface AnswerMove {
   period: string;
   display: string;
   working: string;
-  /** Numbers that are OUR proposal, not their figures. The n-th is the figure
-   *  `PROP-n` in the payload's figure map. */
-  proposed: { value: number; label: string; unit?: string }[];
+  /** Numbers that are OUR proposal, not their figures. */
+  proposed: { value: number; label: string; unit?: string; figure_id?: string }[];
+  /** The move's own figure (MOVE) and, on each proposal, its figure (PROP-n), as the
+   *  payload's figure map names them. Absent on an older payload. */
+  figure_id?: string;
   cites: string[];
 }
 

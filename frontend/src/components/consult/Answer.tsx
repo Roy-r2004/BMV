@@ -12,7 +12,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 
 import type { FigureSegment, StudioDecision, StudioDiagnosis } from '../../api/consultant';
 import { fmt } from '../../utils/week';
-import { FigTags, Segments } from './Fig';
+import Fig, { FigTags, Segments } from './Fig';
 
 interface Pillar {
   key: string;
@@ -147,8 +147,8 @@ export default function Answer({
   const move = a?.move ?? null;
   if (move) {
     move.cites.forEach((c) => usedCites.add(c));
-    // our proposals are figures PROP-1, PROP-2... in the payload; without the map the number is shown as sent
-    const said = move.proposed.map((p, i) => `${p.label || 'The target'} (${figs?.[`PROP-${i + 1}`]?.display ?? fmt(p.value)})`);
+    // our proposals are figures the payload names (`figure_id`); without the map the number is shown as sent
+    const said = move.proposed.map((p) => `${p.label || 'The target'} (${figs?.[p.figure_id ?? '']?.display ?? fmt(p.value)})`);
     const proposed = move.proposed.length
       ? ` ${said.join(' and ')} ${move.proposed.length > 1 ? 'are' : 'is'} our proposal; the rest is yours.`
       : ' Every term is one of your figures.';
@@ -157,7 +157,7 @@ export default function Answer({
       text: move.label,
       fig: move.display,
       work: `${move.working}.${proposed}`,
-      ids: ['MOVE', ...move.proposed.map((_, i) => `PROP-${i + 1}`)],
+      ids: [move.figure_id, ...move.proposed.map((p) => p.figure_id)].filter((id): id is string => Boolean(id)),
     });
   }
   for (const c of cites) {
@@ -203,20 +203,22 @@ export default function Answer({
           ) : null}
 
           {week.length ? (
-            <div style={{ marginTop: 22 }}>
-              <p className="cx-faint" style={{ fontSize: 13, fontWeight: 600 }}>Your week, worked out</p>
-              <ul style={{ marginTop: 8, display: 'grid', gap: 8 }}>
-                {week.map((w) => (
-                  <li key={w.key} style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--cx-bg1)' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '2px 12px' }}>
-                      <span style={{ fontSize: 14, flex: '1 1 11em', minWidth: 0 }}>{sentence(w.label)}</span>
-                      <b style={{ fontFamily: 'var(--cx-display)', color: 'var(--cx-hot)', whiteSpace: 'nowrap' }}>{figs?.[w.key]?.display}</b>
-                    </div>
-                    <FigTags ids={[w.key]} figures={figs} />
+            // closed: their week is the working behind the answer, not part of it
+            <details style={{ marginTop: 16 }}>
+              <summary style={{ cursor: 'pointer', padding: '12px 0', fontSize: 13.5, fontWeight: 600, color: 'var(--cx-txt2)' }}>
+                How we worked out your week
+              </summary>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {week.map((w, i) => (
+                  <li key={w.key} style={{ padding: '12px 0', borderTop: '1px solid var(--cx-line)', fontSize: 14, color: 'var(--cx-txt2)' }}>
+                    {sentence(w.label)}:{' '}
+                    <b style={{ color: 'var(--cx-txt)' }}>
+                      <Fig id={w.key} text={figs?.[w.key]?.display ?? fmt(w.value)} figures={figs} chip={i === 0} />
+                    </b>
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           ) : null}
 
           {decision.revisions ? (

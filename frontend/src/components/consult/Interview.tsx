@@ -93,12 +93,15 @@ function DataRequest({ facts, caseFigures }: { facts: Fact[]; caseFigures: CaseF
             return (
               <div key={f.key} className={`cx-item ${cls}${flash.has(f.key) ? ' flash' : ''}`}>
                 <span className="dot" aria-hidden="true" />
-                <span className="n">{f.label}</span>
+                <span className="n">
+                  {f.label}
+                  {f.status === 'file' ? <small style={{ display: 'block', fontSize: 11.5, color: 'var(--cx-txt3)' }}>From a file you sent</small> : null}
+                </span>
                 <span className="v">
                   {f.status === 'estimate' ? (
                     <>{f.value || "We'll estimate"}<small>our estimate</small></>
                   ) : f.status === 'file' ? (
-                    <>{f.value}<small>yours, from a file</small></>
+                    <>{f.value}<small>yours</small></>
                   ) : f.status === 'got' ? (
                     <>{f.value}<small>yours</small></>
                   ) : null}

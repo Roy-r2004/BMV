@@ -30,7 +30,11 @@ figures. A figure the request does not know is left out.
 The answer's `headline`, `turn` and `sub` (and each headline figure's `value` and
 `label`) also arrive as `*_segments` from `bind.segments`, the text in pieces with
 each bound number carrying its figure's id, so a page can put the tag beside it.
-The text itself is unchanged: the stages stored it already bound.
+The text itself is unchanged: the stages stored it already bound. The request's known
+set can change after a text is stored, so pieces that do not join back to the stored
+text are not served (`[]`, and the page shows the plain text). The move and each
+proposal also say which figure they are (`figure_id`: MOVE, PROP-n) so the page does
+not have to build ids.
 
 A payload that goes to someone who is not the owner (the shared link, a run anyone
 can open) is built with `public=True`. The client's own words do not travel with it:
@@ -192,8 +196,12 @@ def figure_map(known: FigureSet, ids: Iterable[str], questions: Mapping[int, str
     for fid in ids:
         if isinstance(fid, str) and fid not in out:
             f = known.get(fid)
-            if f is not None:
+            if f is None:
+                continue
+            try:
                 out[fid] = entry(f, questions, public=public, words=words)
+            except Exception:   # one figure that cannot be described is left out, not the whole map
+                logger.warning("figure %s could not be described; it is left out of the payload", fid)
     return out
 
 
@@ -214,17 +222,33 @@ _PROSE = ("headline", "turn", "sub")
 
 
 def _pieces(text: object, known: FigureSet) -> list[dict]:
-    return segments(text, known) if isinstance(text, str) and text.strip() else []
+    """The text in pieces, or [] when it has none or when they would not join back to
+    the stored text (the known set has changed since it was stored and now binds a
+    number differently): the page then shows the text as stored."""
+    if not isinstance(text, str) or not text.strip():
+        return []
+    pieces = segments(text, known)
+    return pieces if "".join(p["text"] for p in pieces) == text else []
 
 
 def answer_for_web(answer: object, known: FigureSet) -> object:
     """The stored answer with its prose also in pieces: `headline_segments`,
     `turn_segments`, `sub_segments`, and `value_segments` and `label_segments` on
-    each headline figure. Nothing else changes. Anything that is not an answer is
-    returned as it is."""
+    each headline figure; and the move and each of its proposals saying which figure
+    they are. Nothing else changes. Anything that is not an answer is returned as it is."""
     if not isinstance(answer, dict):
         return answer
     out = dict(answer)
+    move = out.get("move")
+    if isinstance(move, dict):
+        # numbered as `known.move_figures` numbers them: the n-th proposal that is an object
+        n, proposed = 0, []
+        for p in move.get("proposed") if isinstance(move.get("proposed"), list) else []:
+            if isinstance(p, dict):
+                n += 1
+                p = dict(p, figure_id=f"PROP-{n}")
+            proposed.append(p)
+        out["move"] = dict(move, figure_id=_known.MOVE_ID, proposed=proposed)
     for field in _PROSE:
         out[f"{field}_segments"] = _pieces(out.get(field), known)
     if isinstance(out.get("figures"), list):
@@ -247,7 +271,8 @@ def _segment_ids(pieces: object) -> Iterable[str]:
 
 def referenced_ids(answer: object, plan: object, capacity: object) -> list[str]:
     """The ids of the figures the answer (as `answer_for_web` serves it), the
-    roadmap and the week name, each once, in the order met."""
+    roadmap and the week name, each once, in the order met: the ones a page draws
+    (the roadmap's own figures except its phase count)."""
     ids: dict[str, None] = {}
 
     def add(fid: object) -> None:
@@ -268,9 +293,10 @@ def referenced_ids(answer: object, plan: object, capacity: object) -> list[str]:
                     add(fid)
         move = answer.get("move")
         if isinstance(move, dict):
-            add(_known.MOVE_ID)
-            for n, _ in enumerate([p for p in move.get("proposed") or [] if isinstance(p, dict)], 1):
-                add(f"PROP-{n}")
+            add(move.get("figure_id"))
+            for p in move.get("proposed") if isinstance(move.get("proposed"), list) else []:
+                if isinstance(p, dict):
+                    add(p.get("figure_id"))
         action = answer.get("action")
         if isinstance(action, dict) and isinstance(action.get("figure"), dict):
             add(action["figure"].get("id"))
@@ -280,7 +306,8 @@ def referenced_ids(answer: object, plan: object, capacity: object) -> list[str]:
                 add(d.get("key"))
     if isinstance(plan, dict):
         for f in plan.get("figures") if isinstance(plan.get("figures"), list) else []:
-            if isinstance(f, dict):
+            # the roadmap's phase count is not drawn anywhere, so it is not sent
+            if isinstance(f, dict) and f.get("id") != _known.PLAN_PHASES_ID:
                 add(f.get("id"))
     return list(ids)
 
