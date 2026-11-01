@@ -45,7 +45,7 @@ The recon found places where the design and the code disagree. The spec's "Calls
 
 Each line has its test in the task named.
 
-1. A model rounding that is near two figures of different values ($4,700 against 4,730 and 4,690) must not bind to either; it is unmatched. Task 3.
+1. A model rounding that is near two figures of different values ($4,700 against 4,720 and 4,680) must not bind to either; it is unmatched. Task 3.
 2. A request row made before this step has no `case_file_json`; every payload and render must still work, building the case file on read. Task 5.
 3. A document whose only numbers are page furniture (page numbers, "Volume II", dates, the label "Phase 2") must pass the law. Task 8.
 4. `25%` in prose binds to a claim stored as 0.25, and `25 percent` too. Task 2 and Task 3.
@@ -103,7 +103,7 @@ Each line has its test in the task named.
   - `unsupported(text: str, known: FigureSet, *, hours: set[int] | None = None) -> list[Mention]`. No leniency parameter exists.
 - Does not touch `registry._numbers`. This is a separate reader.
 
-- [ ] **Step 1:** Write `tests/figures/test_read.py` first. Must-flag cases, every row of recon section 1.3 that passes today: `twelve classes`, `a dozen spots`, `half a dozen`, `twenty-two`, `3x more bookings`, `3` + U+00D7 + ` more bookings`, `threefold`, `twice`, `the 3rd phase`, `1st week`, `8 hrs a week`, `12 reformers`, `2-3 weeks` (two mentions), `six-week pilot`, `1.5 hours`, `0.5`, `one in 20` (flags 20), `$35`, `50%`, `10k`, `$1.2M`. Must-not-flag cases: `one of the explanations`, `no one`, `the first week`, `a second`, `a week`, `Phase 2`, `Step 3`, `Exhibit 2.1`, `in 2025`, `31 Oct`, `6pm` when `hours` is None or contains 18. Supported cases: `about 45,000` against derived 44928 at precision -3; `25%` against a percent Figure 25; `twelve` against theirs 12; `$4,700` against figures 4,730 and 4,690 is unmatched.
+- [ ] **Step 1:** Write `tests/figures/test_read.py` first. Must-flag cases, every row of recon section 1.3 that passes today: `twelve classes`, `a dozen spots`, `half a dozen`, `twenty-two`, `3x more bookings`, `3` + U+00D7 + ` more bookings`, `threefold`, `twice`, `the 3rd phase`, `1st week`, `8 hrs a week`, `12 reformers`, `2-3 weeks` (two mentions), `six-week pilot`, `1.5 hours`, `0.5`, `one in 20` (flags 20), `$35`, `50%`, `10k`, `$1.2M`. Must-not-flag cases: `one of the explanations`, `no one`, `the first week`, `a second`, `a week`, `Phase 2`, `Step 3`, `Exhibit 2.1`, `in 2025`, `31 Oct`, `6pm` when `hours` is None or contains 18. Supported cases: `about 45,000` against derived 44928 at precision -3; `25%` against a percent Figure 25; `twelve` against theirs 12; `$4,700` against figures 4,720 and 4,680 is unmatched.
 - [ ] **Step 2:** Run it and see it fail on import.
 - [ ] **Step 3:** Implement `read.py`. A digit after a `LABEL_WORDS` word is a label, not a mention. Never add a special case for a sentence; grammar only.
 - [ ] **Step 4:** Run `tests/figures/test_read.py` and `tests/figures/test_model.py`.
