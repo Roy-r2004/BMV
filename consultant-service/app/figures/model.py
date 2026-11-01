@@ -147,6 +147,8 @@ class Figure:
 #   "USD" and "count" are what registry._infer_unit returns; "percent" is the
 #   Figure form of the registry's "%" (a fraction there, a percent number here).
 #   The time words are the ones registry._NUM can capture.
+#   "EUR" and "GBP" print their own sign (the binder meets euro and pound amounts a
+#   client typed); any other currency code prints as an unknown unit, "1,000 AUD".
 _TIME_UNITS = (("ms", "ms"), ("millisecond", "milliseconds"), ("second", "seconds"),
                ("minute", "minutes"), ("hour", "hours"), ("day", "days"), ("week", "weeks"),
                ("month", "months"), ("year", "years"))
@@ -155,6 +157,8 @@ _TIME_UNITS = (("ms", "ms"), ("millisecond", "milliseconds"), ("second", "second
 def _unit_styles() -> dict[str, tuple[str, str, str, int]]:
     table = {
         "USD": ("$", "", "", 2),
+        "EUR": ("\u20ac", "", "", 2),
+        "GBP": ("\u00a3", "", "", 2),
         "percent": ("", "%", "%", 0),
         "count": ("", "", "", 0),
         "": ("", "", "", 0),
@@ -171,14 +175,14 @@ _UNIT_STYLE = _unit_styles()
 _APPROXIMATE_KINDS = ("derived", "ours")
 
 
-def _shown(f: Figure, *, unit_word: bool, symbols: bool) -> str:
+def _shown(f: Figure, *, unit_word: bool, symbols: bool, tilde: bool = True) -> str:
     rounded = _rounded(f.value, f.precision)
     prefix, one, many, fewest = _UNIT_STYLE.get(f.unit, ("", f" {f.unit}", f" {f.unit}", 0))
     magnitude = rounded.copy_abs()
     digits = max(f.precision, fewest) if f.precision > 0 else 0
     number = format(magnitude, f",.{digits}f")
     sign = "-" if rounded < 0 else ""
-    approx = "~" if f.kind in _APPROXIMATE_KINDS and rounded != f.value else ""
+    approx = "~" if tilde and f.kind in _APPROXIMATE_KINDS and rounded != f.value else ""
     suffix = one if magnitude == 1 else many
     is_word = suffix.startswith(" ")   # " weeks", " GB" are words; "%" is a symbol
     if is_word and not unit_word:
@@ -195,15 +199,22 @@ def display(f: Figure) -> str:
     return _shown(f, unit_word=True, symbols=True)
 
 
-def display_number(f: Figure, *, symbols: bool = True) -> str:
+def display_number(f: Figure, *, symbols: bool = True, tilde: bool = True) -> str:
     """The number alone, for putting a figure's value where the model wrote a
     number inside a sentence that already has the unit word: "6" for 6 weeks,
     "12" for 12 reformers. It keeps the "~", the sign, the thousands commas and
-    the precision, and with `symbols` (the default) the "$" before dollars and the
-    "%" after a percent: "~$45,000", "25%". With `symbols=False` it is only the
-    "~", the sign and the digits, for a caller that keeps the symbols the
-    sentence already has."""
-    return _shown(f, unit_word=False, symbols=symbols)
+    the precision, and with `symbols` (the default) the currency sign before
+    money and the "%" after a percent: "~$45,000", "25%". With `symbols=False` it
+    is only the "~", the sign and the digits, for a caller that keeps the symbols
+    the sentence already has. With `tilde=False` the "~" is left off, for a
+    caller whose sentence already hedges ("about" before the number)."""
+    return _shown(f, unit_word=False, symbols=symbols, tilde=tilde)
+
+
+def displayed_value(f: Figure) -> Decimal:
+    """The number the figure shows: its value rounded to its precision, which is
+    what a reader of `display(f)` has in front of them (44928 at -3 shows 45,000)."""
+    return _rounded(f.value, f.precision)
 
 
 _TAG_WORDS = {"theirs": "yours", "derived": "worked out", "ours": "our estimate", "reference": "reference"}
@@ -341,23 +352,30 @@ def _kind_of(c: dict) -> Kind:
         raise ValueError(f"claim {cid} has provenance {provenance!r}, which is not one a figure can have") from None
 
 
+def decimal_from_float(value: float) -> Decimal:
+    """The digits a float stands for. It is first taken to 15 significant digits
+    (DBL_DIG, what a float reliably holds), then built from its repr: 0.07 is
+    Decimal('0.07'), and division noise goes (0.33299999999999996 is 0.333). Any
+    number typed with 15 digits or fewer survives exactly. A whole number carries
+    no trailing '.0'. The one place in the package a float becomes a Decimal;
+    `calc.decimal_of` and the claim mapping below both come here. A float that is
+    not finite raises ValueError."""
+    if not math.isfinite(value):
+        raise ValueError("a number must be finite")
+    d = Decimal(repr(float(format(value, ".15g"))))
+    return Decimal(int(d)) if d == d.to_integral_value() else d
+
+
 def _decimal_of(value: object, cid: str) -> Decimal:
-    """The digits of the claim's number. A float is first taken to 15 significant
-    digits (DBL_DIG, what a float reliably holds), then built from its repr: 0.07 is
-    Decimal('0.07'), and the registry's division noise goes (a claim of
-    0.33299999999999996 for 33.3 percent is 0.333). Any number a client typed with
-    15 digits or fewer survives exactly. A whole number carries no trailing '.0'."""
+    """The digits of the claim's number (see `decimal_from_float`); a whole number
+    carries no trailing '.0'."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"claim {cid} has no numeric value")
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError(f"claim {cid} has no finite value")
-        d = Decimal(repr(float(format(value, ".15g"))))
-    else:
-        d = Decimal(value)
-    if d == d.to_integral_value():
-        d = Decimal(int(d))
-    return d
+        return decimal_from_float(value)
+    return Decimal(value)
 
 
 def _file_field(source: str, file: str, cell: str | None) -> str | None:

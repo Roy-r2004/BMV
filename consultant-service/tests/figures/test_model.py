@@ -23,7 +23,7 @@ from app.figures import labels
 from app.figures import model as M
 from app.figures.model import (
     Figure, FigureSet, Proposal, Reference, TheirsSource, Working,
-    as_json, display, display_number, from_claim, from_json, tag_word, to_claim,
+    as_json, display, display_number, displayed_value, from_claim, from_json, tag_word, to_claim,
 )
 from app.pipeline import capacity, registry as R
 
@@ -193,7 +193,7 @@ def test_negative_numbers_put_the_sign_before_the_symbol():
 def test_unknown_unit_prints_the_number_then_the_unit_word():
     assert display(theirs(value="12", unit="reformers")) == "12 reformers"
     assert display(theirs(value="1250", unit="deliveries")) == "1,250 deliveries"
-    assert display(theirs(value="3", unit="EUR")) == "3 EUR"
+    assert display(theirs(value="3", unit="AUD")) == "3 AUD"
 
 
 # -- display_number: the number alone, for replacing a number inside a sentence --
@@ -211,9 +211,33 @@ def test_display_number_keeps_symbols_and_drops_unit_words():
     assert display_number(ours(value="1", unit="weeks")) == "1"
     assert display_number(ours(value="6.4", unit="weeks")) == "~6"
     assert display_number(theirs(value="12", unit="reformers")) == "12"
-    assert display_number(theirs(value="3", unit="EUR")) == "3"
+    assert display_number(theirs(value="3", unit="AUD")) == "3"
     assert display_number(theirs(value="1250", unit="count")) == "1,250"
     assert display_number(theirs(value="1.5", unit="weeks", precision=1)) == "1.5"
+
+
+def test_euro_and_pound_figures_print_their_own_sign():
+    assert display(theirs(value="1000", unit="EUR")) == "\u20ac1,000"
+    assert display(theirs(value="22.5", unit="GBP", precision=2)) == "\u00a322.50"
+    assert display(derived(value="44928", unit="EUR", precision=-3)) == "~\u20ac45,000"
+    assert display_number(theirs(value="1000", unit="EUR")) == "\u20ac1,000"
+    assert display_number(theirs(value="1000", unit="GBP"), symbols=False) == "1,000"
+
+
+def test_display_number_can_leave_the_tilde_off_for_a_sentence_that_hedges():
+    f = derived(value="44928", unit="USD", precision=-3)
+    assert display_number(f, tilde=False) == "$45,000"
+    assert display_number(f, symbols=False, tilde=False) == "45,000"
+    assert display_number(f) == "~$45,000"                                   # the default is unchanged
+    assert display_number(theirs(value="22"), tilde=False) == "$22"          # nothing to leave off
+    assert display_number(derived(value="-5.4", unit="USD", precision=0), tilde=False) == "-$5"
+
+
+def test_displayed_value_is_the_value_at_the_figures_precision():
+    assert displayed_value(derived(value="44928", unit="USD", precision=-3)) == D("45000")
+    assert displayed_value(derived(value="2.5", unit="count", precision=0)) == D("3")
+    assert displayed_value(theirs(value="22.50", precision=2)) == D("22.50")
+    assert displayed_value(derived(value="-5.4", unit="USD", precision=0)) == D("-5")
 
 
 def test_display_number_without_symbols_is_the_digits_the_sign_and_the_tilde():
