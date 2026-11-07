@@ -49,23 +49,19 @@ def _proposal(req: Request, system: dict) -> tuple[str, list]:
             system, business_name=req.business_name or "your business", journey_stages=stages,
             answer=answer_stage.load(req), roadmap=roadmap if roadmap.get("status") == plan_stage.READY else None,
         )
-        html = _answer_first(req) + render.proposal_html(system, ctx)
+        # The answer page opens the proposal as it opens every file. It is a
+        # page of the template, after its doctype, and its words pass the
+        # template's law like every other string.
+        ctx["answer_page"] = _answer_page(req)
+        html = render.proposal_html(system, ctx)
     return html, found.findings
 
 
-def _answer_first(req: Request) -> str:
-    """The answer, as the first printed page, when the run has one."""
-    from app.storyline.build import build as build_story
+def _answer_page(req: Request) -> dict | None:
+    """The answer page as the template prints it, or None for a run with no storyline."""
+    from app.storyline.build import for_web
 
-    story = build_story(req)
-    if story is None or not story.answer.question:
-        return ""
-    from app.storyline.pdf import rests_line
-
-    question = html_lib.escape(story.answer.question)
-    line = rests_line(story.answer.rests_on)
-    body = f"<p>{html_lib.escape(line)}</p>" if line else ""
-    return f'<section class="page"><h1>{question}</h1>{body}</section>'
+    return for_web(req)["answer_page"]
 
 
 def page_texts(html: str) -> list[str]:

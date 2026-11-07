@@ -128,6 +128,23 @@ h3.d { font-family: var(--display); font-weight: 700; font-size: 16px; line-heig
 </head>
 <body>
 
+{# ── the answer page: every file opens on the decision ── #}
+{% if p.answer_page %}{% set a = p.answer_page %}
+<section class="page">
+  <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span></div>
+  <div style="margin-top: 26px; max-width: 70ch">
+    {% if a.question %}<h1 class="d">{{ a.question }}</h1>{% endif %}
+    {% for line in a.answer_lines %}<p class="lede">{{ line }}</p>{% endfor %}
+    {% if a.numbers %}<div style="margin-top: 18px">{% for n in a.numbers %}<p><b>{{ n.display }}</b> <span class="muted">{{ n.tag }}</span></p>{% endfor %}</div>{% endif %}
+    {% if a.believed %}<p style="margin-top: 14px"><b>What you believed:</b> {{ a.believed }}</p>{% endif %}
+    {% if a.tested %}<p><b>What the test said:</b> {{ a.tested }}</p>{% endif %}
+    {% if a.monday %}<p><b>Monday:</b> {{ a.monday }}</p>{% endif %}
+    {% if a.would_not %}<p><b>What we would not do:</b> {% for w in a.would_not %}{{ w }} {% endfor %}</p>{% endif %}
+    {% if a.rests_on %}<p class="muted" style="margin-top: 14px">{{ a.rests_on }}</p>{% endif %}
+  </div>
+</section>
+{% endif %}
+
 {# ── cover ── #}
 <section class="page">
   <div class="brand"><span class="mark"><i></i>{{ p.product_name }}</span><span>Proposal for {{ p.business }}, {{ p.date|drawn }}</span></div>

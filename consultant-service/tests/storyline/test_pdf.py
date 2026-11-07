@@ -278,3 +278,34 @@ def test_a_run_from_before_the_storyline_opens_every_file_on_its_cover(tmp_path,
     road = "\n".join(_pages(roadmap.build_roadmap_pdf(row)))
     assert QUESTION not in road and "The register is in the blueprint." not in road
     db.close()
+
+
+def test_volume_iv_opens_on_the_whole_answer_page_after_its_doctype(tmp_path, monkeypatch):
+    # Review H3/M6: the answer was concatenated in front of the template's
+    # <!doctype html> (quirks mode for every page) and was only the question
+    # and the rests-on line.
+    from app.screens import export as screens_export
+    from app.screens import render
+
+    db, row = _ready(tmp_path, monkeypatch)
+    row.main_problem = "The evening class is too quiet."
+    db.commit()
+    html, _found = screens_export._proposal(row, render.load_example())
+    assert html.lstrip().lower().startswith("<!doctype html>")
+    first = screens_export.page_texts(html)[0]
+    for part in (QUESTION, "You are full.", "Keep the class.", "What you believed:",
+                 "The evening class is too quiet.", "Monday:", "What this rests on"):
+        assert part in first, part
+    db.close()
+
+
+def test_volume_iv_of_a_run_with_no_storyline_has_no_answer_page(tmp_path, monkeypatch):
+    from app.screens import export as screens_export
+    from app.screens import render
+
+    db, row = _ready(tmp_path, monkeypatch)
+    row.storyline_json = None
+    db.commit()
+    html, _found = screens_export._proposal(row, render.load_example())
+    assert QUESTION not in html and "What this rests on" not in html
+    db.close()
