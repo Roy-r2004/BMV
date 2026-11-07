@@ -656,6 +656,16 @@ def _presentation_reasons(req) -> list[str]:
     storyline is left as it was: its cover is drawn outside the body frame on
     purpose, and the font check stays on the presentation gate. The cover
     panel's own words are not a clipped page."""
+    return [reason for _, reason in _clipped(req)]
+
+
+#: The name a client reads for each file the clipping check measures.
+_FILE_NAMES = {"blueprint": "Volume I", "technical": "Volume II", "operations": "Volume III",
+               "roadmap": "The roadmap"}
+
+
+def _clipped(req) -> list[tuple[str, str]]:
+    """(file kind, reason) for each clipped line `_presentation_reasons` reports."""
     if not getattr(req, "storyline_json", None):
         return []
     from app.engine.gates.presentation import clipping_findings
@@ -674,10 +684,53 @@ def _presentation_reasons(req) -> list[str]:
         path = os.path.join(folder, f"{request_id}-{kind}.pdf")
         if os.path.isfile(path):
             found.extend(
-                reason for reason in clipping_findings(path, frame_mm=frame)
+                (kind, reason) for reason in clipping_findings(path, frame_mm=frame)
                 if not reason.endswith(COVER_PANEL_SPANS)
             )
     return found
+
+
+_ON_PAGE = re.compile(r"\bpage (\d+)")
+
+
+def plain_reasons(req, gate: dict | None = None) -> list[str]:
+    """Why the package is a draft, in the client's words: each place it names
+    is a file and a page, and no sentence quotes the gate's own reasons, a
+    number the law rejected, or the text a check flagged."""
+    gate = gate if isinstance(gate, dict) else release_status(req)
+    plain: list[str] = []
+
+    def add(sentence: str) -> None:
+        if sentence not in plain:
+            plain.append(sentence)
+
+    for where, place, _numbers in law.page_reasons(law.recorded(req)):
+        at = f"{where}, {place}" if not place.endswith("not located") else where
+        add(f"{at}: a number is not one of your figures, our workings, our estimates or a cited reference")
+    clipped = _clipped(req)
+    for kind, reason in clipped:
+        page = _ON_PAGE.search(reason)
+        at = f", page {page.group(1)}" if page else ""
+        add(f"{_FILE_NAMES.get(kind, kind)}{at}: a line runs outside the page")
+    placed = {reason for _, reason in clipped}
+    for reason in gate.get("reasons") or []:
+        if reason in placed or reason.startswith(tuple(f"{where}, " for where, _ in law.DOCUMENTS)):
+            continue                                   # said above, with its page
+        add(_plain_reason(reason))
+    return plain
+
+
+def _plain_reason(reason: str) -> str:
+    """One gate reason as the client reads it. The reason itself is never shown."""
+    if "not yet checked against the figures" in reason:
+        return "a file has not been checked against the figures since the last change"
+    if reason in ("the run did not complete", "no documents were produced"):
+        return "the work is not finished"
+    if "quality bench" in reason:
+        return "the quality review has not passed"
+    if reason.startswith("integrity layer"):
+        return "the consistency check has not passed on this version"
+    return "a check of the wording or the figures has open points"
 
 
 def release_status(req: Request) -> dict:
@@ -878,9 +931,14 @@ def _cover(kind: str, doc_label: str, sub_label: str, req: Request) -> list:
 def _status_lines(req: Request) -> list:
     """The release state on the cover — DRAFT with its warning, FINAL —
     CONSULTANCY DELIVERABLE with the BMV statement, CLIENT APPROVED."""
-    status = release_status(req)["status"]
+    gate = release_status(req)
+    status = gate["status"]
     if status == "draft":
-        named = "; ".join(release_status(req)["reasons"][:4]) or "Open findings are listed with the release."
+        # The cover names the page and the plain reason. It never prints the
+        # gate's own reasons: they are internal words, and the law's quote the
+        # number it rejected.
+        said = plain_reasons(req, gate)[:4]
+        named = (_drawn("; ".join(said)) + ".") if said else "Open findings are listed with the release."
         return [Spacer(1, 6), Paragraph(
             f'<font color="#b45309"><b>DRAFT.</b> {named}</font>', _S["meta"])]
     if status == "final":
@@ -1961,38 +2019,45 @@ def build_pdf(req: Request, kind: str) -> str:
                        phrases=document_phrases(req, business_case)) as first:
             _volume_flows(req, kind, md, label, sub, business_case)
         pending = first.findings
-    with law.scope(known, where=where, hours=hours, request_id=req.id, pending=pending,
-                   phrases=document_phrases(req, business_case)) as final:
-        flows = _volume_flows(req, kind, md, label, sub, business_case)
-        stamped = release_status(req)["status"]
-    draft = stamped == "draft"
-
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"{req.id}-{kind}.pdf")
-
-    doc = _EngagementDoc(
-        out_path, pagesize=A4,
-        title=f"{req.concept_name or req.business_name} — {label}",
-        author="Build My Version",
-    )
-    W, H = A4
-    cover_frame = Frame(74 * mm, 20 * mm, W - 92 * mm, H - 40 * mm, id="cover")
-    body_frame = Frame(18 * mm, 20 * mm, W - 36 * mm, H - 36 * mm, id="content")
-    cover_template = PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req))
-    body_template = PageTemplate(
-        id="body", frames=[body_frame],
-        onPage=_page_chrome(label, req.concept_name or req.business_name or "", draft=draft, stamp="DRAFT"),
-    )
     from app.storyline.build import build as build_story
 
     opens_on_answer = build_story(req) is not None
-    doc.addPageTemplates([body_template, cover_template] if opens_on_answer else [cover_template, body_template])
-    doc.multiBuild(flows)
-    # the running header and the footer (`_page_chrome`) are drawn in these
-    # bands above and below the body frame; the law's snippets are not sought there
-    law.save(req.id, where, law.locate_pages(out_path, final.findings, margins=(15 * mm, 19 * mm)),
-             built_at=started, data_at=req.updated_at, stamped=stamped)
+
+    def built(pending):
+        with law.scope(known, where=where, hours=hours, request_id=req.id, pending=pending,
+                       phrases=document_phrases(req, business_case)) as final:
+            flows = _volume_flows(req, kind, md, label, sub, business_case)
+            stamped = release_status(req)["status"]
+        doc = _EngagementDoc(
+            out_path, pagesize=A4,
+            title=f"{req.concept_name or req.business_name} — {label}",
+            author="Build My Version",
+        )
+        W, H = A4
+        cover_frame = Frame(74 * mm, 20 * mm, W - 92 * mm, H - 40 * mm, id="cover")
+        body_frame = Frame(18 * mm, 20 * mm, W - 36 * mm, H - 36 * mm, id="content")
+        cover_template = PageTemplate(id="cover", frames=[cover_frame], onPage=_cover_painter(kind, req))
+        body_template = PageTemplate(
+            id="body", frames=[body_frame],
+            onPage=_page_chrome(label, req.concept_name or req.business_name or "",
+                                draft=stamped == "draft", stamp="DRAFT"),
+        )
+        doc.addPageTemplates([body_template, cover_template] if opens_on_answer
+                             else [cover_template, body_template])
+        doc.multiBuild(flows)
+        # the running header and the footer (`_page_chrome`) are drawn in these
+        # bands above and below the body frame; the law's snippets are not sought there
+        return law.locate_pages(out_path, final.findings, margins=(15 * mm, 19 * mm)), stamped
+
+    located, stamped = built(pending)
+    # The cover names the page of each number nobody owns. A first build draws
+    # the cover before its pages are known; once they are, it is drawn again.
+    if any(f.page is None for f in pending) and any(f.page is not None for f in located):
+        located, stamped = built(located)
+    law.save(req.id, where, located, built_at=started, data_at=req.updated_at, stamped=stamped)
     return out_path
 
 

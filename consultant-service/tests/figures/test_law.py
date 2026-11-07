@@ -389,10 +389,26 @@ def test_a_verified_financial_line_passes_and_an_unverified_one_is_flagged(db):
     path = ep.build_pdf(row, "blueprint")
     found = law.recorded(row)["Volume I"]
     assert [f.number for f in found] == ["$9,000"]
-    # The cover quotes the check, so the number is also on the cover. The
-    # recorded page is the one in the body, and it is one of the pages that show it.
+    # The cover names the page and the plain reason, never the number the law
+    # rejected (review H4). The recorded page is the one in the body.
+    assert "$9,000" not in _cover_text(path)
+    assert f"Volume I, page {found[0].page}" in " ".join(_cover_text(path).split())
     assert found[0].page in _pages_holding(path, "$9,000")
     assert _pages_holding(path, "$14,820")            # the verified line printed, and passed
+
+
+def test_the_draft_cover_says_the_plain_reason_never_the_gates_own_words(db):
+    # Review H4: the cover printed "1 open high finding(s) on the quality bench;
+    # 5 document(s) not yet checked ..." verbatim.
+    from app.pipeline import export_pdf as ep
+
+    qa = {"checks": [], "findings": [{"id": "x", "severity": "high", "title": "open", "detail": "x"}]}
+    row = _seed(db, mvp_blueprint=CLEAN_MD, qa_report_json=json.dumps(qa))
+    cover = " ".join(_cover_text(ep.build_pdf(row, "blueprint")).split())
+    assert "DRAFT." in cover
+    assert "the quality review has not passed" in cover
+    for internal in ("quality bench", "finding(s)", "document(s)", "integrity layer", "client-unsafe"):
+        assert internal not in cover, internal
 
 
 CONVERSION = {"item": "Missed bookings", "arithmetic": "40 calls × 30% conversion × $95 × 52",
