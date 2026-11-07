@@ -131,3 +131,43 @@ def test_the_register_numbers_pass_the_number_law():
     req.storyline_json = json.dumps({"register": drafted})
     held = {f.id for f in K.known_for(req)}
     assert {f.id for f in extra} <= held
+
+
+def test_a_register_whose_rows_do_not_add_up_is_not_shown(monkeypatch):
+    # Review L4: "the sum is checked in code" held only by construction; nothing
+    # checked it as the register was assembled.
+    from dataclasses import replace
+
+    from app.storyline import register
+
+    real = register._built
+
+    def off_by_a_cent(item, headline):
+        row = real(item, headline)
+        if row.value is None or row.id != "1":
+            return row
+        return replace(row, value=replace(row.value, low=row.value.low + Decimal("0.01")))
+
+    monkeypatch.setattr(register, "_built", off_by_a_cent)
+    with pytest.raises(RegisterInvalid) as caught:
+        assemble(_req(), _drafted())
+    assert "low" in caught.value.reasons[0]
+
+
+def test_a_stored_register_that_stops_checking_out_holds_the_release(tmp_path, monkeypatch):
+    # Review L8: the register is assembled again on every read; when a cited
+    # figure goes (a file removed, the case file rebuilt) it vanished from every
+    # file with no failure raised.
+    from app.pipeline import export_pdf
+    from app.storyline.build import build
+    from app.storyline.register import stored_reasons
+
+    monkeypatch.setattr(settings, "UPLOADS_DIR", str(tmp_path))
+    stored = json.dumps({"register": _drafted(), "sections": []})
+    row = _req(storyline_json=stored)
+    assert stored_reasons(row) == []
+    row.case_file_json = json.dumps([])
+    assert build(row).register is None
+    reasons = export_pdf.release_status(row)["reasons"]
+    assert any(reason.startswith("the register no longer checks out") for reason in reasons)
+    assert "the register no longer checks out against your figures" in export_pdf.plain_reasons(row)

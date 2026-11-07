@@ -58,8 +58,21 @@ def assemble(req, drafted: list[dict]) -> Register:
 
     headline, why = _headline(req)
     rows = tuple(_built(item, headline) for item in parsed)
+    _adds_up(rows, headline)
     footnotes = _footnotes(req, why, rows)
     return Register(rows, headline, footnotes)
+
+
+def _adds_up(rows: tuple[RegisterRow, ...], headline: Range | None) -> None:
+    """The rows' ends add up to the headline's, exactly, checked as it runs:
+    a register whose ranges do not add up is not shown."""
+    if headline is None:
+        return
+    for end in ("low", "mid", "high"):
+        total = sum((getattr(row.value, end) for row in rows if row.value is not None), Decimal(0))
+        if total != getattr(headline, end):
+            raise RegisterInvalid([f"The rows' {end} ends add up to {total}, not to the headline's "
+                                   f"{getattr(headline, end)}."])
 
 
 def extra_figures(register: Register) -> list[Figure]:
@@ -116,6 +129,25 @@ def cost_text(known, cost: Cost) -> str | None:
     if figure is not None:
         return _spoken(figure)
     return NOT_PRICED if cost.needs else None
+
+
+def stored_reasons(req) -> list[str]:
+    """Why the register this run stored no longer checks out against what the
+    run holds now (a cited figure removed, the plan's phases rewritten), or []
+    when it does or there is none. The register is assembled again on every
+    read, so a change after the stage is said here rather than the register
+    vanishing from the files without a word."""
+    raw = _loads(getattr(req, "storyline_json", None))
+    drafted = raw.get("register") if isinstance(raw, dict) else None
+    if not isinstance(drafted, list) or not drafted:
+        return []
+    try:
+        assemble(req, drafted)
+    except RegisterInvalid as exc:
+        return [f"the register no longer checks out: {'; '.join(exc.reasons)}"]
+    except Exception:
+        return ["the register no longer checks out"]
+    return []
 
 
 def figures_for(req) -> list[Figure]:
