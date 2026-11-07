@@ -46,7 +46,7 @@ export default function FrontDoor({
           What are you trying to work out?
         </motion.h1>
         <motion.p className="cx-lead mt-[2.4vh] max-w-[48ch]" {...enter(0.12)}>
-          Describe the problem, the decision or the venture you are weighing, in your own words. Every
+          Describe your idea, or the problem or decision your business faces, in your own words. Every
           question that follows depends on your answer.
         </motion.p>
 
@@ -85,7 +85,7 @@ export default function FrontDoor({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onStart();
               }}
-              placeholder={'e.g. "We keep missing calls in the evening and I think we\'re losing bookings."\nor "I want to open a second clinic but I can\'t tell if the numbers work."'}
+              placeholder={'e.g. "I want to start an app that books home cleaners. Can it make money, and can you build it?"\nor "We keep missing calls in the evening and I think we are losing bookings."'}
               autoFocus
               aria-invalid={Boolean(error)}
               aria-describedby={error ? 'cx-problem-error' : undefined}

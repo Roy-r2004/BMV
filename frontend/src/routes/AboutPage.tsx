@@ -132,10 +132,10 @@ export default function AboutPage() {
 
         <Chapter state={0}>
           <p className="about-kicker">About the firm</p>
-          <h1 className="about-display about-h1">An AI consultancy that starts inside the business</h1>
+          <h1 className="about-display about-h1">An AI consultancy that turns ideas into working businesses</h1>
           <p className="about-lede">
-            We begin with the work, the bottlenecks and the economics of the business in front of us. The technology is
-            chosen last, and only where it pays for itself.
+            We begin with the idea or the business in front of us: how it will earn, what it will cost and what has to
+            work. Then we build what it needs, choosing the technology last and only where it pays for itself.
           </p>
           <p className="about-firm">
             {COMPANY.name} is registered in Dubai, United Arab Emirates. Its method was written by consultants and built by engineers.
@@ -248,8 +248,8 @@ export default function AboutPage() {
         </Chapter>
 
         <Chapter state={7}>
-          <h2 className="about-display about-h2">Bring us the part of the business that should work better</h2>
-          <p className="about-lede">We will tell you what AI can change, and what is not worth building.</p>
+          <h2 className="about-display about-h2">Bring us the idea, or the part of the business that should work better</h2>
+          <p className="about-lede">We will tell you whether its numbers work, what is worth building, and then build it.</p>
           <div className="about-actions">
             <Link to="/demo" className="about-cta">
               Start a consultation

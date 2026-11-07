@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import ConceptScreens from '../components/concepts/ConceptScreens';
-import { EXAMPLES } from '../data/examples';
+import { EXAMPLES, STAGES } from '../data/examples';
 import { PRICE_LINE } from '../data/offer';
 import { saveFrontDoor } from '../utils/frontDoor';
 import { usePageMeta } from '../utils/pageMeta';
@@ -13,16 +13,17 @@ import '../styles/examples.css';
 const SCENES = EXAMPLES.map((e) => ({ name: e.system, screens: e.screens }));
 
 /**
- * The Examples page. A visitor picks the kind of business closest to theirs,
- * reads the question an owner of one brings us, what the consultation would
- * test and against which of their own figures, and what it could lead to.
+ * The Examples page. A visitor picks the example closest to theirs (an idea
+ * first, or a business already running), reads the question its owner brings
+ * us, what the consultation would test and against which figures, and what we
+ * would build.
  * Then they can start a consultation with that question already written,
  * ready to change into their own.
  */
 export default function SolutionsPage() {
   usePageMeta(
     'Examples',
-    'Eight kinds of business, the question an owner of each brings us, what a consultation tests and what it can lead to.',
+    'Eight examples, from a first idea to a running business: the question each brings, what a consultation tests, and what we build.',
   );
   const navigate = useNavigate();
   const [sel, setSel] = useState(0);
@@ -50,28 +51,37 @@ export default function SolutionsPage() {
         <header className="ex-head">
           <div className="fm-wrap">
             <p className="fm-kicker">Examples</p>
-            <h1 className="fm-h1">Eight businesses, eight questions, and what a consultation does with each</h1>
+            <h1 className="fm-h1">From a first idea to a running business: what we test, and what we build</h1>
             <p className="fm-lede">
-              Choose the business closest to yours. You will see the question its owner brings us, what we would test
-              against their own figures, and what it could lead to. These are illustrations of the method, not client
-              results.
+              Choose the example closest to yours. You will see the question its owner brings us, what we would test
+              before anything is built, and what we would then build for them. These are illustrations of the method,
+              not client results.
             </p>
           </div>
           <div className="ex-tabs-wrap">
             <div className="fm-wrap">
-              <div className="ex-tabs" role="tablist" aria-label="Kind of business">
-                {EXAMPLES.map((e, i) => (
-                  <button
-                    key={e.id}
-                    type="button"
-                    role="tab"
-                    id={`ex-tab-${e.id}`}
-                    aria-selected={i === sel}
-                    aria-controls="ex-file"
-                    onClick={() => choose(i)}
-                  >
-                    {e.business}
-                  </button>
+              <div className="ex-tabs" role="tablist" aria-label="Examples">
+                {STAGES.map((g) => (
+                  <div key={g.stage} className="ex-tabgroup" role="presentation">
+                    <span className="ex-tabgroup-label">{g.label}</span>
+                    <div className="ex-tabrow" role="presentation">
+                      {EXAMPLES.map((e, i) =>
+                        e.stage === g.stage ? (
+                          <button
+                            key={e.id}
+                            type="button"
+                            role="tab"
+                            id={`ex-tab-${e.id}`}
+                            aria-selected={i === sel}
+                            aria-controls="ex-file"
+                            onClick={() => choose(i)}
+                          >
+                            {e.business}
+                          </button>
+                        ) : null,
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -81,7 +91,7 @@ export default function SolutionsPage() {
         <section className="ex-file" id="ex-file" role="tabpanel" aria-labelledby={`ex-tab-${ex.id}`} ref={fileRef}>
           <div className="fm-wrap ex-grid">
             <div className="ex-text">
-              <p className="ex-label">The owner’s question</p>
+              <p className="ex-label">{ex.stage === 'idea' ? 'The idea, in its owner’s words' : 'The owner’s question'}</p>
               <blockquote className="ex-question">“{ex.question}”</blockquote>
 
               <div className="ex-block">
@@ -91,7 +101,7 @@ export default function SolutionsPage() {
                     <li key={t.claim}>
                       <p>{t.claim}</p>
                       <span>
-                        Tested against <span className="fm-tag fm-tag--theirs">{t.against}</span>
+                        Tested against <span className={`fm-tag fm-tag--${t.source}`}>{t.against}</span>
                       </span>
                     </li>
                   ))}
@@ -103,7 +113,7 @@ export default function SolutionsPage() {
               </div>
 
               <div className="ex-block">
-                <h2 className="ex-h">What it can lead to</h2>
+                <h2 className="ex-h">What we build</h2>
                 <p className="ex-system">{ex.system}</p>
                 <p className="fm-p">{ex.systemLine}</p>
               </div>
@@ -148,10 +158,10 @@ export default function SolutionsPage() {
         <section className="fm-section">
           <div className="fm-wrap ex-own">
             <div>
-              <h2 className="fm-h2">Your business is not one of these?</h2>
+              <h2 className="fm-h2">Your idea is not one of these?</h2>
               <p className="fm-intro" style={{ marginTop: '1rem' }}>
-                The method is the same for every business. Write the question in your own words and the consultation
-                starts from it.
+                The method is the same for every idea and every business. Write it in your own words and the
+                consultation starts from it.
               </p>
             </div>
             <form

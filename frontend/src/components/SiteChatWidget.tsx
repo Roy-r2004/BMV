@@ -4,7 +4,7 @@ import { sendSiteChat, type SiteChatMessage } from '../api/siteChat';
 import '../styles/site-chat.css';
 
 const WELCOME =
-  "Hi, I’m the Build My Version guide. Tell me what you’re trying to work out and I’ll point you to the right start: a consultation, a solution, or private AI. What does your business do?";
+  "Hi, I’m the Build My Version guide. Tell me what you’re trying to work out and I’ll point you to the right start. Do you have an idea you want built, or a business that already runs?";
 
 // Lucide-style outline paths, stroked with currentColor.
 const ICONS = {
@@ -60,10 +60,10 @@ function BotMark({ className }: { className?: string }) {
 }
 
 const STARTERS = [
-  { label: 'I run a restaurant', icon: ICONS.utensils },
+  { label: 'I have an idea I want built', icon: ICONS.bulb },
+  { label: 'I already run a business', icon: ICONS.utensils },
   { label: 'How does it work?', icon: ICONS.rocket },
   { label: 'What does it cost?', icon: ICONS.gift },
-  { label: 'Show me solutions', icon: ICONS.bulb },
 ] as const;
 
 function linkify(text: string) {

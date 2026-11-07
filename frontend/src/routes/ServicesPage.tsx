@@ -63,15 +63,15 @@ export default function ServicesPage() {
     <FirmPage>
       <PageHero
         kicker="Services"
-        title="Three services, each starting from the decision in front of you"
-        lede="A consultation gives you a tested answer and the plan behind it. If the answer is a system, we can build it. If your data must stay inside your business, we can run the AI there."
+        title="From an idea to a working business, in three services"
+        lede="Bring an idea and we test it, plan it and build it for you. Bring a business that already runs and we do the same for the decision in front of it. If your data must stay inside your business, we run the AI there."
         actions={
           <>
             <Link to="/demo" className="fm-btn">
               Start a consultation
             </Link>
-            <Link to="/contact" className="fm-btn-line">
-              Discuss a build
+            <Link to="/solutions" className="fm-btn-line">
+              See what we build
             </Link>
           </>
         }
@@ -84,8 +84,8 @@ export default function ServicesPage() {
               <h3>Consultation</h3>
               <p className="fm-col-price">{CONSULTATION_FEE}</p>
               <p>
-                You state the problem or the decision. We ask what the answer depends on, test every explanation against
-                your figures and deliver the answer with six files.
+                You describe the idea, or the problem or decision your business faces. We ask what the answer depends
+                on, test it against your figures and published ones, and deliver the answer with six files.
               </p>
               <ul>
                 <li>Every figure labelled with its source</li>
@@ -98,16 +98,16 @@ export default function ServicesPage() {
             </article>
 
             <article className="fm-col" id="build">
-              <h3>System build</h3>
+              <h3>We build it for you</h3>
               <p className="fm-col-price">Quoted after the scope is agreed</p>
               <p>
-                We build the system the technical plan describes, in the order it sets, with the checks that show each
-                part is complete.
+                We build what the plan describes, in the order it sets, with the checks that show each part is
+                complete, then launch it and hand it over.
               </p>
               <ul>
-                <li>Software, AI agents and integrations</li>
-                <li>Built around how your business already works</li>
-                <li>Handed over with the operations manual</li>
+                <li>Websites, apps, bookings and payments</li>
+                <li>AI assistants, agents and automation</li>
+                <li>Launched and handed over with the operations manual</li>
               </ul>
               <Link to="/solutions" className="fm-link">
                 See example systems

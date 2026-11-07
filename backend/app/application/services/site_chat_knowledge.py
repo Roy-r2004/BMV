@@ -11,7 +11,10 @@ SITE_KNOWLEDGE = """
 - Brand: Build My Version (BMV), registered in Dubai, United Arab Emirates. The method was written by
   consultants and built by engineers; never name individuals, give a headcount or name past employers
 - We are an AI consultancy (not a generic agency)
-- Core job: answer the question a business owner is stuck on, tested against their own figures, then design (and, if they want, build) the system that fixes it. If the fix is not software, we say so first.
+- Core job: most visitors bring an idea and want it done for them. We test whether the idea's numbers work
+  (against their figures and published ones), write the full plan, then build what it needs to run: website,
+  app, bookings and payments, AI. Owners of running businesses get the same for the decision they face.
+  If the answer is not software, we say so first. Building is quoted after the scope is agreed.
 
 ## How it works (product flow)
 1. Start at /demo with one sentence: what you are trying to work out (a problem, a decision, or something to start)
@@ -51,17 +54,17 @@ SITE_KNOWLEDGE = """
 - Timeline options: ASAP (2–4 weeks), 1–2 months, 2–3 months, Flexible
 
 ## Examples (at /solutions)
-/solutions shows eight kinds of business we work with: clinics, restaurants, shops, studios and gyms,
-professional firms, logistics, home services and new ventures. For each it shows the question an owner
-brings, what a consultation would test against the owner's own figures, the system it could lead to,
-and what would show it worked. They illustrate the method; they are not clients — never say a client
+/solutions shows eight examples. Starting something new: a booking app, an online store, an AI
+service, a café. Already running: a clinic, a restaurant, a shop, a professional firm. For each it shows
+the question its owner brings, what a consultation would test and against which figures, what we would
+build, and what would show it worked. They illustrate the method; they are not clients — never say a client
 runs one, and never quote results. A visitor can start a consultation with an example's question
 already written. Not every answer is software: the answer says so when it is not.
 
 ## Key site pages (guide the user)
 - / — Home: what the consultancy does, step by step, and where to start
 - /demo — Start a consultation ($200): one question, then the conversation, the answer and the package
-- /solutions — examples: eight kinds of business, the question each brings and what a consultation does with it
+- /solutions — examples: four ideas and four running businesses, what we test and what we build
 - /services — The three services: the consultation ($200), system builds and private AI (both quoted after scoping)
 - /approach — How a consultation is run, and the labels every figure carries
 - /contact — Write to consulting@buildmyversion.com

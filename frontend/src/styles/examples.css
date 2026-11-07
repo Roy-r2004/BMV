@@ -4,17 +4,24 @@
 .ex-head { padding: clamp(3rem, 7vw, 5.5rem) 0 0; }
 .ex-head .fm-h1 { max-width: 19em; }
 
-/* the tabs: a ruled row of businesses, scrolling sideways on a phone */
-.ex-tabs-wrap { margin-top: clamp(2.25rem, 4vw, 3rem); border-bottom: 1px solid var(--fm-line); }
-.ex-tabs { display: flex; gap: .25rem; overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--fm-gutter) * -1); padding: 0 var(--fm-gutter); }
-.ex-tabs::-webkit-scrollbar { display: none; }
-.ex-tabs button { flex: none; position: relative; padding: 1rem .9rem 1.05rem; background: none; border: 0; cursor: pointer; font: 500 .98rem/1 var(--fm-sans); color: var(--fm-muted); white-space: nowrap; }
-.ex-tabs button:first-child { padding-left: 0; }
-.ex-tabs button:hover { color: var(--fm-ink); }
-.ex-tabs button[aria-selected="true"] { color: var(--fm-ink); font-weight: 600; }
-.ex-tabs button[aria-selected="true"]::after { content: ''; position: absolute; left: .9rem; right: .9rem; bottom: -1px; height: 3px; background: var(--fm-blue); }
-.ex-tabs button:first-child[aria-selected="true"]::after { left: 0; }
-.ex-tabs button:focus-visible { outline: 2px solid var(--fm-blue); outline-offset: -4px; }
+/* the tabs: two ruled rows, ideas first; each row scrolls sideways on a phone */
+.ex-tabs-wrap { margin-top: clamp(2.25rem, 4vw, 3rem); }
+.ex-tabs { display: flex; flex-wrap: wrap; gap: 1.25rem 3rem; }
+.ex-tabgroup { min-width: 0; max-width: 100%; }
+.ex-tabgroup-label { display: block; font-size: .85rem; font-weight: 600; color: var(--fm-faint); }
+.ex-tabrow { display: flex; gap: .25rem; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--fm-line); }
+.ex-tabrow::-webkit-scrollbar { display: none; }
+.ex-tabrow button { flex: none; position: relative; padding: .85rem .9rem .95rem; background: none; border: 0; cursor: pointer; font: 500 .98rem/1 var(--fm-sans); color: var(--fm-muted); white-space: nowrap; }
+.ex-tabrow button:first-child { padding-left: 0; }
+.ex-tabrow button:hover { color: var(--fm-ink); }
+.ex-tabrow button[aria-selected="true"] { color: var(--fm-ink); font-weight: 600; }
+.ex-tabrow button[aria-selected="true"]::after { content: ''; position: absolute; left: .9rem; right: .9rem; bottom: 0; height: 3px; background: var(--fm-blue); }
+.ex-tabrow button:first-child[aria-selected="true"]::after { left: 0; }
+.ex-tabrow button:focus-visible { outline: 2px solid var(--fm-blue); outline-offset: -4px; }
+@media (max-width: 639px) {
+  .ex-tabs { flex-direction: column; flex-wrap: nowrap; gap: 1rem; }
+  .ex-tabrow { margin-right: calc(var(--fm-gutter) * -1); padding-right: var(--fm-gutter); }
+}
 
 /* the case file */
 .ex-file { padding: clamp(2.5rem, 6vw, 4.5rem) 0 clamp(3.5rem, 7vw, 5.5rem); scroll-margin-top: 64px; }

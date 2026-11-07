@@ -25,11 +25,11 @@ import '../styles/landing.css';
 const STEPS: { state: number; tab: string; title: string; body: React.ReactNode }[] = [
   {
     state: 1,
-    tab: 'The question',
-    title: 'A consultation begins with one question, in your own words',
+    tab: 'Your idea',
+    title: 'A consultation begins with your idea, in your own words',
     body: (
       <p className="ls-body">
-        State the problem, the decision or the venture you are weighing. There is no form to complete first. Every
+        Describe the idea, or the problem or decision your business faces. There is no form to complete first. Every
         question that follows depends on your answer to the one before it.
       </p>
     ),
@@ -97,18 +97,19 @@ const STEPS: { state: number; tab: string; title: string; body: React.ReactNode 
     body: (
       <p className="ls-body">
         How the system works end to end, each module and AI agent, the integrations, data protection and the build
-        order. {BUILD_LINE}
+        order, written so that any team could build from it.
       </p>
     ),
   },
   {
     state: 8,
-    tab: 'Who it is for',
-    title: 'Owners of businesses that are running, or about to open',
+    tab: 'The build',
+    title: 'We build it for you, launch it and hand it over',
     body: (
       <p className="ls-body">
-        Clinics, restaurants, shops, studios, professional firms, logistics, home services and new ventures. The
-        questions differ; the method does not. <Link to="/solutions">See an example for each</Link>
+        When the answer is a system, we build it: the website, the app, the bookings and payments, the AI. It is quoted
+        once the scope is agreed, and handed over with the operations manual. <b>The plan is yours either way.</b>{' '}
+        <Link to="/solutions">See what we build for an idea</Link>
       </p>
     ),
   },
@@ -147,20 +148,20 @@ function FirmIntro() {
       <section className="fm-section fm-section--mist">
         <div className="fm-wrap">
           <div className="fm-section-head fm-section-head--split">
-            <h2 className="fm-h2">Three services, each starting from the decision in front of you</h2>
+            <h2 className="fm-h2">We test the idea, plan it and build it</h2>
             <p className="fm-intro">{BUILD_LINE}</p>
           </div>
           <div className="fm-cols">
             <article className="fm-col">
               <h3>Consultation</h3>
               <p className="fm-col-price">{CONSULTATION_FEE}</p>
-              <p>A tested answer to one question, with the blueprint, the technical plan, the roadmap and the presentation.</p>
+              <p>Whether the idea's numbers work, and the full plan: the blueprint, the technical plan, the roadmap and the presentation.</p>
               <Link to="/services#consultation" className="fm-link">What a consultation includes</Link>
             </article>
             <article className="fm-col">
-              <h3>System build</h3>
+              <h3>We build it for you</h3>
               <p className="fm-col-price">Quoted after the scope is agreed</p>
-              <p>We build the system the technical plan describes, in the order it sets, and hand it over to your team.</p>
+              <p>The website, the app, the bookings and payments and the AI, built to the plan, launched and handed over.</p>
               <Link to="/services#build" className="fm-link">How a build works</Link>
             </article>
             <article className="fm-col">
@@ -180,8 +181,8 @@ function FirmIntro() {
 
 export default function LandingPage() {
   usePageMeta(
-    'An AI consultancy that tests its answers against your figures',
-    'Build My Version is an AI consultancy. Describe the problem or the decision; we test every explanation against your own figures and deliver the answer, the reasoning and the plan.',
+    'Your idea, tested and built into a working business',
+    'Build My Version is an AI consultancy. Bring an idea or a running business: we test whether the numbers work, write the plan and build what it needs to run.',
   );
   const storyRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -217,11 +218,11 @@ export default function LandingPage() {
           <div className="ls-wrap">
             <div className="ls-col">
               <p className="ls-eyebrow">AI consultancy</p>
-              <h1 className="ls-display ls-h1">Business decisions, tested against your own figures</h1>
+              <h1 className="ls-display ls-h1">Your idea, tested and built into a working business</h1>
               <p className="ls-lede">
-                Describe the problem, the decision or the venture in your own words. We test every explanation against
-                your figures and deliver the answer, the reasoning and the plan. If the answer is not software, we say so
-                before anything is built.
+                Describe the idea in your own words. We test whether its numbers work, write the plan, and build what
+                it needs to run: the website, the app, the bookings and payments, and the AI. If you already run a
+                business, we do the same for the decision in front of you.
               </p>
               <div className="ls-go">
                 <Link to="/demo" className="ls-cta">Start a consultation</Link>
