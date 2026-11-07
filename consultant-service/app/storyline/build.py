@@ -212,11 +212,17 @@ def _hypotheses(req) -> list[dict]:
     return [h for h in rows if isinstance(h, dict)] if isinstance(rows, list) else []
 
 
-def for_web(req) -> dict:
+def for_web(req, *, public: bool = False) -> dict:
     """The answer page and the register, as the screens read them.
 
     None when the run has no answer. A register that does not check out is
     absent, not filled.
+
+    `public` is for a payload that goes to someone who is not the owner (the
+    share link): the owner's own words do not travel with it. The question
+    they brought, what they believed, the test of that belief, and their
+    hypotheses are left out (None, or absent from the list), so the shape is
+    the same and the page shows only the parts that are there.
     """
     story = build(req)
     if story is None:
@@ -224,18 +230,23 @@ def for_web(req) -> dict:
     from app.storyline.pdf import rests_line
 
     page = story.answer
+    would_not = list(page.would_not or ())
+    if public:
+        decision = _decision(req)
+        why = _text(decision.get("why_not_the_others")) if isinstance(decision, dict) else None
+        would_not = [why] if why else []
     return {
         "answer_page": {
-            "question": page.question,
+            "question": None if public else page.question,
             "answer_lines": list(page.answer_lines),
             "numbers": [
                 {"figure_id": number.figure_id, "display": number.display, "tag": number.tag}
                 for number in page.numbers
             ],
-            "believed": page.believed,
-            "tested": page.tested,
+            "believed": None if public else page.believed,
+            "tested": None if public else page.tested,
             "monday": page.monday,
-            "would_not": list(page.would_not or ()),
+            "would_not": would_not,
             "rests_on": rests_line(page.rests_on),
         },
         "register": _register_web(req, story.register),

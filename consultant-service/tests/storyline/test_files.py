@@ -150,3 +150,39 @@ def test_progress_files_match_preview_files(client):
     ]
     assert progress[0]["state"] == "ready"
     db.close()
+
+
+SECRET = "My partner Dana keeps losing the bookings and I am thinking of firing her."
+OWNER_GUESS = "Dana is the reason the evening class empties."
+
+
+def test_the_share_link_carries_none_of_the_owners_own_words(client, tmp_path, monkeypatch):
+    # Review H1: GET /api/shared/<token> served main_problem verbatim as
+    # answer_page.believed, and the brief's question and the owner's hypotheses.
+    from app.config import settings as cfg
+
+    monkeypatch.setattr(cfg, "UPLOADS_DIR", str(tmp_path))
+    db = SessionLocal()
+    rows = [{"phase": 1, "recommendation": "Keep the evening class.", "changes": "The evening.",
+             "owner": "the owner", "depends_on": [], "share_pct": 100, "cost_figure": None,
+             "cost_needs": "a quote from the builder"}]
+    row = _seed(
+        db, share_token="partner-link-3", action_plan_json=PLAN, main_problem=SECRET,
+        brief_json=json.dumps({"question": "Should I fire Dana over the evening class?"}),
+        answer_json=json.dumps({"headline": "You are full.", "turn": "Keep the class."}),
+        storyline_json=json.dumps({"register": rows, "sections": []}),
+        diagnosis_json=json.dumps({"hypotheses": [
+            {"statement": OWNER_GUESS, "from_owner": True,
+             "test": {"verdict": "refuted", "because": "Dana covers the morning only."}}]}),
+        consulting_recommendations_json=json.dumps({"why_not_the_others": "A new hire costs more than it saves."}),
+    )
+    shared = client.get("/api/shared/partner-link-3")
+    assert shared.status_code == 200
+    body = shared.text
+    for words in (SECRET, "Should I fire Dana", OWNER_GUESS, "Dana covers the morning only."):
+        assert words not in body, words
+    page = shared.json()["answer_page"]
+    assert page["question"] is None and page["believed"] is None and page["tested"] is None
+    assert page["would_not"] == ["A new hire costs more than it saves."]
+    assert page["answer_lines"] == ["You are full.", "Keep the class."]
+    db.close()

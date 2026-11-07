@@ -93,9 +93,10 @@ def shared_system(token: str, db: Session = Depends(get_db)):
 
 
 def _storyline_web(req) -> dict:
+    """The answer page and the register, without the owner's own words."""
     from app.storyline.build import for_web
 
-    return for_web(req)
+    return for_web(req, public=True)
 
 
 def _document_flags(req: Request) -> dict:
