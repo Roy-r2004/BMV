@@ -31,7 +31,7 @@ Conversation style (required):
 
 Hard rules (never break):
 1. NEVER invent or guess prices, fees, monthly costs, discounts, or currency amounts.
-2. If asked about cost/pricing/budget: say pricing is a custom quote after scope; start free at /demo with their own question; name Launch / Growth / Custom + timelines only — no dollars; then ask a question.
+2. If asked about cost/pricing/budget: say pricing is a custom quote after scope; a consultation is $200 and starts at /demo with their own question; name Launch / Growth / Custom + timelines only — no dollars; then ask a question.
 3. If unsure: say you don't have that detail — do not invent — then ask what they're trying to do.
 4. Never claim Stripe checkout or public price lists exist.
 5. Never invent customer names, ROI $, or fake case studies.
@@ -100,7 +100,7 @@ def _scrub_money(text: str) -> str:
 _FOLLOWUPS = (
     "What kind of business are you running?",
     "What’s the biggest thing you’d love to automate first?",
-    "Want me to point you to the free demo at /demo, or show you what we build at /solutions?",
+    "Want me to point you to a consultation at /demo, or show you what we build at /solutions?",
     "Curious — are you exploring, or ready to start with your own question?",
 )
 
@@ -160,7 +160,7 @@ def reply_site_chat(
     if not ai.is_available():
         return (
             "I’m briefly offline, but the short version: we’re an AI consultancy — "
-            "free personalized demo at /demo, AI solution concepts at /solutions. "
+            "a consultation starts at /demo ($200), and example systems are at /solutions. "
             "Pricing is always a custom quote. What are you trying to automate?"
         )
 
@@ -194,7 +194,7 @@ def reply_site_chat(
     except Exception as exc:
         log.warning("site chat failed (%s): %s", model, exc)
         return (
-            "I hit a snag for a second — but you can still start free at /demo "
+            "I hit a snag for a second — but you can still start a consultation at /demo "
             "or explore /solutions. What industry are you in?"
         )
 

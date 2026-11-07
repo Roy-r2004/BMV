@@ -8,7 +8,7 @@ SITE_KNOWLEDGE = """
 # Build My Version — grounded product facts
 
 ## Who we are
-- Brand: Build My Version (BMV)
+- Brand: Build My Version (BMV), registered in Dubai, United Arab Emirates. Founder: Roy Rizkallah
 - We are an AI consultancy (not a generic agency)
 - Core job: answer the question a business owner is stuck on, tested against their own figures, then design (and, if they want, build) the system that fixes it. If the fix is not software, we say so first.
 
@@ -20,13 +20,12 @@ SITE_KNOWLEDGE = """
 5. Then the package: a recommendation register (who owns each step, when, and the range it is worth), the blueprint, the technical plan, the operations manual, a roadmap, the system screen by screen (only when the answer is to build) and a deck, plus a ZIP of all of them
 6. If you want it built, our team quotes after scope; the plan is yours either way
 
-## Free vs paid
-- Starting is free: the consultation, the answer and the whole package cost nothing
-- No credit card and no sales call to start
+## Price
+- A consultation costs $200. It includes the answer and the whole package of files
+- No sales call is needed to start
 - Building the real product is a custom quote after package/scope selection
-- ONE fixed-price service exists: the Deep-Dive working session — $200, 90 minutes with our consultant, the demo's plan corrected together from the client's real numbers, an exact build quote at the end. The $200 is credited in full against the build.
 - There is NO online checkout; contact is by email: consulting@buildmyversion.com
-- Build packages themselves have NO public dollar prices (the $200 deep-dive is the only published price)
+- Build packages themselves have NO public dollar prices (the $200 consultation is the only published price)
 
 ## Build packages (NO public prices — quote only)
 1) Launch MVP
@@ -46,7 +45,7 @@ SITE_KNOWLEDGE = """
 
 ## Pricing rules (absolute)
 - We never publish dollar/euro/pound prices for packages
-- Correct answer to "how much?": Pricing is a custom quote after we understand scope — never checkout online. Suggest starting with a free consultation at /demo, then choosing Launch / Growth / Custom.
+- Correct answer to "how much?": Pricing is a custom quote after we understand scope — never checkout online. Suggest starting with a consultation at /demo ($200), then choosing Launch / Growth / Custom.
 - Scope labels used in the form (not prices): Starter scope, Standard scope, Full build, Not sure yet
 - Timeline options: ASAP (2–4 weeks), 1–2 months, 2–3 months, Flexible
 
@@ -66,7 +65,7 @@ Any of them is shaped around the visitor's business after a consultation; buildi
 
 ## Key site pages (guide the user)
 - / — Home: what the consultancy does, step by step, and where to start
-- /demo — Start a consultation (free): one question, then the conversation, the answer and the package
+- /demo — Start a consultation ($200): one question, then the conversation, the answer and the package
 - /solutions — AI solution concepts, grouped by area of the business
 - /private-ai — Private AI deployments on infrastructure the client owns and controls
 - /about — Who we are / method
@@ -91,9 +90,7 @@ AI customer assistants, booking systems, dashboards, lead follow-up, quote gener
 
 PRICING_SAFE_REPLY = (
     "Honest answer: builds don’t have list prices — every build is quoted after we understand your scope. "
-    "You can start free at /demo (a free consultation that starts with your own question, no card). "
-    "If you want a human pass before committing, the Deep-Dive working session is $200 — 90 minutes with our "
-    "consultant, your plan corrected together, an exact quote at the end, and the $200 is credited in full "
-    "against your build (email consulting@buildmyversion.com). "
+    "A consultation is $200: it starts at /demo with your own question and ends with the answer and the full "
+    "package of files. Questions: consulting@buildmyversion.com. "
     "Build packages are Launch MVP (4–8 weeks), Growth MVP (8–12 weeks, most popular), or Custom / Scale."
 )
