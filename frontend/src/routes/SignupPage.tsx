@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import AuthShell from '../components/AuthShell';
+import FilmAuth from '../film/FilmAuth';
 
 import { usePageMeta } from '../utils/pageMeta';
 export default function SignupPage() {
@@ -31,8 +31,8 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthShell
-      eyebrow="Account"
+    <FilmAuth
+      kicker="Account"
       title="Create your account"
       lead="Your account keeps your consultation, your answer and your files private to you."
       footer={
@@ -44,8 +44,8 @@ export default function SignupPage() {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="auth-shell__form">
-        <label className="auth-shell__label">
+      <form onSubmit={handleSubmit} className="film-form film-form--auth">
+        <label className="film-field">
           Name
           <input
             type="text"
@@ -53,11 +53,10 @@ export default function SignupPage() {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="auth-shell__input"
             placeholder="Your name"
           />
         </label>
-        <label className="auth-shell__label">
+        <label className="film-field">
           Email
           <input
             type="email"
@@ -65,11 +64,10 @@ export default function SignupPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="auth-shell__input"
             placeholder="you@company.com"
           />
         </label>
-        <label className="auth-shell__label">
+        <label className="film-field">
           Password
           <input
             type="password"
@@ -78,19 +76,18 @@ export default function SignupPage() {
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="auth-shell__input"
             placeholder="At least 8 characters"
           />
         </label>
-        {error ? <p className="auth-shell__error">{error}</p> : null}
+        {error ? <p className="film-error">{error}</p> : null}
         <button
           type="submit"
-          className="gradient-btn auth-shell__submit disabled:opacity-60"
+          className="film-pill"
           disabled={loading}
         >
           {loading ? 'Creating…' : 'Create account'}
         </button>
       </form>
-    </AuthShell>
+    </FilmAuth>
   );
 }

@@ -18,8 +18,8 @@ export default function TermsPage() {
         title="Terms of engagement"
         lede={`The terms on which we provide a consultation. Last updated ${UPDATED}.`}
       />
-      <section className="fm-section">
-        <div className="fm-wrap fm-prose">
+      <section className="film-prose">
+        <div>
           <h2>The consultation</h2>
           <p>
             A consultation is {CONSULTATION_FEE}. It starts with your question and ends with the answer and six files:

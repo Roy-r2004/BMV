@@ -6,9 +6,8 @@
  * carry no results or figures, because there are none to quote.
  *
  * An idea has few figures of its own yet, so its tests also use published
- * market figures, labelled as cited. `screens` name the system's screens:
- * each is drawn as a panel in the 3D scene, and its name picks the panel's
- * layout (components/concepts/screenTexture).
+ * market figures, labelled as cited. `screens` name the system's screens, as
+ * the technical plan would set them out; the Examples page lists them.
  */
 export type Stage = 'idea' | 'running';
 

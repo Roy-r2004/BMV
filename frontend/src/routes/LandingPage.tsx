@@ -1,310 +1,187 @@
 /**
- * The landing page: the product itself, in one scroll story.
- *
- * A sticky 3D stage (productScene) sits behind ten chapters. On a wide screen
- * it fills the page behind the text; on a phone it is pinned to the top half
- * and the text scrolls beneath it, one step per screen. The layers come forward
- * one at a time (the question, the conversation, the test, the answer, the
- * package), then the blueprint and the technical plan flip their own pages
- * while each is on screen. After the story: the firm's rule, its services and
- * the people behind its method, and the question.
+ * The home page: the firm's story in six shots over the light field. The
+ * visitor's idea, typed into the first shot, becomes the light's first shape
+ * and the opening line of their consultation. Then the explanations are
+ * tested, the answer fits on a page, the plan is six files, and the system is
+ * built. Every line is the firm's own; nothing is invented.
  */
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-
-import SiteNav from '../components/SiteNav';
-import SiteFooter from '../components/SiteFooter';
-import { CAPTIONS, mountProductScene } from '../components/home/productScene';
-import { BUILD_LINE, CONSULTATION_FEE, PRICE_LINE } from '../data/offer';
-import { CloseBand } from '../components/firm/FirmPage';
-import Team from '../components/firm/Team';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import Rise from '../film/Rise';
+import Shot from '../film/Shot';
+import { PRICE_LINE } from '../data/offer';
+import { saveFrontDoor } from '../utils/frontDoor';
 import { usePageMeta } from '../utils/pageMeta';
-import '../styles/landing.css';
 
-/** The method, one step at a time. `state` is the product scene's state for the step. */
-const STEPS: { state: number; tab: string; title: string; body: React.ReactNode }[] = [
-  {
-    state: 1,
-    tab: 'Your idea',
-    title: 'A consultation begins with your idea, in your own words',
-    body: (
-      <p className="ls-body">
-        Describe the idea, or the problem or decision your business faces. There is no form to complete first. Every
-        question that follows depends on your answer to the one before it.
-      </p>
-    ),
-  },
-  {
-    state: 2,
-    tab: 'The facts',
-    title: 'We ask only what the answer depends on',
-    body: (
-      <p className="ls-body">
-        Questions come one at a time. You can upload a spreadsheet or an export, and the figures are read directly from
-        it. Where you do not know a number, say so: <b>we estimate it and label the estimate as ours.</b>
-      </p>
-    ),
-  },
-  {
-    state: 3,
-    tab: 'The test',
-    title: 'Every explanation is tested, including your own',
-    body: (
-      <p className="ls-body">
-        We set out every cause consistent with what you have told us and test each against your numbers. One your
-        figures contradict is ruled out, with the reason. The strongest goes to <b>two reviewers whose task is to
-        disprove it</b>, and is kept only if it survives both.
-      </p>
-    ),
-  },
-  {
-    state: 4,
-    tab: 'The answer',
-    title: 'You receive the answer on one page, with its evidence',
-    body: (
-      <p className="ls-body">
-        The question, the answer in two lines, the figures it rests on, what to do first and what we would not do. You
-        can challenge it, and your objection is tested the same way. <b>Nothing is built until you have decided.</b>
-      </p>
-    ),
-  },
-  {
-    state: 5,
-    tab: 'The package',
-    title: 'Six files, each opening with the same answer',
-    body: (
-      <p className="ls-body">
-        The blueprint, the technical plan, the operations manual, the roadmap, the presentation and, when the answer is
-        software, the system screen by screen. <Link to="/services#consultation">What each file contains</Link>
-      </p>
-    ),
-  },
-  {
-    state: 6,
-    tab: 'The blueprint',
-    title: 'Each decision, with the figures behind it',
-    body: (
-      <p className="ls-body">
-        The decision and the reasoning, the financial case worked from your figures, who does what, what to do first,
-        how progress is measured and what could cause the plan to fail. <b>Every page is titled with what it found.</b>
-      </p>
-    ),
-  },
-  {
-    state: 7,
-    tab: 'The technical plan',
-    title: 'A plan your own team can build from',
-    body: (
-      <p className="ls-body">
-        How the system works end to end, each module and AI agent, the integrations, data protection and the build
-        order, written so that any team could build from it.
-      </p>
-    ),
-  },
-  {
-    state: 8,
-    tab: 'The build',
-    title: 'We build it for you, launch it and hand it over',
-    body: (
-      <p className="ls-body">
-        When the answer is a system, we build it: the website, the app, the bookings and payments, the AI. It is quoted
-        once the scope is agreed, and handed over with the operations manual. <b>The plan is yours either way.</b>{' '}
-        <Link to="/solutions">See what we build for an idea</Link>
-      </p>
-    ),
-  },
-];
+const EXAMPLE_IDEA = 'A booking app for home cleaners in Dubai';
 
-/** After the story: the firm's rule, on dark paper. */
-function Statement() {
-  return (
-    <section className="ls-statement">
-      <div className="ls-wrap">
-        <p className="ls-statement-line ls-display">Every figure in the advice you pay for can be checked.</p>
-        <dl className="ls-statement-labels">
-          <div>
-            <dt><span className="fm-tag fm-tag--theirs">Yours</span></dt>
-            <dd>A figure you gave us, or one read from your files.</dd>
-          </div>
-          <div>
-            <dt><span className="fm-tag fm-tag--derived">Worked out</span></dt>
-            <dd>Calculated from your figures, with the calculation shown.</dd>
-          </div>
-          <div>
-            <dt><span className="fm-tag fm-tag--ours">Our estimate</span></dt>
-            <dd>A judgement where your figures were silent, with the reason.</dd>
-          </div>
-        </dl>
-        <Link to="/approach" className="ls-statement-link">How we test an answer</Link>
-      </div>
-    </section>
-  );
-}
+const FILES = [
+  { title: 'The answer page', body: 'The answer in two lines' },
+  { title: 'The blueprint', body: 'Each decision, with its figures' },
+  { title: 'The technical plan', body: 'A plan any team could build from' },
+  { title: 'The operations manual', body: 'How it runs once handed over' },
+  { title: 'The roadmap', body: 'What comes first, and in what order' },
+  { title: 'The presentation', body: 'The answer, as slides' },
+] as const;
 
-/** After the story: the firm itself. Its services, what they cost, and who runs it. */
-function FirmIntro() {
-  return (
-    <div className="fm-page fm-after-story">
-      <section className="fm-section fm-section--mist">
-        <div className="fm-wrap">
-          <div className="fm-section-head fm-section-head--split">
-            <h2 className="fm-h2">We test the idea, plan it and build it</h2>
-            <p className="fm-intro">{BUILD_LINE}</p>
-          </div>
-          <div className="fm-cols">
-            <article className="fm-col">
-              <h3>Consultation</h3>
-              <p className="fm-col-price">{CONSULTATION_FEE}</p>
-              <p>Whether the idea's numbers work, and the full plan: the blueprint, the technical plan, the roadmap and the presentation.</p>
-              <Link to="/services#consultation" className="fm-link">What a consultation includes</Link>
-            </article>
-            <article className="fm-col">
-              <h3>We build it for you</h3>
-              <p className="fm-col-price">Quoted after the scope is agreed</p>
-              <p>The website, the app, the bookings and payments and the AI, built to the plan, launched and handed over.</p>
-              <Link to="/services#build" className="fm-link">How a build works</Link>
-            </article>
-            <article className="fm-col">
-              <h3>Private AI</h3>
-              <p className="fm-col-price">Quoted after the workload is assessed</p>
-              <p>Open-weight models on infrastructure you control, for data that must stay inside your business.</p>
-              <Link to="/private-ai" className="fm-link">How private AI works</Link>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <Team compact />
-    </div>
-  );
-}
+const LABELS = [
+  { k: 'theirs', name: 'Yours', body: 'A figure you gave us, or one read from your files.' },
+  { k: 'derived', name: 'Worked out', body: 'Calculated from your figures, with the calculation shown.' },
+  { k: 'ours', name: 'Our estimate', body: 'A judgement where your figures were silent, with the reason.' },
+] as const;
 
 export default function LandingPage() {
   usePageMeta(
     'Your idea, tested and built into a working business',
-    'Build My Version is an AI consultancy. Bring an idea or a running business: we test whether the numbers work, write the plan and build what it needs to run.',
+    'Build My Version is an AI consultancy. Describe your idea; we test whether its numbers work, write the plan and build what it needs to run. A consultation is $200.',
   );
-  const storyRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const labelsRef = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState(0);
-
+  const navigate = useNavigate();
+  const [idea, setIdea] = useState('');
+  // the light follows the typing once the visitor pauses, not on every key
+  const [settled, setSettled] = useState('');
   useEffect(() => {
-    const story = storyRef.current, stage = stageRef.current, labels = labelsRef.current;
-    if (!story || !stage || !labels) return;
-    return mountProductScene({ story, stage, labels, onState: setState });
-  }, []);
+    const t = window.setTimeout(() => setSettled(idea), 280);
+    return () => window.clearTimeout(t);
+  }, [idea]);
+  const typed = settled.trim().replace(/[.?!]+$/, '');
+  const sentence = typed.length > 2 ? typed : EXAMPLE_IDEA;
 
-  const [step, setStep] = useState(1);
-  // On a phone the 3D product is pinned above the steps, so an opened step is
-  // brought to just below it; otherwise its title would sit under the picture.
-  const opened = useRef(false);
-  const open = (s: number) => {
-    opened.current = true;
-    setStep(s);
+  const start = () => {
+    saveFrontDoor(idea);
+    navigate('/demo');
   };
-  useEffect(() => {
-    if (!opened.current || window.innerWidth >= 1024) return;
-    opened.current = false;
-    const li = document.getElementById(`ls-step-${step}`)?.parentElement;
-    const stage = stageRef.current;
-    if (!li || !stage) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const y = li.getBoundingClientRect().top + window.scrollY - (64 + stage.offsetHeight + 8);
-    window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
-  }, [step]);
-  const walkRef = useRef<HTMLElement>(null);
-  const toWalk = () => {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    walkRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-  };
-  const at = STEPS.findIndex((x) => x.state === step);
 
   return (
-    <div className="ls-page min-h-screen">
-      <SiteNav />
+    <>
+      <Shot shape={typed.length > 2 ? 'words' : 'seed'} words={sentence} title="Your idea" first>
+        <p className="film-mark">AI consultancy · Dubai</p>
+        <Rise as="h1" className="film-h">
+          Your idea, *tested* and built into a working business.
+        </Rise>
+        <p className="film-body">
+          Describe it in your own words. We test whether its numbers work, write the plan, and build what it needs to run.
+        </p>
+        <form
+          className="film-prompt"
+          onSubmit={(e) => {
+            e.preventDefault();
+            start();
+          }}
+        >
+          <div className="film-prompt-in">
+            <label htmlFor="home-idea">Describe your idea</label>
+            <textarea
+              id="home-idea"
+              rows={2}
+              maxLength={2000}
+              value={idea}
+              placeholder={EXAMPLE_IDEA}
+              onChange={(e) => setIdea(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  start();
+                }
+              }}
+            />
+            <div className="film-prompt-row">
+              <span>{PRICE_LINE}</span>
+              <button type="submit" className="film-pill">
+                Start a consultation
+              </button>
+            </div>
+          </div>
+        </form>
+        <p className="film-sub">Already running a business? Describe the decision in front of you instead.</p>
+      </Shot>
 
-      <div className="ls-story" ref={storyRef}>
-        <div className="ls-stage" ref={stageRef}>
-          <div className="ls-scrim" />
-          <div className="ls-labels" ref={labelsRef} aria-hidden="true" />
-          <p className="ls-caption">{CAPTIONS[state]}</p>
+      <Shot shape="words" words={sentence} title="Your words">
+        <p className="film-mark">01 · Your words</p>
+        <Rise className="film-h2">It starts with your words. *Nothing else.*</Rise>
+        <p className="film-quote">“{sentence.charAt(0).toUpperCase() + sentence.slice(1)}.”</p>
+        <p className="film-body">
+          There is no form to complete first. Questions come one at a time, and each depends on your answer to the one
+          before it.
+        </p>
+        <ul className="film-rows">
+          <li>
+            <b>Q.01</b>
+            <span>How will it earn?</span>
+          </li>
+          <li>
+            <b>Q.02</b>
+            <span>What will it cost to run?</span>
+          </li>
+          <li>
+            <b>Q.03</b>
+            <span>What do you already know for certain?</span>
+          </li>
+        </ul>
+      </Shot>
+
+      <Shot shape="test" title="The test">
+        <p className="film-mark">02 · The test</p>
+        <Rise className="film-h2">Every explanation is tested. *Including yours.*</Rise>
+        <p className="film-body">
+          We set out every cause consistent with what you told us and test each against your numbers. One your figures
+          contradict is ruled out, with the reason.
+        </p>
+        <p className="film-body">
+          The strongest goes to two reviewers whose task is to disprove it. It stays only if it survives both.
+        </p>
+      </Shot>
+
+      <Shot shape="page" title="The answer">
+        <p className="film-mark">03 · The answer</p>
+        <Rise className="film-h2">The answer fits on *one page.*</Rise>
+        <p className="film-body">
+          The question, the answer in two lines, the figures it rests on, what to do first and what we would not do.
+        </p>
+        <div className="film-labels">
+          {LABELS.map((l) => (
+            <div className="film-label" key={l.k}>
+              <span className={`film-chip film-chip--${l.k}`}>{l.name}</span>
+              <p>{l.body}</p>
+            </div>
+          ))}
         </div>
+        <p className="film-sub">You can challenge it. Nothing is built until you decide.</p>
+      </Shot>
 
-        <section className="ls-chapter" data-state={0}>
-          <div className="ls-wrap">
-            <div className="ls-col">
-              <p className="ls-eyebrow">AI consultancy</p>
-              <h1 className="ls-display ls-h1">Your idea, tested and built into a working business</h1>
-              <p className="ls-lede">
-                Describe the idea in your own words. We test whether its numbers work, write the plan, and build what
-                it needs to run: the website, the app, the bookings and payments, and the AI. If you already run a
-                business, we do the same for the decision in front of you.
-              </p>
-              <div className="ls-go">
-                <Link to="/demo" className="ls-cta">Start a consultation</Link>
-                <button type="button" className="ls-ghost" onClick={toWalk}>
-                  See how a consultation works
-                </button>
-              </div>
-              <p className="ls-price">{PRICE_LINE}</p>
-            </div>
-          </div>
-        </section>
+      <Shot shape="layers" title="The plan">
+        <p className="film-mark">04 · The plan</p>
+        <Rise className="film-h2">Six files. *One plan.*</Rise>
+        <ul className="film-grid2">
+          {FILES.map((f, i) => (
+            <li key={f.title}>
+              <small>0{i + 1}</small>
+              <b>{f.title}</b>
+              <span>{f.body}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="film-sub">The plan is yours, whether you build with us, with your own team or with another firm.</p>
+      </Shot>
 
-        {/* One screen for the whole method: the reader opens a step, and the
-            product behind the text moves to it (data-state follows the step). */}
-        <section className="ls-chapter ls-walk" data-state={step} id="how" ref={walkRef}>
-          <div className="ls-wrap">
-            <div className="ls-col">
-              <p className="ls-eyebrow">How a consultation works</p>
-              <ol className="ls-steps">
-                {STEPS.map((x, i) => {
-                  const on = x.state === step;
-                  return (
-                    <li key={x.state} className={on ? 'is-on' : undefined}>
-                      <button
-                        type="button"
-                        aria-expanded={on}
-                        aria-controls={`ls-step-${x.state}`}
-                        onClick={() => open(x.state)}
-                      >
-                        <span className="ls-step-no">{i + 1}</span>
-                        {x.tab}
-                      </button>
-                      {on ? (
-                        <div className="ls-step-body" id={`ls-step-${x.state}`}>
-                          <h2 className="ls-display ls-h3">{x.title}</h2>
-                          {x.body}
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
-              <div className="ls-walk-nav">
-                {at < STEPS.length - 1 ? (
-                  <button type="button" className="ls-ghost" onClick={() => open(STEPS[at + 1].state)}>
-                    Next: {STEPS[at + 1].tab.toLowerCase()}
-                  </button>
-                ) : (
-                  <Link to="/demo" className="ls-cta">Start a consultation</Link>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <Statement />
-
-      <FirmIntro />
-
-      <CloseBand
-        title="Start with the decision in front of you"
-        body="A consultation begins with your question, in your own words, and ends with an answer you can check."
-      />
-      <SiteFooter />
-    </div>
+      <Shot shape="city" title="The build">
+        <p className="film-mark">05 · The build</p>
+        <Rise className="film-h2">Then we *build it.*</Rise>
+        <p className="film-body">
+          The website, the app, the bookings and payments, the AI. Built to the plan, launched and handed over.
+        </p>
+        <div className="film-actions">
+          <Link to="/demo" className="film-pill">
+            Start a consultation
+          </Link>
+          <Link to="/services" className="film-pill film-pill--ghost">
+            See the services
+          </Link>
+        </div>
+        <p className="film-sub">
+          {PRICE_LINE} Built by consultants and engineers: the method was written by consultants and built into software
+          by engineers.
+        </p>
+      </Shot>
+    </>
   );
 }

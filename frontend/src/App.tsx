@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 // separate chunk fetched on navigation, so the landing bundle stops
 // carrying the studio, admin and solutions code.
 import LandingPage from './routes/LandingPage';
+import FilmShell from './film/FilmShell';
 import SiteChatWidget from './components/SiteChatWidget';
 import './styles/mobile-shell.css';
 
@@ -37,20 +38,26 @@ export default function App() {
         <ScrollManager />
         <Suspense fallback={null}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
-          {/* /solutions is the showroom of AI concepts. It took over from the
-              Examples page, and replaced the old per-industry catalogue, so
-              links to either still land here. */}
-          <Route path="/solutions" element={<SolutionsPage />} />
+          {/* The public pages play inside one film shell: the light field behind
+              them survives navigation, and moving between them is a cut. The
+              list of paths lives in film/scenes.ts. */}
+          <Route element={<FilmShell />}>
+            <Route path="/" element={<LandingPage />} />
+            {/* /solutions is the examples page. It replaced the old
+                per-industry catalogue, so links to either still land here. */}
+            <Route path="/solutions" element={<SolutionsPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/approach" element={<ApproachPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/private-ai" element={<PrivateAIPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+          </Route>
           <Route path="/solutions/:id" element={<Navigate to="/solutions" replace />} />
           <Route path="/examples" element={<Navigate to="/solutions" replace />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/approach" element={<ApproachPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/private-ai" element={<PrivateAIPage />} />
           <Route path="/submit" element={<Navigate to="/demo" replace />} />
           {/* The client-facing generator, addressed as /demo. It used to be
               /studio, beside a separate /demo page that listed generated
@@ -77,8 +84,6 @@ export default function App() {
               through a revocable token. Not /share, which is the older preview-app
               page and keeps its own links working. */}
           <Route path="/shared/:token" element={<SharedPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOpsPage />} />

@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { persistAdminSession } from '../api/admin';
 import { useAuth } from '../context/AuthContext';
-import AuthShell from '../components/AuthShell';
-
+import FilmAuth from '../film/FilmAuth';
+
+
 import { usePageMeta } from '../utils/pageMeta';
-export default function LoginPage() {
+export default function LoginPage() {
+
   usePageMeta('Sign in');
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -44,8 +46,8 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthShell
-      eyebrow="Account"
+    <FilmAuth
+      kicker="Account"
       title="Welcome back"
       lead="Sign in to pick up your consultation, your answer and every file in your package."
       footer={
@@ -57,8 +59,8 @@ export default function LoginPage() {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="auth-shell__form">
-        <label className="auth-shell__label">
+      <form onSubmit={handleSubmit} className="film-form film-form--auth">
+        <label className="film-field">
           Email
           <input
             type="email"
@@ -66,11 +68,10 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="auth-shell__input"
             placeholder="you@company.com"
           />
         </label>
-        <label className="auth-shell__label">
+        <label className="film-field">
           Password
           <input
             type="password"
@@ -78,18 +79,17 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="auth-shell__input"
           />
         </label>
-        {error ? <p className="auth-shell__error">{error}</p> : null}
+        {error ? <p className="film-error">{error}</p> : null}
         <button
           type="submit"
-          className="gradient-btn auth-shell__submit disabled:opacity-60"
+          className="film-pill"
           disabled={loading}
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
-    </AuthShell>
+    </FilmAuth>
   );
 }

@@ -1,5 +1,12 @@
+/**
+ * The method, as shots: the six stages of every consultation, the four labels
+ * every figure carries, how the answer is written, and what the firm will not
+ * do. The id `labels` is linked from other pages.
+ */
 import { Link } from 'react-router-dom';
-import { CloseBand, FirmPage, PageHero, Section } from '../components/firm/FirmPage';
+import { CloseBand } from '../components/firm/FirmPage';
+import Rise from '../film/Rise';
+import Shot from '../film/Shot';
 import { usePageMeta } from '../utils/pageMeta';
 
 const STEPS = [
@@ -45,6 +52,13 @@ const LABELS = [
   { tag: 'cited', name: 'Cited', body: 'A published reference, named so you can read it yourself.' },
 ] as const;
 
+const WRITING = [
+  { title: 'The answer comes first.', body: 'Page one of every file states it in two lines, followed by the figures it rests on.' },
+  { title: 'Every page is titled with what it found.', body: 'A reader who stops after the titles still has the argument.' },
+  { title: 'The ranges add up.', body: 'Each action in the recommendation register is worth a stated range, and the ranges add up to the headline figure.' },
+  { title: 'The documents agree.', body: 'The presentation carries the same titles and figures as the written files.' },
+] as const;
+
 const NEVER = [
   {
     title: 'Invent a figure',
@@ -71,87 +85,94 @@ export default function ApproachPage() {
   );
 
   return (
-    <FirmPage>
-      <PageHero
-        kicker="Approach"
-        title="Every answer is tested against your own figures before you read it"
-        lede="A consultation follows the same method whatever the business or the question. It is written down here so you know what to expect, and what to hold us to."
-        actions={
-          <>
-            <Link to="/demo" className="fm-btn">
-              Start a consultation
-            </Link>
-            <a href="#labels" className="fm-btn-line">
-              How figures are labelled
-            </a>
-          </>
-        }
-      />
+    <>
+      <Shot shape="test" title="The method" first>
+        <p className="film-mark">Approach</p>
+        <Rise as="h1" className="film-h">
+          Every answer is tested against *your own figures* before you read it.
+        </Rise>
+        <p className="film-body">
+          A consultation follows the same method whatever the business or the question. It is written down here so you know
+          what to expect, and what to hold us to.
+        </p>
+        <div className="film-actions">
+          <Link to="/demo" className="film-pill">
+            Start a consultation
+          </Link>
+          <Link to="/approach#labels" className="film-pill film-pill--ghost">
+            How figures are labelled
+          </Link>
+        </div>
+      </Shot>
 
-      <Section split title="How a consultation runs" intro="Six stages, in this order, for every client.">
-        <ol className="fm-steps">
-          {STEPS.map((s) => (
+      <Shot shape="timeline" title="Six stages" wide>
+        <p className="film-mark">01 · How a consultation runs</p>
+        <Rise className="film-h2">Six stages, *in this order,* for every client.</Rise>
+        <ul className="film-rows">
+          {STEPS.map((s, i) => (
             <li key={s.title}>
+              <b>0{i + 1}</b>
               <div>
-                <h3>{s.title}</h3>
+                <strong>{s.title}</strong>
                 {s.body.map((p) => (
                   <p key={p}>{p}</p>
                 ))}
               </div>
             </li>
           ))}
-        </ol>
-      </Section>
+        </ul>
+      </Shot>
 
-      <Section
-        id="labels"
-        mist
-        title="Every figure says where it came from"
-        intro="Each number in the answer, the documents and the presentation carries one of four labels. You can see at a glance which figures are yours and which are ours."
-      >
-        <div className="fm-labels">
+      <Shot shape="page4" title="Labels" id="labels">
+        <p className="film-mark">02 · How figures are labelled</p>
+        <Rise className="film-h2">Every figure says *where it came from.*</Rise>
+        <p className="film-body">
+          Each number in the answer, the documents and the presentation carries one of four labels. You can see at a glance
+          which figures are yours and which are ours.
+        </p>
+        <div className="film-labels">
           {LABELS.map((l) => (
-            <div key={l.name}>
-              <p>
-                <span className={`fm-tag fm-tag--${l.tag}`}>{l.name}</span>
-              </p>
+            <div className="film-label" key={l.name}>
+              <span className={`film-chip film-chip--${l.tag}`}>{l.name}</span>
               <p>{l.body}</p>
             </div>
           ))}
         </div>
-      </Section>
+      </Shot>
 
-      <Section split title="How the answer is written">
-        <div>
-          <p className="fm-p">
-            <b>The answer comes first.</b> Page one of every file states it in two lines, followed by the figures it rests
-            on.
-          </p>
-          <p className="fm-p">
-            <b>Every page is titled with what it found.</b> A reader who stops after the titles still has the argument.
-          </p>
-          <p className="fm-p">
-            <b>The ranges add up.</b> Each action in the recommendation register is worth a stated range, and the ranges
-            add up to the headline figure.
-          </p>
-          <p className="fm-p">
-            <b>The documents agree.</b> The presentation carries the same titles and figures as the written files.
-          </p>
-        </div>
-      </Section>
-
-      <Section mist split title="What we will not do">
-        <ul className="fm-rows">
-          {NEVER.map((n) => (
-            <li key={n.title}>
-              <h3>{n.title}</h3>
-              <p>{n.body}</p>
+      <Shot shape="layers" title="The writing" wide>
+        <p className="film-mark">03 · How the answer is written</p>
+        <Rise className="film-h2">The answer *comes first.*</Rise>
+        <ul className="film-rows">
+          {WRITING.map((w, i) => (
+            <li key={w.title}>
+              <b>Rule {i + 1}</b>
+              <div>
+                <strong>{w.title}</strong>
+                <span>{w.body}</span>
+              </div>
             </li>
           ))}
         </ul>
-      </Section>
+      </Shot>
+
+      <Shot shape="loose" title="What we will not do" wide>
+        <p className="film-mark">04 · What we will not do</p>
+        <Rise className="film-h2">Four things *we will not do.*</Rise>
+        <ul className="film-rows">
+          {NEVER.map((n) => (
+            <li key={n.title}>
+              <b>Never</b>
+              <div>
+                <strong>{n.title}</strong>
+                <span>{n.body}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Shot>
 
       <CloseBand />
-    </FirmPage>
+    </>
   );
 }

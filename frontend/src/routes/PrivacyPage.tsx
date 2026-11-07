@@ -13,8 +13,8 @@ export default function PrivacyPage() {
   return (
     <FirmPage>
       <PageHero kicker="Legal" title="Privacy notice" lede={`How we handle the information you give us. Last updated ${UPDATED}.`} />
-      <section className="fm-section">
-        <div className="fm-wrap fm-prose">
+      <section className="film-prose">
+        <div>
           <h2>Who we are</h2>
           <p>
             {COMPANY.name} ({COMPANY.short}) is an AI consultancy, registered in Dubai, United Arab Emirates. For anything in

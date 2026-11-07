@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FirmPage, PageHero } from '../components/firm/FirmPage';
 import { consultingEmailUrl } from '../api/client';
+import Rise from '../film/Rise';
+import Shot from '../film/Shot';
 import { COMPANY } from '../data/company';
 import { PRICE_LINE } from '../data/offer';
 import { usePageMeta } from '../utils/pageMeta';
@@ -28,79 +29,76 @@ export default function ContactPage() {
   };
 
   return (
-    <FirmPage>
-      <PageHero
-        kicker="Contact"
-        title="Write to us about the decision in front of you"
-        lede="Tell us what you are trying to work out, or what you would like built. If you already know the question, you can start a consultation straight away."
-      />
-
-      <section className="fm-section">
-        <div className="fm-wrap fm-contact-grid">
-          <form
-            className="fm-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              send();
-            }}
-          >
-            <div className="fm-field">
-              <label htmlFor="c-name">Your name</label>
-              <input id="c-name" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="fm-field">
-              <label htmlFor="c-company">Business</label>
-              <input id="c-company" autoComplete="organization" value={company} onChange={(e) => setCompany(e.target.value)} />
-            </div>
-            <div className="fm-field">
-              <label htmlFor="c-topic">What it concerns</label>
-              <select id="c-topic" value={topic} onChange={(e) => setTopic(e.target.value)}>
-                {TOPICS.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-            <div className="fm-field">
-              <label htmlFor="c-message">Message</label>
-              <textarea id="c-message" rows={6} required value={message} onChange={(e) => setMessage(e.target.value)} />
-              <small>Pressing the button opens this message in your email app, addressed to {COMPANY.email}.</small>
-            </div>
-            <div>
-              <button type="submit" className="fm-btn">
-                Write the email
-              </button>
-            </div>
-          </form>
-
-          <aside>
-            <dl className="fm-facts">
-              <div>
-                <dt>Email</dt>
-                <dd>
-                  <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
-                </dd>
-              </div>
-              <div>
-                <dt>Company</dt>
-                <dd>{COMPANY.name}</dd>
-              </div>
-              <div>
-                <dt>Registered</dt>
-                <dd>Dubai, United Arab Emirates</dd>
-              </div>
-            </dl>
-            <p className="fm-p" style={{ marginTop: '2rem' }}>
-              <b>Ready to start?</b> A consultation begins with your question, and you do not need to write to us first.{' '}
-              {PRICE_LINE}
-            </p>
-            <div className="fm-actions" style={{ marginTop: '1.25rem' }}>
-              <Link to="/demo" className="fm-btn-line">
-                Start a consultation
-              </Link>
-            </div>
-          </aside>
+    <>
+      <Shot shape="beacon" title="Write to us" first wide>
+        <p className="film-mark">Contact</p>
+        <Rise as="h1" className="film-h2">
+          Write to us about *the decision in front of you.*
+        </Rise>
+        <p className="film-body">
+          Tell us what you are trying to work out, or what you would like built. If you already know the question, you can
+          start a consultation straight away.
+        </p>
+        <form
+          className="film-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            send();
+          }}
+        >
+          <div className="film-field">
+            <label htmlFor="c-name">Your name</label>
+            <input id="c-name" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="film-field">
+            <label htmlFor="c-company">Business</label>
+            <input id="c-company" autoComplete="organization" value={company} onChange={(e) => setCompany(e.target.value)} />
+          </div>
+          <div className="film-field">
+            <label htmlFor="c-topic">What it concerns</label>
+            <select id="c-topic" value={topic} onChange={(e) => setTopic(e.target.value)}>
+              {TOPICS.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div className="film-field">
+            <label htmlFor="c-message">Message</label>
+            <textarea id="c-message" rows={4} required value={message} onChange={(e) => setMessage(e.target.value)} />
+            <small>Pressing the button opens this message in your email app, addressed to {COMPANY.email}.</small>
+          </div>
+          <div className="film-actions">
+            <button type="submit" className="film-pill">
+              Write the email
+            </button>
+          </div>
+        </form>
+        <dl className="film-facts">
+          <div>
+            <dt>Email</dt>
+            <dd>
+              <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
+            </dd>
+          </div>
+          <div>
+            <dt>Company</dt>
+            <dd>{COMPANY.name}</dd>
+          </div>
+          <div>
+            <dt>Registered</dt>
+            <dd>Dubai, United Arab Emirates</dd>
+          </div>
+        </dl>
+        <p className="film-body">
+          <b>Ready to start?</b> A consultation begins with your question, and you do not need to write to us first.{' '}
+          {PRICE_LINE}
+        </p>
+        <div className="film-actions">
+          <Link to="/demo" className="film-pill film-pill--ghost">
+            Start a consultation
+          </Link>
         </div>
-      </section>
-    </FirmPage>
+      </Shot>
+    </>
   );
 }
