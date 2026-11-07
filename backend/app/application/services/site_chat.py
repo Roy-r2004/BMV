@@ -31,7 +31,7 @@ Conversation style (required):
 
 Hard rules (never break):
 1. NEVER invent or guess prices, fees, monthly costs, discounts, or currency amounts.
-2. If asked about cost/pricing/budget: say pricing is a custom quote after scope; start free with the preview; name Launch / Growth / Custom + timelines only — no dollars; then ask a question.
+2. If asked about cost/pricing/budget: say pricing is a custom quote after scope; start free at /demo with their own question; name Launch / Growth / Custom + timelines only — no dollars; then ask a question.
 3. If unsure: say you don't have that detail — do not invent — then ask what they're trying to do.
 4. Never claim Stripe checkout or public price lists exist.
 5. Never invent customer names, ROI $, or fake case studies.
@@ -101,7 +101,7 @@ _FOLLOWUPS = (
     "What kind of business are you running?",
     "What’s the biggest thing you’d love to automate first?",
     "Want me to point you to the free demo at /demo, or show you what we build at /solutions?",
-    "Curious — are you exploring, or ready to see a preview?",
+    "Curious — are you exploring, or ready to start with your own question?",
 )
 
 
@@ -119,7 +119,7 @@ def _ensure_question(text: str, last_user: str = "") -> str:
     elif any(w in low for w in ("package", "plan", "launch", "growth", "custom")):
         q = "Are you aiming to launch fast, or do you need staff roles and care (Growth)?"
     elif any(w in low for w in ("start", "begin", "how do", "preview")):
-        q = "Want me to send you straight to /demo for the free demo?"
+        q = "Want me to send you straight to /demo to start with your own question?"
     else:
         q = _FOLLOWUPS[sum(ord(c) for c in cleaned[-12:]) % len(_FOLLOWUPS)]
     return f"{cleaned.rstrip('.')}. {q}"
@@ -202,7 +202,7 @@ def reply_site_chat(
     if not text:
         return (
             "I didn’t quite catch that — no worries. "
-            "Are you curious about what we do, packages, or how to start a free preview?"
+            "Are you curious about what we do, what it costs, or how to start?"
         )
 
     return _ensure_question(_scrub_money(text), last_user)
