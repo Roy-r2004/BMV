@@ -258,26 +258,45 @@ def for_web(req, *, public: bool = False) -> dict:
 
 
 def _register_web(req, register) -> dict | None:
+    """The register as the screens read it: each row's ends, its cost and its
+    range in words, and the headline the ranges add up to. Fields are only
+    added, so a page that reads the older shape still works."""
     if register is None:
         return None
+    from app.storyline.register import table
+
     known = figures_known.known_for(req)
+    shown = table(register, known)
     rows = []
-    for row in register.rows:
-        ends = {}
-        for name in ("low", "mid", "high"):
-            figure = known.get(f"REG-{row.id}-{name.upper()}")
-            ends[name] = None if figure is None else {
-                "figure_id": figure.id, "display": display(figure), "tag": tag_word(figure.kind),
-            }
+    for row, said in zip(register.rows, shown["rows"]):
+        cost = known.get(row.cost.figure_id) if row.cost.figure_id else None
         rows.append({
             "recommendation": row.recommendation,
             "changes": row.changes,
             "when": row.when,
             "owner": row.owner,
             "depends_on": list(row.depends_on),
-            **ends,
+            **_ends(known, row.id),
+            "value_text": said["value"],
+            "cost": None if cost is None else _end(cost),
+            "cost_text": said["cost"],
+            "cost_needs": row.cost.needs,
         })
-    return {"rows": rows, "footnotes": list(register.footnotes)}
+    total = _ends(known, "TOTAL")
+    return {"rows": rows, "footnotes": list(register.footnotes),
+            "total": total if any(total.values()) else None, "total_text": shown["total"]}
+
+
+def _ends(known, row_id: str) -> dict:
+    ends = {}
+    for name in ("low", "mid", "high"):
+        figure = known.get(f"REG-{row_id}-{name.upper()}")
+        ends[name] = None if figure is None else _end(figure)
+    return ends
+
+
+def _end(figure) -> dict:
+    return {"figure_id": figure.id, "display": display(figure), "tag": tag_word(figure.kind)}
 
 
 def _text(value) -> str | None:

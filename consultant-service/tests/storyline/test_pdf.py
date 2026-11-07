@@ -309,3 +309,32 @@ def test_volume_iv_of_a_run_with_no_storyline_has_no_answer_page(tmp_path, monke
     html, _found = screens_export._proposal(row, render.load_example())
     assert QUESTION not in html and "What this rests on" not in html
     db.close()
+
+
+def test_the_blueprint_register_has_every_column_its_ranges_cost_and_headline(tmp_path, monkeypatch):
+    # Review H5: each row printed as "{recommendation} {when} {owner}" run together,
+    # with no range, no cost, no "what it changes", no dependency and no headline.
+    from app.figures import law
+    from app.storyline.build import for_web
+
+    db, row = _ready(tmp_path, monkeypatch)
+    stored = json.loads(row.storyline_json)
+    stored["register"][1]["cost_figure"] = None
+    stored["register"][1]["cost_needs"] = "a quote from the builder"
+    row.storyline_json = json.dumps(stored)
+    db.commit()
+    text = " ".join("\n".join(_pages(export_pdf.build_pdf(row, "blueprint"))).split())
+    for column in ("Recommendation", "What it changes", "Value", "Cost", "Owner", "When", "Depends on"):
+        assert column in text, column
+    assert "$39.60 to $59.40 a year" in text and "$26.40 to $39.60 a year" in text
+    assert "All together" in text and "$66 to $99 a year" in text
+    assert "Not priced yet" in text and "Not priced yet: needs a quote from the builder." in text
+    assert "After 1" in text
+    assert law.recorded(row)["Volume I"] == []
+    web = for_web(row)["register"]
+    assert web["rows"][0]["cost"]["display"] == "$22" and web["rows"][1]["cost"] is None
+    assert web["rows"][1]["cost_text"] == "Not priced yet"
+    assert web["rows"][1]["cost_needs"] == "a quote from the builder"
+    assert web["rows"][0]["value_text"] == "$39.60 to $59.40 a year"
+    assert web["total"]["low"]["display"] == "$66" and web["total_text"] == "$66 to $99 a year"
+    db.close()

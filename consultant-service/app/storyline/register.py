@@ -72,6 +72,52 @@ def displays(register: Register) -> list[str]:
     return [_spoken(figure) for figure in _figures(register)]
 
 
+#: The register's columns, as every file heads them (spec, Tier 2).
+COLUMNS = ("Recommendation", "What it changes", "Value", "Cost", "Owner", "When", "Depends on")
+
+#: What the cost column says for a row whose cost is still a named gap.
+NOT_PRICED = "Not priced yet"
+
+
+def table(register: Register, known) -> dict:
+    """The register as a file prints it: each row's words, its range and its
+    cost in words, and the headline range the rows add up to. A range or a
+    cost this run cannot show is None, never filled."""
+    rows = []
+    for number, row in enumerate(register.rows, 1):
+        rows.append({
+            "number": number,
+            "recommendation": row.recommendation,
+            "changes": row.changes,
+            "value": range_text(known, row.id),
+            "cost": cost_text(known, row.cost),
+            "owner": row.owner,
+            "when": row.when,
+            "depends_on": list(row.depends_on),
+        })
+    return {"rows": rows, "total": range_text(known, "TOTAL"), "footnotes": list(register.footnotes)}
+
+
+def range_text(known, row_id: str) -> str | None:
+    """"$40 to $59 a year", one number when the range does not flex, None when
+    the row has no range."""
+    low, high = known.get(f"REG-{row_id}-LOW"), known.get(f"REG-{row_id}-HIGH")
+    if low is None or high is None:
+        return None
+    if low.value == high.value:
+        return _spoken(low)
+    said = f"{display(low)} to {display(high)}"
+    return f"{said} a {low.period}" if low.period else said
+
+
+def cost_text(known, cost: Cost) -> str | None:
+    """The cited cost as it prints, or "Not priced yet" for a named gap."""
+    figure = known.get(cost.figure_id) if cost.figure_id else None
+    if figure is not None:
+        return _spoken(figure)
+    return NOT_PRICED if cost.needs else None
+
+
 def figures_for(req) -> list[Figure]:
     """The stored storyline's range numbers, for the known set. Empty when there
     is no storyline or it does not check out."""

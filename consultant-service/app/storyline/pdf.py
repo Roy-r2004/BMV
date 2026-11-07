@@ -7,14 +7,14 @@ and its takeaway. A run with no storyline gets none of these pages.
 from __future__ import annotations
 
 
-def opening(story, kind: str) -> list:
+def opening(story, kind: str, req=None) -> list:
     """The pages that go in front of this volume, or nothing for a run with
     no answer."""
     if story is None:
         return []
     flows = answer_page_flowables(story)
     if kind == "blueprint" and story.register is not None:
-        flows += register_flowables(story)
+        flows += register_flowables(story, req)
     elif story.register is not None:
         flows += register_reference()
     for section in story.sections:
@@ -48,17 +48,50 @@ def answer_page_flowables(story) -> list:
     return flows
 
 
-def register_flowables(story) -> list:
-    """The register, then its footnotes."""
+def register_flowables(story, req=None) -> list:
+    """The register as one table: every column, each row's range and cost,
+    then the headline the ranges add up to, then its footnotes."""
     Paragraph, Spacer, PageBreak, styles = _bits()
-    register = story.register
-    flows = [Paragraph("The register", styles["h1toc"])]
-    for row in register.rows:
-        flows.append(Paragraph(_rich(f"{row.recommendation} {row.when} {row.owner}"), styles["body"]))
-    for note in register.footnotes:
+    from reportlab.lib.units import mm
+
+    from app.figures.known import known_for
+    from app.pipeline.export_pdf import DrawnCell, _table
+    from app.storyline.register import COLUMNS, table
+
+    shown = table(story.register, known_for(req) if req is not None else _active_known())
+    head = ["", *COLUMNS]
+    rows = []
+    for row in shown["rows"]:
+        rows.append([
+            DrawnCell(str(row["number"])), row["recommendation"], row["changes"], row["value"] or "",
+            row["cost"] or "", row["owner"], row["when"],
+            DrawnCell(_after(row["depends_on"])),
+        ])
+    if shown["total"]:
+        rows.append([DrawnCell(""), DrawnCell("All together"), DrawnCell(""), shown["total"],
+                     DrawnCell(""), DrawnCell(""), DrawnCell(""), DrawnCell("")])
+    widths = [w * mm for w in (6, 36, 30, 26, 20, 20, 18, 18)]
+    flows = [Paragraph("The register", styles["h1toc"]), _table(head, rows, widths), Spacer(1, 6)]
+    for note in shown["footnotes"]:
         flows.append(Paragraph(_rich(note), styles["meta"]))
     flows.append(PageBreak())
     return flows
+
+
+def _after(depends: list[int]) -> str:
+    """"After 1", "After 1 and 2": the rows a row waits for, by their number."""
+    if not depends:
+        return ""
+    said = [str(n) for n in depends]
+    return "After " + (said[0] if len(said) == 1 else ", ".join(said[:-1]) + " and " + said[-1])
+
+
+def _active_known():
+    from app.figures import law
+    from app.figures.model import FigureSet
+
+    scope = law.active()
+    return scope.known if scope is not None else FigureSet()
 
 
 def register_reference() -> list:

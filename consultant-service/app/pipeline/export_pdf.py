@@ -2228,7 +2228,7 @@ def _volume_flows(req: Request, kind: str, md: str | None, label: str, sub: str,
         # The answer is a body page. The cover template stays the one the
         # cover flowables were written for, so the switch happens before them
         # and the last proof page does not leave a blank page behind.
-        flows = opening(story, kind)
+        flows = opening(story, kind, req)
         if flows and isinstance(flows[-1], PageBreak):
             flows = flows[:-1]
         flows += [NextPageTemplate("cover"), PageBreak()]
