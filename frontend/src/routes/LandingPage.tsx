@@ -5,8 +5,9 @@
  * it fills the page behind the text; on a phone it is pinned to the top half
  * and the text scrolls beneath it, one step per screen. The layers come forward
  * one at a time (the question, the conversation, the test, the answer, the
- * package), then the blueprint and the technical plan flip past section by
- * section. After the story: a sample answer page, the terms, and the question.
+ * package), then the blueprint and the technical plan flip their own pages
+ * while each is on screen. After the story: the firm's rule, its services and
+ * its founder, and the question.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -21,9 +22,9 @@ import { saveFrontDoor } from '../utils/frontDoor';
 import { usePageMeta } from '../utils/pageMeta';
 import '../styles/landing.css';
 
-function Chapter({ state, deep = false, step, children }: { state: number; deep?: boolean; step?: string; children: React.ReactNode }) {
+function Chapter({ state, step, children }: { state: number; step?: string; children: React.ReactNode }) {
   return (
-    <section className={`ls-chapter${deep ? ' ls-chapter--deep' : ''}`} data-state={state}>
+    <section className="ls-chapter" data-state={state}>
       <div className="ls-wrap">
         <div className="ls-col">
           {step ? <p className="ls-step">{step}</p> : null}
@@ -61,7 +62,7 @@ function Ask({ id }: { id: string }) {
             start();
           }
         }}
-        placeholder="For example: our evening classes are half empty and I am not sure whether to cut them or market them."
+        placeholder="For example: should we open a second location, or grow the one we have?"
       />
       <div className="ls-ask-row">
         <span>{PRICE_LINE}</span>
@@ -71,24 +72,7 @@ function Ask({ id }: { id: string }) {
   );
 }
 
-/**
- * The first screen's proof: one sentence from a sample answer, its three
- * figures labelled one after another. The one orchestrated moment on the page.
- */
-function HeroProof() {
-  return (
-    <figure className="ls-proof" aria-label="A sentence from a sample answer">
-      <blockquote>
-        The evening classes run <b>4 in 10</b> <i className="ls-proof-tag fm-tag fm-tag--theirs">Yours</i> places
-        empty. Filling them is worth <b>$4,730</b> <i className="ls-proof-tag fm-tag fm-tag--derived">Worked out</i> a
-        month, of which <b>75%</b> <i className="ls-proof-tag fm-tag fm-tag--ours">Our estimate</i> is reachable.
-      </blockquote>
-      <figcaption>From a sample answer. Every figure says where it came from.</figcaption>
-    </figure>
-  );
-}
-
-/** Between the story and the sample: the firm's rule, on dark paper. */
+/** After the story: the firm's rule, on dark paper. */
 function Statement() {
   return (
     <section className="ls-statement">
@@ -109,113 +93,6 @@ function Statement() {
           </div>
         </dl>
         <Link to="/approach" className="ls-statement-link">How we test an answer</Link>
-      </div>
-    </section>
-  );
-}
-
-const TAG = { theirs: 'Yours', derived: 'Worked out', ours: 'Our estimate' } as const;
-
-function Fig({ v, k }: { v: string; k: keyof typeof TAG }) {
-  return (
-    <span className={`ls-fig ls-fig--${k}`}>
-      <b>{v}</b>
-      <i>{TAG[k]}</i>
-    </span>
-  );
-}
-
-// The sample answer's figures, and where each came from. Invented studio, sample data.
-const SAMPLE_FIGS = [
-  {
-    v: '4 in 10',
-    k: 'theirs',
-    line: 'evening places unsold, from your class register',
-    trail:
-      'Read from the class register you uploaded: over the last eight weeks, 10 of the 24 places in each evening class went unsold on an average night.',
-  },
-  {
-    v: '$4,730',
-    k: 'derived',
-    line: 'a month, if every empty evening place were sold',
-    trail: 'Worked out from your figures: 10 places × $22 a class (your price list) × 5 evenings × 4.3 weeks in a month.',
-  },
-  {
-    v: '75%',
-    k: 'ours',
-    line: 'of that we treat as reachable, so about $3,500',
-    trail:
-      'Our estimate. Your morning classes run 85 to 92% full, so we assume the evenings can reach most of that, not all of it. If you think it is lower, say so and the answer is tested again.',
-  },
-] as const;
-
-/** A finished answer page, for an invented studio. Every figure is sample data. */
-function SampleAnswer() {
-  const [pick, setPick] = useState(0);
-  return (
-    <section className="ls-section" id="example">
-      <div className="ls-wrap">
-        <div className="ls-section-head">
-          <p className="ls-eyebrow">An example answer page</p>
-          <h2 className="ls-display ls-h2">The first page of every file states the answer and what it rests on</h2>
-          <p className="ls-body">
-            This is the page a client reads first. The business is invented and every figure on it is sample data;
-            the structure is the one every consultation produces. Select a figure to see where it came from.
-          </p>
-        </div>
-
-        <article className="ls-sample" aria-label="Sample answer page">
-          <header className="ls-sample-top">
-            <span>Sample data</span>
-            <span>Halo Reformer Studio, answer page</span>
-          </header>
-          <p className="ls-sample-q">Should the studio add a third evening class, or fix the two it already runs?</p>
-          <h3 className="ls-display ls-sample-a">
-            Fix the two evening classes first. They run four in ten places empty, and filling most of them is worth
-            about $3,500 a month.
-          </h3>
-          <div className="ls-sample-figs" role="group" aria-label="The figures the answer rests on">
-            {SAMPLE_FIGS.map((f, i) => (
-              <button
-                key={f.v}
-                type="button"
-                className={`ls-figbtn${i === pick ? ' is-on' : ''}`}
-                aria-pressed={i === pick}
-                aria-controls="ls-trail"
-                onClick={() => setPick(i)}
-              >
-                <Fig v={f.v} k={f.k} />
-                <span>{f.line}</span>
-              </button>
-            ))}
-          </div>
-          <div className="ls-trail" id="ls-trail" aria-live="polite">
-            <p className="ls-trail-head">Where {SAMPLE_FIGS[pick].v} comes from</p>
-            <p>{SAMPLE_FIGS[pick].trail}</p>
-          </div>
-          <dl className="ls-sample-facts">
-            <div>
-              <dt>What you believed</dt>
-              <dd>Mornings were the weak slot.</dd>
-            </div>
-            <div>
-              <dt>What the test showed</dt>
-              <dd>Mornings run 85 to 92% full. The two evening classes run 55 to 60%.</dd>
-            </div>
-            <div>
-              <dt>Monday</dt>
-              <dd>Open a standby list for the 19:00 class and offer the free places to members first.</dd>
-            </div>
-            <div>
-              <dt>What we would not do</dt>
-              <dd>Add a third evening class before the two you run are full.</dd>
-            </div>
-          </dl>
-          <p className="ls-sample-rests">
-            This answer rests on four of your figures, one calculation and one estimate of ours. Each is labelled where
-            it appears.
-          </p>
-        </article>
       </div>
     </section>
   );
@@ -296,9 +173,8 @@ export default function LandingPage() {
   const goTo = (i: number) => {
     const el = storyRef.current?.querySelector(`[data-state="${i}"]`);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // a document chapter starts at its first page; narrow screens read every chapter from its top
-    const top = el?.classList.contains('ls-chapter--deep') || window.innerWidth < 1024;
-    el?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: top ? 'start' : 'center' });
+    // narrow screens read every chapter from its top
+    el?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: window.innerWidth < 1024 ? 'start' : 'center' });
   };
 
   return (
@@ -341,7 +217,6 @@ export default function LandingPage() {
             </button>
           </div>
           <p className="ls-price">{PRICE_LINE}</p>
-          <HeroProof />
         </Chapter>
 
         <Chapter state={1} step="1. The question">
@@ -399,7 +274,7 @@ export default function LandingPage() {
           </ul>
         </Chapter>
 
-        <Chapter state={6} deep step="The blueprint">
+        <Chapter state={6} step="The blueprint">
           <h2 className="ls-display ls-h2">The blueprint sets out each decision with the figures behind it</h2>
           <p className="ls-body">
             The recommended decision and the reasoning, the financial case worked from your own figures, the customer
@@ -413,7 +288,7 @@ export default function LandingPage() {
           </div>
         </Chapter>
 
-        <Chapter state={7} deep step="The technical plan">
+        <Chapter state={7} step="The technical plan">
           <h2 className="ls-display ls-h2">A technical plan your own team can build from</h2>
           <ul className="ls-points">
             <li><span><b>How the system works,</b> end to end, explained in plain language first.</span></li>
@@ -446,8 +321,6 @@ export default function LandingPage() {
       </div>
 
       <Statement />
-
-      <SampleAnswer />
 
       <FirmIntro />
 

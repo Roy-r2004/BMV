@@ -3,15 +3,13 @@
  *
  * Six layers stack up (question, conversation, test, answer, package,
  * system), come forward one per chapter, then the blueprint and the technical
- * plan flip past section by section as the reader scrolls through their long
- * chapters, and finally the system repeats in a ring for any business. Every
+ * plan flip past section by section on their own while their chapter is on
+ * screen, so the reader scrolls one screen per document, and finally the system repeats in a ring for any business. Every
  * layer is generic interface drawn on a canvas: no one's data, no example
  * business.
  *
  * The page owns the DOM (stage, chapters, labels layer); this module owns the
- * WebGL scene and hands back a cleanup. Chapters are matched by `data-state`;
- * a chapter with `ls-chapter--deep` holds its state while the reader moves
- * through it, and that progress drives the flip.
+ * WebGL scene and hands back a cleanup. Chapters are matched by `data-state`.
  */
 import * as THREE from 'three';
 
@@ -56,9 +54,13 @@ type Pose = number[];
 type Card = { tex: THREE.CanvasTexture; aspect: number };
 type Obj = { mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>; poses: Pose[]; seed: number; dyn?: (pv: number) => Pose };
 type Label = { s: number; p: [number, number, number]; el: HTMLElement; hw: number };
-type Deck = { s: number; list: [string, PageKind][]; count: HTMLElement; bar: HTMLElement; last: number; hw: number };
+type Deck = { s: number; list: [string, PageKind][]; count: HTMLElement; bar: HTMLElement; last: number; hw: number; since: number };
 
 const S = CHAPTERS.length;
+// how long each document page stays at the front, and how many page-lengths
+// the last page holds before the document starts again
+const PAGE_MS = 850;
+const HOLD_PAGES = 3;
 const WIDE_MIN = 1024;
 const UP = new THREE.Vector3(0, 1, 0);
 const VIEWS: { p: [number, number, number]; t: [number, number, number]; w: number }[] = [
@@ -479,7 +481,7 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
       const hide: Pose = [7, -2, -6, 0, -0.6, 0, 0.6, 0];
       const count = document.createElement('div'); count.className = 'ls-deck-count'; layer.appendChild(count);
       const barEl = document.createElement('div'); barEl.className = 'ls-deck-bar'; barEl.appendChild(document.createElement('i')); layer.appendChild(barEl);
-      decks.push({ s, list, count, bar: barEl, last: -1, hw: 0 });
+      decks.push({ s, list, count, bar: barEl, last: -1, hw: 0, since: 0 });
       list.forEach(([t, kind], i) => {
         const o = add(page(doc, i + 1, t, kind, accent), 3.3, Array.from({ length: S }, () => hide), 100 - i);
         o.dyn = (pv) => {
@@ -510,7 +512,7 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
     addLabel(5, 'The package', [-1.9, 2.6, 1.8]); addLabel(5, 'Your system', [2.1, 1.45, 1.2], true);
     addLabel(8, 'Built around one business: yours', [0, 1.7, 1.4], true);
 
-    // scroll → chapter index; deep chapters hold from a to b while their deck flips
+    // scroll → chapter index
     let F: { p: THREE.Vector3; t: THREE.Vector3 }[] = [];
     const fitAll = () => { F = VIEWS.map((v) => frameView(v, camera, W, H, story.querySelector('.ls-col'))); };
     fitAll();
@@ -520,10 +522,8 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
       const vh = window.innerHeight, mid = vh / 2, narrow = W < WIDE_MIN;
       const iv = chapters.map((el) => {
         const r = el.getBoundingClientRect();
-        if (el.classList.contains('ls-chapter--deep')) return [r.top + vh * 0.5, r.bottom - vh * 0.5];
         const c = narrow ? r.top + vh * 0.45 : r.top + r.height / 2; return [c, c];
       });
-      iv.forEach(([a, b], k) => { if (b > a) LP[k] = Math.min(1, Math.max(0, (mid - a) / (b - a))); });
       if (mid <= iv[0][1]) return 0;
       if (mid >= iv[iv.length - 1][0]) return iv.length - 1;
       for (let k = 0; k < iv.length - 1; k++) {
@@ -586,6 +586,18 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
         const lx = Math.min(W - L.hw - 8, Math.max(L.hw + 8, ((v.x + 1) / 2) * W));
         L.el.style.transform = `translate(${lx.toFixed(1)}px, ${(((1 - v.y) / 2) * H).toFixed(1)}px) translate(-50%, -50%)`;
         L.el.style.opacity = op.toFixed(3);
+      }
+      // a document on screen turns its own pages, holds on the last, then starts
+      // again; off screen it rests on its first page for the next arrival
+      for (const dk of decks) {
+        const n = dk.list.length;
+        if (Math.abs(pv - dk.s) < 0.5 && !reduce) {
+          if (!dk.since) dk.since = now + PAGE_MS;
+          const step = Math.max(0, Math.floor((now - dk.since) / PAGE_MS)) % (n + HOLD_PAGES);
+          LP[dk.s] = Math.min(n - 1, step) / (n - 1);
+        } else if (Math.abs(pv - dk.s) >= 1) {
+          dk.since = 0; LP[dk.s] = LPS[dk.s] = 0;
+        }
       }
       for (const dk of decks) {
         const op = smooth(0, 1, 1 - Math.abs(pv - dk.s) * 2.2);
