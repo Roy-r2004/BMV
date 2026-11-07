@@ -332,9 +332,14 @@ def _screens_for_the_plan(prs, images, blank, chrome, text, muted, accent, accen
     """The screens, after the plan, titled as how the plan runs.
 
     The confidence line is not printed. A screen with no picture is absent.
+    Every caption is printed whole: each box is measured for its words
+    (`storyline.deck.height`), and the picture takes the room that is left
+    between the header and the strip, so nothing is cut by character count.
     """
     from pptx.enum.text import PP_ALIGN
     from pptx.util import Inches, Pt
+
+    from app.storyline.deck import height
 
     for img in images:
         hero = _presentation_variant(img.file_path, "hero") or _abs_image_path(img.file_path)
@@ -343,47 +348,60 @@ def _screens_for_the_plan(prs, images, blank, chrome, text, muted, accent, accen
         caption = _story_of(img)
         slide = prs.slides.add_slide(blank)
         chrome(slide, label="how the plan runs")
-        _add_text(
-            slide, img.role_label or "Product screen", MARGIN, Inches(0.84),
-            Inches(5.0), Inches(0.52), size=26, color=text, font=FONT_DISPLAY,
-        )
+        name = img.role_label or "Product screen"
+        name_h = height(name, 5.0, 26)
+        _add_text(slide, name, MARGIN, Inches(0.84), Inches(5.0), Inches(name_h),
+                  size=26, color=text, font=FONT_DISPLAY)
+        left_foot = 0.84 + name_h
         if caption and caption["subheading"]:
-            _add_text(slide, caption["subheading"], MARGIN, Inches(1.32), Inches(5.0), Inches(0.3),
+            sub_h = height(caption["subheading"], 5.0, 11)
+            _add_text(slide, caption["subheading"], MARGIN, Inches(left_foot), Inches(5.0), Inches(sub_h),
                       size=11, color=muted)
+            left_foot += sub_h
+        right_foot = 0.87
         if caption and caption["description"]:
-            _add_text(
-                slide, _fit(caption["description"], Inches(6.2), 11, lines=3),
-                Inches(6.35), Inches(0.87), Inches(6.23), Inches(0.82),
-                size=11, color=muted, line_spacing=1.25,
-            )
-        hero_h = Inches(4.85) if caption and caption["ai"] else Inches(5.35)
-        _place_image_contain(slide, hero, MARGIN, Inches(1.72), Inches(11.83), hero_h)
-        if not (caption and caption["ai"]):
+            desc_h = height(caption["description"], 6.23, 11) * 1.25 / 1.2
+            _add_text(slide, caption["description"], Inches(6.35), Inches(0.87), Inches(6.23), Inches(desc_h),
+                      size=11, color=muted, line_spacing=1.25)
+            right_foot += desc_h
+        hero_top = max(left_foot, right_foot) + 0.1
+        ai = caption["ai"] if caption else None
+        if not ai:
+            _place_image_contain(slide, hero, MARGIN, Inches(hero_top), Inches(11.83), Inches(7.07 - hero_top))
             continue
-        strip_top = Inches(6.62)
-        _rect(slide, surface, MARGIN, strip_top, Inches(11.83), Inches(0.66), alpha=45)
-        _rect(slide, accent, MARGIN, strip_top, Pt(2.5), Inches(0.66))
-        if caption["ai"]["title"]:
+        tracks = "  ·  ".join(caption["tracks"][:3]) if caption["tracks"] else ""
+        left_h = ((height(ai["title"].upper(), 3.5, 9) if ai["title"] else 0)
+                  + (height(ai["headline"], 4.6, 12) if ai["headline"] else 0))
+        strip_h = max(left_h, height(ai["rationale"], 3.55, 9) if ai["rationale"] else 0,
+                      height(tracks, 2.95, 9) if tracks else 0) + 0.18
+        strip_top_in = 7.28 - strip_h
+        _place_image_contain(slide, hero, MARGIN, Inches(hero_top), Inches(11.83),
+                             Inches(max(strip_top_in - 0.1 - hero_top, 0.5)))
+        strip_top = Inches(strip_top_in)
+        _rect(slide, surface, MARGIN, strip_top, Inches(11.83), Inches(strip_h), alpha=45)
+        _rect(slide, accent, MARGIN, strip_top, Pt(2.5), Inches(strip_h))
+        top = strip_top_in + 0.09
+        if ai["title"]:
+            title_h = height(ai["title"].upper(), 3.5, 9)
             _add_text(
-                slide, caption["ai"]["title"].upper(), MARGIN + Inches(0.25), strip_top + Inches(0.09),
-                Inches(3.5), Inches(0.28), size=9, color=accent_soft, bold=True, spacing=2.0,
+                slide, ai["title"].upper(), MARGIN + Inches(0.25), Inches(top),
+                Inches(3.5), Inches(title_h), size=9, color=accent_soft, bold=True, spacing=2.0,
             )
-        if caption["ai"]["headline"]:
+            top += title_h
+        if ai["headline"]:
             _add_text(
-                slide, caption["ai"]["headline"], MARGIN + Inches(0.25), strip_top + Inches(0.32),
-                Inches(4.6), Inches(0.3), size=12, color=text,
+                slide, ai["headline"], MARGIN + Inches(0.25), Inches(top),
+                Inches(4.6), Inches(height(ai["headline"], 4.6, 12)), size=12, color=text,
             )
-        if caption["ai"]["rationale"]:
+        if ai["rationale"]:
             _add_text(
-                slide, _fit(caption["ai"]["rationale"], Inches(3.55), 9),
-                MARGIN + Inches(5.1), strip_top + Inches(0.23), Inches(3.55), Inches(0.3),
-                size=9, color=muted,
+                slide, ai["rationale"], MARGIN + Inches(5.1), Inches(strip_top_in + 0.09), Inches(3.55),
+                Inches(height(ai["rationale"], 3.55, 9)), size=9, color=muted,
             )
-        if caption["tracks"]:
+        if tracks:
             _add_text(
-                slide, _fit("  ·  ".join(caption["tracks"][:3]), Inches(2.95), 9),
-                MARGIN + Inches(8.85), strip_top + Inches(0.23), Inches(2.95), Inches(0.3),
-                size=9, color=muted, align=PP_ALIGN.RIGHT,
+                slide, tracks, MARGIN + Inches(8.85), Inches(strip_top_in + 0.09), Inches(2.95),
+                Inches(height(tracks, 2.95, 9)), size=9, color=muted, align=PP_ALIGN.RIGHT,
             )
 
 
