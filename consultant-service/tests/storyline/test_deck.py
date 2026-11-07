@@ -159,3 +159,101 @@ def test_a_legacy_run_deck_is_unchanged(tmp_path, monkeypatch):
     assert first == second
     assert first and QUESTION not in first[0]
     db.close()
+
+
+def _overlaps(prs, below: float = 0.0) -> list[str]:
+    """Text boxes that sit on each other, or run past the foot of the slide.
+    `below` (inches) leaves out the chrome band above it."""
+    bad = []
+    for number, slide in enumerate(prs.slides, 1):
+        boxes = [(s.left, s.top, s.left + s.width, s.top + s.height, s.text_frame.text[:30])
+                 for s in slide.shapes if s.has_text_frame and s.text_frame.text.strip()
+                 and s.top >= below * 914400]
+        for i, a in enumerate(boxes):
+            if a[3] > prs.slide_height:
+                bad.append(f"slide {number}: {a[4]!r} runs past the foot")
+            for b in boxes[i + 1:]:
+                if a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]:
+                    bad.append(f"slide {number}: {a[4]!r} sits on {b[4]!r}")
+    return bad
+
+
+def test_deck_rows_are_measured_and_continue_rather_than_overlap(tmp_path, monkeypatch):
+    # Review M2: at the default bounds the exhibit's rows ran under the section
+    # takeaway and the register's rows ran past the 7.5 in slide.
+    monkeypatch.setattr(settings, "REGISTER_ROWS_MAX", 12)
+    grid = {"unit_plural": "spots", "grid": [{"day": "Mon", "slots": [
+        {"time": f"Class {chr(65 + i)}", "taken": 3} for i in range(14)]}]}
+    words = "Keep the evening class open and tell every regular on the list by the end of the week"
+    rows = [{"phase": 1, "recommendation": f"{words}, part {chr(65 + n)}.", "changes": "The evening class.",
+             "owner": "the owner", "depends_on": [1] if n else [], "share_pct": 10 if n < 4 else 5 if n < 10 else 15,
+             "cost_figure": "CF-04", "cost_needs": None} for n in range(12)]
+    assert sum(row["share_pct"] for row in rows) == 100
+    db, row = _ready(tmp_path, monkeypatch, capacity_json=json.dumps(grid), storyline_json=json.dumps({
+        "register": rows,
+        "sections": [{"id": "week", "title": "The week is full", "takeaway": "The evening class stays."}]}))
+    prs = _deck(row)
+    assert _overlaps(prs) == []
+    text = "\n".join(_texts(prs))
+    assert all(f"part {chr(65 + n)}." in text for n in range(12))
+    assert "Other classes, 3 classes" in text and "Other classes (3)" not in text
+    db.close()
+
+
+def test_the_first_slide_is_the_whole_answer_page(tmp_path, monkeypatch):
+    # Review M6: the deck's first slide had no numbers, belief, test, Monday or would-not.
+    db, row = _ready(tmp_path, monkeypatch, main_problem="The evening class is too quiet.",
+                     consulting_recommendations_json=json.dumps({"why_not_the_others": "A new hire costs more."}))
+    first = _texts(_deck(row))[0]
+    for part in (QUESTION, "You are full.", "What you believed: The evening class is too quiet.",
+                 "Monday: Tell them the evening class stays. You send the note.",
+                 "What we would not do: A new hire costs more.", "What this rests on"):
+        assert part in first, part
+    db.close()
+
+
+def test_the_register_slide_shows_every_column_and_the_headline(tmp_path, monkeypatch):
+    # Review H5: the deck printed only "{recommendation} {owner}" per row.
+    terms = [{"kind": "claim", "id": "CF-04", "value": "22", "sign": 1, "label": "her price"},
+             {"kind": "proposed", "value": "0.75", "sign": 1, "label": "who stay"}]
+    db, row = _ready(tmp_path, monkeypatch, answer_json=json.dumps({
+        "headline": "You are full.", "turn": "Keep the class.", "action": {"weeks": 6, "figure": as_json(WEEKS)},
+        "move": {"value": 16.5, "unit": "USD", "period": "week", "terms": terms}}))
+    slides = _texts(_deck(row))
+    register = next(slide for slide in slides if "The register" in slide)
+    assert ".." not in register
+    for part in ("What it changes: The evening class.", "Value: $7.92 to $11.88 a week", "Cost: $22",
+                 "Owner: the owner", "When: Week 1", "After 1", "All together: $13.20 to $19.80 a week"):
+        assert part in register, part
+    from app.figures import law
+
+    assert law.recorded(row)["The deck"] == [] or all(
+        f.number == "37" for f in law.recorded(row)["The deck"])
+    db.close()
+
+
+def test_screen_captions_are_printed_whole_and_measured(tmp_path, monkeypatch):
+    # Review M4: the new screens slides cut the description, the rationale and
+    # the tracks to an estimated character count.
+    from PIL import Image
+
+    folder = os.path.join(str(tmp_path), "images", "1")
+    os.makedirs(folder, exist_ok=True)
+    Image.new("RGB", (8, 8), (2, 6, 23)).save(os.path.join(folder, "shot.png"))
+    rationale = ("the desk books the class the moment a regular asks and keeps the waiting list "
+                 "in the order people asked, so nobody is skipped and nobody is asked twice")
+    spec = {"subheading": "Where the week is booked",
+            "kpis": [{"label": "Bookings taken at the desk"}, {"label": "Waiting list kept in order"},
+                     {"label": "Regulars who come back"}],
+            "primary_panel": {"title": "Today's classes"}, "secondary_panel": {"title": "The waiting list"},
+            "ai": {"title": "The desk", "headline": "It books the class.", "rationale": rationale}}
+    shot = SimpleNamespace(file_path="/uploads/images/1/shot.png", role_label="The desk",
+                           spec_json=json.dumps(spec))
+    db, row = _ready(tmp_path, monkeypatch)
+    prs = _deck(row, [shot])
+    text = "\n".join(_texts(prs))
+    assert rationale in text and "…" not in text
+    assert "Bookings taken at the desk  ·  Waiting list kept in order  ·  Regulars who come back" in text
+    # the chrome's kicker and running name share the band above the content
+    assert _overlaps(prs, below=0.8) == []
+    db.close()
