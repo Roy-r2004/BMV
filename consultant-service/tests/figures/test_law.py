@@ -315,7 +315,7 @@ def test_a_cached_volume_is_rebuilt_when_the_package_status_changes(db):
     mtime = os.path.getmtime(path)
     assert ep.build_pdf(row, "blueprint") == path and os.path.getmtime(path) == mtime   # served
     # another document of the package now holds a finding, with no data change
-    law.save(row.id, "Volume II", [law.Finding("37", "add 37 screens", "Volume II", 3)])
+    law.save(row.id, "Volume II", [law.Finding("37", "add 37 screens", "Volume II", 3)], data_at=row.updated_at)
     assert ep.release_status(row)["status"] == "draft"
     path = ep.build_pdf(row, "blueprint")
     assert os.path.getmtime(path) != mtime and "DRAFT" in _cover_text(path)
@@ -749,7 +749,7 @@ def test_an_absent_record_is_not_trusted_when_the_row_holds_the_document(db):
 
     row = _seed(db, mvp_blueprint=CLEAN_MD, technical_plan="## The build\nWe will add 37 screens.\n")
     later = datetime.utcnow() + timedelta(seconds=5)
-    law.save(row.id, "Volume II", [], built_at=later, absent=True)           # a stray "absent" record
+    law.save(row.id, "Volume II", [], built_at=later, data_at=row.updated_at, absent=True)   # a stray "absent" record
     assert law.record(row.id, "Volume II", row.updated_at)["absent"] is True
     assert law.states(row)["Volume II"] == "not yet checked"
     law.ensure_records(row)
@@ -840,3 +840,42 @@ def test_client_emails_carry_no_figures(monkeypatch):
     for body in sent:
         rest = body.replace(mailer._run_url("beacon-physio-x"), "")
         assert not any(ch.isdigit() for ch in rest), rest
+
+
+def test_a_check_that_starts_in_the_same_instant_as_the_change_is_current(db, monkeypatch):
+    """The clock here ticks every few milliseconds, so a build that follows a
+    save can start in the very instant the row's `updated_at` was set. The record
+    says which row version it checked, and that, not the clock, makes it current."""
+    from datetime import datetime
+    from app.pipeline import export_pdf as ep
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD)
+
+    class SameInstant(datetime):
+        @classmethod
+        def utcnow(cls):
+            return row.updated_at
+
+    monkeypatch.setattr(ep, "datetime", SameInstant)
+    ep.build_pdf(row, "blueprint")
+    assert law.recorded(row)["Volume I"] == []
+    assert law.states(row)["Volume I"] == "checked"
+
+
+def test_a_record_that_does_not_say_which_row_it_checked_is_not_trusted(db):
+    from datetime import datetime, timedelta
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD)
+    law.save(row.id, "Volume I", [], built_at=datetime.utcnow() + timedelta(hours=1))
+    assert law.record(row.id, "Volume I", row.updated_at) is None
+
+
+def test_a_record_of_an_older_row_is_stale_however_late_it_was_made(db):
+    from datetime import datetime, timedelta
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD)
+    later = datetime.utcnow() + timedelta(hours=1)
+    law.save(row.id, "Volume I", [], built_at=later, data_at=row.updated_at - timedelta(seconds=1))
+    assert law.record(row.id, "Volume I", row.updated_at) is None
+    law.save(row.id, "Volume I", [], built_at=later, data_at=row.updated_at)
+    assert law.record(row.id, "Volume I", row.updated_at)["findings"] == []

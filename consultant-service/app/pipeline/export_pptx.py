@@ -416,7 +416,8 @@ def build_presentation(
     with law.scope(known, where="The deck", hours=hours, request_id=request_id,
                    phrases=document_phrases(req)) as found:
         prs = _build_presentation(req, analysis, consult_result, plan_result, images)
-    law.save(request_id, "The deck", found.findings, built_at=started)
+    law.save(request_id, "The deck", found.findings, built_at=started,
+             data_at=getattr(req, "updated_at", None))
     return prs
 
 
@@ -445,7 +446,8 @@ def check_deck(req: Request) -> None:
     cannot have yet is recorded as not produced."""
     inputs = deck_inputs(req)
     if inputs is None:
-        law.save(getattr(req, "id", None), "The deck", [], built_at=datetime.utcnow(), absent=True)
+        law.save(getattr(req, "id", None), "The deck", [], built_at=datetime.utcnow(),
+                 data_at=getattr(req, "updated_at", None), absent=True)
         return
     build_presentation(req, *inputs, list(getattr(req, "images", None) or []))
 

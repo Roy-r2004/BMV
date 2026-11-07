@@ -1992,7 +1992,7 @@ def build_pdf(req: Request, kind: str) -> str:
     # the running header and the footer (`_page_chrome`) are drawn in these
     # bands above and below the body frame; the law's snippets are not sought there
     law.save(req.id, where, law.locate_pages(out_path, final.findings, margins=(15 * mm, 19 * mm)),
-             built_at=started, stamped=stamped)
+             built_at=started, data_at=req.updated_at, stamped=stamped)
     return out_path
 
 
@@ -2023,7 +2023,7 @@ def check_volume(req: Request, kind: str) -> None:
     started = datetime.utcnow()
     md = req.mvp_blueprint if kind == "blueprint" else req.technical_plan if kind == "technical" else None
     if kind != "operations" and not md:
-        law.save(req.id, where, [], built_at=started, absent=True)
+        law.save(req.id, where, [], built_at=started, data_at=req.updated_at, absent=True)
         return
     label, sub = _VOLUME_LABELS[kind]
     business_case = _loads(req.business_case_json, {})
@@ -2033,9 +2033,9 @@ def check_volume(req: Request, kind: str) -> None:
                        phrases=document_phrases(req, business_case)) as found:
             _volume_flows(req, kind, md, label, sub, business_case)
     except ValueError:                                  # "operations manual not ready"
-        law.save(req.id, where, [], built_at=started, absent=True)
+        law.save(req.id, where, [], built_at=started, data_at=req.updated_at, absent=True)
         return
-    law.save(req.id, where, found.findings, built_at=started)
+    law.save(req.id, where, found.findings, built_at=started, data_at=req.updated_at)
 
 
 def gate_figures(gate: dict | None) -> list:

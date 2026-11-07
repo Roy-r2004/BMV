@@ -8,7 +8,7 @@ the screens templates' Jinja `finalize`), and each choke point calls `check`:
     with law.scope(known, where="Volume I", request_id=req.id) as s:
         ... build the flowables; `_rich` calls `law.check(text)` ...
     findings = law.locate_pages(pdf_path, s.findings)
-    law.save(req.id, "Volume I", findings, built_at=started)
+    law.save(req.id, "Volume I", findings, built_at=started, data_at=req.updated_at)
 
 `check(text)` binds every number that names a known figure to that figure's
 literal value (`bind.bind`) and records a `Finding` for every number that names
@@ -443,9 +443,14 @@ def findings_path(request_id: object, where: str) -> str | None:
 
 
 def save(request_id: object, where: str, findings: Iterable[Finding], *,
-         built_at: datetime | None = None, stamped: str | None = None, absent: bool = False) -> bool:
+         built_at: datetime | None = None, data_at: datetime | None = None,
+         stamped: str | None = None, absent: bool = False) -> bool:
     """Keep a document's findings, replacing what an earlier check kept.
-    `built_at` is when the build started (naive UTC). `stamped` is the release
+    `built_at` is when the build started (naive UTC). `data_at` is the request's
+    `updated_at` the build read: the version of the row it checked. A record
+    without it is never trusted, because a clock cannot say whether a check
+    that started in the same instant as a change came before or after it.
+    `stamped` is the release
     status the built file carries on its cover (None when no file was made: a
     law-only pass). `absent` records that the package has no such document yet
     (its stage has not produced it). Never raises; False when nothing could be
@@ -455,6 +460,7 @@ def save(request_id: object, where: str, findings: Iterable[Finding], *,
     if path is None:
         return False
     record = {"where": where, "built_at": (built_at or datetime.utcnow()).isoformat(),
+              "data_at": data_at.isoformat() if isinstance(data_at, datetime) else None,
               "law_version": LAW_VERSION, "stamped": stamped if isinstance(stamped, str) else None, "absent": bool(absent),
               "findings": [] if absent else [as_json(f) for f in sorted_findings(findings)]}
     body = json.dumps(record)
@@ -485,20 +491,22 @@ def save(request_id: object, where: str, findings: Iterable[Finding], *,
 
 def record(request_id: object, where: str, updated_at: datetime | None) -> dict | None:
     """A document's kept record (`findings` as `Finding`s, `stamped`, `absent`),
-    when its check started after the request's last data change and was made
-    under these rules (`LAW_VERSION`); None when it was never checked since, was
-    checked under other rules, or the record cannot be read. An `absent` record
-    is checked against the row by `_records`."""
+    when its check read the row as it stands (`data_at` equals `updated_at`) and
+    was made under these rules (`LAW_VERSION`); None when it was never checked
+    since, was checked under other rules, or the record cannot be read. The
+    row's version, not the clock, decides: a check that started in the same
+    instant as the last change is current. An `absent` record is checked against
+    the row by `_records`."""
     path = findings_path(request_id, where)
     if path is None or not isinstance(updated_at, datetime) or not os.path.isfile(path):
         return None
     try:
         with open(path, encoding="utf-8") as fh:
             raw = json.load(fh)
-        built_at = datetime.fromisoformat(str(raw.get("built_at")))
+        data_at = datetime.fromisoformat(str(raw.get("data_at")))
     except (OSError, ValueError, TypeError, AttributeError):
         return None
-    if built_at.tzinfo is not None or not built_at > updated_at:
+    if data_at.tzinfo is not None or data_at != updated_at:
         return None
     if raw.get("law_version") != LAW_VERSION:
         return None
@@ -510,8 +518,8 @@ def record(request_id: object, where: str, updated_at: datetime | None) -> dict 
 
 
 def fresh(request_id: object, where: str, updated_at: datetime | None) -> bool:
-    """Whether the document has a record from a check newer than the request's
-    last data change (an empty list counts: it was checked)."""
+    """Whether the document has a record from a check of the row as it stands
+    (an empty list counts: it was checked)."""
     return record(request_id, where, updated_at) is not None
 
 

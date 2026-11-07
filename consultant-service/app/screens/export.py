@@ -88,7 +88,7 @@ def build_system_pdf(req: Request) -> str:
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
     path = browser.render_pdf(html, os.path.join(out_dir, f"{req.id}-system.pdf"))
-    law.save(req.id, WHERE, law.locate_pages(path, findings), built_at=started)
+    law.save(req.id, WHERE, law.locate_pages(path, findings), built_at=started, data_at=req.updated_at)
     return path
 
 
@@ -103,7 +103,8 @@ def check_proposal(req: Request) -> None:
     started = datetime.utcnow()
     system = generate.load(req)
     if not system:
-        law.save(req.id, WHERE, [], built_at=started, absent=True)
+        law.save(req.id, WHERE, [], built_at=started, data_at=req.updated_at, absent=True)
         return
     html, findings = _proposal(req, system)
-    law.save(req.id, WHERE, law.locate_in_texts(page_texts(html), findings), built_at=started)
+    law.save(req.id, WHERE, law.locate_in_texts(page_texts(html), findings), built_at=started,
+             data_at=req.updated_at)
