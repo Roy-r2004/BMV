@@ -12,6 +12,11 @@ import './styles/mobile-shell.css';
 const SolutionsPage = lazy(() => import('./routes/SolutionsPage'));
 const AboutPage = lazy(() => import('./routes/AboutPage'));
 const PrivateAIPage = lazy(() => import('./routes/PrivateAIPage'));
+const ServicesPage = lazy(() => import('./routes/ServicesPage'));
+const ApproachPage = lazy(() => import('./routes/ApproachPage'));
+const ContactPage = lazy(() => import('./routes/ContactPage'));
+const PrivacyPage = lazy(() => import('./routes/PrivacyPage'));
+const TermsPage = lazy(() => import('./routes/TermsPage'));
 const StudioPage = lazy(() => import('./routes/StudioPage'));
 const EngagementsPage = lazy(() => import('./routes/EngagementsPage'));
 const ResultPreviewPage = lazy(() => import('./routes/ResultPreviewPage'));
@@ -40,6 +45,11 @@ export default function App() {
           <Route path="/solutions/:id" element={<Navigate to="/solutions" replace />} />
           <Route path="/examples" element={<Navigate to="/solutions" replace />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/approach" element={<ApproachPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="/private-ai" element={<PrivateAIPage />} />
           <Route path="/submit" element={<Navigate to="/demo" replace />} />
           {/* The client-facing generator, addressed as /demo. It used to be

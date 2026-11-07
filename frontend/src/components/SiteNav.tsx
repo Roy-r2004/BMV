@@ -1,185 +1,135 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import Logo from './Logo';
-import GlowButton from './GlowButton';
 import { useAuth } from '../context/AuthContext';
+import { COMPANY, SECTIONS } from '../data/company';
 import { scrollToTop } from '../utils/scroll';
 
-// One client-facing generator, called Demo. The old /demo page listed
-// generated preview APPS; the studio generates the image demo, and it is
-// the only generation a client is offered. Two entries called "Demo" and
-// "Studio" made that a choice the client had to understand.
-const LINKS = [
-  { to: '/solutions', label: 'Solutions' },
-  { to: '/about', label: 'About' },
-  { to: '/private-ai', label: 'Private AI' },
-];
-
+/**
+ * The firm's navigation. On a wide screen every section is in the bar; below
+ * that, one button opens a full-screen list that also carries the contact
+ * line, so a visitor on a phone can reach the firm without scrolling to the
+ * footer. A signed-in client also sees their engagements.
+ */
 export default function SiteNav() {
   const { pathname } = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const { user, isAuthenticated, logout, loading } = useAuth();
 
-  // Engagements only exist for an account, so the tab only exists for one.
   const links = isAuthenticated
-    ? [...LINKS.slice(0, 2), { to: '/engagements', label: 'Engagements' }, ...LINKS.slice(2)]
-    : LINKS;
+    ? [...SECTIONS, { to: '/engagements', label: 'Your engagements', hint: 'Consultations you have started' }]
+    : [...SECTIONS];
 
   useEffect(() => {
-    setMenuOpen(false);
+    setOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
     };
-  }, [menuOpen]);
+  }, [open]);
+
+  const current = (to: string) => (pathname === to ? 'page' : undefined);
+  const onSame = (to: string) => () => {
+    if (pathname === to) scrollToTop('smooth');
+  };
 
   return (
-    <nav className="fixed top-0 inset-x-0 z-50 border-b border-blue-100/80 bg-white/95 shadow-sm shadow-blue-500/5 supports-[backdrop-filter]:backdrop-blur-md">
-      <div className="container-max flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 h-14 sm:h-16 min-h-[3.5rem] pt-[env(safe-area-inset-top)]">
-        <div className="shrink-0 min-w-0">
-          <div className="sm:hidden">
-            <Logo />
-          </div>
-          <div className="hidden sm:block">
-            <Logo showName />
-          </div>
-        </div>
+    <>
+      <nav className="fm-nav" aria-label="Main">
+        <div className="fm-wrap fm-nav-bar">
+          <Link to="/" className="fm-brand" onClick={onSame('/')}>
+            <img src="/logo-160.png" alt="" width={36} height={36} />
+            <span>{COMPANY.name}</span>
+          </Link>
 
-        <div className="hidden md:flex items-center gap-0.5 lg:gap-1">
-          {links.map((link) => {
-            const active = pathname === link.to;
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                onClick={() => {
-                  if (active) scrollToTop('smooth');
-                }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  active
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-slate-600 hover:text-blue-600 hover:bg-slate-50'
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <button
-            type="button"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((o) => !o)}
-            className="md:hidden flex items-center justify-center w-11 h-11 rounded-xl text-slate-700 hover:bg-slate-100"
-          >
-            {menuOpen ? (
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-              </svg>
-            )}
-          </button>
-
-          {!loading && isAuthenticated ? (
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="text-xs text-slate-500 max-w-[120px] truncate" title={user?.email}>
-                {user?.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => logout()}
-                className="text-xs font-medium text-slate-600 hover:text-blue-600 px-2 py-1 rounded-lg hover:bg-slate-50"
-              >
-                Sign out
-              </button>
-            </div>
-          ) : (
-            !loading && (
-              <Link
-                to="/login"
-                state={{ from: pathname }}
-                className="hidden sm:inline text-xs font-medium text-slate-600 hover:text-blue-600 px-2 py-1 rounded-lg hover:bg-slate-50"
-              >
-                Sign in
-              </Link>
-            )
-          )}
-
-          <GlowButton
-            to="/demo"
-            className="!inline-flex items-center justify-center text-xs sm:text-sm py-2.5 px-3.5 sm:px-4 whitespace-nowrap leading-none min-h-10"
-          >
-            <span className="sm:hidden">Start</span>
-            <span className="hidden sm:inline">Start a consultation</span>
-          </GlowButton>
-        </div>
-      </div>
-
-      {menuOpen && (
-        <div className="md:hidden border-t border-slate-100 bg-white site-nav-mobile-menu">
-          {links.map((link) => {
-            const active = pathname === link.to;
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                onClick={() => {
-                  setMenuOpen(false);
-                  if (active) scrollToTop('smooth');
-                }}
-                className={`rounded-xl font-semibold ${
-                  active ? 'text-blue-600 bg-blue-50' : 'text-slate-800 hover:bg-slate-50'
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-          {!loading &&
-            (isAuthenticated ? (
-              <>
-                <span className="px-3 py-2.5 text-sm text-slate-500">{user?.name}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    logout();
-                  }}
-                  className="rounded-xl font-semibold text-left text-slate-800 hover:bg-slate-50 w-full"
-                >
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                state={{ from: pathname }}
-                onClick={() => setMenuOpen(false)}
-                className="rounded-xl font-semibold text-blue-600 hover:bg-blue-50"
-              >
-                Sign in
+          <div className="fm-links">
+            {links.map((l) => (
+              <Link key={l.to} to={l.to} aria-current={current(l.to)} onClick={onSame(l.to)}>
+                {l.label}
               </Link>
             ))}
-          <Link
-            to="/demo"
-            onClick={() => setMenuOpen(false)}
-            className="mt-2 rounded-xl font-bold text-center text-white bg-gradient-to-r from-blue-600 to-cyan-500 py-3"
-          >
-            Start a consultation
-          </Link>
+          </div>
+
+          <div className="fm-side">
+            {!loading &&
+              (isAuthenticated ? (
+                <button type="button" className="fm-signin" onClick={() => logout()} title={user?.email}>
+                  Sign out
+                </button>
+              ) : (
+                <Link to="/login" state={{ from: pathname }} className="fm-signin">
+                  Sign in
+                </Link>
+              ))}
+            <Link to="/demo" className="fm-btn">
+              Start a consultation
+            </Link>
+            <button
+              type="button"
+              className="fm-menu-btn"
+              aria-label={open ? 'Close menu' : 'Open menu'}
+              aria-expanded={open}
+              aria-controls="fm-sheet"
+              onClick={() => setOpen((o) => !o)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                {open ? <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" /> : <path d="M3 7h18M3 12h18M3 17h18" strokeLinecap="round" />}
+              </svg>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {open && (
+        <div className="fm-sheet" id="fm-sheet" role="dialog" aria-modal="true" aria-label="Menu">
+          <ul className="fm-sheet-links">
+            {links.map((l) => (
+              <li key={l.to}>
+                <Link to={l.to} aria-current={current(l.to)} onClick={() => setOpen(false)}>
+                  {l.label}
+                  <small>{l.hint}</small>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="fm-sheet-actions">
+            <Link to="/demo" className="fm-btn" onClick={() => setOpen(false)}>
+              Start a consultation
+            </Link>
+            {!loading &&
+              (isAuthenticated ? (
+                <button
+                  type="button"
+                  className="fm-btn-line"
+                  onClick={() => {
+                    setOpen(false);
+                    logout();
+                  }}
+                >
+                  Sign out {user?.name ? `(${user.name})` : ''}
+                </button>
+              ) : (
+                <Link to="/login" state={{ from: pathname }} className="fm-btn-line" onClick={() => setOpen(false)}>
+                  Sign in
+                </Link>
+              ))}
+          </div>
+          <div className="fm-sheet-meta">
+            <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
+            <br />
+            {COMPANY.name}. {COMPANY.registered}.
+          </div>
         </div>
       )}
-    </nav>
+    </>
   );
 }
