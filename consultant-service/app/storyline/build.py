@@ -72,8 +72,38 @@ def _sections(req, known) -> tuple:
             exhibit = for_section(req, sid)
         except Exception:
             exhibit = None
-        out.append(Section(sid, _bound(title, known), _bound(takeaway, known), exhibit, (), None, (), None))
+        out.append(section(sid, _bound(title, known), _bound(takeaway, known), exhibit, len(out) + 1))
     return tuple(out)
+
+
+#: The tag words of a number that is ours or worked out.
+_OURS = ("our estimate", "worked out")
+
+
+def section(sid: str, title: str, takeaway: str | None, exhibit, number: int):
+    """One proof section with its exhibit numbered "n.1" (one exhibit a page),
+    and the foot and stamp the page law asks for, composed from the exhibit's
+    own rows: a Source line that ends "BMV analysis" when a number on the page
+    is ours or worked out, a Note that says what those tags mean, and the
+    ESTIMATE stamp when a number is our estimate. A section with no exhibit
+    has no foot and no stamp."""
+    from dataclasses import replace
+
+    from app.storyline.model import Section
+
+    if exhibit is None:
+        return Section(sid, title, takeaway, None, (), None, (), None)
+    exhibit = replace(exhibit, id=f"{number}.1")
+    tags = {row.get("tag") for row in (exhibit.data or {}).get("rows") or [] if isinstance(row, dict)}
+    worked = bool(tags & set(_OURS))
+    sources = [exhibit.source] if exhibit.source else []
+    if worked:
+        sources.append("BMV analysis")
+    note = ("Note: worked out is our arithmetic on your figures; our estimate is an assumption of ours."
+            if worked else None)
+    stamp = "ESTIMATE" if "our estimate" in tags else None
+    source = ("Source: " + "; ".join(sources),) if sources else ()
+    return Section(sid, title, takeaway, exhibit, (), note, source, stamp)
 
 
 def _register(req, known):

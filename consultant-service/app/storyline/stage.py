@@ -47,12 +47,15 @@ def write(db, request_id: int) -> None:
         return None
     known = figures_known.known_for(req)
     builds = decide.builds(_decision(req))
+    from app.storyline.exhibits import available
+
     prompt_base = render(
         "storyline.j2",
         business_name=req.business_name or "",
         figures_block=figures_known.prompt_lines(known),
         phases=_phases(req),
         builds=builds,
+        exhibits=available(req),
     )
     feedback = ""
     saved = None
@@ -103,7 +106,7 @@ def _accept(req, raw: dict, known, builds: bool) -> dict:
     except RegisterInvalid as exc:
         raise _Rejected("\n".join(exc.reasons)) from exc
     return {"register": _register_words(drafted, known),
-            "sections": _sections(raw.get("sections"), known, builds)}
+            "sections": _sections(raw.get("sections"), known, builds, req)}
 
 
 #: The register's words a row prints. Each is checked for numbers like a title.
@@ -127,7 +130,7 @@ def _register_words(drafted: list, known) -> list[dict]:
     return kept
 
 
-def _sections(raw, known, builds: bool) -> list[dict]:
+def _sections(raw, known, builds: bool, req=None) -> list[dict]:
     if not isinstance(raw, list):
         raise _Rejected("The sections did not come back as a list.")
     kept = []
@@ -150,8 +153,29 @@ def _sections(raw, known, builds: bool) -> list[dict]:
                 "A title has to fit on two lines. This one does not. "
                 "Write a shorter title that fits on two lines. Do not cut a word off."
             )
-        kept.append({"id": sid, "title": title, "takeaway": bind(takeaway, known).text if takeaway else ""})
+        takeaway = bind(takeaway, known).text if takeaway else ""
+        _page_law(req, sid, title, takeaway, len(kept) + 1)
+        kept.append({"id": sid, "title": title, "takeaway": takeaway})
     return kept
+
+
+def _page_law(req, sid: str, title: str, takeaway: str, number: int) -> None:
+    """The section as its lead page will draw it, through the page law. Its
+    foot and stamp are composed in code; a reason the law gives sends the
+    reply back."""
+    if req is None:
+        return
+    from app.storyline.build import section
+    from app.storyline.exhibits import for_section
+    from app.storyline.pagelaw import check_section
+
+    try:
+        exhibit = for_section(req, sid)
+    except Exception:
+        exhibit = None
+    reasons = check_section(section(sid, title, takeaway or None, exhibit, number))
+    if reasons:
+        raise _Rejected("\n".join(reasons))
 
 
 def _numbers(text: str, where: str, known) -> None:

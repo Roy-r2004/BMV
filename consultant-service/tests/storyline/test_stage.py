@@ -233,3 +233,17 @@ def test_figure_tokens_are_bound_before_the_storyline_is_stored(monkeypatch):
     assert stored["sections"][0]["takeaway"] == "Keep the price at $22."
     assert stored["register"][0]["recommendation"] == "Keep the price at $22."
     db.close()
+
+
+def test_the_prompt_names_the_section_ids_that_draw_an_exhibit(monkeypatch):
+    # Review M1: the exhibit is chosen by section id, and the prompt never named the ids.
+    grid = {"unit_plural": "spots", "grid": [{"day": "Mon", "slots": [{"time": "Evening", "taken": 11}]}]}
+    chat, sent = _chat([_reply()])
+    monkeypatch.setattr(provider, "chat", chat)
+    db = SessionLocal()
+    row = _row(db, capacity_json=json.dumps(grid))
+    write(db, row.id)
+    assert "- week: How full each class is" in sent[0]
+    assert "- prize: Where the prize comes from" in sent[0]
+    assert "- scoreboard:" not in sent[0]
+    db.close()

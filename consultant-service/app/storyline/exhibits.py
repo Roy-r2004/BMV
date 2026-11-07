@@ -20,6 +20,7 @@ from app.storyline.model import Exhibit
 
 _FONT = "Helvetica"
 _SIZE = 8
+_BAR = "#0e7490"
 _SECTIONS = ("week", "prize", "grid", "plan", "scoreboard")
 
 
@@ -67,7 +68,17 @@ def _drawn_sections(req) -> set[str]:
 
 
 def draw_pdf(exhibit: Exhibit, width: float, height: float) -> Drawing:
-    """The exhibit as a drawing that stays inside the box. The type size is fixed."""
+    """The exhibit as a drawing that stays inside the box. The type size is fixed.
+
+    Each row is its words, then its bar. Every string passes the number law
+    (`law.check`) while a document is built, so a number the drawing prints is
+    a figure or a finding. A chart whose rows carry no figure (the plan's
+    phases) is drawn as its words alone.
+    """
+    from reportlab.lib import colors
+
+    from app.figures import law
+
     drawing = Drawing(width, height)
     rows = list(exhibit.data.get("rows") or [])
     if not rows:
@@ -77,20 +88,27 @@ def draw_pdf(exhibit: Exhibit, width: float, height: float) -> Drawing:
     largest = max((_decimal(row.get("value")) for row in rows), default=Decimal(1))
     if largest <= 0:
         largest = Decimal(1)
+    bars = any(row.get("figure_id") for row in rows)
     bar_max = width - 16
     for index, row in enumerate(rows):
         base = 4 + (len(rows) - 1 - index) * row_h
-        bar_h = min(row_h * 0.45, 10.0)
-        value = _decimal(row.get("value"))
-        bar_w = float(value / largest) * float(bar_max)
-        bar_w = min(max(bar_w, 1), bar_max)
-        drawing.add(Rect(8, float(base), bar_w, float(bar_h), fillColor=None, strokeColor=None))
-        label = _fit(str(row.get("drawn") or row.get("label") or ""), bar_max)
-        shown = _fit(str(row.get("display") or ""), bar_max)
-        tag = str(row.get("tag") or "")
-        drawing.add(String(8, float(base) + float(bar_h) + 1, label, fontName=_FONT, fontSize=_SIZE))
-        drawing.add(String(8, float(base) + 1, f"{shown} {tag}".strip(), fontName=_FONT, fontSize=_SIZE))
+        bar_h = min(row_h * 0.4, 9.0) if bars else 0.0
+        if bars and row.get("figure_id"):
+            value = _decimal(row.get("value"))
+            bar_w = min(max(float(value / largest) * float(bar_max), 1), bar_max)
+            drawing.add(Rect(8, float(base), bar_w, float(bar_h), fillColor=colors.HexColor(_BAR),
+                             strokeColor=None))
+        words = " ".join(part for part in (str(row.get("drawn") or row.get("label") or ""),
+                                           str(row.get("display") or ""), str(row.get("tag") or "")) if part)
+        drawing.add(String(8, float(base) + float(bar_h) + 2, _fit(law.check(words), bar_max),
+                           fontName=_FONT, fontSize=_SIZE))
     return drawing
+
+
+def height_for(exhibit: Exhibit) -> float:
+    """The height, in points, `draw_pdf` needs for this exhibit's rows."""
+    rows = len(exhibit.data.get("rows") or [])
+    return 8 + rows * (2 * _SIZE + 8)
 
 
 def draw_slide(exhibit: Exhibit, slide, box) -> None:

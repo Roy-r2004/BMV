@@ -64,6 +64,11 @@ class Section:
     sources: tuple[str, ...]
     stamp: str | None
 
+    @property
+    def foot(self) -> tuple[str, ...]:
+        """The foot as it prints: the numbered notes, then the Note line, then the Source line."""
+        return (*self.footnotes, *((self.note,) if self.note else ()), *self.sources)
+
 
 @dataclass(frozen=True)
 class Range:

@@ -101,13 +101,34 @@ def register_reference() -> list:
 
 
 def proof_lead_flowables(section, exhibit) -> list:
-    """The lead page of one proof section."""
+    """The lead page of one proof section: its stamp, its title, its exhibit
+    with its number and takeaway, the section's takeaway, then the foot."""
     Paragraph, Spacer, PageBreak, styles = _bits()
-    flows = [Paragraph(_rich(section.title), styles["h1toc"])]
-    if exhibit is not None and exhibit.caption:
-        flows.append(Paragraph(_rich(exhibit.caption), styles["body"]))
+    from reportlab.lib.enums import TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+
+    from app.pipeline.export_pdf import _drawn
+
+    flows = []
+    if section.stamp:
+        stamp = ParagraphStyle("stamp", parent=styles["meta"], alignment=TA_RIGHT)
+        flows.append(Paragraph(_drawn(section.stamp), stamp))
+    flows.append(Paragraph(_rich(section.title), styles["h1toc"]))
+    if exhibit is not None:
+        from app.storyline.exhibits import draw_pdf, height_for
+
+        flows.append(Paragraph(_rich(f"Exhibit {exhibit.id}: {exhibit.caption}"), styles["body"]))
+        if exhibit.takeaway:
+            flows.append(Paragraph(_rich(exhibit.takeaway), styles["body"]))
+        flows.append(draw_pdf(exhibit, A4[0] - 36 * mm, height_for(exhibit)))
     if section.takeaway:
         flows.append(Paragraph(_rich(section.takeaway), styles["body"]))
+    if section.foot:
+        flows.append(Spacer(1, 6))
+        for line in section.foot:
+            flows.append(Paragraph(_rich(line), styles["meta"]))
     flows.append(PageBreak())
     return flows
 

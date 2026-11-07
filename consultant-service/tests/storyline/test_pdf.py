@@ -338,3 +338,47 @@ def test_the_blueprint_register_has_every_column_its_ranges_cost_and_headline(tm
     assert web["rows"][0]["value_text"] == "$39.60 to $59.40 a year"
     assert web["total"]["low"]["display"] == "$66" and web["total_text"] == "$66 to $99 a year"
     db.close()
+
+
+GRID = {"shape": "weekly_grid", "unit": "spot", "unit_plural": "spots",
+        "grid": [{"day": "Mon", "slots": [{"time": "Morning", "taken": 4, "capacity": 12},
+                                          {"time": "Evening", "taken": 11, "capacity": 12}]}]}
+
+
+def test_an_exhibit_reaches_its_lead_page_with_its_number_foot_and_stamp(tmp_path, monkeypatch):
+    # Review M1: draw_pdf was called nowhere, the lead page printed only the
+    # caption, every exhibit was "1.1", and there was no foot and no stamp.
+    from app.figures import law
+    from app.storyline.pagelaw import check_section
+
+    db, row = _ready(tmp_path, monkeypatch)
+    row.capacity_json = json.dumps(GRID)
+    stored = json.loads(row.storyline_json)
+    stored["sections"] = [{"id": "fact-base", "title": "The studio is full in the evening", "takeaway": "x"},
+                          {"id": "week", "title": "How full the week is", "takeaway": "The evening class stays."}]
+    row.storyline_json = json.dumps(stored)
+    db.commit()
+    story = build(row)
+    week = story.sections[1]
+    assert week.exhibit.id == "2.1" and check_section(week) == []
+    assert week.foot[-1] == "Source: Your week; BMV analysis"
+    text = " ".join("\n".join(_pages(export_pdf.build_pdf(row, "blueprint"))).split())
+    assert "Exhibit 2.1: How full each class is" in text
+    assert "Evening 11 spots worked out" in text
+    assert "Source: Your week; BMV analysis" in text
+    assert "Note: worked out is our arithmetic on your figures" in text
+    assert law.recorded(row)["Volume I"] == []
+    db.close()
+
+
+def test_a_section_with_our_estimate_carries_the_estimate_stamp(tmp_path, monkeypatch):
+    db, row = _ready(tmp_path, monkeypatch)
+    stored = json.loads(row.storyline_json)
+    stored["sections"] = [{"id": "prize", "title": "Where the prize comes from", "takeaway": "x"}]
+    row.storyline_json = json.dumps(stored)
+    db.commit()
+    prize = build(row).sections[0]
+    assert prize.stamp == "ESTIMATE"
+    text = "\n".join(_pages(export_pdf.build_pdf(row, "blueprint")))
+    assert "ESTIMATE" in text and "Exhibit 1.1: Where the prize comes from" in " ".join(text.split())
+    db.close()

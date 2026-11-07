@@ -8,7 +8,16 @@ Do not hedge. Say what is so. A title has to fit on two lines of the proof page.
 
 A row has phase (which phase of the plan, counting from the first), recommendation, changes, owner, depends_on (earlier rows only, or none), share_pct, and either cost_figure (an id from the figures list) or cost_needs (what is still missing, in words, with no number).
 
-A section has id, title and takeaway.
+A section has id, title and takeaway. The title states the finding the section proves, in one sentence.
+{% if exhibits %}
+A section with one of these ids is drawn with that exhibit, and its title states what the exhibit shows:
+{% for id, what in exhibits %}
+- {{ id }}: {{ what }}
+{% endfor %}
+A section with any other id has no exhibit.
+{% else %}
+This engagement has no exhibit to draw, so no section has one.
+{% endif %}
 {% if not builds %}
 This engagement is not building software. Do not include a system section.
 {% endif %}
