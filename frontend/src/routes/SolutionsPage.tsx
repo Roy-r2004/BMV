@@ -29,7 +29,7 @@ function Arrow() {
 }
 
 export default function SolutionsPage() {
-  usePageMeta('Solutions', 'Concepts of the AI systems we build around a business, each shown screen by screen.');
+  usePageMeta('Example systems', 'Concepts of the AI systems we build around a business, each shown screen by screen.');
   const [group, setGroup] = useState(0);
   const items = BY_GROUP[group];
   const [sel, pick] = useCycle(items.length, 5200);
@@ -54,7 +54,7 @@ export default function SolutionsPage() {
       <section className="show-hero">
         <div className="container-max px-4 sm:px-6 show-hero-grid">
           <div className="show-intro">
-            <h1 className="show-display show-h1">Pick a system. Walk every screen.</h1>
+            <h1 className="show-display show-h1">Example systems, shown screen by screen</h1>
             <p className="show-lede">
               Concepts of what we build around a business, each shown screen by screen. They are examples of the
               work, not a client's results.
@@ -131,7 +131,7 @@ export default function SolutionsPage() {
       {/* ── every concept, by area ─────────────────────────────────────── */}
       <section className="show-band">
         <div className="container-max px-4 sm:px-6">
-          <h2 className="show-display show-h2">Every solution</h2>
+          <h2 className="show-display show-h2">Every example, by area of the business</h2>
           <p className="show-body">Choose any of them to see it screen by screen.</p>
           <div className="show-groups">
             {BY_GROUP.map((list, g) => (
@@ -174,7 +174,7 @@ export default function SolutionsPage() {
       <section className="show-close">
         <div className="container-max px-4 sm:px-6 show-close-inner">
           <div>
-            <h2 className="show-display show-h2">Yours starts from the work, not from this list.</h2>
+            <h2 className="show-display show-h2">Your system is designed from how your business works</h2>
             <p className="show-body">
               Tell us how the operation actually runs. We'll say which of these fits, or that none of them does.
             </p>

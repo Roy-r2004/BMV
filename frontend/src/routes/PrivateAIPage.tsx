@@ -179,14 +179,14 @@ export default function PrivateAIPage() {
         </EnvironmentModel>
 
         <Chapter stage="hero">
-          <h1 className="pai-display pai-h1">Your AI. Your data. Your infrastructure.</h1>
+          <h1 className="pai-display pai-h1">Private AI on infrastructure your business owns and controls</h1>
           <p className="pai-lede">
             For businesses that need tighter control over sensitive data, we deploy private AI systems on dedicated
             infrastructure you own and control.
           </p>
           <div className="pai-actions">
             <a href={email} className="pai-cta">
-              Explore a private deployment
+              Discuss a private deployment
               <Icon d={ARROW} />
             </a>
             <button type="button" className="pai-ghost" onClick={() => goTo('how1')}>
@@ -195,7 +195,7 @@ export default function PrivateAIPage() {
           </div>
           <p className="pai-note">
             <Icon d={LOCK} />
-            No forced cloud dependency. No per-token lock-in.
+            You own the deployment, and you can run it without us.
           </p>
         </Chapter>
 
@@ -265,28 +265,28 @@ export default function PrivateAIPage() {
             </div>
           </div>
           <p className="pai-body">
-            <strong>Own the infrastructure. Pay for the compute you actually use.</strong> Rather than permanently paying
+            <strong>Owning the infrastructure changes the cost structure.</strong> Rather than permanently paying
             an AI provider a margin on every request, suitable workloads can run on infrastructure you own. Ongoing costs
             come from infrastructure operation, electricity, maintenance, and the support arrangement you choose.
           </p>
-          <p className="pai-quote">You decide the hardware. You control the environment. We architect, deploy, and integrate it.</p>
+          <p className="pai-quote">You choose the hardware and control the environment. We design, deploy and integrate the system.</p>
         </Chapter>
 
         <Chapter stage="honest">
-          <h2 className="pai-display pai-h2">Not every workload should be local.</h2>
+          <h2 className="pai-display pai-h2">Private AI is the right choice for some workloads, not all of them</h2>
           <p className="pai-body">
             Private AI makes the most sense when data sensitivity, compliance, high sustained usage, latency, or
             infrastructure control justify it.
           </p>
           <p className="pai-body">For other projects, cloud models may be faster and more economical.</p>
-          <p className="pai-quote">We design around the business requirement, not around one deployment ideology.</p>
+          <p className="pai-quote">We recommend the deployment the requirement calls for.</p>
         </Chapter>
 
         <Chapter stage="cta">
-          <h2 className="pai-display pai-h2">Need AI that stays under your control?</h2>
+          <h2 className="pai-display pai-h2">Tell us what the AI needs to do, and on what data</h2>
           <p className="pai-lede">
-            Tell us what you're trying to run, what data it touches, and what constraints you have. We'll tell you
-            whether private AI actually makes sense and what it would take to deploy.
+            Tell us what you're trying to run, what data it touches, and what constraints you have. We will tell you
+            whether private AI makes sense for it, and what it would take to deploy.
           </p>
           <div className="pai-actions">
             <a href={email} className="pai-cta">

@@ -14,7 +14,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import { CAPTIONS, CHAPTERS, mountProductScene } from '../components/home/productScene';
-import { BUILD_LINE, PRICE_LINE } from '../data/offer';
+import { BUILD_LINE, CONSULTATION_FEE, PRICE_LINE } from '../data/offer';
+import { COMPANY } from '../data/company';
+import { CloseBand } from '../components/firm/FirmPage';
 import { saveFrontDoor } from '../utils/frontDoor';
 import { usePageMeta } from '../utils/pageMeta';
 import '../styles/landing.css';
@@ -69,6 +71,49 @@ function Ask({ id }: { id: string }) {
   );
 }
 
+/**
+ * The first screen's proof: one sentence from a sample answer, its three
+ * figures labelled one after another. The one orchestrated moment on the page.
+ */
+function HeroProof() {
+  return (
+    <figure className="ls-proof" aria-label="A sentence from a sample answer">
+      <blockquote>
+        The evening classes run <b>4 in 10</b> <i className="ls-proof-tag fm-tag fm-tag--theirs">Yours</i> places
+        empty. Filling them is worth <b>$4,730</b> <i className="ls-proof-tag fm-tag fm-tag--derived">Worked out</i> a
+        month, of which <b>75%</b> <i className="ls-proof-tag fm-tag fm-tag--ours">Our estimate</i> is reachable.
+      </blockquote>
+      <figcaption>From a sample answer. Every figure says where it came from.</figcaption>
+    </figure>
+  );
+}
+
+/** Between the story and the sample: the firm's rule, on dark paper. */
+function Statement() {
+  return (
+    <section className="ls-statement">
+      <div className="ls-wrap">
+        <p className="ls-statement-line ls-display">Every figure in the advice you pay for can be checked.</p>
+        <dl className="ls-statement-labels">
+          <div>
+            <dt><span className="fm-tag fm-tag--theirs">Yours</span></dt>
+            <dd>A figure you gave us, or one read from your files.</dd>
+          </div>
+          <div>
+            <dt><span className="fm-tag fm-tag--derived">Worked out</span></dt>
+            <dd>Calculated from your figures, with the calculation shown.</dd>
+          </div>
+          <div>
+            <dt><span className="fm-tag fm-tag--ours">Our estimate</span></dt>
+            <dd>A judgement where your figures were silent, with the reason.</dd>
+          </div>
+        </dl>
+        <Link to="/approach" className="ls-statement-link">How we test an answer</Link>
+      </div>
+    </section>
+  );
+}
+
 const TAG = { theirs: 'Yours', derived: 'Worked out', ours: 'Our estimate' } as const;
 
 function Fig({ v, k }: { v: string; k: keyof typeof TAG }) {
@@ -80,8 +125,33 @@ function Fig({ v, k }: { v: string; k: keyof typeof TAG }) {
   );
 }
 
+// The sample answer's figures, and where each came from. Invented studio, sample data.
+const SAMPLE_FIGS = [
+  {
+    v: '4 in 10',
+    k: 'theirs',
+    line: 'evening places unsold, from your class register',
+    trail:
+      'Read from the class register you uploaded: over the last eight weeks, 10 of the 24 places in each evening class went unsold on an average night.',
+  },
+  {
+    v: '$4,730',
+    k: 'derived',
+    line: 'a month, if every empty evening place were sold',
+    trail: 'Worked out from your figures: 10 places × $22 a class (your price list) × 5 evenings × 4.3 weeks in a month.',
+  },
+  {
+    v: '75%',
+    k: 'ours',
+    line: 'of that we treat as reachable, so about $3,500',
+    trail:
+      'Our estimate. Your morning classes run 85 to 92% full, so we assume the evenings can reach most of that, not all of it. If you think it is lower, say so and the answer is tested again.',
+  },
+] as const;
+
 /** A finished answer page, for an invented studio. Every figure is sample data. */
 function SampleAnswer() {
+  const [pick, setPick] = useState(0);
   return (
     <section className="ls-section" id="example">
       <div className="ls-wrap">
@@ -90,33 +160,38 @@ function SampleAnswer() {
           <h2 className="ls-display ls-h2">The first page of every file states the answer and what it rests on</h2>
           <p className="ls-body">
             This is the page a client reads first. The business is invented and every figure on it is sample data;
-            the structure is the one every consultation produces.
+            the structure is the one every consultation produces. Select a figure to see where it came from.
           </p>
         </div>
 
         <article className="ls-sample" aria-label="Sample answer page">
           <header className="ls-sample-top">
             <span>Sample data</span>
-            <span>Halo Reformer Studio · Answer page</span>
+            <span>Halo Reformer Studio, answer page</span>
           </header>
           <p className="ls-sample-q">Should the studio add a third evening class, or fix the two it already runs?</p>
           <h3 className="ls-display ls-sample-a">
             Fix the two evening classes first. They run four in ten places empty, and filling most of them is worth
             about $3,500 a month.
           </h3>
-          <div className="ls-sample-figs">
-            <div>
-              <Fig v="4 in 10" k="theirs" />
-              <p>evening places unsold, from your class register</p>
-            </div>
-            <div>
-              <Fig v="$4,730" k="derived" />
-              <p>a month: 10 places × $22 × 5 nights × 4.3 weeks</p>
-            </div>
-            <div>
-              <Fig v="75%" k="ours" />
-              <p>of that we treat as reachable, so about $3,500</p>
-            </div>
+          <div className="ls-sample-figs" role="group" aria-label="The figures the answer rests on">
+            {SAMPLE_FIGS.map((f, i) => (
+              <button
+                key={f.v}
+                type="button"
+                className={`ls-figbtn${i === pick ? ' is-on' : ''}`}
+                aria-pressed={i === pick}
+                aria-controls="ls-trail"
+                onClick={() => setPick(i)}
+              >
+                <Fig v={f.v} k={f.k} />
+                <span>{f.line}</span>
+              </button>
+            ))}
+          </div>
+          <div className="ls-trail" id="ls-trail" aria-live="polite">
+            <p className="ls-trail-head">Where {SAMPLE_FIGS[pick].v} comes from</p>
+            <p>{SAMPLE_FIGS[pick].trail}</p>
           </div>
           <dl className="ls-sample-facts">
             <div>
@@ -143,6 +218,62 @@ function SampleAnswer() {
         </article>
       </div>
     </section>
+  );
+}
+
+/** After the story: the firm itself. Its services, what they cost, and who runs it. */
+function FirmIntro() {
+  return (
+    <div className="fm-page fm-after-story">
+      <section className="fm-section fm-section--mist">
+        <div className="fm-wrap">
+          <div className="fm-section-head fm-section-head--split">
+            <h2 className="fm-h2">Three services, each starting from the decision in front of you</h2>
+            <p className="fm-intro">{BUILD_LINE}</p>
+          </div>
+          <div className="fm-cols">
+            <article className="fm-col">
+              <h3>Consultation</h3>
+              <p className="fm-col-price">{CONSULTATION_FEE}</p>
+              <p>A tested answer to one question, with the blueprint, the technical plan, the roadmap and the presentation.</p>
+              <Link to="/services#consultation" className="fm-link">What a consultation includes</Link>
+            </article>
+            <article className="fm-col">
+              <h3>System build</h3>
+              <p className="fm-col-price">Quoted after the scope is agreed</p>
+              <p>We build the system the technical plan describes, in the order it sets, and hand it over to your team.</p>
+              <Link to="/services#build" className="fm-link">How a build works</Link>
+            </article>
+            <article className="fm-col">
+              <h3>Private AI</h3>
+              <p className="fm-col-price">Quoted after the workload is assessed</p>
+              <p>Open-weight models on infrastructure you control, for data that must stay inside your business.</p>
+              <Link to="/private-ai" className="fm-link">How private AI works</Link>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="fm-section">
+        <div className="fm-wrap">
+          <div className="fm-person">
+            <img src={COMPANY.founderPhoto} alt={COMPANY.founder} width={240} height={240} />
+            <div>
+              <p className="fm-kicker">The firm</p>
+              <h2 className="fm-h2">{COMPANY.name} is an AI consultancy registered in Dubai</h2>
+              <p className="fm-p" style={{ marginTop: '1.25rem' }}>
+                It was founded by <b>{COMPANY.founder}</b> on one rule: every figure in the advice a client pays for can
+                be checked.
+              </p>
+              <div className="fm-actions">
+                <Link to="/about" className="fm-btn-line">About the firm</Link>
+                <Link to="/approach" className="fm-btn-line">Our approach</Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -210,9 +341,10 @@ export default function LandingPage() {
             </button>
           </div>
           <p className="ls-price">{PRICE_LINE}</p>
+          <HeroProof />
         </Chapter>
 
-        <Chapter state={1} step="01 · The question">
+        <Chapter state={1} step="1. The question">
           <h2 className="ls-display ls-h2">A consultation begins with one question, in your own words</h2>
           <p className="ls-body">
             State the problem, the decision or the venture you are weighing. There is no form to complete first. Every
@@ -220,7 +352,7 @@ export default function LandingPage() {
           </p>
         </Chapter>
 
-        <Chapter state={2} step="02 · The facts">
+        <Chapter state={2} step="2. The facts">
           <h2 className="ls-display ls-h2">We ask only what the answer depends on</h2>
           <p className="ls-body">
             Questions come one at a time. You can upload a spreadsheet or an export, and the figures are read directly
@@ -232,7 +364,7 @@ export default function LandingPage() {
           </ul>
         </Chapter>
 
-        <Chapter state={3} step="03 · The test">
+        <Chapter state={3} step="3. The test">
           <h2 className="ls-display ls-h2">Every explanation is tested, including your own</h2>
           <p className="ls-body">
             We set out every cause consistent with what you have told us and test each against your numbers. The
@@ -244,7 +376,7 @@ export default function LandingPage() {
           </ul>
         </Chapter>
 
-        <Chapter state={4} step="04 · The answer">
+        <Chapter state={4} step="4. The answer">
           <h2 className="ls-display ls-h2">You receive the answer on one page, with its evidence</h2>
           <p className="ls-body">
             The page states the question, the answer in two lines, the figures it rests on, what to do first and what
@@ -256,7 +388,7 @@ export default function LandingPage() {
           </ul>
         </Chapter>
 
-        <Chapter state={5} step="05 · The package">
+        <Chapter state={5} step="5. The package">
           <h2 className="ls-display ls-h2">Six files, each opening with the same answer</h2>
           <ul className="ls-points">
             <li><span><b>The blueprint,</b> with the recommendation register: each action, its owner, its timing and the range it is worth. The ranges add up to the headline figure.</span></li>
@@ -313,8 +445,16 @@ export default function LandingPage() {
         </Chapter>
       </div>
 
+      <Statement />
+
       <SampleAnswer />
 
+      <FirmIntro />
+
+      <CloseBand
+        title="Start with the decision in front of you"
+        body="A consultation begins with your question, in your own words, and ends with an answer you can check."
+      />
       <SiteFooter />
     </div>
   );

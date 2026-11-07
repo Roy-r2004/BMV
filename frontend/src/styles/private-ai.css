@@ -150,7 +150,7 @@
 
 .pai-index .is-on i {
   width: 34px;
-  background: linear-gradient(90deg, #2563eb, #06b6d4);
+  background: #1f4fd1;
 }
 
 .pai-index button:focus-visible {
@@ -198,7 +198,7 @@
   font-size: clamp(2.6rem, 5vw, 4.4rem);
   font-weight: 700;
   line-height: 1.02;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.015em;
   color: var(--pai-ink);
 }
 
@@ -206,7 +206,7 @@
   font-size: clamp(1.9rem, 3.2vw, 2.9rem);
   font-weight: 700;
   line-height: 1.06;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.015em;
   color: var(--pai-ink);
 }
 
@@ -257,7 +257,7 @@
   align-items: center;
   gap: 0.55rem;
   padding: 0.8rem 1.15rem;
-  border-radius: 0.75rem;
+  border-radius: 4px;
   font-weight: 600;
   font-size: 0.94rem;
   line-height: 1;
@@ -266,12 +266,12 @@
 
 .pai-cta {
   color: #ffffff;
-  background: linear-gradient(90deg, #2563eb, #06b6d4);
-  box-shadow: 0 8px 22px -10px rgba(37, 99, 235, 0.65);
+  background: #1f4fd1;
+  box-shadow: none;
 }
 
 .pai-cta:hover {
-  box-shadow: 0 10px 26px -8px rgba(37, 99, 235, 0.75);
+  background: #173ea6;
 }
 
 .pai-ghost {
@@ -347,9 +347,9 @@
   font-size: clamp(3rem, 6vw, 5rem);
   font-weight: 800;
   line-height: 0.9;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(90deg, #2563eb, #06b6d4);
+  background: #1f4fd1;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -386,7 +386,7 @@
 
 .pai-seg button[aria-pressed='true'] {
   color: #ffffff;
-  background: linear-gradient(90deg, #2563eb, #06b6d4);
+  background: #1f4fd1;
 }
 
 .pai-mode-read {

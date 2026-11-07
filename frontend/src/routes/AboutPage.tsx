@@ -2,92 +2,81 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
+import { CloseBand } from '../components/firm/FirmPage';
 import OperationField from '../components/about/OperationField';
+import { COMPANY } from '../data/company';
 import '../styles/about.css';
 
 import { usePageMeta } from '../utils/pageMeta';
 // One scroll story: every chapter below is also a shape in OperationField,
 // matched by `data-state`. Keep CHAPTERS, CAPTIONS and the sections in step.
+// After the story, the firm itself: its founder and its facts.
 const CHAPTERS = [
-  'Around the business',
+  'The firm',
   'Useful AI',
-  'One team',
-  'What we believe',
+  'Four disciplines',
+  'Principles',
   'What we build',
-  'Process',
+  'Engagements',
   'Deployment',
   'Start',
 ] as const;
 
 // What the picture shows in each chapter, in one line.
 const CAPTIONS = [
-  'Your operation sits in the middle. The AI is the ring around it.',
-  'Most of what gets sold as AI is noise. A small part does real work.',
-  'Four disciplines on one spine. Nobody hands the problem off.',
-  'The work itself, before any model is chosen.',
-  'Six areas of the business we build in.',
+  'The operation sits in the middle. The AI is the ring around it.',
+  'Most of what is sold as AI is noise. A small part does real work.',
+  'Four disciplines on one spine, in one engagement.',
+  'The work comes before any model is chosen.',
+  'Six areas of a business we design systems for.',
   'Loose at diagnosis. Solid by the time you own it.',
   'Three ways to run it, chosen per workload.',
-  'Bring us the part that should work better.',
+  'The part of the business that should work better.',
 ] as const;
 
-const TEAM = [
-  { title: 'Business', body: 'We identify where AI can actually create leverage.' },
-  { title: 'Product', body: 'We turn the opportunity into software people can use.' },
-  { title: 'AI', body: 'We select and engineer the models, agents and intelligence behind it.' },
-  { title: 'Infrastructure', body: 'Cloud, private or client-controlled deployment, depending on the requirement.' },
+const DISCIPLINES = [
+  { title: 'Business', body: 'Where AI creates value in this business, and where it does not.' },
+  { title: 'Product', body: 'Software the people in the business will actually use.' },
+  { title: 'AI', body: 'The models and agents behind it, with their limits stated.' },
+  { title: 'Infrastructure', body: 'Cloud, private or your own environment, as the requirement dictates.' },
 ] as const;
 
-const FACTS = [
-  { title: 'Full-stack', body: 'Business, product, AI and infrastructure' },
-  { title: 'No handoffs', body: 'Diagnosis through production, one team' },
-  { title: 'Outcome first', body: 'Success is measured by value delivered' },
-] as const;
-
-const BELIEFS = [
+const PRINCIPLES = [
   {
-    title: "We don't start with AI.",
-    body: "We start with the work. If a normal software system solves the problem better, that's what we should build.",
+    title: 'We start with the work, not the technology.',
+    body: 'If ordinary software solves the problem better, we recommend ordinary software.',
   },
   {
     title: 'We prove before we scale.',
-    body: 'A working system in the real environment teaches you more than months of workshops and decks.',
+    body: 'A working system measured in the real business teaches more than months of workshops.',
   },
   {
     title: 'We build for ownership.',
-    body: 'The software, knowledge and infrastructure should become part of your business, not a permanent dependency on us.',
+    body: 'The software, the knowledge and the infrastructure become part of your business, not a dependency on us.',
   },
 ] as const;
 
 const BUILD_AREAS = [
   { title: 'Operations', items: 'Workflow automation, internal tools, document processing' },
-  { title: 'Customer', items: 'Support systems, sales intelligence, personalization' },
+  { title: 'Customer', items: 'Support systems, sales intelligence, personalisation' },
   { title: 'Knowledge', items: 'Search across your own documents, knowledge workflows' },
   { title: 'Decision making', items: 'Forecasting, analysis, recommendations' },
   { title: 'AI systems', items: 'Agents that carry a task from start to finish' },
-  { title: 'Private AI', items: 'On-prem deployment, open-weight models, data residency' },
+  { title: 'Private AI', items: 'Open-weight models, on-premises deployment, data residency' },
 ] as const;
 
-const PROCESS = [
-  { no: '01', title: 'Diagnose', body: 'We understand the business, the work and the real constraint.' },
-  { no: '02', title: 'Prove', body: 'We build a working solution and measure it in the real world.' },
-  { no: '03', title: 'Ship', body: 'We engineer the system for reliability, scale and security.' },
-  { no: '04', title: 'Own', body: 'We hand it over and support your team to run it.' },
+const ENGAGEMENT = [
+  { title: 'Diagnose', body: 'The consultation: your question, your figures and a tested answer.' },
+  { title: 'Prove', body: 'A working version, measured in the real business.' },
+  { title: 'Build', body: 'The full system, engineered for reliability and security.' },
+  { title: 'Hand over', body: 'Your team runs it, with the operations manual.' },
 ] as const;
 
 const DEPLOYMENT = [
-  { title: 'Cloud', body: 'Fast to launch and scale. Good for experimentation and variable workloads.' },
+  { title: 'Cloud', body: 'Fast to launch and to scale. Suited to variable workloads and early versions.' },
   { title: 'Private', body: 'Dedicated infrastructure for sensitive data, latency or control requirements.' },
-  { title: 'Hybrid', body: 'The right combination of cloud and private for the workload.' },
+  { title: 'Hybrid', body: 'Cloud and private together, each used for the workload it suits.' },
 ] as const;
-
-function Arrow() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-    </svg>
-  );
-}
 
 function Chapter({ state, id, children }: { state: number; id?: string; children: React.ReactNode }) {
   return (
@@ -100,15 +89,21 @@ function Chapter({ state, id, children }: { state: number; id?: string; children
 }
 
 export default function AboutPage() {
-  usePageMeta('About', 'We build AI around the business, not the other way around: strategy, software, models and infrastructure from one team.');
+  usePageMeta(
+    'About',
+    `${COMPANY.name} is an AI consultancy registered in Dubai, founded by ${COMPANY.founder}. We start with the business and choose the technology last.`,
+  );
   const storyRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState(0);
 
   const goTo = (i: number) => {
     const el = storyRef.current?.querySelector(`[data-state="${i}"]`);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // Narrow screens read a chapter from its top (picture above, panel below).
     el?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: window.innerWidth < 1024 ? 'start' : 'center' });
+  };
+  const toLeadership = () => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('leadership')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
 
   return (
@@ -135,44 +130,42 @@ export default function AboutPage() {
         </OperationField>
 
         <Chapter state={0}>
-          <h1 className="about-display about-h1">
-            We build AI around the business.
-            <span className="about-h1-quiet">Not the other way around.</span>
-          </h1>
+          <p className="about-kicker">About the firm</p>
+          <h1 className="about-display about-h1">An AI consultancy that starts inside the business</h1>
           <p className="about-lede">
-            Most AI projects start with a model and look for somewhere to put it. We start inside the operation: the
-            work, the bottlenecks, the economics. Then we build from there.
+            We begin with the work, the bottlenecks and the economics of the business in front of us. The technology is
+            chosen last, and only where it pays for itself.
           </p>
-          <p className="about-firm">Strategy, software, models and infrastructure, from one team.</p>
+          <p className="about-firm">
+            {COMPANY.name} is registered in Dubai, United Arab Emirates. It was founded by {COMPANY.founder}.
+          </p>
           <div className="about-actions">
             <Link to="/demo" className="about-cta">
-              Start with your business
-              <Arrow />
+              Start a consultation
             </Link>
-            <button type="button" className="about-ghost" onClick={() => goTo(5)}>
-              How an engagement runs
+            <button type="button" className="about-ghost" onClick={toLeadership}>
+              Meet the founder
             </button>
           </div>
         </Chapter>
 
         <Chapter state={1}>
-          <h2 className="about-display about-h2">AI is everywhere. Useful AI is not.</h2>
+          <h2 className="about-display about-h2">Most of what is sold as AI does not change how a business performs</h2>
           <p className="about-body">
-            Companies are being sold agents, copilots, automations and transformation roadmaps before anyone has
-            properly understood how their business works.
+            Agents, copilots and transformation roadmaps are often sold before anyone has studied how the business
+            works. We work in a different order.
           </p>
-          <p className="about-body">We built BMV around a different order:</p>
           <ol className="about-order">
-            <li>Understand the operation first.</li>
-            <li>Prove the opportunity.</li>
-            <li>Then build what deserves to exist.</li>
+            <li>Understand the operation.</li>
+            <li>Prove the opportunity against the figures.</li>
+            <li>Build only what the figures justify.</li>
           </ol>
         </Chapter>
 
         <Chapter state={2}>
-          <h2 className="about-display about-h2">One team from problem to production.</h2>
+          <h2 className="about-display about-h2">Business, product, AI and infrastructure in one engagement</h2>
           <dl className="about-defs">
-            {TEAM.map((t) => (
+            {DISCIPLINES.map((t) => (
               <div key={t.title}>
                 <dt>{t.title}</dt>
                 <dd>{t.body}</dd>
@@ -180,23 +173,15 @@ export default function AboutPage() {
             ))}
           </dl>
           <p className="about-body">
-            No handoff between strategy consultants, designers, AI engineers and implementation vendors. The people
-            diagnosing the problem are the same people responsible for making the solution work.
+            The engagement that diagnoses the problem carries it through to production. Nothing is handed to another
+            firm in between.
           </p>
-          <div className="about-facts">
-            {FACTS.map((f) => (
-              <div key={f.title}>
-                <b>{f.title}</b>
-                <span>{f.body}</span>
-              </div>
-            ))}
-          </div>
         </Chapter>
 
         <Chapter state={3}>
-          <h2 className="about-display about-h2">What we believe</h2>
+          <h2 className="about-display about-h2">The principles we hold to</h2>
           <ul className="about-beliefs">
-            {BELIEFS.map((b) => (
+            {PRINCIPLES.map((b) => (
               <li key={b.title}>
                 <h3 className="about-display">{b.title}</h3>
                 <p>{b.body}</p>
@@ -206,10 +191,10 @@ export default function AboutPage() {
         </Chapter>
 
         <Chapter state={4}>
-          <h2 className="about-display about-h2">We build across the operation.</h2>
+          <h2 className="about-display about-h2">We design systems across six areas of a business</h2>
           <p className="about-body">
-            From internal operations to customer experiences, the systems that make work faster, decisions better and
-            businesses stronger.
+            From internal operations to the customer's experience: the systems that make work faster and decisions
+            better.
           </p>
           <div className="about-areas">
             {BUILD_AREAS.map((a) => (
@@ -220,17 +205,16 @@ export default function AboutPage() {
             ))}
           </div>
           <Link to="/solutions" className="about-link">
-            Explore solutions
-            <Arrow />
+            See example systems
           </Link>
         </Chapter>
 
         <Chapter state={5} id="process">
           <h2 className="about-display about-h2">How an engagement runs</h2>
           <ol className="about-process">
-            {PROCESS.map((p) => (
-              <li key={p.no}>
-                <b className="about-display">{p.no}</b>
+            {ENGAGEMENT.map((p, i) => (
+              <li key={p.title}>
+                <b className="about-display">{i + 1}</b>
                 <div>
                   <h3 className="about-display">{p.title}</h3>
                   <p>{p.body}</p>
@@ -238,13 +222,16 @@ export default function AboutPage() {
               </li>
             ))}
           </ol>
+          <Link to="/approach" className="about-link">
+            Read how a consultation is run
+          </Link>
         </Chapter>
 
         <Chapter state={6}>
-          <h2 className="about-display about-h2">Cloud when it makes sense. Private when it matters.</h2>
+          <h2 className="about-display about-h2">Cloud when it suits the workload, private when the data requires it</h2>
           <p className="about-body">
-            From leading model APIs to open-weight models running in infrastructure you control, we design deployment
-            around the business requirement.
+            From leading model providers to open-weight models running in infrastructure you control, we design the
+            deployment around the requirement.
           </p>
           <dl className="about-defs">
             {DEPLOYMENT.map((d) => (
@@ -255,26 +242,83 @@ export default function AboutPage() {
             ))}
           </dl>
           <Link to="/private-ai" className="about-link">
-            Explore Private AI
-            <Arrow />
+            How private AI works
           </Link>
         </Chapter>
 
         <Chapter state={7}>
-          <h2 className="about-display about-h2">Bring us the part of your business that should work better.</h2>
-          <p className="about-lede">We'll tell you what AI can change, and what isn't worth building.</p>
+          <h2 className="about-display about-h2">Bring us the part of the business that should work better</h2>
+          <p className="about-lede">We will tell you what AI can change, and what is not worth building.</p>
           <div className="about-actions">
             <Link to="/demo" className="about-cta">
-              Start with your business
-              <Arrow />
+              Start a consultation
             </Link>
-            <Link to="/solutions" className="about-ghost">
-              Explore solutions
+            <Link to="/services" className="about-ghost">
+              See our services
             </Link>
           </div>
         </Chapter>
       </div>
 
+      <div className="fm-page fm-after-story">
+        <section className="fm-section" id="leadership">
+          <div className="fm-wrap">
+            <div className="fm-person">
+              <img src={COMPANY.founderPhoto} alt={COMPANY.founder} width={240} height={240} />
+              <div>
+                <p className="fm-kicker">Leadership</p>
+                <h2 className="fm-person-name">{COMPANY.founder}</h2>
+                <p className="fm-person-role">{COMPANY.founderRole}</p>
+                <p className="fm-p">
+                  {COMPANY.founder} founded {COMPANY.name} to give the owners of growing businesses the kind of tested,
+                  documented advice usually written only for much larger companies.
+                </p>
+                <p className="fm-p">
+                  The firm was founded on one rule: every figure in the advice a client pays for can be checked.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="fm-section fm-section--mist">
+          <div className="fm-wrap">
+            <div className="fm-section-head fm-section-head--split">
+              <h2 className="fm-h2">The firm</h2>
+              <dl className="fm-facts">
+                <div>
+                  <dt>Name</dt>
+                  <dd>
+                    {COMPANY.name} ({COMPANY.short})
+                  </dd>
+                </div>
+                <div>
+                  <dt>Registered</dt>
+                  <dd>Dubai, United Arab Emirates</dd>
+                </div>
+                <div>
+                  <dt>Founder</dt>
+                  <dd>{COMPANY.founder}</dd>
+                </div>
+                <div>
+                  <dt>Services</dt>
+                  <dd>
+                    <Link to="/services">Consultation, system builds and private AI</Link>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Contact</dt>
+                  <dd>
+                    <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <CloseBand />
       <SiteFooter />
     </div>
   );
