@@ -8,7 +8,8 @@ SITE_KNOWLEDGE = """
 # Build My Version — grounded product facts
 
 ## Who we are
-- Brand: Build My Version (BMV), registered in Dubai, United Arab Emirates. Founder: Roy Rizkallah
+- Brand: Build My Version (BMV), registered in Dubai, United Arab Emirates. The method was written by
+  consultants and built by engineers; never name individuals, give a headcount or name past employers
 - We are an AI consultancy (not a generic agency)
 - Core job: answer the question a business owner is stuck on, tested against their own figures, then design (and, if they want, build) the system that fixes it. If the fix is not software, we say so first.
 

@@ -201,15 +201,6 @@
   .fm-facts > div { grid-template-columns: 11rem minmax(0, 1fr); gap: 1.5rem; }
 }
 
-/* the founder */
-.fm-person { display: grid; gap: 2rem; align-items: start; }
-.fm-person img { width: 100%; max-width: 240px; aspect-ratio: 1; object-fit: cover; object-position: center 25%; border-radius: 2px; background: var(--fm-mist); }
-.fm-person-name { margin: 0; font-size: clamp(1.6rem, 2.6vw, 2.1rem); font-weight: 600; }
-.fm-person-role { margin: .4rem 0 1.4rem; font-weight: 600; color: var(--fm-blue); }
-@media (min-width: 900px) {
-  .fm-person { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 4rem; }
-}
-
 /* the closing band */
 .fm-close { background: var(--fm-ink); color: #c7d2df; padding: clamp(3.5rem, 8vw, 6rem) 0; }
 .fm-close h2 { color: #fff; margin: 0; font-size: clamp(1.9rem, 3.6vw, 2.9rem); font-weight: 600; line-height: 1.1; max-width: 18em; }

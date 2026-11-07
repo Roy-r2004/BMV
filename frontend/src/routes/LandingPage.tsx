@@ -7,7 +7,7 @@
  * one at a time (the question, the conversation, the test, the answer, the
  * package), then the blueprint and the technical plan flip their own pages
  * while each is on screen. After the story: the firm's rule, its services and
- * its founder, and the question.
+ * the people behind its method, and the question.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -16,8 +16,8 @@ import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import { CAPTIONS, mountProductScene } from '../components/home/productScene';
 import { BUILD_LINE, CONSULTATION_FEE, PRICE_LINE } from '../data/offer';
-import { COMPANY } from '../data/company';
 import { CloseBand } from '../components/firm/FirmPage';
+import Team from '../components/firm/Team';
 import { usePageMeta } from '../utils/pageMeta';
 import '../styles/landing.css';
 
@@ -173,25 +173,7 @@ function FirmIntro() {
         </div>
       </section>
 
-      <section className="fm-section">
-        <div className="fm-wrap">
-          <div className="fm-person">
-            <img src={COMPANY.founderPhoto} alt={COMPANY.founder} width={240} height={240} />
-            <div>
-              <p className="fm-kicker">The firm</p>
-              <h2 className="fm-h2">{COMPANY.name} is an AI consultancy registered in Dubai</h2>
-              <p className="fm-p" style={{ marginTop: '1.25rem' }}>
-                It was founded by <b>{COMPANY.founder}</b> on one rule: every figure in the advice a client pays for can
-                be checked.
-              </p>
-              <div className="fm-actions">
-                <Link to="/about" className="fm-btn-line">About the firm</Link>
-                <Link to="/approach" className="fm-btn-line">Our approach</Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Team compact />
     </div>
   );
 }

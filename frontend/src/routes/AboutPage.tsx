@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import { CloseBand } from '../components/firm/FirmPage';
+import Team from '../components/firm/Team';
 import OperationField from '../components/about/OperationField';
 import { COMPANY } from '../data/company';
 import '../styles/about.css';
@@ -10,7 +11,7 @@ import '../styles/about.css';
 import { usePageMeta } from '../utils/pageMeta';
 // One scroll story: every chapter below is also a shape in OperationField,
 // matched by `data-state`. Keep CHAPTERS, CAPTIONS and the sections in step.
-// After the story, the firm itself: its founder and its facts.
+// After the story, the firm itself: the people behind the method, and its facts.
 const CHAPTERS = [
   'The firm',
   'Useful AI',
@@ -91,7 +92,7 @@ function Chapter({ state, id, children }: { state: number; id?: string; children
 export default function AboutPage() {
   usePageMeta(
     'About',
-    `${COMPANY.name} is an AI consultancy registered in Dubai, founded by ${COMPANY.founder}. We start with the business and choose the technology last.`,
+    `${COMPANY.name} is an AI consultancy registered in Dubai. Its method was written by consultants and built by engineers. We start with the business and choose the technology last.`,
   );
   const storyRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState(0);
@@ -101,9 +102,9 @@ export default function AboutPage() {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     el?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: window.innerWidth < 1024 ? 'start' : 'center' });
   };
-  const toLeadership = () => {
+  const toTeam = () => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById('leadership')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    document.getElementById('team')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
 
   return (
@@ -137,14 +138,14 @@ export default function AboutPage() {
             chosen last, and only where it pays for itself.
           </p>
           <p className="about-firm">
-            {COMPANY.name} is registered in Dubai, United Arab Emirates. It was founded by {COMPANY.founder}.
+            {COMPANY.name} is registered in Dubai, United Arab Emirates. Its method was written by consultants and built by engineers.
           </p>
           <div className="about-actions">
             <Link to="/demo" className="about-cta">
               Start a consultation
             </Link>
-            <button type="button" className="about-ghost" onClick={toLeadership}>
-              Meet the founder
+            <button type="button" className="about-ghost" onClick={toTeam}>
+              Who built the method
             </button>
           </div>
         </Chapter>
@@ -261,25 +262,7 @@ export default function AboutPage() {
       </div>
 
       <div className="fm-page fm-after-story">
-        <section className="fm-section" id="leadership">
-          <div className="fm-wrap">
-            <div className="fm-person">
-              <img src={COMPANY.founderPhoto} alt={COMPANY.founder} width={240} height={240} />
-              <div>
-                <p className="fm-kicker">Leadership</p>
-                <h2 className="fm-person-name">{COMPANY.founder}</h2>
-                <p className="fm-person-role">{COMPANY.founderRole}</p>
-                <p className="fm-p">
-                  {COMPANY.founder} founded {COMPANY.name} to give the owners of growing businesses the kind of tested,
-                  documented advice usually written only for much larger companies.
-                </p>
-                <p className="fm-p">
-                  The firm was founded on one rule: every figure in the advice a client pays for can be checked.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+        <Team />
 
         <section className="fm-section fm-section--mist">
           <div className="fm-wrap">
@@ -295,10 +278,6 @@ export default function AboutPage() {
                 <div>
                   <dt>Registered</dt>
                   <dd>Dubai, United Arab Emirates</dd>
-                </div>
-                <div>
-                  <dt>Founder</dt>
-                  <dd>{COMPANY.founder}</dd>
                 </div>
                 <div>
                   <dt>Services</dt>

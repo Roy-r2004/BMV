@@ -88,10 +88,6 @@ export default function ContactPage() {
                 <dt>Registered</dt>
                 <dd>Dubai, United Arab Emirates</dd>
               </div>
-              <div>
-                <dt>Founder</dt>
-                <dd>{COMPANY.founder}</dd>
-              </div>
             </dl>
             <p className="fm-p" style={{ marginTop: '2rem' }}>
               <b>Ready to start?</b> A consultation begins with your question, and you do not need to write to us first.{' '}
