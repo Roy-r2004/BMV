@@ -247,3 +247,21 @@ def test_the_prompt_names_the_section_ids_that_draw_an_exhibit(monkeypatch):
     assert "- prize: Where the prize comes from" in sent[0]
     assert "- scoreboard:" not in sent[0]
     db.close()
+
+
+def test_more_sections_than_the_bound_are_sent_back_not_cut(monkeypatch):
+    # Review M3: STORYLINE_SECTIONS_MAX was defined and never enforced.
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "STORYLINE_SECTIONS_MAX", 4)
+    many = [{"id": f"s{n}", "title": f"Finding {chr(65 + n)} holds", "takeaway": ""} for n in range(5)]
+    chat, sent = _chat([_reply(sections=many), _reply()])
+    monkeypatch.setattr(provider, "chat", chat)
+    db = SessionLocal()
+    row = _row(db)
+    write(db, row.id)
+    db.refresh(row)
+    assert "at most 4 sections" in sent[0]
+    assert len(sent) == 2 and "at most 4" in sent[1]
+    assert len(json.loads(row.storyline_json)["sections"]) == 1
+    db.close()

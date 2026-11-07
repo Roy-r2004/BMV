@@ -56,6 +56,7 @@ def write(db, request_id: int) -> None:
         phases=_phases(req),
         builds=builds,
         exhibits=available(req),
+        sections_max=settings.STORYLINE_SECTIONS_MAX,
     )
     feedback = ""
     saved = None
@@ -156,6 +157,11 @@ def _sections(raw, known, builds: bool, req=None) -> list[dict]:
         takeaway = bind(takeaway, known).text if takeaway else ""
         _page_law(req, sid, title, takeaway, len(kept) + 1)
         kept.append({"id": sid, "title": title, "takeaway": takeaway})
+    bound = settings.STORYLINE_SECTIONS_MAX
+    if len(kept) > bound:
+        # nothing is cut to fit: the reply is sent back with the bound
+        raise _Rejected(f"The proof has {len(kept)} sections, and it can have at most {bound}. "
+                        f"Write at most {bound} sections.")
     return kept
 
 
