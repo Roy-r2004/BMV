@@ -512,7 +512,8 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
     addLabel(5, 'The package', [-1.9, 2.6, 1.8]); addLabel(5, 'Your system', [2.1, 1.45, 1.2], true);
     addLabel(8, 'Built around one business: yours', [0, 1.7, 1.4], true);
 
-    // scroll → chapter index
+    // scroll → the scene's state, read from each chapter's data-state; a chapter
+    // whose data-state changes (the home page's walkthrough) moves the scene itself
     let F: { p: THREE.Vector3; t: THREE.Vector3 }[] = [];
     const fitAll = () => { F = VIEWS.map((v) => frameView(v, camera, W, H, story.querySelector('.ls-col'))); };
     fitAll();
@@ -524,13 +525,14 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
         const r = el.getBoundingClientRect();
         const c = narrow ? r.top + vh * 0.45 : r.top + r.height / 2; return [c, c];
       });
-      if (mid <= iv[0][1]) return 0;
-      if (mid >= iv[iv.length - 1][0]) return iv.length - 1;
+      const st = (k: number) => Number(chapters[k].dataset.state) || 0;
+      if (mid <= iv[0][1]) return st(0);
+      if (mid >= iv[iv.length - 1][0]) return st(iv.length - 1);
       for (let k = 0; k < iv.length - 1; k++) {
-        if (mid <= iv[k][1]) return k;
-        if (mid < iv[k + 1][0]) return k + smooth(0.15, 0.85, (mid - iv[k][1]) / (iv[k + 1][0] - iv[k][1]));
+        if (mid <= iv[k][1]) return st(k);
+        if (mid < iv[k + 1][0]) return st(k) + (st(k + 1) - st(k)) * smooth(0.15, 0.85, (mid - iv[k][1]) / (iv[k + 1][0] - iv[k][1]));
       }
-      return 0;
+      return st(0);
     };
 
     const cp = new THREE.Vector3(), ct = new THREE.Vector3(), v = new THREE.Vector3();

@@ -10,67 +10,109 @@
  * its founder, and the question.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
-import { CAPTIONS, CHAPTERS, mountProductScene } from '../components/home/productScene';
+import { CAPTIONS, mountProductScene } from '../components/home/productScene';
 import { BUILD_LINE, CONSULTATION_FEE, PRICE_LINE } from '../data/offer';
 import { COMPANY } from '../data/company';
 import { CloseBand } from '../components/firm/FirmPage';
-import { saveFrontDoor } from '../utils/frontDoor';
 import { usePageMeta } from '../utils/pageMeta';
 import '../styles/landing.css';
 
-function Chapter({ state, step, children }: { state: number; step?: string; children: React.ReactNode }) {
-  return (
-    <section className="ls-chapter" data-state={state}>
-      <div className="ls-wrap">
-        <div className="ls-col">
-          {step ? <p className="ls-step">{step}</p> : null}
-          {children}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Ask({ id }: { id: string }) {
-  const navigate = useNavigate();
-  const [text, setText] = useState('');
-  const start = () => {
-    saveFrontDoor(text);
-    navigate('/demo');
-  };
-  return (
-    <form
-      className="ls-ask"
-      onSubmit={(e) => {
-        e.preventDefault();
-        start();
-      }}
-    >
-      <label htmlFor={id}>Describe what you need to decide or resolve</label>
-      <textarea
-        id={id}
-        rows={3}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            start();
-          }
-        }}
-        placeholder="For example: should we open a second location, or grow the one we have?"
-      />
-      <div className="ls-ask-row">
-        <span>{PRICE_LINE}</span>
-        <button type="submit" className="ls-cta">Start a consultation</button>
-      </div>
-    </form>
-  );
-}
+/** The method, one step at a time. `state` is the product scene's state for the step. */
+const STEPS: { state: number; tab: string; title: string; body: React.ReactNode }[] = [
+  {
+    state: 1,
+    tab: 'The question',
+    title: 'A consultation begins with one question, in your own words',
+    body: (
+      <p className="ls-body">
+        State the problem, the decision or the venture you are weighing. There is no form to complete first. Every
+        question that follows depends on your answer to the one before it.
+      </p>
+    ),
+  },
+  {
+    state: 2,
+    tab: 'The facts',
+    title: 'We ask only what the answer depends on',
+    body: (
+      <p className="ls-body">
+        Questions come one at a time. You can upload a spreadsheet or an export, and the figures are read directly from
+        it. Where you do not know a number, you can say so: <b>we never fill it in for you.</b>
+      </p>
+    ),
+  },
+  {
+    state: 3,
+    tab: 'The test',
+    title: 'Every explanation is tested, including your own',
+    body: (
+      <p className="ls-body">
+        We set out every cause consistent with what you have told us and test each against your numbers. One your
+        figures contradict is ruled out, with the reason. The strongest goes to <b>two reviewers whose task is to
+        disprove it</b>, and is kept only if it survives both.
+      </p>
+    ),
+  },
+  {
+    state: 4,
+    tab: 'The answer',
+    title: 'You receive the answer on one page, with its evidence',
+    body: (
+      <p className="ls-body">
+        The question, the answer in two lines, the figures it rests on, what to do first and what we would not do. You
+        can challenge it, and your objection is tested the same way. <b>Nothing is built until you have decided.</b>
+      </p>
+    ),
+  },
+  {
+    state: 5,
+    tab: 'The package',
+    title: 'Six files, each opening with the same answer',
+    body: (
+      <p className="ls-body">
+        The blueprint, the technical plan, the operations manual, the roadmap, the presentation and, when the answer is
+        software, the system screen by screen. <Link to="/services#consultation">What each file contains</Link>
+      </p>
+    ),
+  },
+  {
+    state: 6,
+    tab: 'The blueprint',
+    title: 'Each decision, with the figures behind it',
+    body: (
+      <p className="ls-body">
+        The decision and the reasoning, the financial case worked from your figures, who does what, what to do first,
+        how progress is measured and what could cause the plan to fail. <b>Every page is titled with what it found.</b>
+      </p>
+    ),
+  },
+  {
+    state: 7,
+    tab: 'The technical plan',
+    title: 'A plan your own team can build from',
+    body: (
+      <p className="ls-body">
+        How the system works end to end, each module and AI agent, the integrations, data protection and the build
+        order. {BUILD_LINE}
+      </p>
+    ),
+  },
+  {
+    state: 8,
+    tab: 'Who it is for',
+    title: 'Owners of businesses that are running, or about to open',
+    body: (
+      <p className="ls-body">
+        Clinics, restaurants, shops, studios, professional firms, logistics, home services and new ventures. The
+        questions differ; the method does not. <Link to="/solutions">See an example for each</Link>
+      </p>
+    ),
+  },
+];
 
 /** After the story: the firm's rule, on dark paper. */
 function Statement() {
@@ -170,12 +212,13 @@ export default function LandingPage() {
     return mountProductScene({ story, stage, labels, onState: setState });
   }, []);
 
-  const goTo = (i: number) => {
-    const el = storyRef.current?.querySelector(`[data-state="${i}"]`);
+  const [step, setStep] = useState(1);
+  const walkRef = useRef<HTMLElement>(null);
+  const toWalk = () => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // narrow screens read every chapter from its top
-    el?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: window.innerWidth < 1024 ? 'start' : 'center' });
+    walkRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
+  const at = STEPS.findIndex((x) => x.state === step);
 
   return (
     <div className="ls-page min-h-screen">
@@ -185,139 +228,72 @@ export default function LandingPage() {
         <div className="ls-stage" ref={stageRef}>
           <div className="ls-scrim" />
           <div className="ls-labels" ref={labelsRef} aria-hidden="true" />
-          <nav className="ls-index" aria-label="Sections on this page">
-            {CHAPTERS.map((name, i) => (
-              <button
-                key={name}
-                type="button"
-                className={i === state ? 'is-on' : undefined}
-                aria-current={i === state ? 'step' : undefined}
-                onClick={() => goTo(i)}
-              >
-                <span>{name}</span>
-                <i aria-hidden="true" />
-              </button>
-            ))}
-          </nav>
           <p className="ls-caption">{CAPTIONS[state]}</p>
         </div>
 
-        <Chapter state={0}>
-          <p className="ls-eyebrow">AI consultancy</p>
-          <h1 className="ls-display ls-h1">Business decisions, tested against your own figures</h1>
-          <p className="ls-lede">
-            Describe the problem, the decision or the venture in your own words. We test every explanation against your
-            figures and deliver the answer, the reasoning and the plan. If the answer is not software, we say so before
-            anything is built.
-          </p>
-          <div className="ls-go">
-            <Link to="/demo" className="ls-cta">Start a consultation</Link>
-            <button type="button" className="ls-ghost" onClick={() => goTo(1)}>
-              See how a consultation works
-            </button>
+        <section className="ls-chapter" data-state={0}>
+          <div className="ls-wrap">
+            <div className="ls-col">
+              <p className="ls-eyebrow">AI consultancy</p>
+              <h1 className="ls-display ls-h1">Business decisions, tested against your own figures</h1>
+              <p className="ls-lede">
+                Describe the problem, the decision or the venture in your own words. We test every explanation against
+                your figures and deliver the answer, the reasoning and the plan. If the answer is not software, we say so
+                before anything is built.
+              </p>
+              <div className="ls-go">
+                <Link to="/demo" className="ls-cta">Start a consultation</Link>
+                <button type="button" className="ls-ghost" onClick={toWalk}>
+                  See how a consultation works
+                </button>
+              </div>
+              <p className="ls-price">{PRICE_LINE}</p>
+            </div>
           </div>
-          <p className="ls-price">{PRICE_LINE}</p>
-        </Chapter>
+        </section>
 
-        <Chapter state={1} step="1. The question">
-          <h2 className="ls-display ls-h2">A consultation begins with one question, in your own words</h2>
-          <p className="ls-body">
-            State the problem, the decision or the venture you are weighing. There is no form to complete first. Every
-            question that follows depends on your answer to the one before it.
-          </p>
-        </Chapter>
-
-        <Chapter state={2} step="2. The facts">
-          <h2 className="ls-display ls-h2">We ask only what the answer depends on</h2>
-          <p className="ls-body">
-            Questions come one at a time. You can upload a spreadsheet or an export, and the figures are read directly
-            from it. Where you do not know a number, you can say so: we never fill it in for you.
-          </p>
-          <ul className="ls-points">
-            <li><span><b>Every figure carries its source:</b> yours, worked out from yours, our estimate, or a cited reference.</span></li>
-            <li><span><b>“I don’t know” is a valid answer.</b> A gap is recorded as a gap.</span></li>
-          </ul>
-        </Chapter>
-
-        <Chapter state={3} step="3. The test">
-          <h2 className="ls-display ls-h2">Every explanation is tested, including your own</h2>
-          <p className="ls-body">
-            We set out every cause consistent with what you have told us and test each against your numbers. The
-            strongest goes to two reviewers whose task is to disprove it.
-          </p>
-          <ul className="ls-points">
-            <li><span><b>Ruled out,</b> with the reason, when your figures contradict it.</span></li>
-            <li><span><b>Kept,</b> only when it survives both reviewers.</span></li>
-          </ul>
-        </Chapter>
-
-        <Chapter state={4} step="4. The answer">
-          <h2 className="ls-display ls-h2">You receive the answer on one page, with its evidence</h2>
-          <p className="ls-body">
-            The page states the question, the answer in two lines, the figures it rests on, what to do first and what
-            we would not do. <b>Nothing is built until you have read it and decided.</b>
-          </p>
-          <ul className="ls-points">
-            <li><span><b>You can challenge the answer.</b> Your objection is tested the same way.</span></li>
-            <li><span><b>We prepare the work;</b> every decision stays yours.</span></li>
-          </ul>
-        </Chapter>
-
-        <Chapter state={5} step="5. The package">
-          <h2 className="ls-display ls-h2">Six files, each opening with the same answer</h2>
-          <ul className="ls-points">
-            <li><span><b>The blueprint,</b> with the recommendation register: each action, its owner, its timing and the range it is worth. The ranges add up to the headline figure.</span></li>
-            <li><span><b>The technical plan</b> and <b>the operations manual.</b></span></li>
-            <li><span><b>The roadmap,</b> as long as the plan requires, with owners and measures.</span></li>
-            <li><span><b>The system, screen by screen,</b> when the answer is to build software.</span></li>
-            <li><span><b>The presentation deck,</b> with the same titles and figures as the documents.</span></li>
-          </ul>
-        </Chapter>
-
-        <Chapter state={6} step="The blueprint">
-          <h2 className="ls-display ls-h2">The blueprint sets out each decision with the figures behind it</h2>
-          <p className="ls-body">
-            The recommended decision and the reasoning, the financial case worked from your own figures, the customer
-            journey, each part of the system, who does what, what to do first, how progress is measured and what could
-            cause the plan to fail.
-          </p>
-          <div className="ls-stats">
-            <div><b>Page one</b><span>of every file is the answer</span></div>
-            <div><b>Every figure</b><span>labelled with its source</span></div>
-            <div><b>Every page</b><span>titled with what it found</span></div>
+        {/* One screen for the whole method: the reader opens a step, and the
+            product behind the text moves to it (data-state follows the step). */}
+        <section className="ls-chapter ls-walk" data-state={step} id="how" ref={walkRef}>
+          <div className="ls-wrap">
+            <div className="ls-col">
+              <p className="ls-eyebrow">How a consultation works</p>
+              <ol className="ls-steps">
+                {STEPS.map((x, i) => {
+                  const on = x.state === step;
+                  return (
+                    <li key={x.state} className={on ? 'is-on' : undefined}>
+                      <button
+                        type="button"
+                        aria-expanded={on}
+                        aria-controls={`ls-step-${x.state}`}
+                        onClick={() => setStep(x.state)}
+                      >
+                        <span className="ls-step-no">{i + 1}</span>
+                        {x.tab}
+                      </button>
+                      {on ? (
+                        <div className="ls-step-body" id={`ls-step-${x.state}`}>
+                          <h2 className="ls-display ls-h3">{x.title}</h2>
+                          {x.body}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ol>
+              <div className="ls-walk-nav">
+                {at < STEPS.length - 1 ? (
+                  <button type="button" className="ls-ghost" onClick={() => setStep(STEPS[at + 1].state)}>
+                    Next: {STEPS[at + 1].tab.toLowerCase()}
+                  </button>
+                ) : (
+                  <Link to="/demo" className="ls-cta">Start a consultation</Link>
+                )}
+              </div>
+            </div>
           </div>
-        </Chapter>
-
-        <Chapter state={7} step="The technical plan">
-          <h2 className="ls-display ls-h2">A technical plan your own team can build from</h2>
-          <ul className="ls-points">
-            <li><span><b>How the system works,</b> end to end, explained in plain language first.</span></li>
-            <li><span><b>Each module:</b> its features, its data and its screens.</span></li>
-            <li><span><b>Each AI agent:</b> what it decides alone, the tools it uses and its limits.</span></li>
-            <li><span><b>Integrations and data protection.</b></span></li>
-            <li><span><b>The build order,</b> with the checks that show each part is complete.</span></li>
-          </ul>
-          <p className="ls-body">{BUILD_LINE}</p>
-        </Chapter>
-
-        <Chapter state={8} step="Who we work with">
-          <h2 className="ls-display ls-h2">Owners of businesses that are running, or about to open</h2>
-          <p className="ls-body">
-            The questions differ by sector and stage; the method does not. Each system we design is built around one
-            business.
-          </p>
-          <div className="ls-kinds">
-            {['Clinics', 'Retail', 'Studios', 'Restaurants', 'Logistics', 'Services', 'Professional firms', 'New ventures'].map((k) => (
-              <span key={k}>{k}</span>
-            ))}
-          </div>
-        </Chapter>
-
-        <Chapter state={9}>
-          <h2 className="ls-display ls-h2">What would you like to work out?</h2>
-          <p className="ls-body">Describe it as you would to an adviser. The consultation starts from your words.</p>
-          <Ask id="ls-ask" />
-        </Chapter>
+        </section>
       </div>
 
       <Statement />
