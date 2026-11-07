@@ -76,6 +76,7 @@ def _full(**over) -> Request:
         main_problem="I think the mornings are empty because the price is too low.",
         brief_json=json.dumps({"question": "Why are the mornings empty?"}),
         answer_json=json.dumps(_answer()),
+        storyline_json=json.dumps({"register": [], "sections": []}),
         case_file_json=json.dumps([as_json(f) for f in (THEIRS, DERIVED, OURS, REFERENCE)]),
         diagnosis_json=json.dumps(diagnosis),
         action_plan_json=json.dumps(plan),
@@ -179,3 +180,13 @@ def test_the_answer_page_text_contains_no_hedging_words():
     page = answer_page(_full())
     text = json.dumps(to_json(Storyline(page, None, (), True)), ensure_ascii=False).lower()
     assert not any(word in text for word in banned)
+
+
+def test_a_run_with_an_answer_and_no_storyline_has_no_storyline():
+    # Review H2: every Step-2 run (answer stored, no storyline) opened its files
+    # on an answer page it never had, and the web served one too.
+    from app.storyline.build import for_web
+
+    legacy = _full(storyline_json=None)
+    assert build(legacy) is None
+    assert for_web(legacy) == {"answer_page": None, "register": None}

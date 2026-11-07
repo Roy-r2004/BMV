@@ -20,7 +20,11 @@ _MAX_WOULD_NOT = 3
 
 
 def build(req) -> Storyline | None:
-    """The storyline, or None when the run has no answer to open with."""
+    """The storyline, or None when the run has no answer to open with or no
+    stored storyline. A run from before the storyline stage keeps every file
+    exactly as it was: no answer page, no register, no proof pages."""
+    if not getattr(req, "storyline_json", None):
+        return None
     if not isinstance(_loads(getattr(req, "answer_json", None)), dict):
         return None
     known = figures_known.known_for(req)

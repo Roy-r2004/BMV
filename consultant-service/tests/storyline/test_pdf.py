@@ -258,3 +258,23 @@ def test_a_title_token_prints_as_its_figure_in_every_file(tmp_path, monkeypatch)
         assert "Keep the price at $22." in text
     assert web["register"]["rows"][0]["recommendation"] == "Keep the price at $22."
     db.close()
+
+
+def test_a_run_from_before_the_storyline_opens_every_file_on_its_cover(tmp_path, monkeypatch):
+    # Review H2: a Step-2 run (answer stored, storyline_json NULL) opened every
+    # volume and the roadmap on the answer page instead of the cover.
+    from app.storyline import roadmap
+
+    db, row = _ready(tmp_path, monkeypatch)
+    row.storyline_json = None
+    db.commit()
+    assert build(row) is None
+    for kind in ("blueprint", "technical", "operations"):
+        pages = _pages(export_pdf.build_pdf(row, kind))
+        assert "Prepared exclusively" in pages[0], kind
+        text = "\n".join(pages)
+        assert QUESTION not in text and "What this rests on" not in text, kind
+        assert "The register" not in text, kind
+    road = "\n".join(_pages(roadmap.build_roadmap_pdf(row)))
+    assert QUESTION not in road and "The register is in the blueprint." not in road
+    db.close()
