@@ -75,7 +75,7 @@ function DataRequest({ facts, caseFigures }: { facts: Fact[]; caseFigures: CaseF
           </defs>
           <circle className="bg" cx="30" cy="30" r="25" />
           <circle className="fg" cx="30" cy="30" r="25" strokeDasharray={RING.toFixed(1)} strokeDashoffset={offset.toFixed(1)} />
-          <text x="30" y="35" textAnchor="middle" fontFamily="Syne, sans-serif" fontWeight="700" fontSize="15" fill="#0b1736">{n}</text>
+          <text x="30" y="35" textAnchor="middle" fontFamily="'Source Serif 4', Georgia, serif" fontWeight="600" fontSize="15" fill="#0b1736">{n}</text>
         </svg>
         <div>
           <h3>What we need to build your plans</h3>

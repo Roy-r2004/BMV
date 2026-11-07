@@ -41,7 +41,7 @@ const STEPS: { state: number; tab: string; title: string; body: React.ReactNode 
     body: (
       <p className="ls-body">
         Questions come one at a time. You can upload a spreadsheet or an export, and the figures are read directly from
-        it. Where you do not know a number, you can say so: <b>we never fill it in for you.</b>
+        it. Where you do not know a number, say so: <b>we estimate it and label the estimate as ours.</b>
       </p>
     ),
   },

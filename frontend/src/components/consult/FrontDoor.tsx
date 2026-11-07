@@ -8,6 +8,7 @@
  */
 import { Link as RouterLink } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+import { PRICE_LINE } from '../../data/offer';
 
 export default function FrontDoor({
   firstName,
@@ -39,21 +40,21 @@ export default function FrontDoor({
       <div className="cx-dotfield" aria-hidden="true" />
       <div className="relative max-w-[1180px]">
         <motion.p className="cx-faint text-[17px]" {...enter(0)}>
-          {firstName ? `Hi ${firstName}.` : 'A consultation, not a sales call.'}
+          {firstName ? `Welcome, ${firstName}.` : 'Start a consultation'}
         </motion.p>
         <motion.h1 className="cx-h1 cx-door-h1 mt-3 max-w-[14ch]" {...enter(0.05)}>
           What are you trying to work out?
         </motion.h1>
         <motion.p className="cx-lead mt-[2.4vh] max-w-[48ch]" {...enter(0.12)}>
-          A problem that's costing you, a decision you're stuck on, or something you want to
-          start. Say it the way you'd say it across a table.
+          Describe the problem, the decision or the venture you are weighing, in your own words. Every
+          question that follows depends on your answer.
         </motion.p>
 
         {!signedIn && !checkingAuth ? (
           <motion.div className="cx-card mt-10 max-w-[760px] p-8" {...enter(0.2)}>
             <h2 className="cx-h3">Sign in to start</h2>
             <p className="cx-muted mt-2">
-              Every consultation is private to your account: only you can open what it produces.
+              Every consultation is private to your account: only you can open what it produces. {PRICE_LINE}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <RouterLink to="/signup" state={{ from: '/demo' }} className="cx-btn cx-btn--blue">
@@ -106,7 +107,7 @@ export default function FrontDoor({
               />
             </div>
             <p className="cx-faint mt-3 text-[14.5px]">
-              About 15 minutes to an honest answer. If you give us your website, we read it before we ask you anything.
+              If you give us your website, we read it before asking you anything.
             </p>
           </motion.form>
         )}
@@ -117,7 +118,7 @@ export default function FrontDoor({
         >
           <p><b className="text-[var(--cx-txt)]">Nothing is built</b> until you've read our answer.</p>
           <p><b className="text-[var(--cx-txt)]">Every number</b> is labelled: yours, worked out from yours, or our estimate.</p>
-          <p><b className="text-[var(--cx-txt)]">Your own idea</b> gets tested like any other.</p>
+          <p><b className="text-[var(--cx-txt)]">Your own explanation</b> is tested like any other.</p>
         </motion.div>
       </div>
     </section>

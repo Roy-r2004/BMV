@@ -11,7 +11,7 @@ const STEPS = [
     title: 'We ask only what the answer depends on',
     body: [
       'Questions come one at a time, and each depends on your answer to the one before. You can upload a spreadsheet or an export; the figures are read directly from it.',
-      'Where you do not know a number, you can say so. The gap is recorded as a gap.',
+      'Where you do not know a number, you can say so. We estimate it and label the estimate as ours, wherever it appears.',
     ],
   },
   {
@@ -48,7 +48,7 @@ const LABELS = [
 const NEVER = [
   {
     title: 'Invent a figure',
-    body: 'A number we do not have is reported as missing. If the answer depends on it, we say which figure would settle the question.',
+    body: 'Every number is yours, worked out from yours, a cited reference, or an estimate labelled as ours. If the answer hangs on a figure nobody can estimate fairly, we say which figure would settle it.',
   },
   {
     title: 'Present an estimate as a fact',

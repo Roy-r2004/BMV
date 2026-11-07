@@ -9,10 +9,10 @@
 import type { Scope } from '../../api/consultant';
 
 const STEPS: { title: string; body: string }[] = [
-  { title: 'We ask until we have everything.', body: "About 20 minutes. You'll see the list of what we need fill in as you go." },
-  { title: 'You never fetch anything.', body: "Don't know a figure? We estimate it and mark it as ours. Have a file? Drop it in and we read it." },
-  { title: 'We test every explanation.', body: 'Yours too. Two reviewers try to break our answer before you see it.' },
-  { title: 'You get the answer and every plan.', body: 'Written while you read. You make the calls; we do the work.' },
+  { title: 'We ask until we have what the answer needs.', body: 'You will see the list of what we need fill in as you go.' },
+  { title: 'You do not need to fetch anything.', body: 'If you do not know a figure, we estimate it and label it as ours. If you have a file, upload it and we read the figures from it.' },
+  { title: 'We test every explanation, including yours.', body: 'Two reviewers try to disprove the strongest before you see it.' },
+  { title: 'You receive the answer and every plan.', body: 'You make the decisions; we prepare the work.' },
 ];
 
 function Skeleton() {
