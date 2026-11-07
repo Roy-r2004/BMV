@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthShell from '../components/AuthShell';
 
+import { usePageMeta } from '../utils/pageMeta';
 export default function SignupPage() {
+  usePageMeta('Create your account');
   const { signup } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,7 +34,7 @@ export default function SignupPage() {
     <AuthShell
       eyebrow="Account"
       title="Create your account"
-      lead="Everyone sees the same industry template. Your account keeps your personalized version private."
+      lead="Your account keeps your consultation, your answer and your files private to you."
       footer={
         <>
           Already have an account?{' '}

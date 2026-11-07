@@ -5,6 +5,7 @@ import SiteFooter from '../components/SiteFooter';
 import OperationField from '../components/about/OperationField';
 import '../styles/about.css';
 
+import { usePageMeta } from '../utils/pageMeta';
 // One scroll story: every chapter below is also a shape in OperationField,
 // matched by `data-state`. Keep CHAPTERS, CAPTIONS and the sections in step.
 const CHAPTERS = [
@@ -61,9 +62,9 @@ const BELIEFS = [
 const BUILD_AREAS = [
   { title: 'Operations', items: 'Workflow automation, internal tools, document processing' },
   { title: 'Customer', items: 'Support systems, sales intelligence, personalization' },
-  { title: 'Knowledge', items: 'Enterprise search, RAG systems, knowledge workflows' },
+  { title: 'Knowledge', items: 'Search across your own documents, knowledge workflows' },
   { title: 'Decision making', items: 'Forecasting, analysis, recommendations' },
-  { title: 'AI systems', items: 'Agents, model orchestration, multi-step reasoning' },
+  { title: 'AI systems', items: 'Agents that carry a task from start to finish' },
   { title: 'Private AI', items: 'On-prem deployment, open-weight models, data residency' },
 ] as const;
 
@@ -99,6 +100,7 @@ function Chapter({ state, id, children }: { state: number; id?: string; children
 }
 
 export default function AboutPage() {
+  usePageMeta('About', 'We build AI around the business, not the other way around: strategy, software, models and infrastructure from one team.');
   const storyRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState(0);
 

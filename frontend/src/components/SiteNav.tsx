@@ -11,7 +11,6 @@ import { scrollToTop } from '../utils/scroll';
 // "Studio" made that a choice the client had to understand.
 const LINKS = [
   { to: '/solutions', label: 'Solutions' },
-  { to: '/demo', label: 'Demo' },
   { to: '/about', label: 'About' },
   { to: '/private-ai', label: 'Private AI' },
 ];
@@ -177,7 +176,7 @@ export default function SiteNav() {
             onClick={() => setMenuOpen(false)}
             className="mt-2 rounded-xl font-bold text-center text-white bg-gradient-to-r from-blue-600 to-cyan-500 py-3"
           >
-            Start free preview
+            Start a consultation
           </Link>
         </div>
       )}

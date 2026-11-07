@@ -4,7 +4,7 @@ import { sendSiteChat, type SiteChatMessage } from '../api/siteChat';
 import '../styles/site-chat.css';
 
 const WELCOME =
-  "Hey — I’m the Build My Version guide. We find the AI your business actually needs, prove it with a free preview, then build it. What kind of business are you running?";
+  "Hi, I’m the Build My Version guide. Tell me what you’re trying to work out and I’ll point you to the right start: a consultation, a solution, or private AI. What does your business do?";
 
 // Lucide-style outline paths, stroked with currentColor.
 const ICONS = {
@@ -60,9 +60,9 @@ function BotMark({ className }: { className?: string }) {
 }
 
 const STARTERS = [
-  { label: 'I’m a restaurant', icon: ICONS.utensils },
-  { label: 'How do I start?', icon: ICONS.rocket },
-  { label: 'What packages do you offer?', icon: ICONS.gift },
+  { label: 'I run a restaurant', icon: ICONS.utensils },
+  { label: 'How does it work?', icon: ICONS.rocket },
+  { label: 'What does it cost?', icon: ICONS.gift },
   { label: 'Show me solutions', icon: ICONS.bulb },
 ] as const;
 
@@ -132,7 +132,7 @@ export default function SiteChatWidget() {
         {
           role: 'assistant',
           content:
-            'I couldn’t reach the guide just now — you can still start free at /submit, browse /demo, or explore /solutions. What are you trying to build?',
+            'I can’t reach the guide right now. You can start a consultation at /demo or look through /solutions.',
         },
       ]);
     } finally {
@@ -217,7 +217,7 @@ export default function SiteChatWidget() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about plans, solutions…"
+                placeholder="Ask a question"
                 maxLength={800}
                 disabled={busy}
                 aria-label="Message"

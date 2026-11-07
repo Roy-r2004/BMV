@@ -91,6 +91,7 @@ import {
 } from '../data/buildPlans';
 import '../styles/studio.css';
 
+import { usePageMeta } from '../utils/pageMeta';
 // The stage lists and rotating captions for the running step live in
 // components/studio/RunStage.tsx now. They used to be one list of the BUILD
 // stages, shown for the whole run — so a client who was only being diagnosed
@@ -1295,7 +1296,7 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
         <div className="studio-plans-downloads mt-6">
           {preview.mvp_blueprint && (
             <DownloadButton refId={preview.id} kind="zip" className="studio-cta studio-plans-deckbtn">
-              Download your full plan (ZIP — all three volumes)
+              Download everything (ZIP)
             </DownloadButton>
           )}
           {preview.deck_available && (
@@ -1402,6 +1403,7 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
 }
 
 export default function StudioPage() {
+  usePageMeta('Your consultation');
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { id: idParam } = useParams<{ id: string }>();
@@ -2567,8 +2569,8 @@ export default function StudioPage() {
                     {teaser.concept_name || teaser.business_name} is ready.
                   </h1>
                   <p className="studio-plan-rostertext mt-4 max-w-xl mx-auto">
-                    Your consultant is personally reviewing every page before release — the same
-                    signature every engagement gets. You'll receive it shortly.
+                    Every page is going through its last checks before release. It opens here the
+                    moment it is released.
                   </p>
 
                   {teaser.numbers_echo.length > 0 && (
@@ -2640,7 +2642,7 @@ export default function StudioPage() {
 
                   {teaser.qa_checks.length > 0 && (
                     <div className="studio-pend-checks">
-                      <p className="studio-kicker mb-3">What the expert auditors verified</p>
+                      <p className="studio-kicker mb-3">What was checked</p>
                       {teaser.qa_checks.map((c, i) => (
                         <motion.p
                           className={`studio-pend-check${c.passed ? '' : ' studio-pend-check--fixing'}`}
@@ -2651,7 +2653,7 @@ export default function StudioPage() {
                         >
                           <span aria-hidden="true">{c.passed ? '✓' : '…'}</span>
                           {c.label}
-                          {!c.passed && <em> — being corrected by your consultant</em>}
+                          {!c.passed && <em> — being fixed before release</em>}
                         </motion.p>
                       ))}
                     </div>

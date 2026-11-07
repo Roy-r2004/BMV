@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { usePageMeta } from '../utils/pageMeta';
 import {
   fetchMyEngagements,
   studioResultPath,
@@ -40,7 +41,8 @@ function formatDate(iso: string | null): string | null {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function EngagementsPage() {
+export default function EngagementsPage() {
+  usePageMeta('Your engagements');
   const navigate = useNavigate();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [rows, setRows] = useState<StudioMineEntry[] | null>(null);

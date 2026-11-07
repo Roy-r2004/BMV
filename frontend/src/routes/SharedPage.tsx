@@ -23,8 +23,10 @@ import AnswerPage from '../components/consult/AnswerPage';
 import Package, { type PackageScreen } from '../components/consult/Package';
 import Register from '../components/consult/Register';
 import '../styles/consult.css';
-
-export default function SharedPage() {
+
+import { usePageMeta } from '../utils/pageMeta';
+export default function SharedPage() {
+  usePageMeta('A shared engagement');
   const { token = '' } = useParams<{ token: string }>();
   const [data, setData] = useState<SharedPackage | null>(null);
   // The navigable system, fetched beside the package. Null on legacy runs,

@@ -5,6 +5,7 @@ import EnvironmentModel, { type Mode, type Stage } from '../components/private-a
 import { consultingEmailUrl } from '../api/client';
 import '../styles/private-ai.css';
 
+import { usePageMeta } from '../utils/pageMeta';
 // One scroll story over a 3D model of the client's environment. Each section's
 // `data-stage` tells EnvironmentModel what to build and where to look.
 
@@ -121,6 +122,7 @@ function Chapter({ stage, id, children }: { stage: Stage; id?: string; children:
 }
 
 export default function PrivateAIPage() {
+  usePageMeta('Private AI', 'Private AI on infrastructure you own and control, for when data, compliance, cost or latency justify it.');
   const storyRef = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState<Stage>('hero');
   const [why, setWhy] = useState(0);

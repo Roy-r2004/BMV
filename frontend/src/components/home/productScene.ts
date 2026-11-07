@@ -17,7 +17,7 @@ import * as THREE from 'three';
 
 export const CHAPTERS = [
   'The product', 'One question', 'The conversation', 'The test', 'The answer',
-  'The system', 'The blueprint', 'The technical plan', 'Any business', 'Start',
+  'The package', 'The blueprint', 'The technical plan', 'Any business', 'Start',
 ] as const;
 
 export const CAPTIONS = [
@@ -27,7 +27,7 @@ export const CAPTIONS = [
   'Layer three: every explanation tested. One struck out, one circled.',
   'Layer four: the answer, and your choice.',
   'Layers five and six: the package, and the system it designs.',
-  'The blueprint, section by section: nineteen of them.',
+  'The blueprint: every page titled with what it found.',
   'The technical plan: the engineering behind every module.',
   'The same rigour, a different system for every business.',
   'Start at the top layer.',
@@ -84,10 +84,11 @@ function frameView(v: (typeof VIEWS)[number], camera: THREE.PerspectiveCamera, W
   const bandL = wide ? Math.min(0.62, edge + 0.02) : 0, bandR = wide ? 1 - 150 / W : 1;
   const bandFrac = bandR - bandL, centreNdc = bandL + bandR - 1;
   const tgt = new THREE.Vector3(...v.t), dir = new THREE.Vector3(...v.p).sub(tgt), d0 = dir.length(); dir.normalize();
-  const right = new THREE.Vector3().crossVectors(UP, dir).normalize(), up = new THREE.Vector3().crossVectors(dir, right).normalize();
+  const right = new THREE.Vector3().crossVectors(UP, dir).normalize();
+  const up = new THREE.Vector3().crossVectors(dir, right).normalize();
   const off = new THREE.Vector3(); let d: number;
   if (wide) { d = Math.max(d0, v.w / (bandFrac * 2 * tanH * aspect * 0.95)); off.addScaledVector(right, -centreNdc * d * tanH * aspect); }
-  else { d = Math.min(Math.max(d0, (v.w * 0.9) / (2 * tanH * aspect), (v.w * 0.62) / (2 * tanH * 0.4)), d0 * 3.5); off.addScaledVector(up, -0.42 * d * tanH); }
+  else { d = Math.max(d0, v.w / (2 * tanH * aspect * 0.92)); off.addScaledVector(up, -0.34 * d * tanH); }
   const t = tgt.add(off);
   return { p: t.clone().addScaledVector(dir, d), t };
 }
@@ -518,9 +519,12 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
     const chapters = [...story.querySelectorAll<HTMLElement>('[data-state]')];
     const scrollState = () => {
       const vh = window.innerHeight, mid = vh / 2, narrow = W < WIDE_MIN;
-      const iv = chapters.map((el) => {
+      const iv = chapters.map((el, k) => {
         const r = el.getBoundingClientRect();
         if (el.classList.contains('ls-chapter--deep')) return [r.top + vh * 0.5, r.bottom - vh * 0.5];
+        // On a phone the product frame sits under the first chapter. Hold
+        // that opening view until the frame has scrolled past.
+        if (narrow && k === 0) return [r.top, r.bottom + vh * 0.42];
         const c = narrow ? r.top + vh * 0.45 : r.top + r.height / 2; return [c, c];
       });
       iv.forEach(([a, b], k) => { if (b > a) LP[k] = Math.min(1, Math.max(0, (mid - a) / (b - a))); });

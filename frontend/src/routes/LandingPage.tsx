@@ -17,6 +17,7 @@ import { CAPTIONS, CHAPTERS, mountProductScene } from '../components/home/produc
 import { saveFrontDoor } from '../utils/frontDoor';
 import '../styles/landing.css';
 
+import { usePageMeta } from '../utils/pageMeta';
 function Chapter({ state, deep = false, children }: { state: number; deep?: boolean; children: React.ReactNode }) {
   return (
     <section className={`ls-chapter${deep ? ' ls-chapter--deep' : ''}`} data-state={state}>
@@ -27,7 +28,7 @@ function Chapter({ state, deep = false, children }: { state: number; deep?: bool
   );
 }
 
-function Ask() {
+function Ask({ id }: { id: string }) {
   const navigate = useNavigate();
   const [text, setText] = useState('');
   const start = () => {
@@ -42,9 +43,9 @@ function Ask() {
         start();
       }}
     >
-      <label htmlFor="ls-ask">What are you trying to work out?</label>
+      <label htmlFor={id}>What are you trying to work out?</label>
       <textarea
-        id="ls-ask"
+        id={id}
         rows={2}
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -54,7 +55,7 @@ function Ask() {
             start();
           }
         }}
-        placeholder="A problem that's costing you, a decision you're stuck on, or something you want to start."
+        placeholder="The problem, the decision, or the thing you want to start."
       />
       <div className="ls-ask-row">
         <span>No card. No sales call.</span>
@@ -65,6 +66,7 @@ function Ask() {
 }
 
 export default function LandingPage() {
+  usePageMeta('An AI consultancy that tells you the truth', 'An AI consultancy in your browser. Bring the problem or the decision; it tests every explanation against your own figures and tells you what to do, with every number traced.');
   const storyRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null);
@@ -111,23 +113,24 @@ export default function LandingPage() {
 
         <Chapter state={0}>
           <h1 className="ls-display ls-h1">
-            A consultancy that fits in your browser.
-            <span className="ls-quiet">And tells you the truth.</span>
+            <span className="ls-wide-only">A consultancy that fits in your browser.</span>
+            <span className="ls-quiet ls-wide-only">And tells you the truth.</span>
+            <span className="ls-narrow-only">An AI consultancy<br />for your business.</span>
           </h1>
           <p className="ls-lede">
-            It finds what's really holding your business back, or tests the one you're about to open. Then it designs
-            the system that fixes it, down to a full blueprint and a technical plan any team can build from. If the fix
-            isn't software, it says so first.
+            <span className="ls-wide-only">
+              Say it the way you would across a table. It tests the idea against your own figures, and if the fix isn't
+              software, it says so before anything is built.
+            </span>
+            <span className="ls-narrow-only">Bring us the problem. We come back with what to do.</span>
           </p>
-          <div className="ls-go">
-            <button type="button" className="ls-ghost" onClick={() => goTo(1)}>
-              See how it works
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 5v14M6 13l6 6 6-6" />
-              </svg>
-            </button>
-            <span>Free. About 15 minutes, when you're ready.</span>
-          </div>
+          <Ask id="ls-ask" />
+          <button type="button" className="ls-more" onClick={() => goTo(1)}>
+            See how it works
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14M6 13l6 6 6-6" />
+            </svg>
+          </button>
         </Chapter>
 
         <Chapter state={1}>
@@ -148,7 +151,7 @@ export default function LandingPage() {
             and you can drop in a spreadsheet or an export so it reads the numbers itself.
           </p>
           <ul className="ls-points">
-            <li><span><b>Every figure is yours.</b> Nothing is estimated or filled in for you.</span></li>
+            <li><span><b>Every figure is labelled.</b> Yours, worked out from yours, or our estimate. Never mixed up.</span></li>
             <li><span><b>A blank beats a guess.</b> "I don't know" is always an answer.</span></li>
           </ul>
         </Chapter>
@@ -175,7 +178,7 @@ export default function LandingPage() {
             shown. <b>Nothing is built until you've read it.</b>
           </p>
           <ul className="ls-points">
-            <li><span><b>Every plan,</b> written for you.</span></li>
+            <li><span><b>The answer fits on one page:</b> the question, the answer, and the numbers it rests on.</span></li>
             <li><span><b>We do the work;</b> you make the calls.</span></li>
             <li><span><b>Push back,</b> and it thinks again.</span></li>
           </ul>
@@ -183,14 +186,15 @@ export default function LandingPage() {
 
         <Chapter state={5}>
           <h2 className="ls-display ls-h2">
-            And designs the system.
-            <span className="ls-quiet">Everything, in one package.</span>
+            Then it hands you the work.
+            <span className="ls-quiet">Six files. One story.</span>
           </h2>
           <ul className="ls-points">
-            <li><span><b>Your system, screen by screen,</b> drawn for your business. Navigate it live, or take the proposal as a PDF.</span></li>
-            <li><span><b>The blueprint and technical plan,</b> in full. More on both next.</span></li>
-            <li><span><b>An AI team,</b> with exactly what each one decides alone.</span></li>
-            <li><span><b>The operations manual and a Monday plan,</b> so work starts before the code does.</span></li>
+            <li><span><b>The register:</b> every recommendation, who owns it, when it happens, and the range it is worth. The rows add up to the headline.</span></li>
+            <li><span><b>The blueprint, the technical plan and the operations manual,</b> in full. More on the first two next.</span></li>
+            <li><span><b>A roadmap</b> as long as the plan really is, with owners and measures.</span></li>
+            <li><span><b>Your system, screen by screen,</b> to walk live or keep as a PDF, when the answer is to build.</span></li>
+            <li><span><b>A deck</b> that tells the same story, slide for slide.</span></li>
           </ul>
         </Chapter>
 
@@ -205,7 +209,7 @@ export default function LandingPage() {
             AI on one chart, what to build first, the scoreboard, and what could make it fail.
           </p>
           <div className="ls-stats">
-            <div><b>19</b><span>sections, from the decision to three ways forward</span></div>
+            <div><b>Page one</b><span>is the answer, in every file</span></div>
             <div><b>Every figure</b><span>traced to one you gave, or marked as ours</span></div>
             <div><b>Honest</b><span>about what could make it fail</span></div>
           </div>
@@ -250,11 +254,11 @@ export default function LandingPage() {
             <span className="ls-quiet">Quoted only if you build.</span>
           </h2>
           <div className="ls-stats">
-            <div><b>15 min</b><span>to an honest answer</span></div>
+            <div><b>One</b><span>conversation to an honest answer</span></div>
             <div><b>$0</b><span>for the answer and the whole package</span></div>
             <div><b>You</b><span>decide whether anything gets built</span></div>
           </div>
-          <Ask />
+          <Ask id="ls-ask-close" />
         </Chapter>
       </div>
 

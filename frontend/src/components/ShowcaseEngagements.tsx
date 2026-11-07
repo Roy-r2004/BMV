@@ -39,8 +39,8 @@ export default function ShowcaseEngagements() {
           Read a finished engagement, cover to cover.
         </motion.h2>
         <p className="text-slate-600 max-w-2xl mb-10">
-          These are complete, unedited outputs of our engagement process — the three-volume
-          document set, the screens, the numbers. Open one and judge the standard yourself.
+          These are complete, unedited outputs of our engagement process: every file, the screens,
+          the numbers. Open one and judge the standard yourself.
         </p>
 
         <div className="grid md:grid-cols-2 gap-6">

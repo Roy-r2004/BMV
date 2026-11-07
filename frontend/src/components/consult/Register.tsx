@@ -1,8 +1,9 @@
 /**
- * The recommendation register. A table on a wide screen, one card per row
+ * The recommendation register. A ledger on a wide screen, one card per row
  * on a phone. The range ends are figures, never numbers typed here.
  */
-import type { FigureJson, FigureKind, FigureMap, RegisterEnd, StudioRegister } from '../../api/consultant';
+import type { ReactNode } from 'react';
+import type { FigureKind, FigureMap, RegisterEnd, StudioRegister } from '../../api/consultant';
 import { FigTags } from './Fig';
 
 const KIND_OF_TAG: [string, FigureKind][] = [
@@ -22,21 +23,38 @@ function figuresFor(register: StudioRegister, figures?: FigureMap | null): Figur
   for (const row of register.rows) {
     for (const end of [row.low, row.mid, row.high]) {
       if (!end || out[end.figure_id]) continue;
-      const extra: FigureJson = {
+      out[end.figure_id] = {
         display: end.display,
         kind: kindOf(end.tag),
         tag: end.tag,
         source: '',
       };
-      out[end.figure_id] = extra;
     }
   }
   return out;
 }
 
-function End({ end, figures }: { end: RegisterEnd | null; figures: FigureMap }) {
-  if (!end) return null;
-  return <FigTags ids={[end.figure_id]} figures={figures} labelled className="" />;
+function Cell({ k, children, className }: { k?: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={className}>
+      {k ? <span className="cx-reg-k">{k}</span> : null}
+      <div className="cx-reg-v">{children}</div>
+    </div>
+  );
+}
+
+function End({ end, figures, label }: { end: RegisterEnd | null; figures: FigureMap; label: string }) {
+  return (
+    <div className="cx-reg-end">
+      <span className="cx-reg-k">{label}</span>
+      {end ? (
+        <>
+          <div className="cx-reg-num">{end.display}</div>
+          <FigTags ids={[end.figure_id]} figures={figures} labelled={false} className="cx-reg-tag" />
+        </>
+      ) : null}
+    </div>
+  );
 }
 
 export default function Register({
@@ -48,36 +66,36 @@ export default function Register({
 }) {
   const known = figuresFor(register, figures);
   return (
-    <section className="cx-stage cx-register" aria-label="The register">
+    <section className="cx-register" aria-label="The register">
       <h2 className="cx-h3">The register</h2>
-      <table className="cx-reg-table">
-        <thead>
-          <tr>
-            <th>Recommendation</th>
-            <th>What changes</th>
-            <th>When</th>
-            <th>Owner</th>
-            <th>Comes after</th>
-            <th>Low</th>
-            <th>Middle</th>
-            <th>High</th>
-          </tr>
-        </thead>
-        <tbody>
-          {register.rows.map((row, i) => (
-            <tr key={`${row.recommendation}-${i}`}>
-              <td data-label="Recommendation">{row.recommendation}</td>
-              <td data-label="What changes">{row.changes}</td>
-              <td data-label="When">{row.when}</td>
-              <td data-label="Owner">{row.owner}</td>
-              <td data-label="Comes after">{row.depends_on.length ? row.depends_on.join(', ') : ''}</td>
-              <td data-label="Low"><End end={row.low} figures={known} /></td>
-              <td data-label="Middle"><End end={row.mid} figures={known} /></td>
-              <td data-label="High"><End end={row.high} figures={known} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="cx-reg-head" aria-hidden="true">
+        <span>Recommendation</span>
+        <span>What changes</span>
+        <span>When</span>
+        <span>Owner</span>
+        <span>Comes after</span>
+        <span>The range</span>
+      </div>
+      <div className="cx-reg-list">
+        {register.rows.map((row, i) => (
+          <article className="cx-reg-row" key={`${row.recommendation}-${i}`}>
+            <Cell className="cx-reg-rec">
+              <h3>{row.recommendation}</h3>
+            </Cell>
+            <Cell k="What changes">{row.changes}</Cell>
+            <Cell k="When">{row.when}</Cell>
+            <Cell k="Owner">{row.owner}</Cell>
+            <Cell k="Comes after" className={row.depends_on.length ? undefined : 'cx-reg-skip'}>
+              {row.depends_on.length ? row.depends_on.join(', ') : ''}
+            </Cell>
+            <div className="cx-reg-ends">
+              <End end={row.low} figures={known} label="Low" />
+              <End end={row.mid} figures={known} label="Middle" />
+              <End end={row.high} figures={known} label="High" />
+            </div>
+          </article>
+        ))}
+      </div>
       {register.footnotes.length ? (
         <ul className="cx-reg-notes">
           {register.footnotes.map((note) => (

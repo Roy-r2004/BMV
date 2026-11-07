@@ -4,17 +4,15 @@ import Logo from './Logo';
 type FooterLink = { to: To; label: string };
 
 const PRODUCT_LINKS: FooterLink[] = [
-  { to: '/demo', label: 'Create my version' },
+  { to: '/demo', label: 'Start a consultation' },
   { to: '/solutions', label: 'Solutions' },
-  { to: '/demo', label: 'Live demos' },
-  { to: { pathname: '/', hash: 'how-it-works' }, label: 'How it works' },
+  { to: '/private-ai', label: 'Private AI' },
 ];
 
 const COMPANY_LINKS: FooterLink[] = [
   { to: '/about', label: 'About us' },
-  { to: '/demo', label: 'Live demos' },
-  { to: '/solutions', label: 'What we build' },
-  { to: '/demo', label: 'Get started' },
+  { to: { pathname: '/about', hash: 'process' }, label: 'How an engagement runs' },
+  { to: '/login', label: 'Sign in' },
 ];
 
 export default function SiteFooter() {
@@ -31,14 +29,14 @@ export default function SiteFooter() {
           <div className="md:col-span-5 lg:col-span-4">
             <Logo to="/" size="md" showName theme="dark" />
             <p className="mt-4 text-sm text-slate-400 leading-relaxed max-w-sm">
-              AI product consultancy — share a tool you admire, we consult, design, and build your version.
+              A consultancy in your browser. It tests your question against your own figures and tells you what to do, with every number traced to where it came from.
             </p>
             <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-60" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400" />
               </span>
-              Free preview · No commitment
+              Free to find out · Quoted only if you build
             </div>
           </div>
 
@@ -76,16 +74,16 @@ export default function SiteFooter() {
             </ul>
           </div>
 
-          <div className="md:col-span-12 lg:col-span-4 lg:col-start-9">
+          <div className="md:col-span-12 lg:col-span-3 lg:col-start-10">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-300 mb-4">Start now</p>
             <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-              Describe your business, share a reference, and get a custom MVP concept with visual preview in minutes.
+              Say what you're trying to work out. It asks one question at a time and comes back with an answer you can check.
             </p>
             <Link
               to="/demo"
               className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all duration-300"
             >
-              Create My Business Version
+              Start a consultation
             </Link>
           </div>
         </div>
@@ -93,12 +91,12 @@ export default function SiteFooter() {
         <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <p>
             © {year} <span className="text-slate-400 font-medium">Build My Version</span>
-            {' '}· BMV AI · Custom MVP design by our team
+            {' '}· BMV AI
           </p>
           <div className="flex gap-6">
             <Link to="/solutions" className="hover:text-slate-300 transition-colors">Solutions</Link>
             <Link to="/about" className="hover:text-slate-300 transition-colors">About</Link>
-            <Link to="/demo" className="hover:text-slate-300 transition-colors">Get started</Link>
+            <Link to="/private-ai" className="hover:text-slate-300 transition-colors">Private AI</Link>
           </div>
         </div>
       </div>

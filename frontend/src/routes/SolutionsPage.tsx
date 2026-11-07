@@ -8,6 +8,7 @@ import { useCycle } from '../components/showroom/useCycle';
 import { CONCEPT_GROUPS, CONCEPTS } from '../data/concepts';
 import '../styles/showroom.css';
 
+import { usePageMeta } from '../utils/pageMeta';
 // Everything shown comes from data/concepts. They are concepts, so the page
 // says so and quotes no results.
 const BY_GROUP = CONCEPT_GROUPS.map((g) => CONCEPTS.filter((c) => c.group === g));
@@ -28,6 +29,7 @@ function Arrow() {
 }
 
 export default function SolutionsPage() {
+  usePageMeta('Solutions', 'Concepts of the AI systems we build around a business, each shown screen by screen.');
   const [group, setGroup] = useState(0);
   const items = BY_GROUP[group];
   const [sel, pick] = useCycle(items.length, 5200);
@@ -52,10 +54,10 @@ export default function SolutionsPage() {
       <section className="show-hero">
         <div className="container-max px-4 sm:px-6 show-hero-grid">
           <div className="show-intro">
-            <h1 className="show-display show-h1">The future, built for your business.</h1>
+            <h1 className="show-display show-h1">Pick a system. Walk every screen.</h1>
             <p className="show-lede">
-              AI software for whole operations, not another chatbot: systems that run the business, grow revenue, create
-              and see the physical world. Each one is a concept we build around your business.
+              Concepts of what we build around a business, each shown screen by screen. They are examples of the
+              work, not a client's results.
             </p>
             <ul className="show-facts">
               {FACTS.map((f) => (
@@ -172,14 +174,13 @@ export default function SolutionsPage() {
       <section className="show-close">
         <div className="container-max px-4 sm:px-6 show-close-inner">
           <div>
-            <h2 className="show-display show-h2">Want one of these built for you?</h2>
+            <h2 className="show-display show-h2">Yours starts from the work, not from this list.</h2>
             <p className="show-body">
-              Tell us how your operation works and we'll tell you which of these fits, and what it would take to build.
+              Tell us how the operation actually runs. We'll say which of these fits, or that none of them does.
             </p>
           </div>
           <Link to="/demo" className="show-cta">
-            Find my AI fit
-            <Arrow />
+            Start with your business
           </Link>
         </div>
       </section>

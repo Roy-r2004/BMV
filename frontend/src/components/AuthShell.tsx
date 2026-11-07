@@ -20,7 +20,7 @@ export default function AuthShell({
   children,
   footer,
   visualTitle = 'BuildMyVersion',
-  visualCopy = 'Diagnose what to automate, prove it with a free clickable preview, then ship the real product with our team.',
+  visualCopy = 'Bring the question. Leave with an answer you can check and a plan you own.',
 }: AuthShellProps) {
   return (
     <div className="auth-shell">
@@ -32,8 +32,8 @@ export default function AuthShell({
         </div>
         <div className="auth-shell__meta">
           <span>AI consultancy</span>
-          <span>Free preview</span>
-          <span>Custom build</span>
+          <span>Free to find out</span>
+          <span>Every figure traced</span>
         </div>
       </aside>
 

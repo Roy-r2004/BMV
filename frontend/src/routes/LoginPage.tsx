@@ -3,8 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { persistAdminSession } from '../api/admin';
 import { useAuth } from '../context/AuthContext';
 import AuthShell from '../components/AuthShell';
-
-export default function LoginPage() {
+
+import { usePageMeta } from '../utils/pageMeta';
+export default function LoginPage() {
+  usePageMeta('Sign in');
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,7 +47,7 @@ export default function LoginPage() {
     <AuthShell
       eyebrow="Account"
       title="Welcome back"
-      lead="Sign in to keep your industry template versions private and edit them with AI."
+      lead="Sign in to pick up your consultation, your answer and every file in your package."
       footer={
         <>
           New here?{' '}

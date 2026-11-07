@@ -7,8 +7,8 @@
  * the column's right edge and the chapter index, and shifted so the subject
  * sits in the middle of that band.
  *
- * Narrow screens: each chapter's text panel starts halfway down the screen,
- * so the subject is fitted into the band between the nav and the panel.
+ * Narrow screens: the picture is its own frame, under the words. The subject
+ * is fitted into that frame.
  */
 import * as THREE from 'three';
 
@@ -39,15 +39,13 @@ export function frameView(
   const d0 = dir.length();
   dir.normalize();
   const right = new THREE.Vector3().crossVectors(UP, dir).normalize();
-  const up = new THREE.Vector3().crossVectors(dir, right).normalize();
   const off = new THREE.Vector3();
   let d: number;
   if (wide) {
     d = Math.max(d0, v.w / (bandFrac * 2 * tanH * aspect * 0.95));
     off.addScaledVector(right, -centreNdc * d * tanH * aspect);
   } else {
-    d = Math.min(Math.max(d0, (v.w * 0.9) / (2 * tanH * aspect), (v.w * 0.62) / (2 * tanH * 0.4)), d0 * 3.5);
-    off.addScaledVector(up, -0.42 * d * tanH);
+    d = Math.max(d0, v.w / (2 * tanH * aspect * 0.7));
   }
   const t = tgt.add(off);
   return { p: t.clone().addScaledVector(dir, d), t };

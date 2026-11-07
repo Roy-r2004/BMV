@@ -744,8 +744,13 @@
     padding-top: 0;
   }
 
-  .show-stage {
-    height: clamp(320px, 70vw, 460px);
+  .show-stage,
+  .show-stage--screens {
+    height: 280px;
+  }
+
+  .show-detail {
+    padding-bottom: 0.5rem;
   }
 
   .show-split,
@@ -767,6 +772,8 @@
 }
 
 @media (max-width: 639px) {
+  .show-stage,
+  .show-stage--screens { height: 400px; }
   .show-picker-list--two,
   .show-pair,
   .show-index,
