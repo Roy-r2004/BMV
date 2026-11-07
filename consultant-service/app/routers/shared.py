@@ -23,7 +23,7 @@ from app.pipeline import compositing, screen_story
 from app.pipeline import action_plan as plan_stage
 from app.pipeline import answer as answer_stage
 from app.pipeline import capacity as capacity_stage
-from app.routers.requests import build_zip
+from app.routers.requests import zip_bundle
 
 router = APIRouter(prefix="/api/shared", tags=["shared"])
 
@@ -112,8 +112,8 @@ def shared_export(token: str, kind: str, db: Session = Depends(get_db)):
 
     req = _load(token, db)
     if kind == "zip":
-        out_path, stub = build_zip(req)
-        headers = {"X-Skipped": ", ".join(build_zip.skipped)} if build_zip.skipped else {}
+        out_path, stub, skipped = zip_bundle(req)
+        headers = {"X-Skipped": ", ".join(skipped)} if skipped else {}
         return FileResponse(out_path, media_type="application/zip", filename=f"{stub}-engagement.zip", headers=headers)
     from app.figures.law import UnstampedSample
 

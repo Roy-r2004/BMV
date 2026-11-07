@@ -1349,10 +1349,10 @@ def export_zip_route(request_ref: str, review_token: str | None = None,
     if _pending_for(req, review_token):
         raise HTTPException(status_code=403, detail="This engagement is with your consultant for review")
 
-    out_path, file_stub = build_zip(req)
+    out_path, file_stub, skipped = zip_bundle(req)
     headers = {}
-    if build_zip.skipped:
-        headers["X-Skipped"] = ", ".join(build_zip.skipped)
+    if skipped:
+        headers["X-Skipped"] = ", ".join(skipped)
     return FileResponse(
         out_path,
         media_type="application/zip",
@@ -1362,10 +1362,27 @@ def export_zip_route(request_ref: str, review_token: str | None = None,
 
 
 def build_zip(req: Request) -> tuple[str, str]:
-    """Every file the list says is available, zipped. A file that is not
-    ready, or a proposal that lost its sample stamp, is skipped and named
-    in `build_zip.skipped` for the X-Skipped header. The zip itself is not
-    a member of the zip."""
+    """(the zip's path, the file stub). `zip_bundle` also says what was skipped."""
+    out_path, file_stub, _skipped = zip_bundle(req)
+    return out_path, file_stub
+
+
+#: The files whose pages carry the package's release stamp, and how often they
+#: are looked at again so every one in a zip carries the same one.
+_STAMPED = ("blueprint", "technical", "operations", "roadmap")
+_STAMP_PASSES = 3
+
+
+def zip_bundle(req: Request) -> tuple[str, str, list[str]]:
+    """Every file the list says is available, zipped, and the keys of the
+    files that were not ready (or a proposal that lost its sample stamp), for
+    the X-Skipped header. The zip itself is not a member of the zip.
+
+    One zip has one stamp. A file's stamp is decided before it is written,
+    and a file written later can change the package's status (a clipped
+    page), so the stamped files are asked for again until none is rebuilt:
+    each serves its file on disk only while its stamp is still the package's.
+    """
     import zipfile
 
     from app.figures.law import UnstampedSample
@@ -1380,7 +1397,7 @@ def build_zip(req: Request) -> tuple[str, str]:
         if item.key == "zip" or not item.available:
             continue
         try:
-            built.append((render_file(req, item.key), item.filename))
+            built.append((item.key, render_file(req, item.key), item.filename))
         except UnstampedSample:
             # a drawn screen lost its SAMPLE DATA stamp: the proposal is not
             # drawn, and the rest of the package still goes out
@@ -1388,17 +1405,32 @@ def build_zip(req: Request) -> tuple[str, str]:
             skipped.append(item.key)
         except (NotReady, screens_export.NotReady, ValueError, RuntimeError):
             skipped.append(item.key)
-    build_zip.skipped = skipped
     if not built:
         raise HTTPException(status_code=400, detail="Documents not ready yet")
+    for _ in range(_STAMP_PASSES):
+        written = {key: _written_at(path) for key, path, _ in built if key in _STAMPED}
+        for key in written:
+            try:
+                render_file(req, key)
+            except (NotReady, ValueError, RuntimeError):
+                logger.warning("request %s: %s could not be stamped again for the zip", req.id, key)
+        if all(_written_at(path) == written[key] for key, path, _ in built if key in written):
+            break
 
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"{req.id}-engagement.zip")
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as bundle:
-        for path, name in built:
+        for _key, path, name in built:
             bundle.write(path, arcname=f"{file_stub}/{name}")
-    return out_path, file_stub
+    return out_path, file_stub, skipped
+
+
+def _written_at(path: str) -> int | None:
+    try:
+        return os.stat(path).st_mtime_ns
+    except OSError:
+        return None
 
 
 @router.get("/{request_ref}/export/pdf/{kind}")

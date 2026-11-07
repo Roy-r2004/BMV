@@ -895,3 +895,50 @@ def test_a_record_of_an_older_row_is_stale_however_late_it_was_made(db):
     assert law.record(row.id, "Volume I", row.updated_at) is None
     law.save(row.id, "Volume I", [], built_at=later, data_at=row.updated_at)
     assert law.record(row.id, "Volume I", row.updated_at)["findings"] == []
+
+
+def test_one_zip_carries_one_stamp(db, monkeypatch):
+    # Review M5: a file stamped FINAL before a later file clipped stayed FINAL in
+    # the same zip as files stamped DRAFT.
+    import zipfile
+
+    from app.config import settings
+    from app.pipeline import export_pdf as ep
+    from app.routers.requests import zip_bundle
+
+    row = _seed(db, mvp_blueprint=CLEAN_MD, technical_plan="## The build\nWe will add the screens.\n")
+    technical = os.path.join(settings.UPLOADS_DIR, "exports", f"{row.id}-technical.pdf")
+
+    def clipped(req):
+        return [("technical", "text lies outside the body frame on page 3: \"x\"")] if os.path.isfile(technical) else []
+
+    monkeypatch.setattr(ep, "_clipped", clipped)
+    path, _stub, skipped = zip_bundle(row)
+    assert skipped == []
+    stamps = {where: law.record(row.id, where, row.updated_at)["stamped"] for where in ("Volume I", "Volume II")}
+    assert stamps == {"Volume I": "draft", "Volume II": "draft"}
+    with zipfile.ZipFile(path) as bundle:
+        names = [n for n in bundle.namelist() if n.endswith(".pdf")]
+        assert len(names) == 2
+
+
+def test_the_skipped_files_belong_to_the_zip_that_skipped_them(db, monkeypatch):
+    # Review L1: build_zip.skipped was one process-wide attribute, so two
+    # requests could send each other's X-Skipped header.
+    from app.routers import requests as routes
+    from app.storyline import files
+    from app.storyline.roadmap import NotReady
+
+    real = files.render_file
+    first = _seed(db, mvp_blueprint=CLEAN_MD, technical_plan="## The build\nWe will add the screens.\n")
+    second = _seed(db, mvp_blueprint=CLEAN_MD)
+
+    def render(req, key):
+        if req.id == first.id and key == "technical":
+            raise NotReady("technical")
+        return real(req, key)
+
+    monkeypatch.setattr(files, "render_file", render)
+    assert routes.zip_bundle(first)[2] == ["technical"]
+    assert routes.zip_bundle(second)[2] == []
+    assert not hasattr(routes.build_zip, "skipped")
