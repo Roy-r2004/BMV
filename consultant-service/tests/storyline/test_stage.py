@@ -181,3 +181,55 @@ def test_prompt_asks_for_no_amounts_and_no_hedging():
     assert "hedge" in text
     for word in ("confident", "not sure", "validation", "ai-native"):
         assert word not in text
+
+
+def test_a_number_nobody_owns_in_the_register_words_is_sent_back(monkeypatch):
+    # Review C1: the register's words were checked for shape only, so "$999" and
+    # "$5,000" were stored and printed with no law check.
+    bad = _reply()
+    bad["register"][0]["recommendation"] = "Raise the price to $999 a class."
+    bad["register"][0]["cost_figure"] = None
+    bad["register"][0]["cost_needs"] = "a quote of $5,000 from the builder"
+    chat, sent = _chat([bad, _reply()])
+    monkeypatch.setattr(provider, "chat", chat)
+    db = SessionLocal()
+    row = _row(db)
+    write(db, row.id)
+    db.refresh(row)
+    assert len(sent) == 2
+    assert "$999" in sent[1] and "recommendation 1" in sent[1]
+    assert "$999" not in row.storyline_json and "$5,000" not in row.storyline_json
+    db.close()
+
+
+def test_a_number_nobody_owns_in_the_cost_gap_is_sent_back(monkeypatch):
+    bad = _reply()
+    bad["register"][1]["cost_figure"] = None
+    bad["register"][1]["cost_needs"] = "a quote of $5,000 from the builder"
+    chat, sent = _chat([bad, _reply()])
+    monkeypatch.setattr(provider, "chat", chat)
+    db = SessionLocal()
+    row = _row(db)
+    write(db, row.id)
+    db.refresh(row)
+    assert len(sent) == 2 and "$5,000" in sent[1]
+    db.close()
+
+
+def test_figure_tokens_are_bound_before_the_storyline_is_stored(monkeypatch):
+    # Review C2: the raw "{{F:CF-04}}" was stored and printed in the PDF and on the web.
+    reply = _reply(sections=[{"id": "week", "title": "The class stays full at {{F:CF-04}}",
+                              "takeaway": "Keep the price at {{F:CF-04}}."}])
+    reply["register"][0]["recommendation"] = "Keep the price at {{F:CF-04}}."
+    chat, _sent = _chat([reply])
+    monkeypatch.setattr(provider, "chat", chat)
+    db = SessionLocal()
+    row = _row(db)
+    write(db, row.id)
+    db.refresh(row)
+    stored = json.loads(row.storyline_json)
+    assert "{{" not in row.storyline_json
+    assert stored["sections"][0]["title"] == "The class stays full at $22"
+    assert stored["sections"][0]["takeaway"] == "Keep the price at $22."
+    assert stored["register"][0]["recommendation"] == "Keep the price at $22."
+    db.close()

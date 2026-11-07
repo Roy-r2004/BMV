@@ -102,7 +102,29 @@ def _accept(req, raw: dict, known, builds: bool) -> dict:
         assemble(req, drafted)
     except RegisterInvalid as exc:
         raise _Rejected("\n".join(exc.reasons)) from exc
-    return {"register": drafted, "sections": _sections(raw.get("sections"), known, builds)}
+    return {"register": _register_words(drafted, known),
+            "sections": _sections(raw.get("sections"), known, builds)}
+
+
+#: The register's words a row prints. Each is checked for numbers like a title.
+_ROW_WORDS = (("recommendation", "recommendation"), ("changes", "what it changes"),
+              ("owner", "owner"), ("cost_needs", "cost"))
+
+
+def _register_words(drafted: list, known) -> list[dict]:
+    """The drafted rows with every printed word checked and bound: a number in
+    them is a figure this engagement has, written as the figure prints, so no
+    token is ever stored. A number nobody owns sends the reply back."""
+    kept = []
+    for index, row in enumerate(drafted, 1):
+        row = dict(row)
+        for key, said in _ROW_WORDS:
+            text = row.get(key)
+            if isinstance(text, str) and text.strip():
+                _numbers(text, f"{said} of recommendation {index}", known)
+                row[key] = bind(text, known).text
+        kept.append(row)
+    return kept
 
 
 def _sections(raw, known, builds: bool) -> list[dict]:
@@ -122,12 +144,13 @@ def _sections(raw, known, builds: bool) -> list[dict]:
         _numbers(title, "title", known)
         if takeaway:
             _numbers(takeaway, "takeaway", known)
-        if title_lines(bind(title, known).text) > 2:
+        title = bind(title, known).text
+        if title_lines(title) > 2:
             raise _Rejected(
                 "A title has to fit on two lines. This one does not. "
                 "Write a shorter title that fits on two lines. Do not cut a word off."
             )
-        kept.append({"id": sid, "title": title, "takeaway": takeaway})
+        kept.append({"id": sid, "title": title, "takeaway": bind(takeaway, known).text if takeaway else ""})
     return kept
 
 
