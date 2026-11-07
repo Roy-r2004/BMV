@@ -116,7 +116,7 @@ export default function FrontDoor({
           {...enter(0.3)}
         >
           <p><b className="text-[var(--cx-txt)]">Nothing is built</b> until you've read our answer.</p>
-          <p><b className="text-[var(--cx-txt)]">Every number</b> will be yours, never invented.</p>
+          <p><b className="text-[var(--cx-txt)]">Every number</b> is labelled: yours, worked out from yours, or our estimate.</p>
           <p><b className="text-[var(--cx-txt)]">Your own idea</b> gets tested like any other.</p>
         </motion.div>
       </div>
