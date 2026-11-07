@@ -90,6 +90,7 @@ def draw_pdf(exhibit: Exhibit, width: float, height: float) -> Drawing:
         largest = Decimal(1)
     bars = any(row.get("figure_id") for row in rows)
     bar_max = width - 16
+    face = _face()
     for index, row in enumerate(rows):
         base = 4 + (len(rows) - 1 - index) * row_h
         bar_h = min(row_h * 0.4, 9.0) if bars else 0.0
@@ -101,8 +102,18 @@ def draw_pdf(exhibit: Exhibit, width: float, height: float) -> Drawing:
         words = " ".join(part for part in (str(row.get("drawn") or row.get("label") or ""),
                                            str(row.get("display") or ""), str(row.get("tag") or "")) if part)
         drawing.add(String(8, float(base) + float(bar_h) + 2, _fit(law.check(words), bar_max),
-                           fontName=_FONT, fontSize=_SIZE))
+                           fontName=face, fontSize=_SIZE))
     return drawing
+
+
+def _face() -> str:
+    """The volumes' own body face, which the PDF embeds."""
+    try:
+        from app.pipeline.export_pdf import F_BODY
+
+        return F_BODY
+    except Exception:
+        return _FONT
 
 
 def height_for(exhibit: Exhibit) -> float:
