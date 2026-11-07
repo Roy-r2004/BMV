@@ -1,0 +1,78 @@
+/* The Examples page: the business tabs, the case file beside its 3D screens,
+   a dark band, and the visitor's own question. Built on firm.css. */
+
+.ex-head { padding: clamp(3rem, 7vw, 5.5rem) 0 0; }
+.ex-head .fm-h1 { max-width: 19em; }
+
+/* the tabs: a ruled row of businesses, scrolling sideways on a phone */
+.ex-tabs-wrap { margin-top: clamp(2.25rem, 4vw, 3rem); border-bottom: 1px solid var(--fm-line); }
+.ex-tabs { display: flex; gap: .25rem; overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--fm-gutter) * -1); padding: 0 var(--fm-gutter); }
+.ex-tabs::-webkit-scrollbar { display: none; }
+.ex-tabs button { flex: none; position: relative; padding: 1rem .9rem 1.05rem; background: none; border: 0; cursor: pointer; font: 500 .98rem/1 var(--fm-sans); color: var(--fm-muted); white-space: nowrap; }
+.ex-tabs button:first-child { padding-left: 0; }
+.ex-tabs button:hover { color: var(--fm-ink); }
+.ex-tabs button[aria-selected="true"] { color: var(--fm-ink); font-weight: 600; }
+.ex-tabs button[aria-selected="true"]::after { content: ''; position: absolute; left: .9rem; right: .9rem; bottom: -1px; height: 3px; background: var(--fm-blue); }
+.ex-tabs button:first-child[aria-selected="true"]::after { left: 0; }
+.ex-tabs button:focus-visible { outline: 2px solid var(--fm-blue); outline-offset: -4px; }
+
+/* the case file */
+.ex-file { padding: clamp(2.5rem, 6vw, 4.5rem) 0 clamp(3.5rem, 7vw, 5.5rem); scroll-margin-top: 64px; }
+.ex-grid { display: grid; gap: 2.5rem; }
+.ex-label { margin: 0 0 .8rem; font-weight: 600; color: var(--fm-blue); }
+.ex-question { margin: 0; font: 600 clamp(1.6rem, 3vw, 2.35rem)/1.2 var(--fm-serif); color: var(--fm-ink); letter-spacing: -0.01em; text-wrap: balance; }
+.ex-block { margin-top: 2.5rem; }
+.ex-h { margin: 0 0 1rem; font: 600 1.15rem/1.3 var(--fm-sans) !important; color: var(--fm-ink); letter-spacing: 0 !important; }
+.ex-tests { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--fm-line); }
+.ex-tests li { display: grid; gap: .5rem; padding: 1rem 0; border-bottom: 1px solid var(--fm-line); }
+.ex-tests p { margin: 0; line-height: 1.55; color: var(--fm-text); }
+.ex-tests li > span { font-size: .88rem; color: var(--fm-faint); }
+.ex-tests .fm-tag { margin-left: .3rem; white-space: normal; }
+.ex-note { margin: .9rem 0 0; font-size: .92rem; line-height: 1.6; color: var(--fm-muted); }
+.ex-system { margin: 0 0 .6rem; font: 600 1.45rem/1.25 var(--fm-serif); color: var(--fm-ink); }
+.ex-measures { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.ex-measures li { position: relative; padding-left: 1.1rem; line-height: 1.5; color: var(--fm-text); }
+.ex-measures li::before { content: ''; position: absolute; left: 0; top: .6em; width: 6px; height: 6px; background: var(--fm-blue); }
+.ex-go { margin-top: 2.5rem; padding-top: 2rem; border-top: 2px solid var(--fm-ink); }
+.ex-visual-cap { margin: .8rem 0 0; font-size: .88rem; color: var(--fm-faint); }
+
+@media (min-width: 1024px) {
+  .ex-grid { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 4.5rem; align-items: start; }
+  .ex-visual { position: sticky; top: 96px; }
+}
+@media (max-width: 1023px) {
+  /* a phone sees the system's screens first, then reads the case */
+  .ex-visual { order: -1; }
+}
+@media (max-width: 639px) {
+  .ex-go .fm-btn { width: 100%; min-height: 52px; white-space: normal; text-align: center; }
+}
+
+/* the dark band */
+.ex-band { background: var(--fm-ink); color: #c7d2df; padding: clamp(3.5rem, 8vw, 6rem) 0; }
+.ex-band-line { margin: 0; font: 600 clamp(2rem, 4.6vw, 3.6rem)/1.08 var(--fm-serif); color: #fff; letter-spacing: -0.015em; }
+.ex-band-body { margin: 1.25rem 0 0; max-width: 38em; font-size: 1.06rem; line-height: 1.65; }
+.ex-band-link { display: inline-block; margin-top: 1.75rem; color: #fff; font-weight: 600; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
+.ex-band-link:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+
+/* the visitor's own question */
+.ex-own { display: grid; gap: 2rem; }
+@media (min-width: 1024px) {
+  .ex-own { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 4.5rem; }
+}
+
+/* the 3D screens (components/concepts/ConceptScreens) */
+.show-stage { position: relative; height: clamp(320px, 32vw, 440px); border: 1px solid var(--fm-line); border-radius: 2px; background: linear-gradient(180deg, #f8fafc, #eef2f7); overflow: hidden; }
+.show-stage > canvas { position: absolute; inset: 0; display: block; }
+.show-labels { position: absolute; inset: 0; pointer-events: none; }
+.show-lbl { position: absolute; left: 0; top: 0; opacity: 0; visibility: hidden; white-space: nowrap; will-change: transform, opacity; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; border-radius: 3px; border: 1px solid var(--fm-line); background: rgba(255, 255, 255, .95); font: 600 12px/1 var(--fm-sans); color: var(--fm-ink); }
+.show-lbl::before { content: ''; width: 6px; height: 6px; background: var(--fm-blue); }
+.show-flat-screens { list-style: none; margin: 0; padding: 1rem 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1.5rem; border-top: 1px solid var(--fm-line); }
+.show-flat-screens li { padding: .5rem 0; border-bottom: 1px solid var(--fm-line); font-weight: 500; color: var(--fm-ink); }
+@media (max-width: 1023px) {
+  .show-stage { height: 280px; }
+}
+@media (max-width: 639px) {
+  .show-stage { height: 240px; }
+  .show-lbl { font-size: 11px; }
+}

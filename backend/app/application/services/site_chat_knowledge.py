@@ -49,24 +49,21 @@ SITE_KNOWLEDGE = """
 - Scope labels used in the form (not prices): Starter scope, Standard scope, Full build, Not sure yet
 - Timeline options: ASAP (2–4 weeks), 1–2 months, 2–3 months, Flexible
 
-## Solutions (concepts at /solutions)
-/solutions shows concepts of large AI systems we can build, each shown screen by screen.
-They are concepts, not delivered client projects and not ready-made products — never
-say a client already runs one, and never quote results for them.
-- Run the business — Business Digital Twin, Autonomous AI Workforce, Autonomous Finance Office,
-  AI Procurement Negotiator, AI Compliance Officer, Sovereign Company AI
-- Grow revenue — Synthetic Customer Lab, AI Sales Development Team, Voice AI Contact Center,
-  Personal Video Studio, Dynamic Pricing Engine
-- Create — Generative Product Studio, AI Ad Film Studio, 3D & AR Commerce,
-  Global Localisation Studio, Brand & Legal Guardian
-- See the physical world — Vision-Powered Store, Hospital Command Center, Construction Site Twin,
-  Predictive Maintenance Radar, Energy Autopilot
-Any of them is shaped around the visitor's business after a consultation; building is quoted.
+## Examples (at /solutions)
+/solutions shows eight kinds of business we work with: clinics, restaurants, shops, studios and gyms,
+professional firms, logistics, home services and new ventures. For each it shows the question an owner
+brings, what a consultation would test against the owner's own figures, the system it could lead to,
+and what would show it worked. They illustrate the method; they are not clients — never say a client
+runs one, and never quote results. A visitor can start a consultation with an example's question
+already written. Not every answer is software: the answer says so when it is not.
 
 ## Key site pages (guide the user)
 - / — Home: what the consultancy does, step by step, and where to start
 - /demo — Start a consultation ($200): one question, then the conversation, the answer and the package
-- /solutions — AI solution concepts, grouped by area of the business
+- /solutions — examples: eight kinds of business, the question each brings and what a consultation does with it
+- /services — The three services: the consultation ($200), system builds and private AI (both quoted after scoping)
+- /approach — How a consultation is run, and the labels every figure carries
+- /contact — Write to consulting@buildmyversion.com
 - /private-ai — Private AI deployments on infrastructure the client owns and controls
 - /about — Who we are / method
 - /login, /signup — Account

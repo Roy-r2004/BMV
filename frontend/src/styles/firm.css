@@ -42,7 +42,7 @@
 .fm-link:hover { color: var(--fm-blue-dark); }
 
 /* ── navigation ───────────────────────────────────────────────────────── */
-.fm-nav { position: fixed; inset: 0 0 auto 0; z-index: 50; background: rgba(255, 255, 255, .97); border-bottom: 1px solid var(--fm-line); padding-top: env(safe-area-inset-top); }
+.fm-nav { position: fixed; inset: 0 0 auto 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--fm-line); padding-top: env(safe-area-inset-top); }
 .fm-nav-bar { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; height: 64px; }
 .fm-brand { display: inline-flex; align-items: center; gap: .7rem; text-decoration: none; color: var(--fm-ink); flex-shrink: 0; }
 .fm-brand img { width: 36px; height: 36px; object-fit: contain; }

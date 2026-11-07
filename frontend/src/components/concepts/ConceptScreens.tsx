@@ -1,6 +1,6 @@
 /**
  * The Examples page's picture: the chosen concept's own screens (from
- * `screens` in data/concepts) as a fan of floating app panels over a white
+ * `screens` in data/examples) as a fan of floating app panels over a white
  * floor. Choosing another concept flips the panels one after another to the
  * new concept's screens. Labels name each screen.
  *

@@ -1,190 +1,186 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import ConceptScreens from '../components/concepts/ConceptScreens';
-import { CONCEPT_ICONS } from '../components/concepts/ConceptIcons';
-import { useCycle } from '../components/showroom/useCycle';
-import { CONCEPT_GROUPS, CONCEPTS } from '../data/concepts';
-import '../styles/showroom.css';
-
+import { EXAMPLES } from '../data/examples';
+import { PRICE_LINE } from '../data/offer';
+import { saveFrontDoor } from '../utils/frontDoor';
 import { usePageMeta } from '../utils/pageMeta';
-// Everything shown comes from data/concepts. They are concepts, so the page
-// says so and quotes no results.
-const BY_GROUP = CONCEPT_GROUPS.map((g) => CONCEPTS.filter((c) => c.group === g));
-const FACTS = [`${CONCEPTS.length} concepts`, `${CONCEPT_GROUPS.length} areas of the business`, 'Every one shown screen by screen'];
+import '../styles/examples.css';
 
-const PRINCIPLES = [
-  'Whole systems, not single features',
-  'Every concept shown screen by screen',
-  'Yours starts from how your business actually works',
-];
+// The 3D scene draws each example's screens; it needs a name and the screens.
+const SCENES = EXAMPLES.map((e) => ({ name: e.system, screens: e.screens }));
 
-function Arrow() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
+/**
+ * The Examples page. A visitor picks the kind of business closest to theirs,
+ * reads the question an owner of one brings us, what the consultation would
+ * test and against which of their own figures, and what it could lead to.
+ * Then they can start a consultation with that question already written,
+ * ready to change into their own.
+ */
 export default function SolutionsPage() {
-  usePageMeta('Example systems', 'Concepts of the AI systems we build around a business, each shown screen by screen.');
-  const [group, setGroup] = useState(0);
-  const items = BY_GROUP[group];
-  const [sel, pick] = useCycle(items.length, 5200);
-  const c = items[Math.min(sel, items.length - 1)];
-  const visualRef = useRef<HTMLDivElement>(null);
+  usePageMeta(
+    'Examples',
+    'Eight kinds of business, the question an owner of each brings us, what a consultation tests and what it can lead to.',
+  );
+  const navigate = useNavigate();
+  const [sel, setSel] = useState(0);
+  const [own, setOwn] = useState('');
+  const fileRef = useRef<HTMLDivElement>(null);
+  const ex = EXAMPLES[sel];
 
-  const openGroup = (g: number, i = 0) => {
-    setGroup(g);
-    pick(i);
+  const choose = (i: number) => {
+    setSel(i);
+    // on a phone the case sits below the tabs; bring its top into view
+    if (window.innerWidth < 1024) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      fileRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    }
   };
-  const showFromIndex = (g: number, i: number) => {
-    openGroup(g, i);
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    visualRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+  const start = (text: string) => {
+    saveFrontDoor(text);
+    navigate('/demo');
   };
 
   return (
-    <div className="show-page min-h-screen overflow-x-clip">
+    <div className="fm-page ex-page min-h-screen">
       <SiteNav />
-
-      {/* ── the concepts, screen by screen ─────────────────────────────── */}
-      <section className="show-hero">
-        <div className="container-max px-4 sm:px-6 show-hero-grid">
-          <div className="show-intro">
-            <h1 className="show-display show-h1">Example systems, shown screen by screen</h1>
-            <p className="show-lede">
-              Concepts of what we build around a business, each shown screen by screen. They are examples of the
-              work, not a client's results.
+      <main>
+        <header className="ex-head">
+          <div className="fm-wrap">
+            <p className="fm-kicker">Examples</p>
+            <h1 className="fm-h1">Eight businesses, eight questions, and what a consultation does with each</h1>
+            <p className="fm-lede">
+              Choose the business closest to yours. You will see the question its owner brings us, what we would test
+              against their own figures, and what it could lead to. These are illustrations of the method, not client
+              results.
             </p>
-            <ul className="show-facts">
-              {FACTS.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
           </div>
-
-          <div className="show-visual" ref={visualRef}>
-            <ConceptScreens concepts={CONCEPTS} selected={CONCEPTS.indexOf(c)} />
-            <article className="show-detail" aria-live="polite">
-              <div className="show-detail-head">
-                <span className="show-icon">{CONCEPT_ICONS[c.id]}</span>
-                <div>
-                  <h2 className="show-display show-detail-title">{c.name}</h2>
-                  <span className="show-tag">{c.industry}</span> <span className="show-tag show-tag--quiet">Concept</span>
-                </div>
-              </div>
-              <p className="show-detail-body">{c.tagline}</p>
-              <dl className="show-pair">
-                <div>
-                  <dt>Who it's for</dt>
-                  <dd>{c.buyer}</dd>
-                </div>
-                <div>
-                  <dt>What changes</dt>
-                  <dd>{c.change}</dd>
-                </div>
-              </dl>
-              <ul className="show-ticks show-ticks--two">
-                {c.features.map((f) => (
-                  <li key={f}>{f}</li>
-                ))}
-              </ul>
-              <p className="show-detail-foot">A concept of what we can build, shaped around your business. Not a client case study.</p>
-            </article>
-          </div>
-
-          <div className="show-picker">
-            <div className="show-tabs" role="group" aria-label="Area of the business">
-              {CONCEPT_GROUPS.map((g, i) => (
-                <button key={g} type="button" aria-pressed={i === group} onClick={() => openGroup(i)}>
-                  {g}
-                </button>
-              ))}
-            </div>
-            <ul className="show-picker-list">
-              {items.map((x, i) => (
-                <li key={x.id}>
+          <div className="ex-tabs-wrap">
+            <div className="fm-wrap">
+              <div className="ex-tabs" role="tablist" aria-label="Kind of business">
+                {EXAMPLES.map((e, i) => (
                   <button
+                    key={e.id}
                     type="button"
-                    className={x.id === c.id ? 'is-on' : undefined}
-                    aria-pressed={x.id === c.id}
-                    onClick={() => pick(i)}
-                    onMouseEnter={() => pick(i)}
-                    onFocus={() => pick(i)}
+                    role="tab"
+                    id={`ex-tab-${e.id}`}
+                    aria-selected={i === sel}
+                    aria-controls="ex-file"
+                    onClick={() => choose(i)}
                   >
-                    <span className="show-icon show-icon--sm">{CONCEPT_ICONS[x.id]}</span>
-                    <span className="show-picker-name">
-                      {x.name}
-                      <small>{x.industry}</small>
-                    </span>
+                    {e.business}
                   </button>
-                </li>
-              ))}
-            </ul>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </header>
 
-      {/* ── every concept, by area ─────────────────────────────────────── */}
-      <section className="show-band">
-        <div className="container-max px-4 sm:px-6">
-          <h2 className="show-display show-h2">Every example, by area of the business</h2>
-          <p className="show-body">Choose any of them to see it screen by screen.</p>
-          <div className="show-groups">
-            {BY_GROUP.map((list, g) => (
-              <div key={CONCEPT_GROUPS[g]}>
-                <h3 className="show-display show-group-title">{CONCEPT_GROUPS[g]}</h3>
-                <ul className="show-index show-index--one">
-                  {list.map((x, i) => (
-                    <li key={x.id}>
-                      <button type="button" onClick={() => showFromIndex(g, i)}>
-                        <span className="show-icon show-icon--sm">{CONCEPT_ICONS[x.id]}</span>
-                        <span className="show-index-text">
-                          <span className="show-index-name">{x.name}</span>
-                          <span className="show-index-line">{x.tagline}</span>
-                        </span>
-                        <Arrow />
-                      </button>
+        <section className="ex-file" id="ex-file" role="tabpanel" aria-labelledby={`ex-tab-${ex.id}`} ref={fileRef}>
+          <div className="fm-wrap ex-grid">
+            <div className="ex-text">
+              <p className="ex-label">The owner’s question</p>
+              <blockquote className="ex-question">“{ex.question}”</blockquote>
+
+              <div className="ex-block">
+                <h2 className="ex-h">What the consultation tests</h2>
+                <ul className="ex-tests">
+                  {ex.tests.map((t) => (
+                    <li key={t.claim}>
+                      <p>{t.claim}</p>
+                      <span>
+                        Tested against <span className="fm-tag fm-tag--theirs">{t.against}</span>
+                      </span>
                     </li>
                   ))}
                 </ul>
+                <p className="ex-note">
+                  Each explanation the figures contradict is ruled out, with the reason. If none survives, the answer says
+                  so.
+                </p>
               </div>
-            ))}
+
+              <div className="ex-block">
+                <h2 className="ex-h">What it can lead to</h2>
+                <p className="ex-system">{ex.system}</p>
+                <p className="fm-p">{ex.systemLine}</p>
+              </div>
+
+              <div className="ex-block">
+                <h2 className="ex-h">What would show it worked</h2>
+                <ul className="ex-measures">
+                  {ex.measures.map((m) => (
+                    <li key={m}>{m}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="ex-go">
+                <button type="button" className="fm-btn" onClick={() => start(ex.question)}>
+                  Start a consultation with this question
+                </button>
+                <p className="fm-note">You can change the question into your own before it starts. {PRICE_LINE}</p>
+              </div>
+            </div>
+
+            <div className="ex-visual">
+              <ConceptScreens concepts={SCENES} selected={sel} />
+              <p className="ex-visual-cap">The screens of {ex.system.toLowerCase()}, as the technical plan would set them out.</p>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── what these have in common ──────────────────────────────────── */}
-      <section className="show-section">
-        <div className="container-max px-4 sm:px-6">
-          <ul className="show-principles">
-            {PRINCIPLES.map((p) => (
-              <li key={p} className="show-display">
-                {p}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* ── your own ───────────────────────────────────────────────────── */}
-      <section className="show-close">
-        <div className="container-max px-4 sm:px-6 show-close-inner">
-          <div>
-            <h2 className="show-display show-h2">Your system is designed from how your business works</h2>
-            <p className="show-body">
-              Tell us how the operation actually runs. We'll say which of these fits, or that none of them does.
+        <section className="ex-band">
+          <div className="fm-wrap">
+            <p className="ex-band-line">Not every answer is software.</p>
+            <p className="ex-band-body">
+              When the figures point to a change in price, schedule or staffing, the answer says so and nothing is built.
+              A system is recommended only when the figures show it pays for itself.
             </p>
+            <Link to="/approach" className="ex-band-link">
+              How we test an answer
+            </Link>
           </div>
-          <Link to="/demo" className="show-cta">
-            Start with your business
-          </Link>
-        </div>
-      </section>
+        </section>
 
+        <section className="fm-section">
+          <div className="fm-wrap ex-own">
+            <div>
+              <h2 className="fm-h2">Your business is not one of these?</h2>
+              <p className="fm-intro" style={{ marginTop: '1rem' }}>
+                The method is the same for every business. Write the question in your own words and the consultation
+                starts from it.
+              </p>
+            </div>
+            <form
+              className="fm-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                start(own);
+              }}
+            >
+              <div className="fm-field">
+                <label htmlFor="ex-own">What would you like to work out?</label>
+                <textarea
+                  id="ex-own"
+                  rows={4}
+                  value={own}
+                  onChange={(e) => setOwn(e.target.value)}
+                  placeholder="Describe it as you would to an adviser."
+                />
+              </div>
+              <div>
+                <button type="submit" className="fm-btn">
+                  Start a consultation
+                </button>
+                <p className="fm-note">{PRICE_LINE}</p>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
       <SiteFooter />
     </div>
   );
