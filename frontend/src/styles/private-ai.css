@@ -162,7 +162,7 @@
 /* clears the site's chat button in the bottom-right corner */
 .pai-caption {
   position: absolute;
-  right: 112px;
+  left: calc(50% + 40px);
   bottom: 30px;
   max-width: 320px;
   padding-left: 14px;

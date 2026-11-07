@@ -164,7 +164,7 @@
 
 .about-caption {
   position: absolute;
-  right: 112px;
+  left: calc(50% + 40px);
   bottom: 30px;
   max-width: 300px;
   padding-left: 14px;

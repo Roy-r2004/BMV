@@ -10,13 +10,6 @@ body {
   overflow-x: clip;
 }
 
-@supports (padding: env(safe-area-inset-bottom)) {
-  .site-chat {
-    bottom: calc(0.85rem + env(safe-area-inset-bottom));
-    right: calc(0.75rem + env(safe-area-inset-right));
-  }
-}
-
 /* ═══════════════════════════════════════════
    PHONE (≤767px)
    ═══════════════════════════════════════════ */
@@ -375,37 +368,6 @@ body {
     font-size: 1rem !important;
     padding-left: 0.85rem !important;
     padding-right: 0.85rem !important;
-  }
-
-  .site-chat__panel {
-    width: calc(100vw - 1rem) !important;
-    max-height: min(78dvh, 34rem) !important;
-    border-radius: 1.15rem !important;
-  }
-
-  .site-chat__fab {
-    width: 3.75rem !important;
-    height: 3.75rem !important;
-    border-radius: 1.1rem !important;
-  }
-
-  .site-chat__bot {
-    width: 2.35rem !important;
-  }
-
-  .site-chat__bubble {
-    font-size: 0.9rem !important;
-  }
-
-  .site-chat__form input {
-    font-size: 16px !important;
-    min-height: 2.75rem;
-  }
-
-  .site-chat__form button {
-    min-height: 2.75rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
   }
 
   /* Marketing pages: room for chat FAB */

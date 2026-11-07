@@ -25,7 +25,7 @@
 .ls-deck-count b { color: var(--ink); font-weight: 700; margin-right: 6px; }
 .ls-deck-bar { position: absolute; left: 0; top: 0; width: 180px; height: 4px; border-radius: 4px; background: #dbeafe; opacity: 0; overflow: hidden; }
 .ls-deck-bar i { display: block; height: 100%; width: 0; background: var(--blue); }
-.ls-caption { position: absolute; right: 48px; bottom: 30px; max-width: 320px; padding-left: 14px; border-left: 1.5px solid var(--blue); font-size: 13px; line-height: 1.5; color: var(--muted); z-index: 3; }
+.ls-caption { position: absolute; left: calc(50% + 40px); bottom: 30px; max-width: 320px; padding-left: 14px; border-left: 1.5px solid var(--blue); font-size: 13px; line-height: 1.5; color: var(--muted); z-index: 3; }
 
 .ls-chapter { position: relative; z-index: 1; min-height: 100vh; display: flex; align-items: center; padding-block: 112px 72px; pointer-events: none; }
 .ls-chapter > .ls-wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
@@ -70,28 +70,33 @@
   .ls-chapter { align-items: flex-start; padding-top: 104px; }
 }
 @media (max-width: 1023px) {
-  /* A phone keeps the 3D product pinned under the nav; the words scroll
-     beneath it, and opening a step moves the product above. */
-  .ls-story { display: block; }
+  /* A phone reads the opening on its own, headline and actions above the
+     fold. The 3D product comes after it and stays pinned under the nav only
+     while the steps are read, so opening a step moves the product above. */
+  .ls-story { display: flex; flex-direction: column; }
+  .ls-chapter:first-of-type { order: 0; }
   .ls-stage {
+    order: 1;
     position: sticky; top: 64px; z-index: 2;
-    height: 40svh; height: 40vh; height: 40svh;
+    height: 34svh; height: 34vh; height: 34svh;
     margin-bottom: 0;
     background: var(--ground);
-    -webkit-mask-image: linear-gradient(180deg, #000 82%, transparent);
-    mask-image: linear-gradient(180deg, #000 82%, transparent);
+    -webkit-mask-image: linear-gradient(180deg, #000 85%, transparent);
+    mask-image: linear-gradient(180deg, #000 85%, transparent);
   }
+  .ls-walk { order: 2; }
   .ls-scrim, .ls-caption, .ls-labels { display: none; }
-  .ls-chapter { min-height: 0; align-items: flex-start; padding: 1.25rem 0 3rem; }
-  .ls-chapter:first-of-type { padding-top: .5rem; }
+  .ls-chapter { min-height: 0; align-items: flex-start; padding: .75rem 0 3rem; }
+  .ls-chapter:first-of-type { padding: calc(64px + 2.25rem) 0 2.75rem; }
   .ls-chapter > .ls-wrap { padding: 0 20px; }
   .ls-col { width: auto; max-width: 40rem; }
-  .ls-h1 { font-size: clamp(2.1rem, 9.6vw, 2.9rem); line-height: 1.04; }
-  .ls-lede { margin-top: .9rem; font-size: 1.02rem; }
-  .ls-go { margin-top: 1.4rem; }
-  .ls-go .ls-cta, .ls-go .ls-ghost, .ls-walk-nav .ls-cta, .ls-walk-nav .ls-ghost { flex: 1 1 100%; width: 100%; justify-content: center; padding: 1rem 1.15rem; }
-  .ls-steps button { padding: .95rem 0; }
+  .ls-h1 { font-size: clamp(2.1rem, 9.6vw, 2.9rem); line-height: 1.06; }
+  .ls-lede { margin-top: 1rem; font-size: 1.02rem; }
+  .ls-go { margin-top: 1.5rem; gap: .75rem; }
+  .ls-go .ls-cta, .ls-go .ls-ghost, .ls-walk-nav .ls-cta, .ls-walk-nav .ls-ghost { flex: 1 1 100%; width: 100%; justify-content: center; padding: 1rem 1.15rem; min-height: 52px; }
+  .ls-steps button { padding: 1rem 0; font-size: 1.02rem; }
   .ls-step-body { padding-left: 2.5rem; }
+  .ls-h3 { font-size: 1.3rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ls-step-body { animation: none; }

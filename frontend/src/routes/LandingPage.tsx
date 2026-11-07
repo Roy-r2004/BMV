@@ -196,6 +196,23 @@ export default function LandingPage() {
   }, []);
 
   const [step, setStep] = useState(1);
+  // On a phone the 3D product is pinned above the steps, so an opened step is
+  // brought to just below it; otherwise its title would sit under the picture.
+  const opened = useRef(false);
+  const open = (s: number) => {
+    opened.current = true;
+    setStep(s);
+  };
+  useEffect(() => {
+    if (!opened.current || window.innerWidth >= 1024) return;
+    opened.current = false;
+    const li = document.getElementById(`ls-step-${step}`)?.parentElement;
+    const stage = stageRef.current;
+    if (!li || !stage) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const y = li.getBoundingClientRect().top + window.scrollY - (64 + stage.offsetHeight + 8);
+    window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+  }, [step]);
   const walkRef = useRef<HTMLElement>(null);
   const toWalk = () => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -250,7 +267,7 @@ export default function LandingPage() {
                         type="button"
                         aria-expanded={on}
                         aria-controls={`ls-step-${x.state}`}
-                        onClick={() => setStep(x.state)}
+                        onClick={() => open(x.state)}
                       >
                         <span className="ls-step-no">{i + 1}</span>
                         {x.tab}
@@ -267,7 +284,7 @@ export default function LandingPage() {
               </ol>
               <div className="ls-walk-nav">
                 {at < STEPS.length - 1 ? (
-                  <button type="button" className="ls-ghost" onClick={() => setStep(STEPS[at + 1].state)}>
+                  <button type="button" className="ls-ghost" onClick={() => open(STEPS[at + 1].state)}>
                     Next: {STEPS[at + 1].tab.toLowerCase()}
                   </button>
                 ) : (
