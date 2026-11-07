@@ -85,10 +85,9 @@ function frameView(v: (typeof VIEWS)[number], camera: THREE.PerspectiveCamera, W
   const bandFrac = bandR - bandL, centreNdc = bandL + bandR - 1;
   const tgt = new THREE.Vector3(...v.t), dir = new THREE.Vector3(...v.p).sub(tgt), d0 = dir.length(); dir.normalize();
   const right = new THREE.Vector3().crossVectors(UP, dir).normalize();
-  const up = new THREE.Vector3().crossVectors(dir, right).normalize();
   const off = new THREE.Vector3(); let d: number;
   if (wide) { d = Math.max(d0, v.w / (bandFrac * 2 * tanH * aspect * 0.95)); off.addScaledVector(right, -centreNdc * d * tanH * aspect); }
-  else { d = Math.max(d0, v.w / (2 * tanH * aspect * 0.92)); off.addScaledVector(up, -0.34 * d * tanH); }
+  else { d = Math.max(d0, v.w / (2 * tanH * aspect * 0.86)); }
   const t = tgt.add(off);
   return { p: t.clone().addScaledVector(dir, d), t };
 }
@@ -519,12 +518,9 @@ export function mountProductScene({ stage, story, labels: layer, onState }: Moun
     const chapters = [...story.querySelectorAll<HTMLElement>('[data-state]')];
     const scrollState = () => {
       const vh = window.innerHeight, mid = vh / 2, narrow = W < WIDE_MIN;
-      const iv = chapters.map((el, k) => {
+      const iv = chapters.map((el) => {
         const r = el.getBoundingClientRect();
         if (el.classList.contains('ls-chapter--deep')) return [r.top + vh * 0.5, r.bottom - vh * 0.5];
-        // On a phone the product frame sits under the first chapter. Hold
-        // that opening view until the frame has scrolled past.
-        if (narrow && k === 0) return [r.top, r.bottom + vh * 0.42];
         const c = narrow ? r.top + vh * 0.45 : r.top + r.height / 2; return [c, c];
       });
       iv.forEach(([a, b], k) => { if (b > a) LP[k] = Math.min(1, Math.max(0, (mid - a) / (b - a))); });

@@ -1,28 +1,32 @@
 /**
  * The landing page: the product itself, in one scroll story.
  *
- * A sticky 3D stage (productScene) sits behind ten chapters. The product's six
- * layers come forward one at a time (the question, the conversation, the test,
- * the answer, the package, the system), then the blueprint and the technical
- * plan flip past section by section, because their depth is the point. No
- * customer example: the software is what's on show. The question box waits at
- * the end, after the visitor has seen what it leads to.
+ * A sticky 3D stage (productScene) sits behind ten chapters. On a wide screen
+ * it fills the page behind the text; on a phone it is pinned to the top half
+ * and the text scrolls beneath it, one step per screen. The layers come forward
+ * one at a time (the question, the conversation, the test, the answer, the
+ * package), then the blueprint and the technical plan flip past section by
+ * section. After the story: a sample answer page, the terms, and the question.
  */
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import { CAPTIONS, CHAPTERS, mountProductScene } from '../components/home/productScene';
+import { BUILD_LINE, PRICE_LINE } from '../data/offer';
 import { saveFrontDoor } from '../utils/frontDoor';
+import { usePageMeta } from '../utils/pageMeta';
 import '../styles/landing.css';
 
-import { usePageMeta } from '../utils/pageMeta';
-function Chapter({ state, deep = false, children }: { state: number; deep?: boolean; children: React.ReactNode }) {
+function Chapter({ state, deep = false, step, children }: { state: number; deep?: boolean; step?: string; children: React.ReactNode }) {
   return (
     <section className={`ls-chapter${deep ? ' ls-chapter--deep' : ''}`} data-state={state}>
       <div className="ls-wrap">
-        <div className="ls-col">{children}</div>
+        <div className="ls-col">
+          {step ? <p className="ls-step">{step}</p> : null}
+          {children}
+        </div>
       </div>
     </section>
   );
@@ -43,10 +47,10 @@ function Ask({ id }: { id: string }) {
         start();
       }}
     >
-      <label htmlFor={id}>What are you trying to work out?</label>
+      <label htmlFor={id}>Describe what you need to decide or resolve</label>
       <textarea
         id={id}
-        rows={2}
+        rows={3}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -55,18 +59,98 @@ function Ask({ id }: { id: string }) {
             start();
           }
         }}
-        placeholder="The problem, the decision, or the thing you want to start."
+        placeholder="For example: our evening classes are half empty and I am not sure whether to cut them or market them."
       />
       <div className="ls-ask-row">
-        <span>No card. No sales call.</span>
-        <button type="submit" className="ls-cta">Start the conversation</button>
+        <span>{PRICE_LINE}</span>
+        <button type="submit" className="ls-cta">Start a consultation</button>
       </div>
     </form>
   );
 }
 
+const TAG = { theirs: 'Yours', derived: 'Worked out', ours: 'Our estimate' } as const;
+
+function Fig({ v, k }: { v: string; k: keyof typeof TAG }) {
+  return (
+    <span className={`ls-fig ls-fig--${k}`}>
+      <b>{v}</b>
+      <i>{TAG[k]}</i>
+    </span>
+  );
+}
+
+/** A finished answer page, for an invented studio. Every figure is sample data. */
+function SampleAnswer() {
+  return (
+    <section className="ls-section" id="example">
+      <div className="ls-wrap">
+        <div className="ls-section-head">
+          <p className="ls-eyebrow">An example answer page</p>
+          <h2 className="ls-display ls-h2">The first page of every file states the answer and what it rests on</h2>
+          <p className="ls-body">
+            This is the page a client reads first. The business is invented and every figure on it is sample data;
+            the structure is the one every consultation produces.
+          </p>
+        </div>
+
+        <article className="ls-sample" aria-label="Sample answer page">
+          <header className="ls-sample-top">
+            <span>Sample data</span>
+            <span>Halo Reformer Studio · Answer page</span>
+          </header>
+          <p className="ls-sample-q">Should the studio add a third evening class, or fix the two it already runs?</p>
+          <h3 className="ls-display ls-sample-a">
+            Fix the two evening classes first. They run four in ten places empty, and filling most of them is worth
+            about $3,500 a month.
+          </h3>
+          <div className="ls-sample-figs">
+            <div>
+              <Fig v="4 in 10" k="theirs" />
+              <p>evening places unsold, from your class register</p>
+            </div>
+            <div>
+              <Fig v="$4,730" k="derived" />
+              <p>a month: 10 places × $22 × 5 nights × 4.3 weeks</p>
+            </div>
+            <div>
+              <Fig v="75%" k="ours" />
+              <p>of that we treat as reachable, so about $3,500</p>
+            </div>
+          </div>
+          <dl className="ls-sample-facts">
+            <div>
+              <dt>What you believed</dt>
+              <dd>Mornings were the weak slot.</dd>
+            </div>
+            <div>
+              <dt>What the test showed</dt>
+              <dd>Mornings run 85 to 92% full. The two evening classes run 55 to 60%.</dd>
+            </div>
+            <div>
+              <dt>Monday</dt>
+              <dd>Open a standby list for the 19:00 class and offer the free places to members first.</dd>
+            </div>
+            <div>
+              <dt>What we would not do</dt>
+              <dd>Add a third evening class before the two you run are full.</dd>
+            </div>
+          </dl>
+          <p className="ls-sample-rests">
+            This answer rests on four of your figures, one calculation and one estimate of ours. Each is labelled where
+            it appears.
+          </p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
-  usePageMeta('An AI consultancy that tells you the truth', 'An AI consultancy in your browser. Bring the problem or the decision; it tests every explanation against your own figures and tells you what to do, with every number traced.');
+  usePageMeta(
+    'An AI consultancy that tests its answers against your figures',
+    'Build My Version is an AI consultancy. Describe the problem or the decision; we test every explanation against your own figures and deliver the answer, the reasoning and the plan.',
+  );
   const storyRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null);
@@ -112,155 +196,124 @@ export default function LandingPage() {
         </div>
 
         <Chapter state={0}>
-          <h1 className="ls-display ls-h1">
-            <span className="ls-wide-only">A consultancy that fits in your browser.</span>
-            <span className="ls-quiet ls-wide-only">And tells you the truth.</span>
-            <span className="ls-narrow-only">An AI consultancy<br />for your business.</span>
-          </h1>
+          <p className="ls-eyebrow">AI consultancy</p>
+          <h1 className="ls-display ls-h1">Business decisions, tested against your own figures</h1>
           <p className="ls-lede">
-            <span className="ls-wide-only">
-              Say it the way you would across a table. It tests the idea against your own figures, and if the fix isn't
-              software, it says so before anything is built.
-            </span>
-            <span className="ls-narrow-only">Bring us the problem. We come back with what to do.</span>
+            Describe the problem, the decision or the venture in your own words. We test every explanation against your
+            figures and deliver the answer, the reasoning and the plan. If the answer is not software, we say so before
+            anything is built.
           </p>
-          <Ask id="ls-ask" />
-          <button type="button" className="ls-more" onClick={() => goTo(1)}>
-            See how it works
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 5v14M6 13l6 6 6-6" />
-            </svg>
-          </button>
+          <div className="ls-go">
+            <Link to="/demo" className="ls-cta">Start a consultation</Link>
+            <button type="button" className="ls-ghost" onClick={() => goTo(1)}>
+              See how a consultation works
+            </button>
+          </div>
+          <p className="ls-price">{PRICE_LINE}</p>
         </Chapter>
 
-        <Chapter state={1}>
-          <h2 className="ls-display ls-h2">
-            It starts with one question.
-            <span className="ls-quiet">Not a form.</span>
-          </h2>
+        <Chapter state={1} step="01 · The question">
+          <h2 className="ls-display ls-h2">A consultation begins with one question, in your own words</h2>
           <p className="ls-body">
-            Say what you're trying to work out, the way you'd say it across a table. A problem, a decision, or something
-            you want to start. That's the whole front door.
+            State the problem, the decision or the venture you are weighing. There is no form to complete first. Every
+            question that follows depends on your answer to the one before it.
           </p>
         </Chapter>
 
-        <Chapter state={2}>
-          <h2 className="ls-display ls-h2">Then it asks what matters.</h2>
+        <Chapter state={2} step="02 · The facts">
+          <h2 className="ls-display ls-h2">We ask only what the answer depends on</h2>
           <p className="ls-body">
-            One question at a time, each one following your last answer. Your figures build up beside you as you talk,
-            and you can drop in a spreadsheet or an export so it reads the numbers itself.
+            Questions come one at a time. You can upload a spreadsheet or an export, and the figures are read directly
+            from it. Where you do not know a number, you can say so: we never fill it in for you.
           </p>
           <ul className="ls-points">
-            <li><span><b>Every figure is labelled.</b> Yours, worked out from yours, or our estimate. Never mixed up.</span></li>
-            <li><span><b>A blank beats a guess.</b> "I don't know" is always an answer.</span></li>
+            <li><span><b>Every figure carries its source:</b> yours, worked out from yours, our estimate, or a cited reference.</span></li>
+            <li><span><b>“I don’t know” is a valid answer.</b> A gap is recorded as a gap.</span></li>
           </ul>
         </Chapter>
 
-        <Chapter state={3}>
-          <h2 className="ls-display ls-h2">
-            It tests every explanation.
-            <span className="ls-quiet">Including yours.</span>
-          </h2>
+        <Chapter state={3} step="03 · The test">
+          <h2 className="ls-display ls-h2">Every explanation is tested, including your own</h2>
           <p className="ls-body">
-            It writes out every cause that fits, tests each one against your own numbers, and hands the strongest to two
-            reviewers whose only job is to break it. You watch it happen, live.
+            We set out every cause consistent with what you have told us and test each against your numbers. The
+            strongest goes to two reviewers whose task is to disprove it.
           </p>
           <ul className="ls-points">
-            <li><span><b>Struck out</b> when your figures rule it out.</span></li>
-            <li><span><b>Circled</b> when it survives the reviewers.</span></li>
+            <li><span><b>Ruled out,</b> with the reason, when your figures contradict it.</span></li>
+            <li><span><b>Kept,</b> only when it survives both reviewers.</span></li>
           </ul>
         </Chapter>
 
-        <Chapter state={4}>
-          <h2 className="ls-display ls-h2">Then it tells you the truth.</h2>
+        <Chapter state={4} step="04 · The answer">
+          <h2 className="ls-display ls-h2">You receive the answer on one page, with its evidence</h2>
           <p className="ls-body">
-            The finding in two lines, the evidence in your own numbers, and what fixing it is worth, with the working
-            shown. <b>Nothing is built until you've read it.</b>
+            The page states the question, the answer in two lines, the figures it rests on, what to do first and what
+            we would not do. <b>Nothing is built until you have read it and decided.</b>
           </p>
           <ul className="ls-points">
-            <li><span><b>The answer fits on one page:</b> the question, the answer, and the numbers it rests on.</span></li>
-            <li><span><b>We do the work;</b> you make the calls.</span></li>
-            <li><span><b>Push back,</b> and it thinks again.</span></li>
+            <li><span><b>You can challenge the answer.</b> Your objection is tested the same way.</span></li>
+            <li><span><b>We prepare the work;</b> every decision stays yours.</span></li>
           </ul>
         </Chapter>
 
-        <Chapter state={5}>
-          <h2 className="ls-display ls-h2">
-            Then it hands you the work.
-            <span className="ls-quiet">Six files. One story.</span>
-          </h2>
+        <Chapter state={5} step="05 · The package">
+          <h2 className="ls-display ls-h2">Six files, each opening with the same answer</h2>
           <ul className="ls-points">
-            <li><span><b>The register:</b> every recommendation, who owns it, when it happens, and the range it is worth. The rows add up to the headline.</span></li>
-            <li><span><b>The blueprint, the technical plan and the operations manual,</b> in full. More on the first two next.</span></li>
-            <li><span><b>A roadmap</b> as long as the plan really is, with owners and measures.</span></li>
-            <li><span><b>Your system, screen by screen,</b> to walk live or keep as a PDF, when the answer is to build.</span></li>
-            <li><span><b>A deck</b> that tells the same story, slide for slide.</span></li>
+            <li><span><b>The blueprint,</b> with the recommendation register: each action, its owner, its timing and the range it is worth. The ranges add up to the headline figure.</span></li>
+            <li><span><b>The technical plan</b> and <b>the operations manual.</b></span></li>
+            <li><span><b>The roadmap,</b> as long as the plan requires, with owners and measures.</span></li>
+            <li><span><b>The system, screen by screen,</b> when the answer is to build software.</span></li>
+            <li><span><b>The presentation deck,</b> with the same titles and figures as the documents.</span></li>
           </ul>
         </Chapter>
 
-        <Chapter state={6} deep>
-          <h2 className="ls-display ls-h2">
-            A blueprint, not a slide deck.
-            <span className="ls-quiet">Every decision, with the numbers behind it.</span>
-          </h2>
+        <Chapter state={6} deep step="The blueprint">
+          <h2 className="ls-display ls-h2">The blueprint sets out each decision with the figures behind it</h2>
           <p className="ls-body">
-            The whole business on paper, written for you: the decision it recommends and why, the financial case worked
-            out from your own figures, the customer journey, every module of the product, who does what with humans and
-            AI on one chart, what to build first, the scoreboard, and what could make it fail.
+            The recommended decision and the reasoning, the financial case worked from your own figures, the customer
+            journey, each part of the system, who does what, what to do first, how progress is measured and what could
+            cause the plan to fail.
           </p>
           <div className="ls-stats">
-            <div><b>Page one</b><span>is the answer, in every file</span></div>
-            <div><b>Every figure</b><span>traced to one you gave, or marked as ours</span></div>
-            <div><b>Honest</b><span>about what could make it fail</span></div>
+            <div><b>Page one</b><span>of every file is the answer</span></div>
+            <div><b>Every figure</b><span>labelled with its source</span></div>
+            <div><b>Every page</b><span>titled with what it found</span></div>
           </div>
         </Chapter>
 
-        <Chapter state={7} deep>
-          <h2 className="ls-display ls-h2">
-            A technical plan any team can build from.
-            <span className="ls-quiet">Down to the data model.</span>
-          </h2>
+        <Chapter state={7} deep step="The technical plan">
+          <h2 className="ls-display ls-h2">A technical plan your own team can build from</h2>
           <ul className="ls-points">
-            <li><span><b>How the system works,</b> end to end, in plain language first.</span></li>
-            <li><span><b>Every module:</b> its features, its data model, its screens.</span></li>
-            <li><span><b>Every AI agent:</b> what it decides alone, its tools, its guardrails.</span></li>
-            <li><span><b>The APIs and integrations,</b> and how your information stays safe.</span></li>
-            <li><span><b>The build order,</b> and the checks that say each part is done.</span></li>
+            <li><span><b>How the system works,</b> end to end, explained in plain language first.</span></li>
+            <li><span><b>Each module:</b> its features, its data and its screens.</span></li>
+            <li><span><b>Each AI agent:</b> what it decides alone, the tools it uses and its limits.</span></li>
+            <li><span><b>Integrations and data protection.</b></span></li>
+            <li><span><b>The build order,</b> with the checks that show each part is complete.</span></li>
           </ul>
-          <p className="ls-body">
-            Build it with us, with your own team, or with anyone else. <b>The plan is yours either way.</b>
-          </p>
+          <p className="ls-body">{BUILD_LINE}</p>
         </Chapter>
 
-        <Chapter state={8}>
-          <h2 className="ls-display ls-h2">
-            For any business.
-            <span className="ls-quiet">Running, or about to open.</span>
-          </h2>
+        <Chapter state={8} step="Who we work with">
+          <h2 className="ls-display ls-h2">Owners of businesses that are running, or about to open</h2>
           <p className="ls-body">
-            The questions change with what you do and how far along you are. The rigour doesn't. Every system it designs
-            is built around one business: yours.
+            The questions differ by sector and stage; the method does not. Each system we design is built around one
+            business.
           </p>
           <div className="ls-kinds">
-            {['Clinics', 'Shops', 'Studios', 'Restaurants', 'Logistics', 'Services', 'Professional firms', 'Something new'].map((k) => (
+            {['Clinics', 'Retail', 'Studios', 'Restaurants', 'Logistics', 'Services', 'Professional firms', 'New ventures'].map((k) => (
               <span key={k}>{k}</span>
             ))}
           </div>
         </Chapter>
 
         <Chapter state={9}>
-          <h2 className="ls-display ls-h2">
-            Free to find out.
-            <span className="ls-quiet">Quoted only if you build.</span>
-          </h2>
-          <div className="ls-stats">
-            <div><b>One</b><span>conversation to an honest answer</span></div>
-            <div><b>$0</b><span>for the answer and the whole package</span></div>
-            <div><b>You</b><span>decide whether anything gets built</span></div>
-          </div>
-          <Ask id="ls-ask-close" />
+          <h2 className="ls-display ls-h2">What would you like to work out?</h2>
+          <p className="ls-body">Describe it as you would to an adviser. The consultation starts from your words.</p>
+          <Ask id="ls-ask" />
         </Chapter>
       </div>
+
+      <SampleAnswer />
 
       <SiteFooter />
     </div>

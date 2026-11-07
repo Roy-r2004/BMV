@@ -32,7 +32,7 @@ export default function AuthShell({
         </div>
         <div className="auth-shell__meta">
           <span>AI consultancy</span>
-          <span>Free to find out</span>
+          <span>Registered in Dubai</span>
           <span>Every figure traced</span>
         </div>
       </aside>
