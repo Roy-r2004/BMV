@@ -144,3 +144,57 @@ def test_roadmap_passes_the_number_law_and_page_law(tmp_path, monkeypatch):
     findings = [reason for reason in pdf_findings(path) if not reason.endswith(COVER_PANEL_SPANS)]
     assert findings == []
     db.close()
+
+
+def test_the_roadmap_is_a_document_of_the_release_law(tmp_path, monkeypatch):
+    # Review C1: the roadmap was built outside any law scope, so "From 12 to 20"
+    # printed with no record and no effect on the stamp.
+    from app.figures import law
+    from app.pipeline import export_pdf
+
+    db, row = _ready(tmp_path, monkeypatch)
+    row.scoreboard_json = json.dumps([{"metric": "classes full", "baseline": "12", "target": "20",
+                                       "owner": "you", "review": "weekly"}])
+    db.commit()
+    path = roadmap.build_roadmap_pdf(row)
+    found = law.recorded(row)["The roadmap"]
+    assert {f.number for f in found} == {"12", "20"}
+    assert all(f.page is not None for f in found)
+    reasons = export_pdf.release_status(row)["reasons"]
+    assert any(reason.startswith("The roadmap, page") for reason in reasons)
+    assert law.record(row.id, "The roadmap", row.updated_at)["stamped"] == "draft"
+    assert "From 12 to 20" in _pages(path)
+    db.close()
+
+
+def test_a_clean_roadmap_has_a_clean_record(tmp_path, monkeypatch):
+    from app.figures import law
+
+    db, row = _ready(tmp_path, monkeypatch)
+    roadmap.build_roadmap_pdf(row)
+    assert law.recorded(row)["The roadmap"] == []
+    db.close()
+
+
+def test_a_roadmap_without_a_plan_is_recorded_as_not_produced(tmp_path, monkeypatch):
+    from app.figures import law
+
+    db, row = _ready(tmp_path, monkeypatch)
+    row.action_plan_json = None
+    db.commit()
+    law.ensure_records(row)
+    assert law.states(row)["The roadmap"] == "not produced"
+    db.close()
+
+
+def test_a_measure_with_no_baseline_says_no_empty_from(tmp_path, monkeypatch):
+    # Review L7: "Metric. From  to ." was printed for a measure with no numbers.
+    db, row = _ready(tmp_path, monkeypatch)
+    row.scoreboard_json = json.dumps([{"metric": "repeat bookings", "target": "up", "owner": "you"},
+                                      {"metric": "walk-ins", "owner": "you"}])
+    db.commit()
+    text = _pages(roadmap.build_roadmap_pdf(row))
+    assert "From  to" not in text and "From to" not in text
+    assert "repeat bookings. Aim: up." in text
+    assert "walk-ins." in text
+    db.close()

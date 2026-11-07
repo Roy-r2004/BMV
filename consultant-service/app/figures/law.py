@@ -1,6 +1,6 @@
 """The release law: a rendered document holds no number nobody owns.
 
-Long documents (the PDF volumes, the deck, the proposal) are not edited by the
+Long documents (the PDF volumes, the roadmap, the deck, the proposal) are not edited by the
 law (plan ruling 7). While one is being built, every piece of content passes
 through the renderer's choke points (`export_pdf._rich`, `export_pptx._add_text`,
 the screens templates' Jinja `finalize`), and each choke point calls `check`:
@@ -63,7 +63,7 @@ logger = logging.getLogger("consultant.figures.law")
 #: and what a document's pages are called.
 DOCUMENTS: tuple[tuple[str, str], ...] = (
     ("Volume I", "page"), ("Volume II", "page"), ("Volume III", "page"),
-    ("Volume IV", "page"), ("The deck", "slide"),
+    ("The roadmap", "page"), ("Volume IV", "page"), ("The deck", "slide"),
 )
 
 
@@ -87,7 +87,7 @@ def _law_version() -> str:
 
 #: Bumped by hand when the law's rules change in a way the module hash would
 #: not show (a document's furniture redrawn, a choke point added).
-LAW_RULES = 1
+LAW_RULES = 2
 LAW_VERSION = _law_version()
 
 #: What a sample region must show to be drawn at all.
@@ -590,6 +590,7 @@ def _checkers():
     """The law-only pass of each document, by the module that draws it."""
     from app.pipeline import export_pdf, export_pptx
     from app.screens import export as screens_export
+    from app.storyline import roadmap
 
     return (("Volume I", lambda r: export_pdf.check_volume(r, "blueprint"),
              lambda r: export_pdf.volume_ready(r, "blueprint")),
@@ -597,6 +598,7 @@ def _checkers():
              lambda r: export_pdf.volume_ready(r, "technical")),
             ("Volume III", lambda r: export_pdf.check_volume(r, "operations"),
              lambda r: export_pdf.volume_ready(r, "operations")),
+            ("The roadmap", roadmap.check_roadmap, roadmap.roadmap_ready),
             ("Volume IV", screens_export.check_proposal, screens_export.proposal_ready),
             ("The deck", export_pptx.check_deck, lambda r: export_pptx.deck_inputs(r) is not None))
 

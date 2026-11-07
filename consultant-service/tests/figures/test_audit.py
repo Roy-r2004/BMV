@@ -112,7 +112,7 @@ def test_a_volume_not_built_since_the_last_change_is_reported_with_its_page_not_
     from app.config import settings
 
     assert sorted(os.listdir(os.path.join(settings.UPLOADS_DIR, "exports"))) == sorted(
-        f"{row.id}-law-{slug}.json" for slug in ("volume-i", "volume-ii", "volume-iii", "volume-iv", "the-deck"))
+        f"{row.id}-law-{slug}.json" for slug in ("volume-i", "volume-ii", "volume-iii", "the-roadmap", "volume-iv", "the-deck"))
 
 
 def test_the_deck_is_placed_on_its_slide(db, capsys):
@@ -228,7 +228,7 @@ def test_json_is_the_same_report(db, capsys):
     assert report["status"] == "draft" and report["status_line"] == "draft because of the number law"
     assert set(report["figures"]) == {"yours", "worked out", "our estimate", "reference"}
     assert [d["summary"] for d in report["documents"]] == [l for l in text.splitlines()
-                                                           if re.match(r"(Volume I{1,3}V?|Volume IV|The deck):", l)]
+                                                           if re.match(r"(Volume I{1,3}V?|Volume IV|The roadmap|The deck):", l)]
 
 
 def test_json_of_a_clean_package_has_no_findings_and_exits_0(db, capsys):

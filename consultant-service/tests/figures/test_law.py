@@ -762,7 +762,7 @@ def test_a_package_with_a_document_not_yet_checked_is_not_plainly_final(db):
     row = _seed(db, mvp_blueprint=CLEAN_MD)
     status = ep.release_status(row)
     assert status["status"] == "draft"
-    assert "5 document(s) not yet checked against the figures since the last data change" in status["reasons"]
+    assert "6 document(s) not yet checked against the figures since the last data change" in status["reasons"]
     law.ensure_records(row)
     status = ep.release_status(row)
     assert status["status"] == "final", status["reasons"]

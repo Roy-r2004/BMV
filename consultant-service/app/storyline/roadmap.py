@@ -3,16 +3,24 @@
 The length is the plan's own figure. A plan of six weeks is six weeks, never
 ninety days. A baseline the owner has not measured yet is printed as stored.
 Metrics that share a review rhythm are listed under that rhythm once.
+
+It is a document of the release law, like the volumes: every piece of content
+passes the volumes' choke point inside a law scope, its findings are kept
+beside the file, and a file on disk is served only while the status it was
+stamped with is still the package's.
 """
 from __future__ import annotations
 
 import json
 import os
 from datetime import datetime
-from xml.sax.saxutils import escape
 
 from app.config import settings
+from app.figures import law
 from app.pipeline import action_plan
+
+#: The release law's name for the roadmap (`law.DOCUMENTS`).
+WHERE = "The roadmap"
 
 
 class NotReady(Exception):
@@ -26,26 +34,93 @@ class NotReady(Exception):
 def build_roadmap_pdf(req) -> str:
     """A PDF at uploads/exports/{id}-roadmap.pdf. Raises NotReady("roadmap")
     when the run has no action plan to base it on."""
-    plan = action_plan.load(req)
-    phases = plan.get("phases") if isinstance(plan, dict) else None
-    if (not isinstance(phases, list) or not phases
-            or plan.get("status") in (action_plan.WRITING, action_plan.FAILED)):
+    plan = _ready_plan(req)
+    if plan is None:
         raise NotReady("roadmap")
 
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Frame, PageTemplate
+
+    from app.pipeline.export_pdf import (_EngagementDoc, _page_chrome, document_known, document_phrases,
+                                         release_status)
+
+    started = datetime.utcnow()
+    law.ensure_records(req)
     out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"{getattr(req, 'id', None)}-roadmap.pdf")
     updated = getattr(req, "updated_at", None)
-    if os.path.isfile(path) and updated is not None:
-        if datetime.utcfromtimestamp(os.path.getmtime(path)) > updated:
+    kept = law.record(getattr(req, "id", None), WHERE, updated)
+    if os.path.isfile(path) and updated is not None and kept is not None and kept["stamped"] is not None:
+        if (datetime.utcfromtimestamp(os.path.getmtime(path)) > updated
+                and kept["stamped"] == release_status(req)["status"]):
             return path
 
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Frame, PageBreak, PageTemplate
+    known, hours = document_known(req)
+    with law.scope(known, where=WHERE, hours=hours, request_id=getattr(req, "id", None),
+                   phrases=document_phrases(req)) as found:
+        flows = _flows(req, plan)
+        stamped = release_status(req)["status"]
+
+    name = getattr(req, "concept_name", None) or getattr(req, "business_name", None) or ""
+    doc = _EngagementDoc(
+        path, pagesize=A4,
+        title=f"{name} — The implementation roadmap",
+        author="Build My Version",
+    )
+    width, height = A4
+    frame = Frame(18 * mm, 20 * mm, width - 36 * mm, height - 36 * mm, id="content")
+    doc.addPageTemplates([
+        PageTemplate(id="body", frames=[frame],
+                     onPage=_page_chrome("The roadmap", name, draft=stamped == "draft", stamp="DRAFT")),
+    ])
+    doc.build(flows)
+    # the running header and the footer are drawn in these bands, as on the volumes
+    law.save(getattr(req, "id", None), WHERE, law.locate_pages(path, found.findings, margins=(15 * mm, 19 * mm)),
+             built_at=started, data_at=updated, stamped=stamped)
+    return path
+
+
+def roadmap_ready(req) -> bool:
+    """Whether the row holds a plan the roadmap is built from."""
+    return _ready_plan(req) is not None
+
+
+def check_roadmap(req) -> None:
+    """The roadmap's law-only pass (`law.ensure_records`): its content made
+    inside the law, nothing printed. A package with no plan yet is recorded as
+    having no roadmap."""
+    started = datetime.utcnow()
+    request_id = getattr(req, "id", None)
+    updated = getattr(req, "updated_at", None)
+    plan = _ready_plan(req)
+    if plan is None:
+        law.save(request_id, WHERE, [], built_at=started, data_at=updated, absent=True)
+        return
+    from app.pipeline.export_pdf import document_known, document_phrases
+
+    known, hours = document_known(req)
+    with law.scope(known, where=WHERE, hours=hours, request_id=request_id,
+                   phrases=document_phrases(req)) as found:
+        _flows(req, plan)
+    law.save(request_id, WHERE, found.findings, built_at=started, data_at=updated)
+
+
+def _ready_plan(req) -> dict | None:
+    plan = action_plan.load(req)
+    phases = plan.get("phases") if isinstance(plan, dict) else None
+    if (not isinstance(phases, list) or not phases
+            or plan.get("status") in (action_plan.WRITING, action_plan.FAILED)):
+        return None
+    return plan
+
+
+def _flows(req, plan: dict) -> list:
+    """Every flowable of the roadmap, in reading order."""
+    from reportlab.platypus import PageBreak
 
     from app.figures.known import known_for
-    from app.pipeline.export_pdf import _EngagementDoc, _page_chrome, release_status
     from app.storyline.build import build as build_story
     from app.storyline.pdf import answer_page_flowables, register_reference
 
@@ -62,21 +137,7 @@ def build_roadmap_pdf(req) -> str:
     flows += _cadence(_loads(getattr(req, "scoreboard_json", None)))
     if flows and isinstance(flows[-1], PageBreak):
         flows = flows[:-1]
-
-    name = getattr(req, "concept_name", None) or getattr(req, "business_name", None) or ""
-    draft = release_status(req)["status"] == "draft"
-    doc = _EngagementDoc(
-        path, pagesize=A4,
-        title=f"{name} — The implementation roadmap",
-        author="Build My Version",
-    )
-    width, height = A4
-    frame = Frame(18 * mm, 20 * mm, width - 36 * mm, height - 36 * mm, id="content")
-    doc.addPageTemplates([
-        PageTemplate(id="body", frames=[frame], onPage=_page_chrome("The roadmap", name, draft=draft, stamp="DRAFT")),
-    ])
-    doc.build(flows)
-    return path
+    return flows
 
 
 def _plan(plan: dict, story, known) -> list:
@@ -89,7 +150,7 @@ def _plan(plan: dict, story, known) -> list:
     figure = known.get(PLAN_WEEKS_ID)
     length = f"This plan runs for {display(figure)}." if figure is not None else "This plan runs for as long as its phases."
     owners = _owners(story)
-    flows = [Paragraph("The plan", _S["h1toc"]), Paragraph(escape(length), _S["body"])]
+    flows = [Paragraph("The plan", _S["h1toc"]), Paragraph(_rich(length), _S["body"])]
     for index, phase in enumerate(plan.get("phases") or [], 1):
         if not isinstance(phase, dict):
             continue
@@ -100,7 +161,7 @@ def _plan(plan: dict, story, known) -> list:
         owner = owners.get(when) or ""
         sentence = ". ".join(part for part in (when, title, do, you, owner) if part)
         if sentence:
-            flows.append(Paragraph(escape(sentence + "."), _S["body"]))
+            flows.append(Paragraph(_rich(sentence + "."), _S["body"]))
     if len(flows) > 2:
         flows = [KeepTogether(flows[:3]), *flows[3:]]
     return flows
@@ -123,10 +184,18 @@ def _measures(board) -> list:
         owner = _words(item.get("owner"))
         if not metric:
             continue
-        sentence = f"{metric}. From {baseline} to {target}."
+        # A part with nothing behind it is left out, never said as an empty "From".
+        if baseline and target:
+            sentence = f"{metric}. From {baseline} to {target}."
+        elif target:
+            sentence = f"{metric}. Aim: {target}."
+        elif baseline:
+            sentence = f"{metric}. Today: {baseline}."
+        else:
+            sentence = f"{metric}."
         if owner:
             sentence += f" {owner} watches it."
-        flows.append(Paragraph(escape(sentence), _S["body"]))
+        flows.append(Paragraph(_rich(sentence), _S["body"]))
     return flows
 
 
@@ -151,7 +220,7 @@ def _risks(risks) -> list:
             sentence += f". {mitigation}"
         if who:
             sentence += f". {who} feels it"
-        flows.append(Paragraph(escape(sentence + "."), _S["body"]))
+        flows.append(Paragraph(_rich(sentence + "."), _S["body"]))
     return flows
 
 
@@ -174,7 +243,7 @@ def _decisions(decisions) -> list:
         sentence = question if question.endswith("?") else question + "."
         if options:
             sentence += " " + " ".join(options)
-        flows.append(Paragraph(escape(sentence), _S["body"]))
+        flows.append(Paragraph(_rich(sentence), _S["body"]))
     return flows
 
 
@@ -198,9 +267,9 @@ def _cadence(board) -> list:
         return []
     flows = [Paragraph("The cadence", _S["h1toc"])]
     for rhythm, metrics in groups.items():
-        flows.append(Paragraph(escape(rhythm), _S["h2toc"]))
+        flows.append(Paragraph(_rich(rhythm), _S["h2toc"]))
         for metric in metrics:
-            flows.append(Paragraph(escape(metric), _S["body"]))
+            flows.append(Paragraph(_rich(metric), _S["body"]))
     return flows
 
 
@@ -215,6 +284,13 @@ def _owners(story) -> dict[str, str]:
         if when and owner and when not in found:
             found[when] = owner
     return found
+
+
+def _rich(text: str) -> str:
+    """The volumes' content choke point (`export_pdf._rich`)."""
+    from app.pipeline.export_pdf import _rich as rich
+
+    return rich(text)
 
 
 def _words(value) -> str:
