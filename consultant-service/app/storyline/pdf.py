@@ -6,8 +6,6 @@ and its takeaway. A run with no storyline gets none of these pages.
 """
 from __future__ import annotations
 
-from xml.sax.saxutils import escape
-
 
 def opening(story, kind: str) -> list:
     """The pages that go in front of this volume, or nothing for a run with
@@ -30,22 +28,22 @@ def answer_page_flowables(story) -> list:
     page = story.answer
     flows = []
     if page.question:
-        flows.append(Paragraph(escape(page.question), styles["h1toc"]))
+        flows.append(Paragraph(_rich(page.question), styles["h1toc"]))
     for line in page.answer_lines:
-        flows.append(Paragraph(escape(line), styles["body"]))
+        flows.append(Paragraph(_rich(line), styles["body"]))
     for number in page.numbers:
-        flows.append(Paragraph(escape(f"{number.display} ({number.tag})"), styles["body"]))
+        flows.append(Paragraph(_rich(f"{number.display} ({number.tag})"), styles["body"]))
     if page.believed:
-        flows.append(Paragraph(escape(f"What you believed: {page.believed}"), styles["body"]))
+        flows.append(Paragraph(_rich(f"What you believed: {page.believed}"), styles["body"]))
     if page.tested:
-        flows.append(Paragraph(escape(f"What the test said: {page.tested}"), styles["body"]))
+        flows.append(Paragraph(_rich(f"What the test said: {page.tested}"), styles["body"]))
     if page.monday:
-        flows.append(Paragraph(escape(f"Monday: {page.monday}"), styles["body"]))
+        flows.append(Paragraph(_rich(f"Monday: {page.monday}"), styles["body"]))
     if page.would_not:
-        flows.append(Paragraph(escape("What we would not do: " + " ".join(page.would_not)), styles["body"]))
+        flows.append(Paragraph(_rich("What we would not do: " + " ".join(page.would_not)), styles["body"]))
     line = rests_line(page.rests_on)
     if line:
-        flows.append(Paragraph(escape(line), styles["body"]))
+        flows.append(Paragraph(_rich(line), styles["body"]))
     flows.append(PageBreak())
     return flows
 
@@ -56,9 +54,9 @@ def register_flowables(story) -> list:
     register = story.register
     flows = [Paragraph("The register", styles["h1toc"])]
     for row in register.rows:
-        flows.append(Paragraph(escape(f"{row.recommendation} {row.when} {row.owner}"), styles["body"]))
+        flows.append(Paragraph(_rich(f"{row.recommendation} {row.when} {row.owner}"), styles["body"]))
     for note in register.footnotes:
-        flows.append(Paragraph(escape(note), styles["meta"]))
+        flows.append(Paragraph(_rich(note), styles["meta"]))
     flows.append(PageBreak())
     return flows
 
@@ -72,11 +70,11 @@ def register_reference() -> list:
 def proof_lead_flowables(section, exhibit) -> list:
     """The lead page of one proof section."""
     Paragraph, Spacer, PageBreak, styles = _bits()
-    flows = [Paragraph(escape(section.title), styles["h1toc"])]
+    flows = [Paragraph(_rich(section.title), styles["h1toc"])]
     if exhibit is not None and exhibit.caption:
-        flows.append(Paragraph(escape(exhibit.caption), styles["body"]))
+        flows.append(Paragraph(_rich(exhibit.caption), styles["body"]))
     if section.takeaway:
-        flows.append(Paragraph(escape(section.takeaway), styles["body"]))
+        flows.append(Paragraph(_rich(section.takeaway), styles["body"]))
     flows.append(PageBreak())
     return flows
 
@@ -109,3 +107,12 @@ def _bits():
     from app.pipeline.export_pdf import _S
 
     return Paragraph, Spacer, PageBreak, _S
+
+
+def _rich(text: str) -> str:
+    """The volumes' content choke point: inside a release-law scope every number
+    is bound to the figure it names or recorded as a finding, and a figure token
+    prints as its figure."""
+    from app.pipeline.export_pdf import _rich as rich
+
+    return rich(text)

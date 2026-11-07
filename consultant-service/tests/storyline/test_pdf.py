@@ -199,3 +199,62 @@ def test_a_system_file_is_not_judged_on_the_volume_frame(tmp_path, monkeypatch):
     export_pdf._presentation_reasons(row)
     assert seen == []
     db.close()
+
+
+def _deck_text(path: str) -> str:
+    from pptx import Presentation
+
+    prs = Presentation(path)
+    return "\n".join(s.text_frame.text for sl in prs.slides for s in sl.shapes if s.has_text_frame)
+
+
+def test_register_words_on_a_page_go_through_the_number_law(tmp_path, monkeypatch):
+    # Review C1: a stored "$999" and "$5,000" printed on the register page and the
+    # law recorded nothing for Volume I.
+    from app.figures import law
+
+    db, row = _ready(tmp_path, monkeypatch)
+    stored = json.loads(row.storyline_json)
+    stored["register"][0]["recommendation"] = "Raise the price to $999 a class."
+    stored["register"][1]["cost_figure"] = None
+    stored["register"][1]["cost_needs"] = "a quote of $5,000 from the builder"
+    row.storyline_json = json.dumps(stored)
+    db.commit()
+    export_pdf.build_pdf(row, "blueprint")
+    numbers = {f.number for f in law.recorded(row)["Volume I"]}
+    assert {"$999", "$5,000"} <= numbers
+    assert any("$999" in reason for reason in export_pdf.release_status(row)["reasons"])
+    db.close()
+
+
+def test_the_flex_footnote_is_not_a_number_nobody_owns(tmp_path, monkeypatch):
+    from app.figures import law
+
+    db, row = _ready(tmp_path, monkeypatch)
+    text = "\n".join(_pages(export_pdf.build_pdf(row, "blueprint")))
+    assert "Flexes our assumption of 75% by 20% either way." in text
+    assert law.recorded(row)["Volume I"] == []
+    db.close()
+
+
+def test_a_title_token_prints_as_its_figure_in_every_file(tmp_path, monkeypatch):
+    # Review C2: the blueprint printed "{{F:CF-04}}" where the deck printed "$22".
+    from app.storyline import files
+    from app.storyline.build import for_web
+
+    db, row = _ready(tmp_path, monkeypatch)
+    stored = json.loads(row.storyline_json)
+    stored["register"][0]["recommendation"] = "Keep the price at {{F:CF-04}}."
+    stored["sections"] = [{"id": "fact-base", "title": "The class stays full at {{F:CF-04}}", "takeaway": "x"}]
+    row.storyline_json = json.dumps(stored)
+    row.roles_json = json.dumps([{"name": "the desk", "purpose": "books the class"}])
+    db.commit()
+    pdf = "\n".join(_pages(export_pdf.build_pdf(row, "blueprint")))
+    deck = _deck_text(files.render_file(row, "deck"))
+    web = for_web(row)
+    for text in (pdf, deck):
+        assert "{{" not in text
+        assert "The class stays full at $22" in text
+        assert "Keep the price at $22." in text
+    assert web["register"]["rows"][0]["recommendation"] == "Keep the price at $22."
+    db.close()

@@ -23,14 +23,15 @@ def build(req) -> Storyline | None:
     """The storyline, or None when the run has no answer to open with."""
     if not isinstance(_loads(getattr(req, "answer_json", None)), dict):
         return None
-    return Storyline(answer_page(req), _register(req), _sections(req), _builds(req))
+    known = figures_known.known_for(req)
+    return Storyline(answer_page(req, known), _register(req, known), _sections(req, known), _builds(req))
 
 
-def answer_page(req) -> AnswerPage:
+def answer_page(req, known=None) -> AnswerPage:
     """The opening page. Each part is taken from the column that holds it."""
     answer = _loads(getattr(req, "answer_json", None))
     answer = answer if isinstance(answer, dict) else {}
-    known = figures_known.known_for(req)
+    known = figures_known.known_for(req) if known is None else known
     return AnswerPage(
         question=_question(req),
         answer_lines=_answer_lines(answer),
@@ -43,9 +44,10 @@ def answer_page(req) -> AnswerPage:
     )
 
 
-def _sections(req) -> tuple:
+def _sections(req, known) -> tuple:
     """The proof sections the stage stored. A section with nothing to draw
-    has no exhibit. A stored list that is not a list is no sections."""
+    has no exhibit. A stored list that is not a list is no sections. A figure
+    token stored before the stage bound its words prints as its figure."""
     raw = _loads(getattr(req, "storyline_json", None))
     items = raw.get("sections") if isinstance(raw, dict) else None
     if not isinstance(items, list):
@@ -66,21 +68,40 @@ def _sections(req) -> tuple:
             exhibit = for_section(req, sid)
         except Exception:
             exhibit = None
-        out.append(Section(sid, title, takeaway, exhibit, (), None, (), None))
+        out.append(Section(sid, _bound(title, known), _bound(takeaway, known), exhibit, (), None, (), None))
     return tuple(out)
 
 
-def _register(req):
-    """The assembled register, or None when this run has none or it does not check out."""
+def _register(req, known):
+    """The assembled register, or None when this run has none or it does not
+    check out. Its words are printed bound, as the sections' are."""
     raw = _loads(getattr(req, "storyline_json", None))
     drafted = raw.get("register") if isinstance(raw, dict) else None
     if not isinstance(drafted, list) or not drafted:
         return None
     try:
         from app.storyline.register import assemble
-        return assemble(req, drafted)
+        register = assemble(req, drafted)
     except Exception:
         return None
+    from dataclasses import replace
+
+    from app.storyline.model import Cost
+
+    rows = tuple(replace(
+        row, recommendation=_bound(row.recommendation, known), changes=_bound(row.changes, known),
+        owner=_bound(row.owner, known), cost=Cost(row.cost.figure_id, _bound(row.cost.needs, known)),
+    ) for row in register.rows)
+    return replace(register, rows=rows, footnotes=tuple(_bound(note, known) for note in register.footnotes))
+
+
+def _bound(text, known):
+    """`text` with each figure token printed as its figure; anything else as it is."""
+    if not isinstance(text, str) or not text:
+        return text
+    from app.figures.bind import bind
+
+    return bind(text, known).text
 
 
 def _question(req) -> str | None:

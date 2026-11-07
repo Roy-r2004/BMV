@@ -2084,15 +2084,24 @@ def document_phrases(req, business_case: dict | None = None) -> list[str]:
     """Exact phrases our own code prints for a registered figure the binder has
     no form for, declared to the release law (`law.scope(phrases=...)`): the
     pilot gate's target when it is a change in percentage points
-    (`pilot_gate.target_phrases`). Never raises."""
+    (`pilot_gate.target_phrases`), and the register's flex footnote
+    (`register.phrases`). Never raises."""
+    found = []
     try:
         from app.pipeline import pilot_gate as _pg
 
         bc = business_case if isinstance(business_case, dict) else _loads(getattr(req, "business_case_json", None), {})
         gate = bc.get("pilot_gate") if isinstance(bc, dict) else None
-        return _pg.target_phrases(gate if isinstance(gate, dict) else None)
+        found += _pg.target_phrases(gate if isinstance(gate, dict) else None)
     except Exception:
-        return []
+        pass
+    try:
+        from app.storyline import register as _register
+
+        found += _register.phrases(req)
+    except Exception:
+        pass
+    return found
 
 
 def document_known(req, business_case: dict | None = None) -> tuple:

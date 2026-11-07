@@ -85,6 +85,18 @@ def figures_for(req) -> list[Figure]:
         return []
 
 
+def phrases(req) -> list[str]:
+    """The flex footnote, declared to the number law as a phrase our code prints:
+    the percent it flexes by is the configured rule, and the assumption it names
+    is a stored term of the move, said as the note says it. Empty when the run
+    has no register or no assumption of ours."""
+    raw = _loads(getattr(req, "storyline_json", None))
+    if not isinstance(raw, dict) or not isinstance(raw.get("register"), list) or not raw["register"]:
+        return []
+    flex = _flex_note(req)
+    return [flex] if flex else []
+
+
 def _row(raw, index: int, phases: list, known, reasons: list[str]) -> dict:
     if not isinstance(raw, dict):
         reasons.append(f"Recommendation {index} is not a recommendation.")
