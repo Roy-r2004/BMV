@@ -406,7 +406,7 @@ def test_the_draft_cover_says_the_plain_reason_never_the_gates_own_words(db):
     row = _seed(db, mvp_blueprint=CLEAN_MD, qa_report_json=json.dumps(qa))
     cover = " ".join(_cover_text(ep.build_pdf(row, "blueprint")).split())
     assert "DRAFT." in cover
-    assert "the quality review has not passed" in cover
+    assert "The quality review found problems that are still open." in cover
     for internal in ("quality bench", "finding(s)", "document(s)", "integrity layer", "client-unsafe"):
         assert internal not in cover, internal
 

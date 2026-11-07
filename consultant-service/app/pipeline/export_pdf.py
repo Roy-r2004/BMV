@@ -694,9 +694,13 @@ _ON_PAGE = re.compile(r"\bpage (\d+)")
 
 
 def plain_reasons(req, gate: dict | None = None) -> list[str]:
-    """Why the package is a draft, in the client's words: each place it names
-    is a file and a page, and no sentence quotes the gate's own reasons, a
-    number the law rejected, or the text a check flagged."""
+    """Why the package is a draft, in the client's words: a number nobody owns
+    and a clipped line are named by file and page, and every other reason is
+    the method note's own sentence for it (`method_note.plain_reason`). No
+    sentence quotes the gate's reasons, a number the law rejected, or the text
+    a check flagged."""
+    from app.pipeline.method_note import plain_reason
+
     gate = gate if isinstance(gate, dict) else release_status(req)
     plain: list[str] = []
 
@@ -706,33 +710,18 @@ def plain_reasons(req, gate: dict | None = None) -> list[str]:
 
     for where, place, _numbers in law.page_reasons(law.recorded(req)):
         at = f"{where}, {place}" if not place.endswith("not located") else where
-        add(f"{at}: a number is not one of your figures, our workings, our estimates or a cited reference")
+        add(f"{at}: a number is not one of your figures, our workings, our estimates or a cited reference.")
     clipped = _clipped(req)
     for kind, reason in clipped:
         page = _ON_PAGE.search(reason)
         at = f", page {page.group(1)}" if page else ""
-        add(f"{_FILE_NAMES.get(kind, kind)}{at}: a line runs outside the page")
+        add(f"{_FILE_NAMES.get(kind, kind)}{at}: a line runs outside the page.")
     placed = {reason for _, reason in clipped}
     for reason in gate.get("reasons") or []:
         if reason in placed or reason.startswith(tuple(f"{where}, " for where, _ in law.DOCUMENTS)):
             continue                                   # said above, with its page
-        add(_plain_reason(reason))
+        add(plain_reason(reason))
     return plain
-
-
-def _plain_reason(reason: str) -> str:
-    """One gate reason as the client reads it. The reason itself is never shown."""
-    if "not yet checked against the figures" in reason:
-        return "a file has not been checked against the figures since the last change"
-    if reason in ("the run did not complete", "no documents were produced"):
-        return "the work is not finished"
-    if "quality bench" in reason:
-        return "the quality review has not passed"
-    if reason.startswith("integrity layer"):
-        return "the consistency check has not passed on this version"
-    if reason.startswith("the register no longer checks out"):
-        return "the register no longer checks out against your figures"
-    return "a check of the wording or the figures has open points"
 
 
 def release_status(req: Request) -> dict:
@@ -804,9 +793,12 @@ def release_status(req: Request) -> dict:
     try:
         from app.storyline.register import stored_reasons
 
-        reasons += stored_reasons(req)
+        stale = bool(stored_reasons(req))
     except Exception:
         logger.warning("the stored register could not be checked", exc_info=True)
+        stale = True
+    if stale:
+        reasons.append("the stored register no longer checks out against the figures")
     # client governance is the optional LATER state: a consultancy deliverable
     # is final on its quality checks alone; CLIENT APPROVED needs the client's
     # own owner and approver (intake facts, never invented)
@@ -948,7 +940,7 @@ def _status_lines(req: Request) -> list:
         # gate's own reasons: they are internal words, and the law's quote the
         # number it rejected.
         said = plain_reasons(req, gate)[:4]
-        named = (_drawn("; ".join(said)) + ".") if said else "Open findings are listed with the release."
+        named = _drawn(" ".join(said)) if said else "Open findings are listed with the release."
         return [Spacer(1, 6), Paragraph(
             f'<font color="#b45309"><b>DRAFT.</b> {named}</font>', _S["meta"])]
     if status == "final":

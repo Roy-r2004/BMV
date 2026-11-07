@@ -169,5 +169,5 @@ def test_a_stored_register_that_stops_checking_out_holds_the_release(tmp_path, m
     row.case_file_json = json.dumps([])
     assert build(row).register is None
     reasons = export_pdf.release_status(row)["reasons"]
-    assert any(reason.startswith("the register no longer checks out") for reason in reasons)
-    assert "the register no longer checks out against your figures" in export_pdf.plain_reasons(row)
+    assert "the stored register no longer checks out against the figures" in reasons
+    assert "The register no longer checks out against your figures." in export_pdf.plain_reasons(row)

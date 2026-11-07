@@ -2517,6 +2517,8 @@ REASON_KINDS = [
      "cited source."),
     ("2 document(s) not yet checked against the figures since the last data change",
      "Some of the documents have not yet been checked against your figures."),
+    ("the stored register no longer checks out against the figures",
+     "The register no longer checks out against your figures."),
 ]
 
 
