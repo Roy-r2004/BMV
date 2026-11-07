@@ -265,3 +265,13 @@ def test_more_sections_than_the_bound_are_sent_back_not_cut(monkeypatch):
     assert len(sent) == 2 and "at most 4" in sent[1]
     assert len(json.loads(row.storyline_json)["sections"]) == 1
     db.close()
+
+
+def test_progress_never_runs_backwards_through_the_plan_stages():
+    # Review L2: the plan summary emitted 62 and the quality review after it 61.
+    import re
+
+    source = (Path(__file__).resolve().parents[2] / "app" / "pipeline" / "orchestrator.py").read_text(encoding="utf-8")
+    start = source.index('emit(db, request_id, "decomposing", "Breaking your business down')
+    found = [int(n) for n in re.findall(r'emit\(db, request_id, "\w+", [^\n]*?, (\d+)\)', source[start:])]
+    assert len(found) >= 6 and found == sorted(found), found

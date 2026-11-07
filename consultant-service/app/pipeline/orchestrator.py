@@ -436,7 +436,7 @@ def _build_stages(db: Session, request_id: int, analysis_result: dict, consult_r
     storyline_stage.write(db, request_id)
 
     current()
-    emit(db, request_id, "quality", "Expert auditors reviewing your documents...", 61)
+    emit(db, request_id, "quality", "Expert auditors reviewing your documents...", 63)
     qa_experts.review_quality(db, request_id)
 
     # the integrity layer: every engagement's structured content and prose
