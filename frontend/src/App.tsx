@@ -12,7 +12,6 @@ import './styles/mobile-shell.css';
 const SolutionsPage = lazy(() => import('./routes/SolutionsPage'));
 const AboutPage = lazy(() => import('./routes/AboutPage'));
 const PrivateAIPage = lazy(() => import('./routes/PrivateAIPage'));
-const SubmitPage = lazy(() => import('./routes/SubmitPage'));
 const StudioPage = lazy(() => import('./routes/StudioPage'));
 const EngagementsPage = lazy(() => import('./routes/EngagementsPage'));
 const ResultPreviewPage = lazy(() => import('./routes/ResultPreviewPage'));
@@ -42,7 +41,7 @@ export default function App() {
           <Route path="/examples" element={<Navigate to="/solutions" replace />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/private-ai" element={<PrivateAIPage />} />
-          <Route path="/submit" element={<SubmitPage />} />
+          <Route path="/submit" element={<Navigate to="/demo" replace />} />
           {/* The client-facing generator, addressed as /demo. It used to be
               /studio, beside a separate /demo page that listed generated
               preview apps — two entries offering the client two different

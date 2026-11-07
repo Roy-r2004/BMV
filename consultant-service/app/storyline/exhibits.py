@@ -30,12 +30,40 @@ def for_section(req, section_id: str) -> Exhibit | None:
 
 
 def figures_for(req) -> list[Figure]:
-    """Every figure an exhibit derives, so the known set owns the numbers it draws."""
+    """Every figure an exhibit derives, so the known set owns the numbers it draws.
+
+    Only the exhibits a stored proof section draws: an exhibit no page shows
+    vouches for nothing. A run with no storyline has none.
+    """
     figures: list[Figure] = []
     for section_id in _SECTIONS:
+        if section_id not in _drawn_sections(req):
+            continue
         _, made = _built(req, section_id)
         figures.extend(made)
     return figures
+
+
+def available(req) -> list[tuple[str, str]]:
+    """(section id, what its exhibit shows) for each exhibit this run has data
+    for, in the order a prompt lists them."""
+    out = []
+    for section_id in _SECTIONS:
+        try:
+            exhibit, _ = _built(req, section_id)
+        except Exception:
+            exhibit = None
+        if exhibit is not None:
+            out.append((section_id, exhibit.caption))
+    return out
+
+
+def _drawn_sections(req) -> set[str]:
+    raw = _loads(getattr(req, "storyline_json", None))
+    sections = raw.get("sections") if isinstance(raw, dict) else None
+    if not isinstance(sections, list):
+        return set()
+    return {s.get("id") for s in sections if isinstance(s, dict) and isinstance(s.get("id"), str)}
 
 
 def draw_pdf(exhibit: Exhibit, width: float, height: float) -> Drawing:
@@ -104,6 +132,8 @@ def _bars(req) -> tuple[Exhibit | None, list[Figure]]:
     slots = _classes(grid)
     if not slots:
         return None, []
+    # the week's own unit, as the client's grid names it
+    unit = next((grid[key] for key in ("unit_plural", "unit") if isinstance(grid.get(key), str) and grid[key]), "")
     bound = settings.EXHIBIT_ROWS_MAX
     shown, grouped = slots[:bound], []
     if len(slots) > bound:
@@ -111,12 +141,12 @@ def _bars(req) -> tuple[Exhibit | None, list[Figure]]:
     figures: list[Figure] = []
     rows = []
     for index, (label, value) in enumerate(shown, 1):
-        figure = _count(f"EX-WEEK-{index}", value, "spots", "the spots taken in this class")
+        figure = _count(f"EX-WEEK-{index}", value, unit, "taken in this class across the week")
         figures.append(figure)
         rows.append(_row(label, figure))
     if grouped:
         total = sum((value for _, value in grouped), Decimal(0))
-        figure = _count("EX-WEEK-GROUP", total, "spots", "the spots taken in the other classes")
+        figure = _count("EX-WEEK-GROUP", total, unit, "taken in the other classes across the week")
         count = _count("EX-WEEK-COUNT", Decimal(len(grouped)), "classes", "how many classes are grouped")
         figures.append(figure)
         figures.append(count)
@@ -126,21 +156,34 @@ def _bars(req) -> tuple[Exhibit | None, list[Figure]]:
         row["drawn"] = f"Other classes, {display(count)}"
         rows.append(row)
     exhibit = Exhibit("1.1", "bar", "How full each class is", "The classes, and how full each one is.",
-                      {"rows": rows}, "Her week")
+                      {"rows": rows}, "Your week")
     return exhibit, figures
 
 
 def _waterfall(req) -> tuple[Exhibit | None, list[Figure]]:
+    """The prize, one term at a time. Each step is the product so far.
+
+    A step is the figure it is: the client's own number when it is one of
+    their terms alone, the move itself at the end, and otherwise a product we
+    worked out (or our estimate, once an assumption of ours is in it), in the
+    unit the product has. A step whose unit cannot be said gets no figure, and
+    its row is drawn without a number.
+    """
     move = _move(req)
     terms = move.get("terms") if isinstance(move, dict) else None
     if not isinstance(terms, list) or not terms:
         return None, []
+    from app.figures import known as figures_known
+
+    known = figures_known.known_for(req, leave_out={"exhibits", "register"})
+    move_unit = move.get("unit") if isinstance(move.get("unit"), str) else ""
     running = Decimal(0)
     product = Decimal(1)
+    units: list[str] = []
+    ours = False
     figures: list[Figure] = []
     steps = []
     rows = []
-    ours_from = None
     for index, term in enumerate(terms, 1):
         if not isinstance(term, dict):
             return None, []
@@ -151,24 +194,73 @@ def _waterfall(req) -> tuple[Exhibit | None, list[Figure]]:
         product *= factor
         amount = product - running
         running = product
-        kind = "ours" if term.get("kind") == "proposed" or _proposed(term) else (
-            "theirs" if term.get("kind") == "claim" else "derived")
-        if kind == "ours":
-            ours_from = index
-        if ours_from is not None:
-            kind = "ours"
-        figure = _money(f"EX-PRIZE-{index}", running, kind)
-        figures.append(figure)
+        units.append(_term_unit(term, known))
+        ours = ours or term.get("kind") == "proposed" or _proposed(term)
+        figure = _step(index, term, running, units, ours, known, move_unit, last=index == len(terms))
+        if figure is not None and figure.id.startswith("EX-"):
+            figures.append(figure)
         label = term.get("label") if isinstance(term.get("label"), str) and term.get("label") else f"Step {index}"
-        step = {"label": label, "amount": format(amount, "f"), "value": format(running, "f"),
-                "figure_id": figure.id, "display": display(figure), "tag": tag_word(kind)}
-        steps.append(step)
-        rows.append({"label": label, "value": format(running, "f"), "figure_id": figure.id,
-                     "display": display(figure), "tag": tag_word(kind)})
+        drawn = {"figure_id": figure.id if figure else "", "display": display(figure) if figure else "",
+                 "tag": tag_word(figure.kind) if figure else ""}
+        steps.append({"label": label, "amount": format(amount, "f"), "value": format(running, "f"), **drawn})
+        rows.append({"label": label, "value": format(running, "f"), **drawn})
     exhibit = Exhibit("1.1", "waterfall", "Where the prize comes from",
                       "Each step is the prize once that part is counted.",
-                      {"rows": rows, "steps": steps}, "The move")
+                      {"rows": rows, "steps": steps}, "Your figures")
     return exhibit, figures
+
+
+def _step(index: int, term: dict, value: Decimal, units: list[str], ours: bool, known,
+          move_unit: str, *, last: bool) -> Figure | None:
+    from app.figures import known as figures_known
+
+    if last:
+        move = known.get(figures_known.MOVE_ID)
+        # the move's own figure, when it is the same number and the same kind
+        if move is not None and move.value == value and (move.kind == "ours") == ours:
+            return move
+    if index == 1 and term.get("kind") == "claim" and not term.get("parts"):
+        theirs = known.get(term.get("id")) if isinstance(term.get("id"), str) else None
+        if theirs is not None and theirs.value == value:
+            return theirs
+    unit = _running_unit(units, move_unit)
+    if unit is None:
+        return None
+    if ours:
+        return Figure(f"EX-PRIZE-{index}", value, unit, None, "ours",
+                      Proposal(note="the prize so far, with our assumption in it"), places_of(value))
+    return Figure(f"EX-PRIZE-{index}", value, unit, None, "derived",
+                  Working((), "product", "the prize so far"), places_of(value))
+
+
+def _running_unit(units: list[str], move_unit: str) -> str | None:
+    """The unit of a product of terms in these units: money once money is in
+    it, the one unit when only one term has a unit, and None when it cannot be
+    said (no unit at all, or two units multiplied)."""
+    if move_unit and move_unit in units:
+        return move_unit
+    named = [unit for unit in units if unit]
+    return named[0] if len(named) == 1 else None
+
+
+def _term_unit(term: dict, known) -> str:
+    """The unit a term is in: its figure's for a client's number, the unit a
+    proposal names, none for a calendar constant; a sum of parts takes the one
+    unit its parts share."""
+    parts = term.get("parts")
+    if isinstance(parts, list) and parts:
+        found = {_term_unit(part, known) for part in parts if isinstance(part, dict)} - {""}
+        return found.pop() if len(found) == 1 else ""
+    kind = term.get("kind")
+    if kind == "claim":
+        figure = known.get(term.get("id")) if isinstance(term.get("id"), str) else None
+        return figure.unit if figure is not None and figure.unit else ""
+    if kind == "proposed":
+        from app.figures.known import proposal_unit
+
+        label = term.get("label") if isinstance(term.get("label"), str) else ""
+        return proposal_unit(label)
+    return ""
 
 
 def _grid(req) -> tuple[Exhibit | None, list[Figure]]:
@@ -247,14 +339,6 @@ def _classes(grid: dict | None) -> list[tuple[str, Decimal]]:
 
 def _count(fid: str, value: Decimal, unit: str, working: str) -> Figure:
     return Figure(fid, value, unit, None, "derived", Working((), "total", working), places_of(value))
-
-
-def _money(fid: str, value: Decimal, kind: str) -> Figure:
-    source = Proposal(note="our part of the prize") if kind == "ours" else Working((), "product", "the prize so far")
-    if kind == "theirs":
-        from app.figures.model import TheirsSource
-        source = TheirsSource(None, None, "a term of the move", None, None)
-    return Figure(fid, value, "USD", None, kind, source, places_of(value))
 
 
 def _row(label: str, figure: Figure) -> dict:
