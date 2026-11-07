@@ -730,6 +730,8 @@ def _plain_reason(reason: str) -> str:
         return "the quality review has not passed"
     if reason.startswith("integrity layer"):
         return "the consistency check has not passed on this version"
+    if reason.startswith("the register no longer checks out"):
+        return "the register no longer checks out against your figures"
     return "a check of the wording or the figures has open points"
 
 
@@ -797,6 +799,14 @@ def release_status(req: Request) -> dict:
     if unchecked and law.can_record(req):
         reasons.append(f"{len(unchecked)} document(s) not yet checked against the figures since the last data change")
     reasons += _presentation_reasons(req)
+    # a register the run stored that no longer checks out is absent from the
+    # files; the package says so instead of losing it without a word
+    try:
+        from app.storyline.register import stored_reasons
+
+        reasons += stored_reasons(req)
+    except Exception:
+        logger.warning("the stored register could not be checked", exc_info=True)
     # client governance is the optional LATER state: a consultancy deliverable
     # is final on its quality checks alone; CLIENT APPROVED needs the client's
     # own owner and approver (intake facts, never invented)
