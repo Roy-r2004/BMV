@@ -97,6 +97,11 @@ class Settings:
     # fault and a paid run should not end on the first one; the provider's own
     # failures are retried in the provider and never again here. Held to 1..3.
     STAGE_REPLY_ATTEMPTS: int = _env_int_within("STAGE_REPLY_ATTEMPTS", 2, 1, 3)
+    # Added to every REASONING_MODEL call's reply limit. A thinking model spends
+    # that limit on its reasoning before it writes the answer, and each stage's
+    # limit is sized for the answer: on the first real run two replies stopped
+    # after about 400 characters of a 3,500-token limit. Only tokens used are paid for.
+    REASONING_TOKEN_HEADROOM: int = _env_int_within("REASONING_TOKEN_HEADROOM", 6000, 0, 30000)
     # How many figures the case file (app/figures/casefile.py) keeps: from one
     # text (an answer, a field) and from the whole request. A build stops at the
     # bound, in the order the texts are read, so a pasted spreadsheet cannot make

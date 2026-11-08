@@ -92,6 +92,8 @@ def chat(
     attempts — so upstream flakiness rates come from the logs, while
     exhausted retries still show up as the caller's success=False row.
     """
+    if model == settings.REASONING_MODEL:
+        max_tokens += settings.REASONING_TOKEN_HEADROOM
     last_error: str | None = None
     for attempt in range(retries + 1):
         if attempt:
