@@ -75,6 +75,7 @@ def test_a_redirect_into_the_private_network_is_refused(monkeypatch):
     class Hop:
         is_redirect = True
         headers = {"location": "http://127.0.0.1/secret"}
+        extensions = {"network_stream": _Stream("93.184.216.34")}
 
         def __enter__(self):
             return self
@@ -86,6 +87,100 @@ def test_a_redirect_into_the_private_network_is_refused(monkeypatch):
     monkeypatch.setattr(references.httpx, "stream", lambda *a, **k: Hop())
     with pytest.raises(references.Unreadable):
         references._fetch("https://www.example.org/")
+
+
+class _Stream:
+    def __init__(self, peer):
+        self.peer = peer
+
+    def get_extra_info(self, name):
+        return (self.peer, 443) if name == "server_addr" else None
+
+
+def _serve(monkeypatch, peer, chunks):
+    class Page:
+        is_redirect = False
+        status_code = 200
+        encoding = "utf-8"
+        headers = {"content-type": "text/html"}
+        extensions = {"network_stream": _Stream(peer)}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def iter_bytes(self):
+            return chunks
+
+    monkeypatch.setattr(references, "_public", lambda host: True)
+    monkeypatch.setattr(references.httpx, "stream", lambda *a, **k: Page())
+
+
+def test_a_page_at_a_public_address_is_read(monkeypatch):
+    _serve(monkeypatch, "93.184.216.34", [b"<p>AED 30</p>"])
+    assert references._fetch("https://www.example.org/") == "aed 30"
+
+
+def test_a_name_that_turns_private_after_the_check_is_refused(monkeypatch):
+    _serve(monkeypatch, "127.0.0.1", [b"<p>the inside of the network</p>"])
+    with pytest.raises(references.Unreadable):
+        references._fetch("https://www.example.org/")
+
+
+def test_a_connection_that_cannot_say_where_it_went_is_refused(monkeypatch):
+    _serve(monkeypatch, "", [b"<p>somewhere</p>"])
+    with pytest.raises(references.Unreadable):
+        references._fetch("https://www.example.org/")
+
+
+def test_a_page_that_drips_is_given_up_on(monkeypatch):
+    clock = [0.0]
+
+    def drip():
+        for _ in range(1000):
+            clock[0] += 1.0
+            yield b"x"
+
+    monkeypatch.setattr(references.time, "monotonic", lambda: clock[0])
+    _serve(monkeypatch, "93.184.216.34", drip())
+    with pytest.raises(references.Unreadable):
+        references._fetch("https://www.example.org/")
+
+
+def test_the_search_for_pages_has_one_clock(monkeypatch):
+    clock = [0.0]
+    opened = []
+
+    def slow(url):
+        opened.append(url)
+        clock[0] += 40.0
+        raise references.Unreadable("slow")
+
+    monkeypatch.setattr(references.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(references, "_fetch", slow)
+    urls = [f"https://www.example.org/{n}" for n in range(6)]
+    assert references.confirm([{**GOOD, "url": u} for u in urls], set(urls)) == []
+    assert len(opened) == 2
+
+
+def test_the_text_of_a_page_leaves_out_the_code():
+    html = "<HTML><Script type=x>var a = 99;</SCRIPT><style>p{top:1}</style><p>Book at <b>AED 30</b></p></html>"
+    assert references._text(html) == "book at aed 30"
+
+
+def test_a_stray_angle_bracket_keeps_the_words_after_it():
+    assert references._text("price a < b and more") == "price a < b and more"
+
+
+def test_markup_built_to_stall_the_reader_does_not():
+    import time as clock
+
+    started = clock.perf_counter()
+    for html in ("<script>" * 250_000, "<" * 2_000_000, "<a " * 650_000, "</script" * 250_000):
+        references._text(html)
+    assert clock.perf_counter() - started < 3.0
 
 
 def test_the_number_of_references_is_bounded(page):

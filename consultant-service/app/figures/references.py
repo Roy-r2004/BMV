@@ -8,8 +8,9 @@ confirms that the number is there, next to the words the model quoted, before a
 unreadable page counts as unconfirmed.
 
 The addresses come from a model, so fetching them is guarded: web addresses
-only, public hosts only (every redirect is checked again), and a size limit.
-The stage adds to a run and never stops one.
+only, public hosts only (every redirect is checked again, and so is the address
+each connection actually reached), a size limit and a clock. The stage adds to a
+run and never stops one.
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ import json
 import logging
 import re
 import socket
+import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin, urlsplit
@@ -38,13 +40,15 @@ PROGRESS = "Checking the market..."
 _TOKENS = 2500
 _MAX_BYTES = 2_000_000
 _MAX_REDIRECTS = 3
+_PAGE_SECONDS = 20.0
+_ALL_PAGES_SECONDS = 60.0
 _WINDOW = 200
 _QUOTE_SHARE = 0.6
 _MIN_QUOTE_WORDS = 3
 _STALE = frozenset({"references", "sums", "answer", "registry", "roadmap", "register", "exhibits"})
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; BuildMyVersionResearch/1.0)"}
-_BLOCKS = re.compile(r"<(script|style|noscript)[^>]*>.*?</\1>", re.I | re.S)
-_TAGS = re.compile(r"<[^>]+>")
+_NOT_TEXT = frozenset({"script", "style", "noscript"})
+_TAG_NAME = re.compile(r"[a-z0-9]+")
 
 
 class Unreadable(Exception):
@@ -65,13 +69,52 @@ def _allowed(url: str) -> bool:
     return parts.scheme in ("http", "https") and bool(parts.hostname) and _public(parts.hostname)
 
 
+def _reached_the_public_internet(response) -> bool:
+    """Where this connection actually went. The name was checked before connecting,
+    and a name can answer differently a moment later."""
+    stream = response.extensions.get("network_stream")
+    peer = stream.get_extra_info("server_addr") if stream else None
+    if not peer or not peer[0]:
+        return False
+    return ipaddress.ip_address(peer[0].split("%")[0]).is_global
+
+
+def _text(html: str) -> str:
+    """The words of a page, lowercased. One pass that never goes back, because the
+    markup comes from whoever owns the page and may be built to stall a reader."""
+    page = html.lower()
+    out: list[str] = []
+    at = 0
+    while True:
+        opens = page.find("<", at)
+        if opens < 0:
+            out.append(page[at:])
+            break
+        out.append(page[at:opens])
+        closes = page.find(">", opens)
+        if closes < 0:
+            out.append(page[opens:])
+            break
+        at = closes + 1
+        name = _TAG_NAME.match(page, opens + 1, opens + 12)
+        if name and name.group(0) in _NOT_TEXT:
+            ends = page.find(f"</{name.group(0)}", at)
+            if ends < 0:
+                break
+            at = ends
+    return " ".join(" ".join(out).split())
+
+
 def _fetch(url: str) -> str:
     """The page's text. Redirects are followed by hand so each hop is checked."""
+    deadline = time.monotonic() + _PAGE_SECONDS
     for _ in range(_MAX_REDIRECTS + 1):
         if not _allowed(url):
             raise Unreadable("not a public web address")
         try:
             with httpx.stream("GET", url, timeout=12.0, headers=_HEADERS, follow_redirects=False) as response:
+                if not _reached_the_public_internet(response):
+                    raise Unreadable("the connection did not reach a public address")
                 if response.is_redirect:
                     url = urljoin(url, response.headers.get("location", ""))
                     continue
@@ -80,10 +123,11 @@ def _fetch(url: str) -> str:
                 body = bytearray()
                 for chunk in response.iter_bytes():
                     body += chunk
+                    if time.monotonic() > deadline:
+                        raise Unreadable("the page took too long")
                     if len(body) > _MAX_BYTES:
                         break
-                html = bytes(body).decode(response.encoding or "utf-8", errors="replace")
-                return " ".join(_TAGS.sub(" ", _BLOCKS.sub(" ", html)).split())
+                return _text(bytes(body).decode(response.encoding or "utf-8", errors="replace"))
         except httpx.HTTPError as exc:
             raise Unreadable(str(exc)) from exc
     raise Unreadable("too many redirects")
@@ -119,6 +163,7 @@ def confirm(found: object, cited: set[str]) -> list[Figure]:
     out: list[Figure] = []
     now = datetime.now(timezone.utc)
     pages: dict[str, str | None] = {}
+    time_up = time.monotonic() + _ALL_PAGES_SECONDS
     for item in found if isinstance(found, list) else []:
         if len(out) >= settings.REFERENCES_MAX:
             break
@@ -133,6 +178,9 @@ def confirm(found: object, cited: set[str]) -> list[Figure]:
             logger.info("reference dropped: the search did not cite %s", url[:120])
             continue
         if url not in pages:
+            if time.monotonic() > time_up:
+                logger.info("references: out of time, stopped opening pages")
+                break
             try:
                 pages[url] = _fetch(url)
             except Unreadable as exc:
