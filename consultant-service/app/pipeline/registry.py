@@ -197,6 +197,35 @@ _APPENDIX_START = re.compile(r"Module appendix\s*[—–-]\s*the engineering det
 _APPENDIX_END = re.compile(r"Three ways forward", re.IGNORECASE)
 
 
+def phase_lines(modules: list) -> str:
+    """The build sequence the registry settled on, one line per phase, for the
+    writers: a phase the prose names differently is a contradiction in the file."""
+    numbered: dict[int, list[str]] = {}
+    parallel: list[str] = []
+    for m in modules or []:
+        if not isinstance(m, dict):
+            continue
+        name = str(m.get("client_facing_name") or m.get("name") or "")
+        if isinstance(m.get("phase_number"), int):
+            numbered.setdefault(m["phase_number"], []).append(name)
+        elif m.get("workstream") == "parallel":
+            parallel.append(name)
+    lines = [f"Phase {n}: {', '.join(numbered[n])}" for n in sorted(numbered)]
+    return "\n".join(lines + [f"In parallel, outside the numbered phases: {name}" for name in parallel])
+
+
+def name_the_ids(text: str, modules: list) -> str:
+    """Module ids read as their names in anything a client reads. The build-team
+    lines are for engineers and keep them."""
+    names = {str(m.get("id")): str(m.get("client_facing_name") or m.get("name") or "")
+             for m in modules or [] if isinstance(m, dict) and "-" in str(m.get("id") or "")}
+    if not names or not text:
+        return text
+    pattern = re.compile(r"(?<![\w/.-])(" + "|".join(re.escape(i) for i in sorted(names, key=len, reverse=True)) + r")(?![\w/-])")
+    return "\n".join(line if _BUILD_TEAM_LINE.search(line) else pattern.sub(lambda m: names[m.group(1)] or m.group(1), line)
+                     for line in text.split("\n"))
+
+
 def client_facing_region(text: str) -> str:
     """The text a client reads as prose: Volume II's module appendix is
     declared engineering detail (data models, APIs, tools) and is excluded."""
@@ -1014,10 +1043,10 @@ def module_registry(modules: list, business_case: dict) -> tuple[list[dict], lis
     out, renames = [], []
     for m in mods:
         level = str(m.get("automation_level") or "").lower()
-        has_ai = bool(m.get("ai_involvement")) or bool((m.get("spec") or {}).get("ai")) \
-            or bool((m.get("tech") or {}).get("ai_agent"))
-        if level not in ("manual", "rules", "ai"):
-            level = "ai" if has_ai else "rules"
+        # what the module IS is what its specification carries, whatever label
+        # the decomposition put beside it
+        has_ai = bool((m.get("spec") or {}).get("ai")) or bool((m.get("tech") or {}).get("ai_agent"))
+        level = "ai" if has_ai else (level if level in ("manual", "rules") else "rules")
         is_pilot = m["id"] in pilot_ids
         original = str(m.get("name") or m["id"])
         name = original
@@ -2497,7 +2526,8 @@ def kpi_statements(modules: list, claims: list[dict], gate: dict | None) -> list
                 out.append(_claim(f"MK-{mid}-{n:02d}", "module_kpi", value, unit or "count", scope=mid,
                                   phase=m.get("phase") or "FUTURE", provenance="consultant_proposed",
                                   approval="consultant_proposed — client approval required",
-                                  source=f"spec.kpis[{n - 1}]", sections=[], text=f"{metric}: {raw}",
+                                  source=f"spec.kpis[{n - 1}]", sections=[],
+                                  text=raw if str(raw).startswith(metric) else f"{metric}: {raw}",
                                   accepted=False, metric=metric))
                 rendered.append(f"{metric} — {WEEK_ONE_SENTENCE}")
             else:

@@ -130,15 +130,24 @@ def test_verify_never_modifies_the_content():
 
 def test_every_disagreement_is_a_typed_finding():
     mods = copy.deepcopy(MODULES)
-    mods[2]["automation_level"], mods[2]["spec"]["ai"] = "rules", {"role": "classifies"}
     content = _content(mods, blueprint="Phase 9 — Late: the Delivery Exception AI Coordinator ships.\n",
                        technical="Customers confirm their address in the Pilot Review Queue.\n")
+    # the registry derives the level from the specification, so only a later edit can disagree
+    content["modules"][2]["automation_level"], content["modules"][2]["spec"]["ai"] = "rules", {"role": "classifies"}
     findings, canon = it.verify(content)
     kinds = {f.kind for f in findings}
     assert it.MISCLASSIFIED in kinds and it.CONFLICT in kinds
     assert any("classified 'rules'" in f.issue for f in findings)
     assert any(f.kind == it.MISCLASSIFIED and "audience" in f.where for f in findings)
     assert all(f.severity == "high" for f in findings)
+
+
+def test_the_level_of_a_module_is_what_its_specification_carries():
+    mods = copy.deepcopy(MODULES)
+    mods[2]["automation_level"], mods[2]["spec"]["ai"] = "rules", {"role": "classifies"}
+    content = _content(mods)
+    assert content["modules"][2]["automation_level"] == "ai" and content["modules"][2]["ai_involvement"]
+    assert not any("classified 'rules'" in f.issue for f in it.verify(content)[0])
 
 
 def test_a_phase_statement_is_checked_against_the_registry_not_rewritten():

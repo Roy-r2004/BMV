@@ -267,26 +267,39 @@ def _phrase_spans(text: str, phrases: Sequence[str]) -> list[tuple[int, int]]:
 _ID = r"(?:T\d+-\d+|F-[a-z_]+-\d+|E\d+-\d+(?:\.\d+)?|CF-\d+|CE-\d+|CAP-\d+|SUM-\d+|REF-\d+|PROP-\d+|TH-[a-z0-9-]+?-\d+)"
 _CITED_IDS = re.compile(rf"\s*[(\[]{_ID}(?:\s*,\s*{_ID})*[)\]]")
 _THRESHOLD_ID = re.compile(r"\bTH-[a-z0-9-]+?-\d+\b(:\s*)?")
-_PROPOSED_AFTER = re.compile(r"(?:\s+[a-z%-]+){0,3}\s*\(proposed\b", re.I)
-_PROPOSED_BEFORE = re.compile(r"approval required\)\s*$", re.I)
+_LABEL = r"\(proposed\s*[-\u2013\u2014]\s*client approval required\)"
+_PROPOSED_AFTER = re.compile(rf"(?:\s+[a-z%-]+){{0,3}}\s*{_LABEL}", re.I)
+_PROPOSED_BEFORE = re.compile(rf"{_LABEL}\s*$", re.I)
+_MONEY = re.compile(r"[$\u20ac\u00a3]|\b[A-Z]{3}\b|\b(?:dirhams?|dollars?|euros?|pounds?|riyals?)\b", re.I)
+_MONEY_AFTER = re.compile(r"\s*(?:[A-Z]{3}\b|dirhams?\b|dollars?\b|euros?\b|pounds?\b|riyals?\b)")
+_MONEY_BEFORE = re.compile(r"(?:[$\u20ac\u00a3]|\b[A-Z]{3})\s*$")
 
 
-def _without_ids(text: str, known: FigureSet) -> str:
+def strip_ids(text: str, value_of) -> str:
     """The text as a client should read it: ids cited in brackets are gone, and a
-    threshold written as its id reads as its value."""
+    threshold written as its id reads as its value (`value_of(id)`, a string)."""
     def threshold(m: re.Match) -> str:
-        if m.group(1):
-            return ""
-        figure = known.get(m.group(0))
-        return format(figure.value.normalize(), "f") if figure is not None else ""
+        return "" if m.group(1) else (value_of(m.group(0)) or "")
 
     return _THRESHOLD_ID.sub(threshold, _CITED_IDS.sub("", text))
 
 
+def _without_ids(text: str, known: FigureSet) -> str:
+    def value_of(figure_id: str) -> str | None:
+        figure = known.get(figure_id)
+        return format(figure.value.normalize(), "f") if figure is not None else None
+
+    return strip_ids(text, value_of)
+
+
 def _marked_as_proposed(text: str, start: int, end: int) -> bool:
-    """The label is printed right beside this number, so the reader can see it is
-    ours to propose and theirs to approve. Close by only: a label further along
-    the sentence says nothing about this number."""
+    """The whole label is printed right beside this number, so the reader can see
+    it is ours to propose and theirs to approve. Close by only: a label further
+    along the sentence says nothing about this number. Never money: a model could
+    excuse any sum it made up by writing the label after it, and an amount has to
+    come from the client's figures, our workings or a source."""
+    if _MONEY.search(text[start:end]) or _MONEY_AFTER.match(text, end) or _MONEY_BEFORE.search(text, 0, start):
+        return False
     return bool(_PROPOSED_AFTER.match(text, end)) or bool(_PROPOSED_BEFORE.search(text, 0, start))
 
 

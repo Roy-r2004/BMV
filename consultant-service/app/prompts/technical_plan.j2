@@ -44,7 +44,9 @@ One ### subsection PER MODULE, in the decomposition's order. Each subsection res
 - **For your build team:** ONE compact line with the technical identifiers a developer needs: record names, tool names, connection points (from tech.data_model/tools/apis/integration_details). This is the only place technical notation is allowed.
 
 ## Applying it, step by step
-3-4 phases, sequenced by dependency. Use EXACTLY this bullet format per phase (top-level bullet, two indented sub-bullets):
+{% if phase_lines is defined and phase_lines %}The sequence is already settled, so write exactly one phase per numbered line below, named by what it delivers, and describe anything marked "in parallel" as built alongside the phases, never as a step in them:
+{{ phase_lines }}
+{% else %}3-4 phases, sequenced by dependency. {% endif %}Use EXACTLY this bullet format per phase (top-level bullet, two indented sub-bullets):
 *   **Phase 1: <name>**
     *   **Delivers:** <which parts from above, by name>
     *   **You can already:** <what the owner can personally do and see working at the end of this phase>

@@ -55,6 +55,17 @@ def test_a_number_marked_as_proposed_is_not_an_orphan(text):
     assert check(text)[1] == []
 
 
+@pytest.mark.parametrize("text", ["we will earn 19,800 AED (proposed \u2014 client approval required)",
+                                  "a saving of $900 (proposed \u2014 client approval required)",
+                                  "worth 40 dirhams (proposed \u2014 client approval required)"])
+def test_the_label_never_excuses_money(text):
+    assert len(check(text)[1]) == 1
+
+
+def test_half_a_label_excuses_nothing():
+    assert [f.number for f in check("within 37 calls (proposed)")[1]] == ["37"]
+
+
 def test_a_number_with_no_label_is_still_a_finding():
     assert [f.number for f in check("losing 37 calls a day")[1]] == ["37"]
 

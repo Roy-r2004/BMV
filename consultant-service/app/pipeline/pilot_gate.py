@@ -561,7 +561,8 @@ def is_paraphrase(sentence: str, g: dict) -> bool:
     canon = canonical_sentence(g)
     full = full_definition(g)
     s = sentence.strip()
-    if not s or (canon and canon in s) or (full and (full in s or s in full)) or TOKEN in s:
+    low = s.lower()
+    if not s or (canon and canon.lower() in low) or (full and (full.lower() in low or low in full.lower())) or TOKEN in s:
         return False
     return _has_number(s) and _mentions_metric(s, g) and bool(_GATE_SIGNAL.search(s))
 
@@ -587,8 +588,8 @@ def restatement_findings(text: str, g: dict) -> list[dict]:
     if full:
         text = text.replace(full, " [full gate definition] ")
     canon = re.sub(r"\s+", " ", canonical_sentence(g))
-    if canon:
-        text = text.replace(canon, " [canonical gate reference] ")
+    if canon:  # the name pass may have capitalised a role inside it; the words are what count
+        text = re.sub(re.escape(canon), " [canonical gate reference] ", text, flags=re.IGNORECASE)
     for sentence in _SPLIT.split(text):
         if is_paraphrase(sentence, g):
             out.append({"severity": "high", "source": "structural", "where": "pilot gate restatement",

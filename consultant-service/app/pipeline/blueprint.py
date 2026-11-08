@@ -271,7 +271,7 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
     """Render the registry's own statements into a finished volume — and
     nothing else.
 
-    A finished document is never repaired by pattern. Exactly three things
+    A finished document is never repaired by pattern. Exactly four things
     happen here, all of them renderings of registry data into places the
     registry owns:
 
@@ -279,7 +279,9 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
       2. each module's "You'll know it's working when" line becomes that
          module's registered KPI statement;
       3. each phase heading becomes the registry's phase — its number (or the
-         parallel workstream) and its title, which is what it delivers.
+         parallel workstream) and its title, which is what it delivers;
+      4. an internal id the writer printed becomes what it stands for: a module
+         id its name, a threshold id its value, a cited id nothing.
 
     Every other disagreement between a document and the registry — an
     invented policy period, a restated design, a narrowed population, a
@@ -314,7 +316,21 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
             report["rendered"].append({"statement": "phase headings", "sites": len(phases), "headings": phases})
         if refused:
             report["refused"] = refused
+    content = _client_words(content, modules, registry)
     return content, report
+
+
+def _client_words(content: str, modules: list, registry: dict | None) -> str:
+    from app.figures import law
+    from app.pipeline import registry as _reg
+
+    claims = {c.get("id"): c for c in (registry or {}).get("claims") or [] if isinstance(c, dict)}
+
+    def value_of(claim_id: str) -> str | None:
+        value = (claims.get(claim_id) or {}).get("value")
+        return f"{value:g}" if isinstance(value, (int, float)) else None
+
+    return law.strip_ids(_reg.name_the_ids(content, modules), value_of)
 
 
 def write_blueprint(
@@ -361,6 +377,7 @@ def write_blueprint(
         pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
         build_order_names="\n".join(f"{i}. {n}" for i, n in enumerate(registry.get("build_order_names") or [], 1))
         or "(derive from the modules' dependencies)",
+        phase_lines=_reg.phase_lines(modules),
         monthly_identity_note=_monthly_identity_note(business_case),
         figures_block=_known.prompt_lines(_known.known_for(req, leave_out={"roadmap"})),
     )
@@ -405,6 +422,7 @@ def write_technical_plan(
             diagnosis=handoff.for_build(req),
         ),
         pilot_gate_sentence=registry.get("pilot_gate_sentence") or "",
+        phase_lines=_reg.phase_lines(modules),
         figures_block=_known.prompt_lines(_known.known_for(req, leave_out={"roadmap"})),
     )
     # Per-module anatomy (data model, agent brain/tools/guardrails, APIs)

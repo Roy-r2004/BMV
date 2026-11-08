@@ -146,6 +146,9 @@ def repeated_run(name: str, name_tokens: Iterable[str] | None = None):
         token = m.group(1)
         if token in _NOT_A_NAME_TOKEN or (tokens is not None and token not in tokens):
             continue
+        between = m.group(2).strip()
+        if between and between == between.lower():  # "Cleaner accesses the Cleaner Portal" is a sentence
+            continue
         return m
     return None
 

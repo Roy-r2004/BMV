@@ -199,9 +199,11 @@ def sanitize(content: dict, canon: _canon.Canon) -> list[dict]:
             applied.append({"where": "names", "surface": name, "canonical": fixed, "entity": "name",
                             "law": f"a canonical name states each of its tokens once — {why}"})
 
+    modules = content.get("modules") or []
+
     def _walk(obj, where: str):
         if isinstance(obj, str):
-            out = obj
+            out = _reg.name_the_ids(obj, modules)
             for bad, good in repairs.items():
                 if bad in out:
                     out = out.replace(bad, good)
@@ -238,6 +240,14 @@ def retype(content: dict, canon: _canon.Canon) -> list[dict]:
     procedures = (content.get("procedures") or {}).get("procedures") \
         if isinstance(content.get("procedures"), dict) else None
     names = {e.canonical for e in canon.of_kind("module")}
+    future = {e.canonical for e in canon.of_kind("module") if e.data.get("phase") == "FUTURE"}
+    listed = content.get("checklists") if isinstance(content.get("checklists"), dict) else {}
+    for c in listed.get("checklists") or []:
+        blob = " ".join(str(x) for x in (c.get("items") or [])) if isinstance(c, dict) else ""
+        if any(n in blob for n in future) and str(c.get("phase") or "") != "future":
+            applied.append({"where": f"checklists: {c.get('name')}", "surface": c.get("phase"), "canonical": "future",
+                            "entity": "checklist", "law": "a checklist naming a module not yet built is tagged FUTURE"})
+            c["phase"] = "future"
     for p in procedures or []:
         owner, n = misfiled_owner(p, names, canon)
         if not owner:

@@ -465,6 +465,8 @@ def pipeline_with_only(monkeypatch, outbox):
             raise AiProviderError(SECRET_CAUSE)
 
         monkeypatch.setattr("app.ai.provider.chat", provider_down)
+        # the market search adds to a run and never stops one (tests/figures/test_references.py)
+        monkeypatch.setattr("app.figures.references.write", lambda *a, **k: None)
         # a run that is held for a reviewer sends different mail
         monkeypatch.setattr(settings, "REVIEW_MODE", "off")
         monkeypatch.setattr(settings, "REVIEW_TOKEN", "")

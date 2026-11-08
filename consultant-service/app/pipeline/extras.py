@@ -287,6 +287,13 @@ def canonicalize_layers(procedures: list, by_name: dict, modules: list,
     return procedures
 
 
+def _arrives(module: dict) -> str:
+    """When this part exists, in the words the procedure writer is told to respect."""
+    if isinstance(module.get("phase_number"), int):
+        return f"phase {module['phase_number']}"
+    return "built alongside the phases, not available to them" if module.get("workstream") == "parallel" else "phase not set"
+
+
 def build_extras(db: Session, request_id: int, analysis: dict, decomposition: dict | None,
                  only: set[str] | None = None) -> None:
     """Build the consultancy layers. With `only` (task names such as
@@ -441,10 +448,10 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         is built module by module, 2-3 procedures each."""
         module_name = module.get("name") or ""
         module_json = json.dumps(
-            {k: module.get(k) for k in ("id", "name", "purpose", "users", "spec")}, indent=1,
+            {**{k: module.get(k) for k in ("id", "name", "purpose", "users", "spec")}, "arrives": _arrives(module)}, indent=1,
         )
         others = "\n".join(
-            f"- {m.get('name')}: {m.get('purpose', '')}" for m in modules if m is not module
+            f"- {m.get('name')} ({_arrives(m)}): {m.get('purpose', '')}" for m in modules if m is not module
         ) or "none"
 
         def _call(record) -> dict:
