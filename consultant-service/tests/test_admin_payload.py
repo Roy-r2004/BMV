@@ -28,6 +28,7 @@ def client(tmp_path, monkeypatch):
 
     Base.metadata.create_all(bind=engine)
     monkeypatch.setattr(settings, "UPLOADS_DIR", str(tmp_path))
+    monkeypatch.setattr(settings, "REVIEW_TOKEN", "reviewer")
     return TestClient(app)
 
 
@@ -75,7 +76,7 @@ def seeded_request(tmp_path):
 
 
 def test_admin_payload_reports_cost_from_the_ledger(client, seeded_request):
-    body = client.get(f"/api/requests/{seeded_request}/admin").json()
+    body = client.get(f"/api/requests/{seeded_request}/admin?review_token=reviewer").json()
     cost = body["cost"]
 
     assert cost["total_usd"] == pytest.approx(0.2196, abs=1e-4)
@@ -90,7 +91,7 @@ def test_admin_payload_reports_cost_from_the_ledger(client, seeded_request):
 
 
 def test_admin_payload_reports_what_produced_each_screen(client, seeded_request):
-    screen = client.get(f"/api/requests/{seeded_request}/admin").json()["screens"][0]
+    screen = client.get(f"/api/requests/{seeded_request}/admin?review_token=reviewer").json()["screens"][0]
     assert screen["model"] == "google/gemini-3-pro-image"
     assert screen["composition_variant"] == "hero-intelligence"
     assert screen["qa_score"] == 8.7
@@ -121,4 +122,4 @@ def test_a_missing_composite_yields_null_not_a_guessed_url(tmp_path):
 
 
 def test_admin_detail_404s_for_an_unknown_request(client):
-    assert client.get("/api/requests/999999/admin").status_code == 404
+    assert client.get("/api/requests/999999/admin?review_token=reviewer").status_code == 404

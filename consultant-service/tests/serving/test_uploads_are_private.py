@@ -71,6 +71,23 @@ def test_only_pictures_leave_the_images_folder(client, name):
     assert client.get(signed(f"/uploads/images/1/{name}")).status_code == 404
 
 
+def test_a_key_from_an_earlier_run_with_the_same_number_does_not_open_this_one(client):
+    _put("images/1/dashboard_0.png", b"\x89PNG")
+    key = signed("/uploads/images/1/dashboard_0.png?v=100").split("k=")[1]
+    assert client.get(f"/uploads/images/1/dashboard_0.png?v=200&k={key}").status_code == 404
+
+
+@pytest.mark.parametrize("query", ["", "?review_token=wrong"])
+def test_the_operator_view_needs_the_reviewer_token(client, monkeypatch, query):
+    monkeypatch.setattr(settings, "REVIEW_TOKEN", "reviewer")
+    assert client.get(f"/api/requests/1/admin{query}").status_code == 403
+
+
+def test_the_operator_view_is_closed_when_no_reviewer_token_is_set(client, monkeypatch):
+    monkeypatch.setattr(settings, "REVIEW_TOKEN", "")
+    assert client.get("/api/requests/1/admin?review_token=").status_code == 403
+
+
 def test_an_address_outside_the_pictures_is_left_alone():
     assert signed(None) is None
     assert signed("https://example.com/a.png") == "https://example.com/a.png"

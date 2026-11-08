@@ -2248,12 +2248,13 @@ def test_a_run_that_fails_before_any_mail_can_go_is_read_back_without_the_claim(
 
 @pytest.mark.parametrize("path", [
     "/api/requests/mine", "/api/requests/{id}/preview", "/api/requests/{id}/decision", "/api/requests/{id}/plan",
-    "/api/requests/{id}/admin", "/api/shared/{token}",
+    "/api/requests/{id}/admin?review_token=reviewer", "/api/shared/{token}",
 ])
-def test_no_other_route_hands_a_failed_runs_raw_detail_to_a_reader(client, path):
+def test_no_other_route_hands_a_failed_runs_raw_detail_to_a_reader(client, path, monkeypatch):
     """`/progress` is the one route that ever carried `stage_label` and
     `progress_detail`. The rest of what a client, a reviewer or a partner can
     open about a run says only its `status`; this pins that it stays so."""
+    monkeypatch.setattr(settings, "REVIEW_TOKEN", "reviewer")
     token = "partnertoken" + os.urandom(4).hex()
     request_id = _failed_row(_record(cause="SECRET"), share_token=token, review_status="approved")
 

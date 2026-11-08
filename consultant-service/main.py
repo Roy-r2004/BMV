@@ -60,8 +60,9 @@ class RenderedPictures(StaticFiles):
     """
 
     async def get_response(self, path, scope):
-        key = parse_qs(scope.get("query_string", b"").decode()).get("k", [""])[0]
-        if not path.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) or not key_is_right(path, key):
+        query = parse_qs(scope.get("query_string", b"").decode())
+        key, version = query.get("k", [""])[0], query.get("v", [""])[0]
+        if not path.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) or not key_is_right(path, key, version):
             raise StarletteHTTPException(status_code=404)
         return await super().get_response(path, scope)
 

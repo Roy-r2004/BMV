@@ -13,9 +13,11 @@ import re
 from app.config import settings
 
 
-def _key_for(engagement: str) -> str:
+def _key_for(engagement: str, version: str) -> str:
+    """`version` is the address's ?v=, the run's creation time: request ids start
+    again when a database does, and a key for the old run must not open the new one."""
     secret = hashlib.sha256(b"uploads-images:" + settings.OPENROUTER_API_KEY.encode()).digest()
-    return hmac.new(secret, engagement.encode(), hashlib.sha256).hexdigest()[:32]
+    return hmac.new(secret, f"{engagement}:{version}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
 def signed(address: str | None) -> str | None:
@@ -25,10 +27,12 @@ def signed(address: str | None) -> str | None:
     found = re.match(r"/uploads/images/([^/?]+)/", address)
     if not found:
         return address
-    return f"{address}{'&' if '?' in address else '?'}k={_key_for(found.group(1))}"
+    version = re.search(r"[?&]v=([^&]*)", address)
+    key = _key_for(found.group(1), version.group(1) if version else "")
+    return f"{address}{'&' if '?' in address else '?'}k={key}"
 
 
-def key_is_right(path: str, key: str) -> bool:
+def key_is_right(path: str, key: str, version: str) -> bool:
     """`path` is the part after /uploads/images/: `7/a.png`, or `7\\a.png` on Windows."""
     engagement = re.split(r"[\\/]", path, maxsplit=1)[0]
-    return bool(key) and hmac.compare_digest(key, _key_for(engagement))
+    return bool(key) and hmac.compare_digest(key, _key_for(engagement, version))

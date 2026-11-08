@@ -216,6 +216,17 @@ def _clip(v, limit: int) -> str:
     return " ".join(str(v or "").split())[:limit]
 
 
+def _name_from_brief(name: str, scope: dict | None) -> str:
+    """The name alone, when the brief settled it. The form holds whatever they
+    typed ("My new business is called CleanHour."), and that sentence would print
+    on the cover of every document."""
+    for fact in (scope or {}).get("facts") or []:
+        value = fact.get("value") or ""
+        if fact.get("field") == "business_name" and fact.get("status") == "got" and 0 < len(value) < len(name):
+            return value
+    return name
+
+
 def _sanitize_brief(raw: str | None) -> dict | None:
     """The scope the interview agreed — question, what it lets them do, what
     is in and out, and the fact list — as the client's page sends it back.
@@ -246,6 +257,7 @@ def _sanitize_brief(raw: str | None) -> dict | None:
         status = _clip(f.get("status"), 10)
         facts.append({"key": key, "group": _clip(f.get("group"), 30), "label": label,
                       "status": status if status in _BRIEF_FACT_STATUSES else "need",
+                      "field": _clip(f.get("field"), 40),
                       "value": _clip(f.get("value"), 60)})
     brief = {"question": _clip(data.get("question"), 240), "lets": lets,
              "in_scope": strings(data.get("in_scope"), 5, 90),
@@ -356,7 +368,7 @@ def create_request(
             desired_outcome = question
 
     req = Request(
-        business_name=business_name,
+        business_name=_name_from_brief(business_name, scope),
         business_description=business_description,
         email=email,
         industry=industry,
@@ -1148,7 +1160,7 @@ def _storyline_web(req) -> dict:
 
 
 @router.get("/{request_ref}/admin")
-def get_admin_detail(request_ref: str, db: Session = Depends(get_db)):
+def get_admin_detail(request_ref: str, review_token: str | None = None, db: Session = Depends(get_db)):
     """Operator view of one request: what it cost, on which models, and how
     each screen scored.
 
@@ -1160,6 +1172,8 @@ def get_admin_detail(request_ref: str, db: Session = Depends(get_db)):
     OpenRouter key balance: the key is shared, so a balance delta is not
     this request's cost.
     """
+    if not _is_reviewer(review_token):
+        raise HTTPException(status_code=403, detail="Reviewer token required")
     req = _load_request(request_ref, db)
     request_id = req.id
 
