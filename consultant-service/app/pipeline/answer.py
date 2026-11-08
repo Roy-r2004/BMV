@@ -392,6 +392,18 @@ def _leading(req: Request) -> str:
     return f"{lead.get('statement')} — {test.get('verdict', 'untested')}: {test.get('because', '')}"
 
 
+def settled(req, decision: dict) -> bool:
+    """Whether the leading explanation was actually proven. Worked out in code,
+    because the wording of the answer must not run ahead of it: on the first real
+    run an explanation the test called untestable was printed as fact."""
+    try:
+        d = json.loads(req.diagnosis_json) if req.diagnosis_json else {}
+    except (TypeError, ValueError):
+        return False
+    lead = next((h for h in d.get("hypotheses") or [] if h.get("id") == d.get("leading")), None)
+    return bool(lead) and (lead.get("test") or {}).get("verdict") == "supported" and decision.get("confidence") != "low"
+
+
 def write(db: Session, request_id: int, decision: dict) -> dict | None:
     """Write, verify and persist the answer. Raises `StageFailed("answering")`
     when its inputs cannot be read, when the model call fails, or when no
@@ -417,6 +429,7 @@ def write(db: Session, request_id: int, decision: dict) -> dict | None:
             summary=decision.get("consulting_summary") or "",
             why_not=decision.get("why_not_the_others") or "",
             confidence=decision.get("confidence"),
+            settled=settled(req, decision),
             unverified="; ".join(decision.get("unverified") or []) or "nothing listed",
             leading=_leading(req),
             claims=_claim_lines(claims),

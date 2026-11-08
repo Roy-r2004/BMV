@@ -115,9 +115,11 @@ def _evidence_lines(req: Request) -> tuple[str, list[dict]]:
     # x 6 days), computed in code with the working attached — so "you are at
     # your ceiling" can rest on a number instead of on the tester doing the
     # multiplication in its head, which it often did not.
+    from app.figures import sums as _sums
     from app.pipeline import capacity as _capacity
 
-    claims = client_fact_claims(ops, free) + evidence.load(req) + _capacity.as_claims(_capacity.load(req))
+    claims = (client_fact_claims(ops, free) + evidence.load(req) + _capacity.as_claims(_capacity.load(req))
+              + _sums.as_claims(req))
     if not claims:
         return "none given — they have provided no figures at all", []
     lines = []

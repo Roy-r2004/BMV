@@ -102,6 +102,8 @@ class Settings:
     # limit is sized for the answer: on the first real run two replies stopped
     # after about 400 characters of a 3,500-token limit. Only tokens used are paid for.
     REASONING_TOKEN_HEADROOM: int = _env_int_within("REASONING_TOKEN_HEADROOM", 6000, 0, 30000)
+    # How many sums the sums stage may keep (app/figures/sums.py).
+    SUMS_MAX: int = _env_int_within("SUMS_MAX", 8, 1, 16)
     # How many figures the case file (app/figures/casefile.py) keeps: from one
     # text (an answer, a field) and from the whole request. A build stops at the
     # bound, in the order the texts are read, so a pasted spreadsheet cannot make

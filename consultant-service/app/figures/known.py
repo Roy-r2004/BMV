@@ -6,7 +6,7 @@
                answers, free-text columns and files. Never our questions: a
                number that appears only in a question we asked is not theirs.
     derived    the capacity picture's computed figures (`capacity_json`, ids
-               CAP-nn), and the registry's machine-computed claims mapped through
+               CAP-nn), the sums (`sums_json`, ids SUM-n), and the registry's machine-computed claims mapped through
                `model.from_claim` (the client's own CF and CE claims are left out:
                the case file holds those numbers)
     ours       the registry's proposed claims, the answer's move (MOVE, ours when
@@ -52,7 +52,7 @@ from app.figures.read import Mention, mentions
 logger = logging.getLogger("consultant.figures.known")
 
 #: The parts of a request's known set, in the order they are added.
-PARTS = ("case_file", "capacity", "registry", "answer", "roadmap", "register", "exhibits")
+PARTS = ("case_file", "capacity", "sums", "registry", "answer", "roadmap", "register", "exhibits")
 
 #: The client's own claim ids in the registry; the case file holds their numbers.
 _CLIENT_CLAIM_PREFIXES = ("CF-", "CE-")
@@ -349,6 +349,8 @@ def known_for(req, extra: Iterable[Figure] = (), *, leave_out: Iterable[str] = (
         _add_kept(known, casefile.load(req))
     if "capacity" not in skip:
         _add_kept(known, capacity_figures(_loads(getattr(req, "capacity_json", None))))
+    if "sums" not in skip:
+        _add_kept(known, _stored_figures(_loads(getattr(req, "sums_json", None))))
     if "registry" not in skip:
         _add_kept(known, registry_figures(_loads(getattr(req, "registry_json", None))))
     if "answer" not in skip:

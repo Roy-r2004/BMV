@@ -250,6 +250,13 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
     # no figures for is simply no picture; a read that errored stops the run.
     _read_capacity(db, request_id)
 
+    # The sums that decide the question, before anyone forms a view of it, so a
+    # hypothesis can cite them. Code does the arithmetic; none means none.
+    from app.figures import sums
+
+    emit(db, request_id, "sums", sums.PROGRESS, 13)
+    sums.write(db, request_id)
+
     # Several explanations, tested against their own figures, then attacked.
     # One that cannot be made raises StageFailed and stops the run: the
     # recommendation is written to answer it, and `analysis_result` alone is

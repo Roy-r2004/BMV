@@ -103,6 +103,8 @@ class Request(Base):
     # a weekly grid of slots or one pool, with the arithmetic done in code and
     # its working kept. Null when they gave nothing capacity-shaped.
     capacity_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The sums worked out before the diagnosis (app/figures/sums.py), as figures.
+    sums_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The answer screen's parts (app/pipeline/answer.py): the two-line
     # finding, the evidence in their figures, and the value of the move as a
     # verified product of terms. Null when it could not be written — the
