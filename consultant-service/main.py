@@ -5,6 +5,7 @@ import threading
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings
 from app.database import init_db
@@ -43,8 +44,27 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
-os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
+
+
+class RenderedPictures(StaticFiles):
+    """The one part of the uploads folder a browser fetches without signing in:
+    the rendered screens, because an <img> tag cannot carry the session.
+
+    Everything else in that folder is a client's: packages stored under a
+    sequential id (exports/), their documents (engagements/). Those leave only
+    through the routes that check who is asking. Each screen's metadata sits
+    beside its picture, so the folder alone is not enough: only pictures go out.
+    """
+
+    async def get_response(self, path, scope):
+        if not path.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+            raise StarletteHTTPException(status_code=404)
+        return await super().get_response(path, scope)
+
+
+images_dir = os.path.join(settings.UPLOADS_DIR, "images")
+os.makedirs(images_dir, exist_ok=True)
+app.mount("/uploads/images", RenderedPictures(directory=images_dir), name="uploads-images")
 
 app.include_router(requests_router.router)
 app.include_router(discovery_router.router)
