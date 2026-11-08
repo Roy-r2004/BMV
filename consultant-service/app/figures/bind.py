@@ -845,6 +845,8 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
         # nothing beside it names the unit
         number = display_number(f, tilde=not hedged)
         unit_word = display(f)[len(display_number(f)):].strip()
+        if _unit_comes_next(text, end, f.unit):
+            return _Decision(False, f, number, None, kind)
         phrase = _phrase_after(text, end)
         if phrase:
             # A figure in money says its own unit, and a noun after it would double it ("$22
@@ -862,6 +864,11 @@ def _decide_token(figure_id: str, text: str, start: int, end: int, known: Figure
     if not fits:
         return _UNRESOLVED
     return _Decision(False, f, display_number(f, symbols=False, tilde=not hedged), None, kind)
+
+
+def _unit_comes_next(text: str, end: int, unit: str) -> bool:
+    """The writer already said the figure's unit, whatever its shape ("no-shows")."""
+    return bool(unit) and bool(re.match(rf"\s*{re.escape(unit)}(?:s|es)?(?![\w-])", text[end:end + len(unit) + 12], re.I))
 
 
 def _decide_mention(m: Mention, shape: _Shape, phrase: tuple[str, ...], found: list[Figure], known: FigureSet,

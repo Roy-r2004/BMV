@@ -72,6 +72,23 @@ def test_the_proper_figure_token_is_left_for_the_binder():
     assert _words(CLAIMS)("{{F:CF-17}} households") == "{{F:CF-17}} households"
 
 
+def test_a_dependency_written_as_words_means_the_same_as_a_list():
+    from app.storyline import register
+
+    assert register._dependencies("none") == [] and register._dependencies("2") == [2]
+    assert register._dependencies(["1", 2]) == [1, 2] and register._dependencies(None) == []
+
+
+def test_a_figure_noun_with_a_hyphen_is_said_once():
+    from decimal import Decimal
+
+    from app.figures.bind import bind
+    from app.figures.model import Figure, FigureSet, TheirsSource
+
+    figure = Figure("N", Decimal(96), "no-shows", None, "theirs", TheirsSource("t", "f", "q", "file", "cell"), 0)
+    assert bind("Your {{F:N}} no-shows cost you", FigureSet([figure])).text == "Your 96 no-shows cost you"
+
+
 def test_the_settled_sequence_is_what_the_writers_are_told():
     assert registry.phase_lines(MODULES).split("\n") == [
         "Phase 2: Cleaner Matching Engine", "Phase 3: Cleaner Earnings Dashboard",

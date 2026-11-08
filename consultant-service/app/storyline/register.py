@@ -9,6 +9,7 @@ plain statement of what is still needed to price it.
 from __future__ import annotations
 
 import json
+import re
 from decimal import Decimal
 
 from app.config import settings
@@ -17,6 +18,13 @@ from app.figures.calc import places_of
 from app.figures.model import Figure, Proposal, Working, display
 from app.storyline.flex import NoTerms, flexed, note
 from app.storyline.model import Cost, Range, Register, RegisterRow
+
+def _dependencies(raw: object) -> list:
+    """The rows a recommendation waits for. A model writes "none", "2" or ["2"] as
+    readily as [2], and all of them mean the same; only what is left is judged."""
+    items = raw if isinstance(raw, list) else re.findall(r"\d+", raw) if isinstance(raw, str) else []
+    return [int(d) if isinstance(d, str) and d.strip().isdigit() else d for d in items]
+
 
 _SHARES = "Shares are our estimate of where the gain comes from."
 _NO_VALUE = "There is no range to show, because this answer has no value to share out."
@@ -198,7 +206,7 @@ def _row(raw, index: int, phases: list, known, reasons: list[str]) -> dict:
         if not when:
             reasons.append(f"Recommendation {index} names a phase with no timeframe.")
     depends: list[int] = []
-    for dep in raw.get("depends_on") or []:
+    for dep in _dependencies(raw.get("depends_on")):
         if isinstance(dep, bool) or not isinstance(dep, int) or dep < 1 or dep >= index:
             reasons.append(f"Recommendation {index} depends on recommendation {dep}, which comes after it.")
         else:

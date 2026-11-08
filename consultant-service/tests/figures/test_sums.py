@@ -6,7 +6,7 @@ import pytest
 
 from app.figures import sums
 from app.figures.known import known_for
-from app.figures.model import Figure, FigureSet, Proposal, TheirsSource, display
+from app.figures.model import Figure, FigureSet, Proposal, TheirsSource, Working, display
 
 
 def theirs(id_, value, unit):
@@ -120,6 +120,61 @@ def test_the_answer_prompt_forbids_stating_an_unproven_cause_only_when_unproven(
     assert "was NOT proven" not in render("answer.j2", settled=True, **args)
 
 
+def summed(id_, value, inputs=("T1",)):
+    return Figure(id_, Decimal(value), "AED", None, "derived", Working(tuple(inputs), "product", f"working of {id_}"), 0)
+
+
+def test_a_share_of_a_whole_reads_as_a_percent():
+    known = FigureSet([theirs("N", 96, "no-shows"), theirs("D", 480, "booked")])
+    [rate] = sums.compute([sum_("ratio", ["N", "D"], unit="percent", period=None)], known)
+    assert rate.value == Decimal("20") and "100" not in rate.source.text
+
+
+def _write_with_a_check(monkeypatch, verdicts):
+    from app.config import settings
+    from app.database import Base, SessionLocal, engine
+    from app.models import Request
+
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    row = _row(ops_numbers_json=json.dumps([{"id": "a", "question": "How many?", "answer": "500 bookings at AED 180"}]))
+    db.add(row)
+    db.commit()
+    asks, checks = [], list(verdicts)
+
+    def chat(model, messages, **k):
+        content = messages[0]["content"]
+        if "second pair of eyes" in content:
+            return {"choices": [{"message": {"content": json.dumps(checks.pop(0))}}], "usage": {}}
+        asks.append(content)
+        return {"choices": [{"message": {"content": '{"sums": []}'}}], "usage": {}}
+
+    monkeypatch.setattr(sums.provider, "chat", chat)
+    monkeypatch.setattr(sums, "compute", lambda proposed, known: [summed("SUM-1", 5)])
+    sums.write(db, row.id)
+    db.refresh(row)
+    stored = row.sums_json
+    db.delete(db.get(Request, row.id))
+    db.commit()
+    db.close()
+    return asks, stored, settings
+
+
+def test_a_sum_that_adds_up_but_means_the_wrong_thing_is_sent_back(monkeypatch):
+    asks, stored, _ = _write_with_a_check(monkeypatch, [{"wrong": [{"id": "SUM-1", "why": "ignores the commission"}]}, {"wrong": []}])
+    assert len(asks) == 2 and "ignores the commission" in asks[1] and stored
+
+
+def test_a_sum_still_wrong_after_a_second_try_is_dropped(monkeypatch):
+    _, stored, _ = _write_with_a_check(monkeypatch, [{"wrong": [{"id": "SUM-1", "why": "no"}]}, {"wrong": [{"id": "SUM-1", "why": "no"}]}])
+    assert stored is None
+
+
+def test_what_leaned_on_a_wrong_sum_goes_with_it():
+    figures = [summed("SUM-1", 5), summed("SUM-2", 6, ["SUM-1"]), summed("SUM-3", 7)]
+    assert [f.id for f in sums._without(figures, {"SUM-1"})] == ["SUM-3"]
+
+
 def test_when_the_first_model_cannot_answer_the_second_is_asked(monkeypatch):
     from app.config import settings
     from app.database import Base, SessionLocal, engine
@@ -138,7 +193,8 @@ def test_when_the_first_model_cannot_answer_the_second_is_asked(monkeypatch):
         return {"choices": [{"message": {"content": content}}], "usage": {}}
 
     monkeypatch.setattr(sums.provider, "chat", chat)
-    monkeypatch.setattr(sums, "compute", lambda proposed, known: [theirs("SUM-1", 5, "AED")])
+    monkeypatch.setattr(sums, "compute", lambda proposed, known: [summed("SUM-1", 5)])
+    monkeypatch.setattr(sums, "_wrong_sums", lambda *a: {})
     sums.write(db, row.id)
     db.refresh(row)
     assert asked[-1] == settings.ANALYSIS_MODEL and asked[0] == settings.REASONING_MODEL and row.sums_json

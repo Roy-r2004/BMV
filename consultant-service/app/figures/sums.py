@@ -36,6 +36,7 @@ _PERIODS = (None, "day", "week", "month", "year")
 #: The only numbers a sum may bring in that are not figures: the calendar.
 _CALENDAR = {Decimal(7), Decimal(12), Decimal(30), Decimal(52), Decimal(365)}
 _AS_A_SHARE = "as a share"
+_AS_A_PERCENT = "as a percent"
 _PERCENT_UNITS = {"percent", "%"}
 
 
@@ -65,13 +66,16 @@ def _one(raw: dict, new_id: str, held: dict[str, Figure]) -> Figure:
     unit = str(raw.get("unit") or "").strip()[:20]
     factors = _constants(raw.get("constants"))
     shares = [(Decimal("0.01"), _AS_A_SHARE) for f in inputs if _is_percent(f)] if op == "product" else []
+    if op == "ratio" and unit.lower() in _PERCENT_UNITS:   # 96 of 480 is 20%, not 0.2%
+        shares = [(Decimal("100"), _AS_A_PERCENT)]
     made = calc.derive(op, inputs, id=new_id, unit=unit, period=period, factors=[*factors, *shares],
                        precision=1 if op == "ratio" else None)
     label = " ".join(str(raw.get("label") or "").split())[:80]
     tail = f" × 0.01 {_AS_A_SHARE}"
+    percent_tail = f" × 100 {_AS_A_PERCENT}"
 
     def tell(text: str) -> str:
-        text = text.replace(tail, "")
+        text = text.replace(tail, "").replace(percent_tail, "")
         return f"{label}: {text}" if label else text
 
     if isinstance(made.source, Working):
@@ -116,6 +120,39 @@ def as_claims(req) -> list[dict]:
     return out
 
 
+def _wrong_sums(db, request_id: int, figures: list[Figure], figures_block: str, main_problem: str) -> dict[str, str]:
+    """The sums that add up and still answer the wrong question, by a second model
+    that did not choose them. Code can prove the arithmetic and only that: on a real
+    run a salary was divided by the full price of an hour, when the business keeps
+    a fifth of it. If the check cannot run, the sums stand."""
+    if not figures:
+        return {}
+    listed = "\n".join(f"{f.id}: {f.source.text if isinstance(f.source, Working) else f.source.note}" for f in figures)
+    prompt = render("sums_check.j2", main_problem=main_problem, figures_block=figures_block, sums=listed)
+    try:
+        reply = ask_until_usable(
+            lambda: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=_TOKENS),
+            reply_json, ledger(db, request_id, model=settings.ANALYSIS_MODEL, purpose="sums_check"))
+    except Exception as exc:
+        logger.warning("the sums could not be checked: %s", str(exc)[:200])
+        return {}
+    held = {f.id for f in figures}
+    found = reply.get("wrong") if isinstance(reply, dict) else None
+    return {str(w["id"]): str(w.get("why") or "")[:300] for w in found if isinstance(w, dict) and w.get("id") in held} \
+        if isinstance(found, list) else {}
+
+
+def _without(figures: list[Figure], wrong: set[str]) -> list[Figure]:
+    """The sums left once the wrong ones go, and anything that leaned on them."""
+    gone, kept = set(wrong), []
+    for f in figures:
+        if f.id in gone or (isinstance(f.source, Working) and gone.intersection(f.source.inputs)):
+            gone.add(f.id)
+            continue
+        kept.append(f)
+    return kept
+
+
 def write(db, request_id: int) -> None:
     """Store the sums for this run, or none. Never raises for a reply it cannot use."""
     req = db.get(Request, request_id)
@@ -127,17 +164,27 @@ def write(db, request_id: int) -> None:
         prompt = render("sums.j2", question=req.desired_outcome or "", main_problem=req.main_problem or "",
                         stage="not launched yet, this is a plan" if req.operating_stage == "opening" else "already operating",
                         figures_block=prompt_lines(known), most=settings.SUMS_MAX)
-        figures: list[Figure] = []
-        # code does the arithmetic and the model only proposes it, so a second
-        # model is as good as the first, and no sums would weaken the whole answer
-        for model in (settings.REASONING_MODEL, settings.ANALYSIS_MODEL):
-            try:
-                reply = ask_until_usable(
-                    lambda: provider.chat(model, [{"role": "user", "content": prompt}], max_tokens=_TOKENS),
-                    reply_json, ledger(db, request_id, model=model, purpose="sums"))
-                figures = compute(reply.get("sums"), known)
-                break
-            except Exception as exc:
-                logger.warning("the sums could not be worked out with %s: %s", model, str(exc)[:200])
+        block, problem = prompt_lines(known), req.main_problem or ""
+
+        def proposed(ask: str) -> list[Figure]:
+            # code does the arithmetic and the model only proposes it, so a second
+            # model is as good as the first, and no sums would weaken the whole answer
+            for model in (settings.REASONING_MODEL, settings.ANALYSIS_MODEL):
+                try:
+                    reply = ask_until_usable(
+                        lambda: provider.chat(model, [{"role": "user", "content": ask}], max_tokens=_TOKENS),
+                        reply_json, ledger(db, request_id, model=model, purpose="sums"))
+                    return compute(reply.get("sums"), known)
+                except Exception as exc:
+                    logger.warning("the sums could not be worked out with %s: %s", model, str(exc)[:200])
+            return []
+
+        figures = proposed(prompt)
+        wrong = _wrong_sums(db, request_id, figures, block, problem)
+        if wrong:
+            logger.info("request %s: sums sent back: %s", request_id, sorted(wrong))
+            notes = "\n".join(f"- {why}" for why in wrong.values())
+            figures = proposed(prompt + "\n\nYOUR LAST SUMS WERE WRONG FOR THESE REASONS. Choose them again:\n" + notes)
+            figures = _without(figures, set(_wrong_sums(db, request_id, figures, block, problem)))
         req.sums_json = json.dumps([as_json(f) for f in figures]) if figures else None
     db.commit()
