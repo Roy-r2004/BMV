@@ -571,10 +571,18 @@ def interview(
         from_files = [str(x).strip()[:200] for x in json.loads(file_facts or "[]") if str(x).strip()][:40]
     except (TypeError, ValueError):
         from_files = []
+    # A question that fills a form field leaves its answer in that field, not in
+    # the fact list, so the fact still read as needed and came back as a fresh
+    # question ("What's the name?" twice on the first real run).
+    answered_fields = {f["key"]: filled[f["field"]] for f in fact_list
+                       if f["status"] == "need" and f["field"] and filled.get(f["field"])}
     fact_lines = "\n".join(
         f"- {f['key']} [{f['group']}] {f['label']}: "
-        + {"got": f"GOT — {f['value']}", "file": f"GOT FROM THEIR FILE — {f['value']}",
-           "estimate": "THEY DON'T KNOW — we will estimate it; do not ask again"}.get(f["status"], "STILL NEEDED")
+        + (f"ANSWERED, in their words: {answered_fields[f['key']][:200]} — do not ask again; return it in \"updates\" "
+           "as the value alone (a name alone, not the sentence it came in)"
+           if f["key"] in answered_fields else
+           {"got": f"GOT — {f['value']}", "file": f"GOT FROM THEIR FILE — {f['value']}",
+            "estimate": "THEY DON'T KNOW — we will estimate it; do not ask again"}.get(f["status"], "STILL NEEDED"))
         for f in fact_list)
 
     business = filled.get("business_name") or business_name or None
@@ -637,11 +645,15 @@ def interview(
     for q in questions:
         field = str((by_id.get(q["id"]) or {}).get("field") or "").strip()
         q["field"] = field if field in FILLABLE else ""
+    questions = [q for q in questions if not (q["field"] and filled.get(q["field"]))]
 
     # What their answers settled, and what the list turned out to be missing.
     # Checked in their words alone: a number only our question holds is not theirs.
     texts = [main_problem or "", *_answers(ops_numbers), *from_files, *[v for v in filled.values() if v]]
     updates, added = shape_fact_updates(result.get("updates"), result.get("new_facts"), fact_list, texts)
+    have = {u["key"] for u in updates}
+    updates += [{"key": key, "value": re.sub(r"\s+", " ", words).strip()[:60]}
+                for key, words in answered_fields.items() if key not in have]
     keys = {f["key"] for f in fact_list} | {a["key"] for a in added}
     for q in questions:
         src = by_id.get(q["id"]) or {}
