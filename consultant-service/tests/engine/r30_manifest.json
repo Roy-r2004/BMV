@@ -1,6 +1,6 @@
 {
-  "commit": "6d7c802",
-  "recorded": "sha256 of the bytes on disk at commit 820a5d8 (re-frozen 2026-09-27 after the owner's consultation, roadmap and screens rewrite; originally f9fc846), rebuilt with test_engine_r30_frozen.collect_frozen_files. Re-frozen at f073fde after the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 24688c7 after the final-review fixes to the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 15ec65a after the typed-figures step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 98a46f3 after the output-shape step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 3683d17 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 8662b67 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 5195a4d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 91e9743 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at baf2fba after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0f32a21 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 1df639d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 6d7c802 after the honest-failure step (2026-11-08), same rules, same collector.",
+  "commit": "834ac07",
+  "recorded": "sha256 of the bytes on disk at commit 820a5d8 (re-frozen 2026-09-27 after the owner's consultation, roadmap and screens rewrite; originally f9fc846), rebuilt with test_engine_r30_frozen.collect_frozen_files. Re-frozen at f073fde after the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 24688c7 after the final-review fixes to the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 15ec65a after the typed-figures step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 98a46f3 after the output-shape step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 3683d17 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 8662b67 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 5195a4d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 91e9743 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at baf2fba after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0f32a21 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 1df639d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 6d7c802 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 834ac07 after the honest-failure step (2026-11-08), same rules, same collector.",
   "roots": [
     "app/pipeline",
     "app/prompts",
@@ -33,7 +33,7 @@
     "app/pipeline/decompose.py": "f11ccd66f5462dd70060c32bf4619ff0396c29889d8056909752485030df85fe",
     "app/pipeline/diagnose.py": "1c3b8e13f6676ff41a09e34a6e4f88cb8d637d58a6a665a83f1bc9395f17a4a3",
     "app/pipeline/evidence.py": "0625b9c2cef004b2b96bffe0c67661f896f2ae0cc370cf297d78653dfa86aac2",
-    "app/pipeline/export_pdf.py": "a0b873b007db787d358dcaee0a64d9e0eebe84468787394d297f11255ebaf089",
+    "app/pipeline/export_pdf.py": "40d71e340a7714397ebd4d7d5ed38d12d2c6246d1db703d2020d18405bf327cb",
     "app/pipeline/export_pptx.py": "d6d9d9d095689450c314115ce16844e5f263d15f87eef2c287ca984d63dd922b",
     "app/pipeline/extras.py": "bea147ca4e3b54a5e2108f4c196e016d242f85543c50033935838d09b08f1d60",
     "app/pipeline/failure.py": "ee7ba9fe4e17431691f2b681af52c0278b55d2328962b83b7fe1b02ba78607ca",
@@ -91,7 +91,7 @@
     "app/prompts/technical_plan.j2": "a3df9d22deb74128c8dad924b550bb873603b230aeba31b03c388abeed891292",
     "app/prompts/test_hypothesis.j2": "7c24be572b560b83fcb6bd1de4617492ae034255fb6295597fca1d1218320340",
     "tests/_integrity_stub.py": "d5eac5903343ebfe176f62c739173198901bed519e156e098ef0c9f3fd7d5818",
-    "tests/conftest.py": "4750cd325994dd23323e81f4975265ee54f4a886916440833aaa9711f544771f",
+    "tests/conftest.py": "6c4b6b59ee528f152da6f2bc7aa4b5728cc29ae6d7bc0af907ea3346fa943884",
     "tests/test_admin_payload.py": "58db875bdacea2979127177f3ff8e91fbbebb19802e6eee1eaad706e750ead0f",
     "tests/test_capacity_units.py": "db4e4e07008630ea77054a67e4e511310c2cf12452c9aa6e1852a3702d7bc0be",
     "tests/test_compositing.py": "0cfa3b883d95e7dcf749d6f0b5f1aaec9c9ff58bb107d5e1c09c55f3c57b922f",
