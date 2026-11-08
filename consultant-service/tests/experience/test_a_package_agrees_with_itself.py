@@ -89,6 +89,27 @@ def test_a_figure_noun_with_a_hyphen_is_said_once():
     assert bind("Your {{F:N}} no-shows cost you", FigureSet([figure])).text == "Your 96 no-shows cost you"
 
 
+def _money():
+    from decimal import Decimal
+
+    from app.figures.model import Figure, FigureSet, TheirsSource
+
+    return FigureSet([Figure("T1-1", Decimal(33600), "AED", "month", "theirs", TheirsSource("t", "f", "q", "file", "cell"), 0)])
+
+
+def test_a_figure_token_without_its_prefix_is_still_bound():
+    from app.figures.bind import bind
+
+    result = bind("No-shows cost you {{T1-1}} a month", _money())
+    assert "{{" not in result.text and "33,600" in result.text and not result.unresolved
+
+
+def test_a_token_for_no_figure_is_not_treated_as_one():
+    from app.figures.bind import bind
+
+    assert "{{name}}" in bind("Dear {{name}}", _money()).text
+
+
 def test_the_settled_sequence_is_what_the_writers_are_told():
     assert registry.phase_lines(MODULES).split("\n") == [
         "Phase 2: Cleaner Matching Engine", "Phase 3: Cleaner Earnings Dashboard",

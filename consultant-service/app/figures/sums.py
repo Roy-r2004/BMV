@@ -184,7 +184,9 @@ def write(db, request_id: int) -> None:
         if wrong:
             logger.info("request %s: sums sent back: %s", request_id, sorted(wrong))
             notes = "\n".join(f"- {why}" for why in wrong.values())
-            figures = proposed(prompt + "\n\nYOUR LAST SUMS WERE WRONG FOR THESE REASONS. Choose them again:\n" + notes)
-            figures = _without(figures, set(_wrong_sums(db, request_id, figures, block, problem)))
+            first_try = _without(figures, set(wrong))
+            second = proposed(prompt + "\n\nYOUR LAST SUMS WERE WRONG FOR THESE REASONS. Choose them again:\n" + notes)
+            second_try = _without(second, set(_wrong_sums(db, request_id, second, block, problem)))
+            figures = max(first_try, second_try, key=len)  # a fussy second round must not cost the good ones
         req.sums_json = json.dumps([as_json(f) for f in figures]) if figures else None
     db.commit()

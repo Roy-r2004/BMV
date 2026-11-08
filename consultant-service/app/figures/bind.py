@@ -1055,8 +1055,18 @@ def _unstable(out: str, expect: list[_Expect], token_spans: list[tuple[int, int]
     return bad
 
 
+_BARE_FIGURE_TOKEN = re.compile(r"\{\{\s*([A-Za-z][\w-]*)\s*\}\}")
+
+
+def _named_tokens(text: str, known: FigureSet) -> str:
+    """A writer told to cite "{{F:id}}" sometimes drops the "F:". When the id is one
+    of this request's figures it is the same token, and is bound like one."""
+    return _BARE_FIGURE_TOKEN.sub(
+        lambda m: "{{F:" + m.group(1) + "}}" if known.get(m.group(1)) is not None else m.group(0), text)
+
+
 def _run(text: str, known: FigureSet, hours: set[int] | None) -> _Run:
-    text = text or ""
+    text = _named_tokens(text or "", known)
     view = _mask(text)          # what is read: the text without its links, code and paths
     tokens = list(_TOKEN.finditer(view))
     token_starts = [t.start() for t in tokens]

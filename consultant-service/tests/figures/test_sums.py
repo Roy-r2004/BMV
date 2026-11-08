@@ -170,6 +170,27 @@ def test_a_sum_still_wrong_after_a_second_try_is_dropped(monkeypatch):
     assert stored is None
 
 
+def test_a_fussy_second_round_does_not_cost_the_good_sums(monkeypatch):
+    from app.database import Base, SessionLocal, engine
+    from app.models import Request
+
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    row = _row(ops_numbers_json=json.dumps([{"id": "a", "question": "How many?", "answer": "500 bookings at AED 180"}]))
+    db.add(row)
+    db.commit()
+    rounds = iter([{"SUM-2": "no"}, {"SUM-1": "no", "SUM-2": "no"}])
+    monkeypatch.setattr(sums.provider, "chat", lambda *a, **k: {"choices": [{"message": {"content": '{"sums": []}'}}], "usage": {}})
+    monkeypatch.setattr(sums, "compute", lambda proposed, known: [summed("SUM-1", 5), summed("SUM-2", 6)])
+    monkeypatch.setattr(sums, "_wrong_sums", lambda *a: next(rounds))
+    sums.write(db, row.id)
+    db.refresh(row)
+    assert [f["id"] for f in json.loads(row.sums_json)] == ["SUM-1"]
+    db.delete(db.get(Request, row.id))
+    db.commit()
+    db.close()
+
+
 def test_what_leaned_on_a_wrong_sum_goes_with_it():
     figures = [summed("SUM-1", 5), summed("SUM-2", 6, ["SUM-1"]), summed("SUM-3", 7)]
     assert [f.id for f in sums._without(figures, {"SUM-1"})] == ["SUM-3"]
