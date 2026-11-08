@@ -523,4 +523,4 @@ def test_the_r30_suite_the_driver_must_not_change_is_covered_by_the_freeze():
     recorded = {p for p in manifest["files"] if p.startswith("tests/")}
     assert on_disk - recorded == set(), "a top-level r30 test file is not frozen"
     assert recorded - on_disk == set(), "the manifest freezes a top-level test file that is gone"
-    assert manifest["commit"] == "0f32a21"
+    assert manifest["commit"] == "1df639d"

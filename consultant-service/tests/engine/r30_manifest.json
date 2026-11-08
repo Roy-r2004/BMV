@@ -1,6 +1,6 @@
 {
-  "commit": "0f32a21",
-  "recorded": "sha256 of the bytes on disk at commit 820a5d8 (re-frozen 2026-09-27 after the owner's consultation, roadmap and screens rewrite; originally f9fc846), rebuilt with test_engine_r30_frozen.collect_frozen_files. Re-frozen at f073fde after the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 24688c7 after the final-review fixes to the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 15ec65a after the typed-figures step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 98a46f3 after the output-shape step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 3683d17 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 8662b67 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 5195a4d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 91e9743 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at baf2fba after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0f32a21 after the honest-failure step (2026-11-08), same rules, same collector.",
+  "commit": "1df639d",
+  "recorded": "sha256 of the bytes on disk at commit 820a5d8 (re-frozen 2026-09-27 after the owner's consultation, roadmap and screens rewrite; originally f9fc846), rebuilt with test_engine_r30_frozen.collect_frozen_files. Re-frozen at f073fde after the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 24688c7 after the final-review fixes to the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 15ec65a after the typed-figures step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 98a46f3 after the output-shape step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 3683d17 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 8662b67 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 5195a4d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 91e9743 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at baf2fba after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0f32a21 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 1df639d after the honest-failure step (2026-11-08), same rules, same collector.",
   "roots": [
     "app/pipeline",
     "app/prompts",
@@ -14,7 +14,7 @@
     "*.pyo"
   ],
   "why": "MF3.6: the engine's own tests live under tests/engine and change every wave; freezing them would make the manifest a diary. What must not move is r30: app/pipeline, app/prompts, tools and the suite that proves them.",
-  "file_count": 107,
+  "file_count": 108,
   "files": {
     "app/pipeline/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "app/pipeline/_shared.py": "75ec4cbb57de71850385ee6aed9c9600c138f7931e4cf6def0e89655e2c27b4f",
@@ -55,7 +55,7 @@
     "app/pipeline/timebasis.py": "bf2b73e56ab3899bf724b2aebfebf419b445671adba48629714cc3c0187dbea6",
     "app/pipeline/what_this_is.py": "dfd34991fe96ea0434c20e1523c96a6e6f95ac15b9f4416da3a5024181c373cd",
     "app/prompts/analyze.j2": "65ae1767d006a7daa2a7052e6335480be625ba29f52608bd51d4d58bdb271c6c",
-    "app/prompts/answer.j2": "6fab3752dc88d5d55447e4df41bd84681f360304309bc712dac4e260e658915e",
+    "app/prompts/answer.j2": "7e2cfad3c4d92ce00461ca36f7eee26aa5264b4d6bb8adc64cb4498e6d780f3e",
     "app/prompts/blueprint.j2": "3506a185082edca637071582eac2bc0f07fbdef954efbc1a38f3dc33cd464001",
     "app/prompts/brief.j2": "1d629c2e292816bae07aa2a5b74f547b43018eedbff5ad0cfd9ac99be05450ca",
     "app/prompts/capacity.j2": "59d2a1d094e3aa533941cdf7994544545014036fc75505d8dc36604a03a4238e",
@@ -84,8 +84,9 @@
     "app/prompts/scope.j2": "02cf9b3cf85e13a49de4a80205dbb2d7ed3d9257a9d5673d302bf2ae95b298a7",
     "app/prompts/screen.j2": "02e4860ad7170e45e643771c975bc778d7bcd479e53ba549b4cc116049d406de",
     "app/prompts/screens_plan.j2": "9b62050c916879949a18801dda1e950c7236bf5f709111e3b5d6cc50639195a0",
-    "app/prompts/storyline.j2": "c500ba95322a8dc33043dec7709d73a3a4e226cf5431f83d5b3bf25a9326bd19",
+    "app/prompts/storyline.j2": "ff41f6536b2ce40da835076adf6038ffd68c39d7d3debab8555f8d9c8bd4329d",
     "app/prompts/sums.j2": "ed2c697d8cf82af6ac319cf71688ad3a8880159bac0967b7ee5b03a5d60998dc",
+    "app/prompts/sums_check.j2": "8627872b0490e044dcfa80a68eb992c103e5dea13352115707a6127e50bcf432",
     "app/prompts/tech_spec.j2": "79867f7c4d9d554d6fd4b2b67990ab83f62cf2fb6fc135309bb032bfece9a3e4",
     "app/prompts/technical_plan.j2": "a3df9d22deb74128c8dad924b550bb873603b230aeba31b03c388abeed891292",
     "app/prompts/test_hypothesis.j2": "7c24be572b560b83fcb6bd1de4617492ae034255fb6295597fca1d1218320340",
