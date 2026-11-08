@@ -1319,7 +1319,7 @@ def _formula(text: str, extra=()) -> str:
                              fractions_as_percent=True))
 
 
-def _financial_model_flowables(business_case: dict) -> list:
+def _financial_model_flowables(business_case: dict, opening: bool = False) -> list:
     """The quantified case: the owner's numbers annualized, three labeled
     scenarios, and the inputs still missing — computed upstream by the
     decomposition, rendered here. Every figure carries its arithmetic; the
@@ -1346,7 +1346,8 @@ def _financial_model_flowables(business_case: dict) -> list:
         "month (the annual figure ÷ 365 × 30), never one twelfth of the year.", _S["meta"]))
     if lines:
         flows.append(Paragraph(
-            "What the current way of working costs, annualized from your own figures:", _S["body"]))
+            "What the plan comes to, from your own figures:" if opening
+            else "What the current way of working costs, annualized from your own figures:", _S["body"]))
         for l in lines:
             item = _rich(str(l.get("item") or ""))
             # A verified line's result is a derived figure (`registry.derived_claims`,
@@ -2268,7 +2269,7 @@ def _volume_flows(req: Request, kind: str, md: str | None, label: str, sub: str,
         flows += md_slot(r"opportunit")
         flows += _customers_flowables(business_case)
         flows += md_slot(r"makes money")
-        flows += _financial_model_flowables(business_case)
+        flows += _financial_model_flowables(business_case, opening=req.operating_stage == "opening")
         flows += _journey_flowables(
             journey,
             {m.get("id"): m.get("name") for m in modules if isinstance(m, dict) and m.get("id")},

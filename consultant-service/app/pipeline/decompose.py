@@ -312,7 +312,7 @@ def _sanitize_financial_model(business_case: dict, claims: list[dict] | None = N
         fm["payback_monthly_hard_dollar"] = round(monthly, 2)
     else:
         fm["payback_note"] = ("Payback cannot yet be calculated: it is the build cost ÷ the Expected scenario's monthly "
-                              "hard-dollar savings (annual ÷ 365 × 30), and no verified dollar saving or build cost exists yet.")
+                              "cash savings (annual ÷ 365 × 30), and no verified cash saving or build cost exists yet.")
     # every other business-case prose field is held to the same arithmetic,
     # against the FULL claim set (lines + verified scenario impacts): a
     # formula announces the figure it computes, and monthly restatements sit

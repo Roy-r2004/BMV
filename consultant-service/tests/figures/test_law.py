@@ -477,7 +477,7 @@ GATE = {"id": "PG-01", "canonical_sentence": True, "primary_metric": "No-show ra
         "guardrails": ["3 complaints a week"], "baseline_source": "measure in week 1",
         "approval_status": "consultant_proposed"}
 PAYBACK = ("Payback cannot yet be calculated: it is the build cost ÷ the Expected scenario's monthly "
-           "hard-dollar savings (annual ÷ 365 × 30), and no verified dollar saving or build cost exists yet.")
+           "cash savings (annual ÷ 365 × 30), and no verified cash saving or build cost exists yet.")
 
 
 @pytest.mark.parametrize("change_kind", ["relative", "percentage_point"])

@@ -262,6 +262,34 @@ def _phrase_spans(text: str, phrases: Sequence[str]) -> list[tuple[int, int]]:
     return spans
 
 
+#: The ids figures and claims carry. A model told to cite them sometimes prints
+#: them in the sentence, and a client must never read "20% (T4-1)".
+_ID = r"(?:T\d+-\d+|F-[a-z_]+-\d+|E\d+-\d+(?:\.\d+)?|CF-\d+|CE-\d+|CAP-\d+|SUM-\d+|REF-\d+|PROP-\d+|TH-[a-z0-9-]+?-\d+)"
+_CITED_IDS = re.compile(rf"\s*[(\[]{_ID}(?:\s*,\s*{_ID})*[)\]]")
+_THRESHOLD_ID = re.compile(r"\bTH-[a-z0-9-]+?-\d+\b(:\s*)?")
+_PROPOSED_AFTER = re.compile(r"(?:\s+[a-z%-]+){0,3}\s*\(proposed\b", re.I)
+_PROPOSED_BEFORE = re.compile(r"approval required\)\s*$", re.I)
+
+
+def _without_ids(text: str, known: FigureSet) -> str:
+    """The text as a client should read it: ids cited in brackets are gone, and a
+    threshold written as its id reads as its value."""
+    def threshold(m: re.Match) -> str:
+        if m.group(1):
+            return ""
+        figure = known.get(m.group(0))
+        return format(figure.value.normalize(), "f") if figure is not None else ""
+
+    return _THRESHOLD_ID.sub(threshold, _CITED_IDS.sub("", text))
+
+
+def _marked_as_proposed(text: str, start: int, end: int) -> bool:
+    """The label is printed right beside this number, so the reader can see it is
+    ours to propose and theirs to approve. Close by only: a label further along
+    the sentence says nothing about this number."""
+    return bool(_PROPOSED_AFTER.match(text, end)) or bool(_PROPOSED_BEFORE.search(text, 0, start))
+
+
 def _exempt(m, known: FigureSet, constants: frozenset, fractions_as_percent: bool) -> bool:
     """Whether an unresolved number in a working is one of the working's own
     constants, or a share written as a fraction of a percent figure we hold
@@ -299,6 +327,7 @@ def check(text, *, region: str | None = None, page: int | None = None,
     s = _ACTIVE.get()
     if s is None or _UNREAD.get() > 0 or not isinstance(text, str) or not text:
         return text
+    text = _without_ids(text, s.known)
     try:
         allowed = frozenset(Decimal(str(c)) for c in constants)
     except Exception:
@@ -310,6 +339,7 @@ def check(text, *, region: str | None = None, page: int | None = None,
         declared = _phrase_spans(r.text, s.phrases)
         found = [_finding(s, u.text, r.text, u.start, u.end, region, page) for u in r.unresolved
                  if not _exempt(u, s.known, allowed, fractions_as_percent)
+                 and not _marked_as_proposed(r.text, u.start, u.end)
                  and not any(a <= u.start and u.end <= b for a, b in declared)]
         s._found.extend(found)
         return r.text
