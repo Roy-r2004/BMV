@@ -109,18 +109,21 @@
 .site-chat__starters button:focus-visible { outline: 2px solid #1f4fd1; outline-offset: 2px; }
 
 .site-chat__form { display: flex; gap: 0.5rem; padding: 0.85rem 1rem 1rem; border-top: 1px solid #d9e0e8; }
-.site-chat__form input {
+.site-chat__form textarea {
   flex: 1;
   min-width: 0;
   height: 46px;
-  padding: 0 0.85rem;
+  max-height: 140px;
+  padding: 0.7rem 0.85rem;
+  resize: none;
+  field-sizing: content;
   border: 1px solid #b7c2cf;
   border-radius: 4px;
   font: 400 16px/1.4 var(--fm-sans, 'Inter', sans-serif);
   color: #1c2b3a;
   background: #fff;
 }
-.site-chat__form input:focus { outline: 2px solid #1f4fd1; outline-offset: 0; border-color: #1f4fd1; }
+.site-chat__form textarea:focus { outline: 2px solid #1f4fd1; outline-offset: 0; border-color: #1f4fd1; }
 .site-chat__form button {
   height: 46px;
   padding: 0 1.1rem;

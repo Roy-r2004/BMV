@@ -260,6 +260,7 @@ class Settings:
     LOG_LEVEL: str
     SITE_CHAT_ENABLED: bool
     SITE_CHAT_MODEL: str
+    SITE_CHAT_FALLBACK_MODEL: str
 
     def __init__(self) -> None:
         # Resolve preview-template from env, repo root, or next to backend/
@@ -881,19 +882,20 @@ class Settings:
             "1", "true", "yes", "on",
         )
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "debug").strip().lower()
-        # Public site guide bot — default cheapest OpenRouter free router
+        # The assistant on the public site.
         self.SITE_CHAT_ENABLED = os.getenv("SITE_CHAT_ENABLED", "true").strip().lower() in (
             "1",
             "true",
             "yes",
             "on",
         )
-        chat_default = (
-            "openrouter/free"
-            if self.AI_PROVIDER == "openrouter"
-            else defaults["text"]
+        # It answers any question, so it runs on the product's own text model,
+        # with a model from another provider behind it.
+        self.SITE_CHAT_MODEL = _env_or("SITE_CHAT_MODEL", self.TEXT_MODEL)
+        self.SITE_CHAT_FALLBACK_MODEL = _env_or(
+            "SITE_CHAT_FALLBACK_MODEL",
+            "anthropic/claude-haiku-4.5" if provider_key == "openrouter" else "",
         )
-        self.SITE_CHAT_MODEL = _env_or("SITE_CHAT_MODEL", chat_default)
 
     @property
     def TEMPLATES_DIR(self) -> Path:

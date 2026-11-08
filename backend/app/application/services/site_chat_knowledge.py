@@ -82,6 +82,24 @@ AI customer assistants, booking systems, dashboards, lead follow-up, quote gener
 - Ship production systems (not throwaway demos)
 - Original by design — references inspire; we never clone proprietary code/brand/design
 
+## Questions clients ask before starting
+- If the figures cannot support an answer: the answer page says so and names the figure that would settle it
+- Nothing needs preparing: the consultation asks for what it needs, one question at a time; a spreadsheet or an export helps
+- If the answer is not software, it says so before anything is built (some questions are settled by a change in pricing, staffing or schedule)
+- The client can disagree: an objection is tested against their figures the same way the answer was
+- The client keeps the files; the plan is theirs whether they build with us, with their own team or with another firm
+
+## Private AI (/private-ai)
+- Open-weight models on dedicated infrastructure the client owns and controls, connected to their own systems
+- Why companies choose it: data stays private, control of the model, predictable costs for sustained workloads, no platform lock-in
+- Steps: understand the workload, design the stack, deploy into their environment, integrate with the business
+- It is right for some workloads, not all: it makes sense when data sensitivity, compliance, high sustained usage, latency or infrastructure control justify it; otherwise cloud models may be faster and cheaper
+
+## How an engagement runs
+- Diagnose (the consultation), Prove (a working version measured in the real business), Build (the full system), Hand over (their team runs it, with the operations manual)
+- Four disciplines in one engagement: business, product, AI and infrastructure
+- Deployment is chosen per workload: cloud, private or hybrid
+
 ## What we do NOT do
 - Do not invent prices, discounts, monthly SaaS fees, or Stripe checkout
 - Do not claim we sell a self-serve subscription with listed pricing

@@ -168,13 +168,8 @@ def ai_is_allowed(purpose: str = "pipeline") -> tuple[bool, str]:
         log.warning("settings read failed: %s", exc)
         return True, ""
 
-    if purpose == "site_chat":
-        if not cfg.site_chat_enabled:
-            return False, "Site chat is disabled by admin."
-        # Site chat also respects master AI switch
-        if not cfg.ai_enabled:
-            return False, "AI is paused by admin."
-        return True, ""
+    if purpose == "site_chat" and not cfg.site_chat_enabled:
+        return False, "Site chat is disabled by admin."
 
     if not cfg.ai_enabled:
         return False, "AI is paused by admin."

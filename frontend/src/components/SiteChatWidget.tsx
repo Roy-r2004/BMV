@@ -1,10 +1,12 @@
+import axios from 'axios';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { sendSiteChat, type SiteChatMessage } from '../api/siteChat';
+import { SCENES } from '../film/scenes';
 import '../styles/site-chat.css';
 
 const WELCOME =
-  'Ask anything about our services, prices or method. Do you have an idea you want built, or a business that already runs?';
+  'Ask me anything. I can talk through your idea or your business, explain how we work, or help with any other question.';
 
 /** One plain speech mark, for the launcher. */
 function SpeechMark({ className }: { className?: string }) {
@@ -31,18 +33,33 @@ const STARTERS = [
   'What does it cost?',
 ] as const;
 
-function linkify(text: string) {
-  const parts = text.split(/(\/[a-z0-9\-/_]+)/gi);
-  return parts.map((part, i) => {
-    if (/^\/[a-z0-9\-/_]+$/i.test(part) && part.length > 1) {
+// Only the site's real pages become links, so "and/or" and "24/7" stay plain text.
+const PAGES = ['/demo', ...SCENES.map((s) => s.path).filter((p) => p !== '/')];
+const PAGE_LINK = new RegExp(`(?<![\\w/.:-])(${PAGES.join('|')})(?![\\w/-])`, 'g');
+
+/** An answer's text: the site's pages as links, and **words** in bold. */
+function renderAnswer(text: string) {
+  return text.split(PAGE_LINK).map((part, i) => {
+    if (i % 2 === 1) {
       return (
         <Link key={i} to={part} className="site-chat__link">
           {part}
         </Link>
       );
     }
-    return <span key={i}>{part}</span>;
+    return (
+      <span key={i}>
+        {part.split(/\*\*(.+?)\*\*/g).map((bit, k) => (k % 2 === 1 ? <strong key={k}>{bit}</strong> : bit))}
+      </span>
+    );
   });
+}
+
+/** What to tell the visitor when a message did not get through. */
+function failureMessage(err: unknown): string {
+  const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
+  if (typeof detail === 'string' && detail) return detail;
+  return 'Sorry, I couldn’t get an answer just now. Please ask again in a moment, or write to consulting@buildmyversion.com.';
 }
 
 export default function SiteChatWidget() {
@@ -54,7 +71,7 @@ export default function SiteChatWidget() {
     { role: 'assistant', content: WELCOME },
   ]);
   const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -89,17 +106,10 @@ export default function SiteChatWidget() {
     setInput('');
     setBusy(true);
     try {
-      const reply = await sendSiteChat(next.slice(-8), pathname);
+      const reply = await sendSiteChat(next.slice(-20), pathname);
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content:
-            'I can’t reach the guide right now. You can start a consultation at /demo or look through /solutions.',
-        },
-      ]);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'assistant', content: failureMessage(err) }]);
     } finally {
       setBusy(false);
     }
@@ -117,7 +127,7 @@ export default function SiteChatWidget() {
           <header className="site-chat__head">
             <div>
               <h2>Ask Build My Version</h2>
-              <p>Answers about our services, prices and method.</p>
+              <p>An AI assistant. Ask it anything.</p>
             </div>
             <button type="button" className="site-chat__close" onClick={() => setOpen(false)} aria-label="Close">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -130,7 +140,7 @@ export default function SiteChatWidget() {
             {messages.map((m, i) => (
               <div key={i} className={`site-chat__msg site-chat__msg--${m.role}`}>
                 {m.role === 'assistant' ? <span className="site-chat__who">Build My Version</span> : null}
-                <p>{linkify(m.content)}</p>
+                <p dir="auto">{m.role === 'assistant' ? renderAnswer(m.content) : m.content}</p>
               </div>
             ))}
             {busy && (
@@ -161,13 +171,21 @@ export default function SiteChatWidget() {
             <label htmlFor="site-chat-input" className="sr-only">
               Your question
             </label>
-            <input
+            <textarea
               id="site-chat-input"
               ref={inputRef}
+              dir="auto"
+              rows={1}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your question"
-              maxLength={800}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void ask(input);
+                }
+              }}
+              placeholder="Ask anything"
+              maxLength={2000}
               disabled={busy}
             />
             <button type="submit" disabled={busy || !input.trim()}>
