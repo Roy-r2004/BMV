@@ -1451,6 +1451,9 @@ def _evidence_flowables(req: Request, business_case: dict, scoreboard: list) -> 
         sources.append(f"Your own site — {sr['source_url']} (facts extracted and weighed in the analysis)")
     if corrections:
         sources.append("Your corrections from the pre-launch briefing chat (quoted below)")
+    from app.figures import references as _references
+
+    sources += [f"{f.source.publication} — {f.source.population} — {f.source.url}" for f in _references.load(req)]
     for s in sources:
         # composed here, the count of their answers included: furniture
         flows.append(Paragraph(_drawn(s), _S["bullet"], bulletText="•"))

@@ -252,9 +252,11 @@ def _run_diagnosis(db: Session, request_id: int) -> None:
 
     # The sums that decide the question, before anyone forms a view of it, so a
     # hypothesis can cite them. Code does the arithmetic; none means none.
-    from app.figures import sums
+    from app.figures import references, sums
 
-    emit(db, request_id, "sums", sums.PROGRESS, 13)
+    emit(db, request_id, "references", references.PROGRESS, 12)
+    references.write(db, request_id)
+    emit(db, request_id, "sums", sums.PROGRESS, 14)
     sums.write(db, request_id)
 
     # Several explanations, tested against their own figures, then attacked.

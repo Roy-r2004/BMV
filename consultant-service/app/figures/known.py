@@ -52,7 +52,7 @@ from app.figures.read import Mention, mentions
 logger = logging.getLogger("consultant.figures.known")
 
 #: The parts of a request's known set, in the order they are added.
-PARTS = ("case_file", "capacity", "sums", "registry", "answer", "roadmap", "register", "exhibits")
+PARTS = ("case_file", "capacity", "references", "sums", "registry", "answer", "roadmap", "register", "exhibits")
 
 #: The client's own claim ids in the registry; the case file holds their numbers.
 _CLIENT_CLAIM_PREFIXES = ("CF-", "CE-")
@@ -349,6 +349,8 @@ def known_for(req, extra: Iterable[Figure] = (), *, leave_out: Iterable[str] = (
         _add_kept(known, casefile.load(req))
     if "capacity" not in skip:
         _add_kept(known, capacity_figures(_loads(getattr(req, "capacity_json", None))))
+    if "references" not in skip:
+        _add_kept(known, _stored_figures(_loads(getattr(req, "references_json", None))))
     if "sums" not in skip:
         _add_kept(known, _stored_figures(_loads(getattr(req, "sums_json", None))))
     if "registry" not in skip:

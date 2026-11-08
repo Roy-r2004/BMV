@@ -104,6 +104,9 @@ class Settings:
     REASONING_TOKEN_HEADROOM: int = _env_int_within("REASONING_TOKEN_HEADROOM", 6000, 0, 30000)
     # How many sums the sums stage may keep (app/figures/sums.py).
     SUMS_MAX: int = _env_int_within("SUMS_MAX", 8, 1, 16)
+    # The web-search model for market evidence, and how many confirmed figures to keep.
+    RESEARCH_MODEL: str = _env_or("RESEARCH_MODEL", "perplexity/sonar-pro")
+    REFERENCES_MAX: int = _env_int_within("REFERENCES_MAX", 6, 1, 12)
     # How many figures the case file (app/figures/casefile.py) keeps: from one
     # text (an answer, a field) and from the whole request. A build stops at the
     # bound, in the order the texts are read, so a pasted spreadsheet cannot make
