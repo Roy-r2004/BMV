@@ -43,7 +43,7 @@ def build_roadmap_pdf(req) -> str:
     from reportlab.platypus import Frame, PageTemplate
 
     from app.pipeline.export_pdf import (_EngagementDoc, _page_chrome, document_known, document_phrases,
-                                         release_status)
+                                         stamped_status)
 
     started = datetime.utcnow()
     law.ensure_records(req)
@@ -54,14 +54,14 @@ def build_roadmap_pdf(req) -> str:
     kept = law.record(getattr(req, "id", None), WHERE, updated)
     if os.path.isfile(path) and updated is not None and kept is not None and kept["stamped"] is not None:
         if (datetime.utcfromtimestamp(os.path.getmtime(path)) > updated
-                and kept["stamped"] == release_status(req)["status"]):
+                and kept["stamped"] == stamped_status(req)):
             return path
 
     known, hours = document_known(req)
     with law.scope(known, where=WHERE, hours=hours, request_id=getattr(req, "id", None),
                    phrases=document_phrases(req)) as found:
         flows = _flows(req, plan)
-        stamped = release_status(req)["status"]
+        stamped = stamped_status(req)
 
     name = getattr(req, "concept_name", None) or getattr(req, "business_name", None) or ""
     doc = _EngagementDoc(

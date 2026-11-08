@@ -146,6 +146,10 @@ class Settings:
     # one closing line. A prompt cannot grow with a pasted spreadsheet. Held to 10..200.
     PROMPT_FIGURE_LINES: int = _env_int_within("PROMPT_FIGURE_LINES", 60, 10, 200)
     REVIEW_MODE: str = _env_or("REVIEW_MODE", "on")
+    # Whether a package with open findings is stamped DRAFT where clients read it.
+    # Off by Roy's decision (2026-11-08). The checks still run and are recorded,
+    # and each volume's "Not verified" list still names what did not pass.
+    SHOW_DRAFT_STAMP: bool = _env_or("SHOW_DRAFT_STAMP", "off") == "on"
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
     # Managing Consultant"). A document a person signs reads senior; one
     # nobody signs reads generated. Empty = omitted entirely.

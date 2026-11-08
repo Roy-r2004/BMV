@@ -35,6 +35,16 @@ def _uploads_in_a_folder_of_its_own(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _draft_stamp_on(monkeypatch):
+    """The stamp's own behaviour stays pinned; tests/experience/test_no_draft_stamp.py
+    covers it switched off, which is how the site runs."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "SHOW_DRAFT_STAMP", True)
+    monkeypatch.setenv("SHOW_DRAFT_STAMP", "on")
+
+
+@pytest.fixture(autouse=True)
 def _signed_in(monkeypatch):
     """Every API test runs as a signed-in account unless it overrides this
     — the auth gate's own tests monkeypatch resolve_user back to None."""

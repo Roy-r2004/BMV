@@ -897,6 +897,13 @@ def registry_reasons(req: Request, corpus_parts: list[str] | None = None,
     return reasons
 
 
+def stamped_status(req: Request) -> str:
+    """The state a built file prints, and so what a cached file is compared with:
+    a file stamped before the stamp was turned off is built again."""
+    status = release_status(req)["status"]
+    return "unstamped" if status == "draft" and not settings.SHOW_DRAFT_STAMP else status
+
+
 def _is_draft(req: Request) -> bool:
     """A package is a draft while its release gate holds ANY open reason —
     the honest state, stamped rather than hidden."""
@@ -935,6 +942,8 @@ def _status_lines(req: Request) -> list:
     CONSULTANCY DELIVERABLE with the BMV statement, CLIENT APPROVED."""
     gate = release_status(req)
     status = gate["status"]
+    if status == "draft" and not settings.SHOW_DRAFT_STAMP:
+        return []  # no stamp, and no claim of FINAL either: the cover says nothing about its state
     if status == "draft":
         # The cover names the page and the plain reason. It never prints the
         # gate's own reasons: they are internal words, and the law's quote the
@@ -1815,8 +1824,9 @@ def _doc_control_flowables(req: Request) -> list:
     flows = [Paragraph("Document control", _S["h2toc"])]
     rows = [
         ("Version", f"Engagement run {req.id} · generated {date}"),
-        ("Status", gate["status_label"]),
     ]
+    if gate["status"] != "draft" or settings.SHOW_DRAFT_STAMP:
+        rows.append(("Status", gate["status_label"]))
     if gate["status"] == "final":
         rows.append(("Statement", BMV_STATEMENT))
     rows += [
@@ -2007,7 +2017,7 @@ def build_pdf(req: Request, kind: str) -> str:
     kept = law.record(req.id, where, req.updated_at)
     if os.path.isfile(cached) and req.updated_at is not None and kept is not None:
         if (datetime.utcfromtimestamp(os.path.getmtime(cached)) > req.updated_at
-                and kept["stamped"] is not None and kept["stamped"] == release_status(req)["status"]):
+                and kept["stamped"] is not None and kept["stamped"] == stamped_status(req)):
             return cached
 
     business_case = _loads(req.business_case_json, {})
@@ -2036,7 +2046,7 @@ def build_pdf(req: Request, kind: str) -> str:
         with law.scope(known, where=where, hours=hours, request_id=req.id, pending=pending,
                        phrases=document_phrases(req, business_case)) as final:
             flows = _volume_flows(req, kind, md, label, sub, business_case)
-            stamped = release_status(req)["status"]
+            stamped = stamped_status(req)
         doc = _EngagementDoc(
             out_path, pagesize=A4,
             title=f"{req.concept_name or req.business_name} — {label}",
