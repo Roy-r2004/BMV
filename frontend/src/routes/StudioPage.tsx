@@ -2397,7 +2397,14 @@ export default function StudioPage() {
 
   const allScreens: StudioScreen[] = preview?.generated_pages.attraction_images ?? [];
   const screens = allScreens.filter((s) => !brokenSrc[s.image_url]);
-  const visibleTabs = preview ? RESULT_TABS.filter((t) => t.available(preview)) : [];
+  // The package above already shows the system; a second copy here only makes the page longer.
+  const systemIsAbove = Boolean(system?.available && system.html);
+  const visibleTabs = preview ? RESULT_TABS.filter((t) => t.available(preview) && !(t.id === 'screens' && systemIsAbove)) : [];
+  const firstTab = visibleTabs[0]?.id;
+  const activeTabIsShown = visibleTabs.some((t) => t.id === activeTab);
+  useEffect(() => {
+    if (firstTab && !activeTabIsShown) setActiveTab(firstTab);
+  }, [firstTab, activeTabIsShown]);
   const buildingName =
     progress?.business_name || decision?.business_name || preview?.business_name || form.business_name.trim() || 'Your business';
   const firstName = (user?.name ?? '').trim().split(/\s+/)[0] || null;

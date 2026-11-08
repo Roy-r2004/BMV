@@ -53,13 +53,18 @@ export default function AnswerPage({
     <section className="cx-answer-page" aria-label="The answer">
       <div className="cx-answer-open">
         <div className="cx-answer-lead">
-          {page.question ? <h1 className="cx-h1">{page.question}</h1> : null}
+          {/* The answer is the headline; the question is what it answers. */}
           {lines.length ? (
-            <div className="cx-answer-lines">
-              {lines.map((line, i) => (
-                <p key={i}>{line}</p>
-              ))}
-            </div>
+            <>
+              {page.question ? <p className="cx-answer-question">{page.question}</p> : null}
+              <h1 className="cx-h1 cx-answer-headline">
+                {lines.map((line, i) => (
+                  <span key={i}>{line}</span>
+                ))}
+              </h1>
+            </>
+          ) : page.question ? (
+            <h1 className="cx-h1">{page.question}</h1>
           ) : null}
           {page.numbers.length ? (
             <FigTags ids={page.numbers.map((n) => n.figure_id)} figures={known} labelled />

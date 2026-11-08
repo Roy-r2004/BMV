@@ -535,6 +535,8 @@
 }
 .cx-answer-lead { min-width: 0; }
 .cx-answer-page .cx-h1 { max-width: 16em; text-wrap: balance; }
+.cx-answer-question { margin: 0 0 18px; max-width: 38em; font: 500 clamp(16px, 1.25vw, 19px)/1.4 var(--cx-body); color: var(--cx-txt2); }
+.cx-answer-headline span { display: block; }
 .cx-answer-lines { margin-top: 22px; display: grid; gap: 6px; max-width: 38em; }
 .cx-answer-lines p { margin: 0; font: 500 clamp(18px, 1.35vw, 22px)/1.45 var(--cx-body); color: var(--cx-txt); overflow-wrap: anywhere; }
 .cx-answer-rests { margin: 20px 0 0; max-width: 42em; font-size: 15px; line-height: 1.5; color: var(--cx-txt2); }
@@ -577,6 +579,9 @@
 }
 .cx-reg-num { font: 700 15px/1.25 var(--cx-display); letter-spacing: -0.01em; overflow-wrap: anywhere; }
 .cx-reg-tag { margin-top: 6px; }
+:where(.cx-register--plain) .cx-reg-head, :where(.cx-register--plain) .cx-reg-row {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.25fr) minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 0.6fr);
+}
 .cx-reg-notes { margin: 16px 0 0; padding: 0; list-style: none; color: var(--cx-txt2); font-size: 14px; }
 .cx-reg-notes li { margin: 4px 0; overflow-wrap: anywhere; }
 

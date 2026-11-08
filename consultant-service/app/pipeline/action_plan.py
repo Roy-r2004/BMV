@@ -49,6 +49,7 @@ from app.figures.bind import bind, clean_sentences
 from app.figures.model import Figure, FigureSet, Proposal, as_json
 from app.models import Request
 from app.pipeline import answer as _answer
+from app.pipeline import decide as _decide
 from app.pipeline._shared import ask_until_usable, build_engagement_register, ledger, reply_json
 from app.pipeline.failure import StageFailed
 from app.templating import render
@@ -294,6 +295,7 @@ def write(db: Session, request_id: int) -> dict | None:
             headline=f"{ans.get('headline', '')} {ans.get('turn', '')}".strip() or decision.get("central_problem", ""),
             sub=ans.get("sub") or "",
             kind=decision.get("intervention_kind") or "unspecified",
+            not_to_build=not _decide.builds(decision),
             central_problem=decision.get("central_problem") or "",
             summary=decision.get("consulting_summary") or req.consulting_analysis or "",
             move=(f"{move['display']} — {move['label']} ({move['working']})" if move else ""),

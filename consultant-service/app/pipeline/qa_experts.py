@@ -250,10 +250,11 @@ def review_quality(db: Session, request_id: int) -> None:
                 # an LLM rewrite is never the last word: every deterministic
                 # pass (gate sentence, KPI lines, ids, identity, policy) runs
                 # again on the polished text before it is persisted
+                from app.figures.known import known_for
                 from app.pipeline.blueprint import finish_document
 
                 corrected, _ = finish_document(corrected, modules=modules, business_case=_bc_parsed,
-                                               registry=registry or None, kind="blueprint")
+                                               registry=registry or None, kind="blueprint", known=known_for(req, leave_out={"roadmap"}))
                 req.mvp_blueprint = corrected
                 polish_applied = True
                 # A finding the red pen just corrected in the document is no

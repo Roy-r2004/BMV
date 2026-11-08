@@ -267,7 +267,7 @@ def _no_null_lines(content: str) -> str:
 
 
 def finish_document(content: str | None, *, modules: list, business_case: dict,
-                    registry: dict | None, kind: str) -> tuple[str | None, dict]:
+                    registry: dict | None, kind: str, known=None) -> tuple[str | None, dict]:
     """Render the registry's own statements into a finished volume — and
     nothing else.
 
@@ -316,17 +316,20 @@ def finish_document(content: str | None, *, modules: list, business_case: dict,
             report["rendered"].append({"statement": "phase headings", "sites": len(phases), "headings": phases})
         if refused:
             report["refused"] = refused
-    content = _client_words(content, modules, registry)
+    content = _client_words(content, modules, registry, known)
     return content, report
 
 
-def _client_words(content: str, modules: list, registry: dict | None) -> str:
+def _client_words(content: str, modules: list, registry: dict | None, known=None) -> str:
     from app.figures import law
     from app.pipeline import registry as _reg
 
     claims = {c.get("id"): c for c in (registry or {}).get("claims") or [] if isinstance(c, dict)}
 
     def value_of(claim_id: str) -> str | None:
+        figure = known.get(claim_id) if known is not None else None
+        if figure is not None:
+            return f"{float(figure.value):g}"
         value = (claims.get(claim_id) or {}).get("value")
         return f"{value:g}" if isinstance(value, (int, float)) else None
 
@@ -385,7 +388,7 @@ def write_blueprint(
     # current state, opportunity) — give it room to finish them all.
     content = _markdown_call(db, request_id, "blueprint", prompt, stage="blueprint", max_tokens=6000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
-                                      registry=registry, kind="blueprint")
+                                      registry=registry, kind="blueprint", known=_known.known_for(req, leave_out={"roadmap"}))
     req.mvp_blueprint = content
     db.commit()
     return content
@@ -429,7 +432,7 @@ def write_technical_plan(
     # makes this the longest document — give it the budget to finish.
     content = _markdown_call(db, request_id, "technical_plan", prompt, stage="technical", max_tokens=8000)
     content, report = finish_document(content, modules=modules, business_case=business_case,
-                                      registry=registry, kind="technical")
+                                      registry=registry, kind="technical", known=_known.known_for(req, leave_out={"roadmap"}))
     if report.get("rendered") and registry:
         registry.setdefault("rendered_statements", []).extend(
             [{"source": "technical", **r} for r in report["rendered"]])

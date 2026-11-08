@@ -267,6 +267,7 @@ def _phrase_spans(text: str, phrases: Sequence[str]) -> list[tuple[int, int]]:
 _ID = r"(?:T\d+-\d+|F-[a-z_]+-\d+|E\d+-\d+(?:\.\d+)?|CF-\d+|CE-\d+|CAP-\d+|SUM-\d+|REF-\d+|PROP-\d+|TH-[a-z0-9-]+?-\d+)"
 _CITED_IDS = re.compile(rf"\s*[(\[]{_ID}(?:\s*,\s*{_ID})*[)\]]")
 _THRESHOLD_ID = re.compile(r"\bTH-[a-z0-9-]+?-\d+\b(:\s*)?")
+_BARE_ID = re.compile(r"(?<![\w-])(T\d+-\d+|CF-\d+|CE-\d+|CAP-\d+|SUM-\d+|REF-\d+|PROP-\d+)(?![\w-])(\s+(?=(?:[A-Z]{3}\s+)?\d))?")
 _LABEL = r"\(proposed\s*[-\u2013\u2014]\s*client approval required\)"
 _PROPOSED_AFTER = re.compile(rf"(?:\s+[a-z%-]+){{0,3}}\s*{_LABEL}", re.I)
 _PROPOSED_BEFORE = re.compile(rf"{_LABEL}\s*$", re.I)
@@ -278,10 +279,19 @@ _MONEY_BEFORE = re.compile(r"(?:[$\u20ac\u00a3]|\b[A-Z]{3})\s*$")
 def strip_ids(text: str, value_of) -> str:
     """The text as a client should read it: ids cited in brackets are gone, and a
     threshold written as its id reads as its value (`value_of(id)`, a string)."""
-    def threshold(m: re.Match) -> str:
-        return "" if m.group(1) else (value_of(m.group(0)) or "")
+    def threshold(m: re.Match) -> str:  # an id nobody can resolve stays, and the release gate stops it
+        return "" if m.group(1) else (value_of(m.group(0)) or m.group(0))
 
-    return _THRESHOLD_ID.sub(threshold, _CITED_IDS.sub("", text))
+    def bare(m: re.Match) -> str:
+        # only an id that really is one of this request's figures: anything else
+        # shaped like it ("T4-1 engine") is ordinary text. Beside its own value it
+        # says nothing; alone, it stands where its value should be.
+        value = value_of(m.group(1))
+        if value is None:
+            return m.group(0)
+        return "" if m.group(2) else value
+
+    return _BARE_ID.sub(bare, _THRESHOLD_ID.sub(threshold, _CITED_IDS.sub("", text)))
 
 
 _BARE_TOKEN = re.compile(rf"\{{\{{\s*({_ID}|[A-Z]+-[A-Za-z0-9-]+)\s*\}}\}}(?:\s*\(([^()]*\d[^()]*)\))?")
@@ -289,10 +299,19 @@ _BARE_TOKEN = re.compile(rf"\{{\{{\s*({_ID}|[A-Z]+-[A-Za-z0-9-]+)\s*\}}\}}(?:\s*
 
 def fill_tokens(text: str, value_of) -> str:
     """A writer told to cite "{{F:id}}" sometimes drops the "F:", and that token
-    reaches no binder. It reads as what it stands for: the value it printed beside
-    itself if it did, or `value_of(id, words before it)`."""
+    reaches no binder. It reads as what it stands for, `value_of(id, words before
+    it)`. The words a writer printed beside it are kept only when they carry that
+    same number. A token that resolves to nothing stays, so the release gate stops
+    the document instead of a figure quietly going missing."""
     def one(m: re.Match) -> str:
-        return m.group(2) or value_of(m.group(1), text[:m.start()]) or ""
+        value = value_of(m.group(1), text[:m.start()])
+        if value is None:
+            return m.group(0)
+        printed = m.group(2)
+        number = value.split()[0]
+        if printed and re.search(rf"(?<![\d.,]){re.escape(number)}(?![\d])", printed.replace(",", "")):
+            return printed
+        return value + (f" ({printed})" if printed else "")
 
     return _BARE_TOKEN.sub(one, text)
 

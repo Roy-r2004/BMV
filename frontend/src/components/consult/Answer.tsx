@@ -265,7 +265,7 @@ export default function Answer({
           ) : (
             <>
               <h3>{legacy ? 'Your plans' : ready ? 'Your plans are ready' : 'Your plans are being written'}</h3>
-              <p>Everything needed to build this, for you or for any team.</p>
+              <p>Everything behind this answer, for you or for any team.</p>
               {legacy ? (
                 // At the gate nothing has been written, whatever the server lists
                 // (the AI team is known before the gate, and is not a plan).

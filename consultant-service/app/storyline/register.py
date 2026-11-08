@@ -108,7 +108,9 @@ def table(register: Register, known) -> dict:
             "when": row.when,
             "depends_on": list(row.depends_on),
         })
-    return {"rows": rows, "total": range_text(known, "TOTAL"), "footnotes": list(register.footnotes)}
+    has_range = any(row.get(end) for row in rows for end in ("low", "mid", "high"))
+    footnotes = [n for n in register.footnotes if has_range or n not in (_SHARES, _NO_VALUE, _NO_TERMS)]
+    return {"rows": rows, "total": range_text(known, "TOTAL"), "footnotes": footnotes}
 
 
 def range_text(known, row_id: str) -> str | None:

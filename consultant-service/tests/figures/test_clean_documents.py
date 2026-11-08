@@ -66,6 +66,18 @@ def test_half_a_label_excuses_nothing():
     assert [f.number for f in check("within 37 calls (proposed)")[1]] == ["37"]
 
 
+@pytest.mark.parametrize("text, reads", [
+    ("charging T4-1 AED 20 an hour", "charging AED 20 an hour"),
+    ("taking T4-1 20% of it", "taking 20% of it"),
+    ("at T4-1 per booking", "at 20 per booking"),
+    ("the T9-9 engine", "the T9-9 engine"),
+])
+def test_a_bare_figure_id_goes_when_its_value_is_beside_it_and_stands_for_it_when_not(text, reads):
+    from app.figures import law
+
+    assert law.strip_ids(text, lambda i: "20" if i == "T4-1" else None) == reads
+
+
 def test_a_number_with_no_label_is_still_a_finding():
     assert [f.number for f in check("losing 37 calls a day")[1]] == ["37"]
 

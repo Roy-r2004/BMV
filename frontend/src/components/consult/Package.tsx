@@ -1,5 +1,5 @@
 /**
- * Your plans: everything needed to build it, theirs to keep.
+ * Your plans: everything behind the answer, theirs to keep.
  *
  * A shelf of documents first (only the ones that exist), then how it gets
  * done — the implementation roadmap, with who does each phase — beside the
@@ -242,7 +242,9 @@ export default function Package({
   const screenCount = stats?.screens ?? screens.length;
   const agents = stats?.agents ?? 0;
   // The system, when this run has one. Legacy runs fall back to their PNGs.
-  const sys = system?.available && system.html && system.screens.length ? system : null;
+  // An answer that says not to build shows no system, whatever was drawn along the way.
+  const notToBuild = files?.some((file) => file.key === 'system' && file.state === 'absent') ?? false;
+  const sys = !notToBuild && system?.available && system.html && system.screens.length ? system : null;
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -275,7 +277,7 @@ export default function Package({
       <p className="cx-kicker">Your plans</p>
       <div className="cx-plans-head">
         <div className="min-w-0" style={{ maxWidth: '46em' }}>
-          <h1 className="cx-title">Everything needed to build it. Written for {short}.</h1>
+          <h1 className="cx-title">Everything behind this answer. Written for {short}.</h1>
           <p className="cx-lede">
             {finding ? (
               <>
@@ -460,7 +462,7 @@ export default function Package({
               <p className="cx-gotit" role="status">We've got it. We'll be in touch within one working day.</p>
             ) : !readOnly && onGoAhead ? (
               <button type="button" className="cx-btn cx-btn--blue" onClick={goAhead} disabled={going}>
-                {going ? 'Sending…' : 'Have us build it'}
+                {going ? 'Sending…' : 'Have us do this'}
               </button>
             ) : null}
             {goError ? <p className="cx-error" role="alert">{goError}</p> : null}
@@ -481,7 +483,7 @@ export default function Package({
           </div>
           <SystemViewer system={sys} businessName={businessName} readOnly={readOnly} onDownloadPdf={() => onDownload('system')} />
         </div>
-      ) : screens.length ? (
+      ) : screens.length && !notToBuild ? (
         <div id="cx-screens" style={{ scrollMarginTop: 20 }}>
           <div className="mt-14 flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="cx-h3" style={{ fontSize: 'clamp(22px, 2vw, 28px)' }}>Your product screens</h2>

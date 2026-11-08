@@ -65,8 +65,10 @@ export default function Register({
   figures?: FigureMap | null;
 }) {
   const known = figuresFor(register, figures);
+  // An answer with no value to share out has no range, so it has no column for one.
+  const hasRange = register.rows.some((row) => row.low || row.mid || row.high);
   return (
-    <section className="cx-register" aria-label="The register">
+    <section className={`cx-register${hasRange ? '' : ' cx-register--plain'}`} aria-label="The register">
       <h2 className="cx-h3">The register</h2>
       <div className="cx-reg-head" aria-hidden="true">
         <span>Recommendation</span>
@@ -74,7 +76,7 @@ export default function Register({
         <span>When</span>
         <span>Owner</span>
         <span>Comes after</span>
-        <span>The range</span>
+        {hasRange ? <span>The range</span> : null}
       </div>
       <div className="cx-reg-list">
         {register.rows.map((row, i) => (
@@ -88,11 +90,13 @@ export default function Register({
             <Cell k="Comes after" className={row.depends_on.length ? undefined : 'cx-reg-skip'}>
               {row.depends_on.length ? row.depends_on.join(', ') : ''}
             </Cell>
-            <div className="cx-reg-ends">
-              <End end={row.low} figures={known} label="Low" />
-              <End end={row.mid} figures={known} label="Middle" />
-              <End end={row.high} figures={known} label="High" />
-            </div>
+            {hasRange ? (
+              <div className="cx-reg-ends">
+                <End end={row.low} figures={known} label="Low" />
+                <End end={row.mid} figures={known} label="Middle" />
+                <End end={row.high} figures={known} label="High" />
+              </div>
+            ) : null}
           </article>
         ))}
       </div>

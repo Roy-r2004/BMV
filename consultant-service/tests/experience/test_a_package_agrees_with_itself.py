@@ -22,6 +22,12 @@ def test_a_module_id_reads_as_its_name():
     assert registry.name_the_ids("Open the cleaner-matching-engine today.", MODULES) == "Open the Cleaner Matching Engine today."
 
 
+def test_a_threshold_id_nobody_can_resolve_stays_visible_to_the_gate():
+    from app.figures import law
+
+    assert law.strip_ids("within TH-pool-99 minutes", lambda _: None) == "within TH-pool-99 minutes"
+
+
 def test_an_id_on_a_build_team_line_stays_for_the_engineers():
     line = "For your build team: deploy cleaner-matching-engine behind the gateway."
     assert registry.name_the_ids(line, MODULES) == line
@@ -46,12 +52,20 @@ def test_a_dropped_token_reads_as_its_figure():
 
 
 def test_a_token_that_printed_its_own_value_keeps_only_the_value():
-    assert _words(CLAIMS)("an initial network of {{T7-2}} (20 households)") == "an initial network of 20 households"
+    assert _words(CLAIMS)("an initial network of {{CF-17}} (20 households)") == "an initial network of 20 households"
 
 
 def test_a_length_of_time_says_its_unit_once():
     assert _words(CLAIMS)("after launch for {{PG-duration}}") == "after launch for 6 weeks"
     assert _words({"registry": {"claims": [{"id": "PLAN-WEEKS", "value": 6, "unit": "week"}]}})("week {{PLAN-WEEKS}}") == "week 6"
+
+
+def test_a_token_nobody_can_resolve_stays_so_the_gate_stops_the_document():
+    assert _words(CLAIMS)("Contact the {{CF-99}} households") == "Contact the {{CF-99}} households"
+
+
+def test_a_printed_value_that_disagrees_with_the_figure_does_not_win():
+    assert _words(CLAIMS)("a network of {{CF-17}} (900 households)") == "a network of 20 (900 households)"
 
 
 def test_the_proper_figure_token_is_left_for_the_binder():

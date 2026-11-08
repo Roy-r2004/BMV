@@ -13,7 +13,9 @@ The cause: {{ central_problem }}
 What we recommended: {{ summary }}
 {% if move %}What it is worth: {{ move }}{% endif %}
 Not yet verified — estimates we made, or things nobody could check: {{ unverified }}
-{% if modules %}
+{% if not_to_build is defined and not_to_build %}
+WE ARE NOT BUILDING SOFTWARE YET. That is the answer, so no phase builds, designs or commissions a system, an app, or any part of one, even in parallel. The phases are only the work that settles the question first.
+{% elif modules %}
 WHAT THE PLANS SAY TO BUILD, module by module (the first one listed is built first)
 {{ modules }}
 {% endif %}

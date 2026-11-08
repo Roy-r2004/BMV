@@ -240,7 +240,11 @@ def sanitize(content: dict, canon: _canon.Canon) -> list[dict]:
 
     def _walk(obj, where: str):
         if isinstance(obj, str):
-            out = law.fill_tokens(_reg.name_the_ids(obj, modules), value_of)
+            filled = law.strip_ids(law.fill_tokens(_reg.name_the_ids(obj, modules), value_of), lambda i: value_of(i, ""))
+            if filled != obj:
+                applied.append({"where": where, "surface": obj.strip()[:140], "canonical": filled.strip()[:140],
+                                "entity": "figure", "law": "an id reads as its name or its figure"})
+            out = filled
             for bad, good in repairs.items():
                 if bad in out:
                     out = out.replace(bad, good)
