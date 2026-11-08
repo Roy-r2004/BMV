@@ -1,6 +1,7 @@
 import logging
 import os
 import threading
+from urllib.parse import parse_qs
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,7 @@ from app.engine.api.startup import engine_startup
 from app.routers import discovery as discovery_router
 from app.routers import requests as requests_router
 from app.routers import shared as shared_router
+from app.serving import key_is_right
 
 # Nothing in this service configured logging, so the root logger sat at
 # WARNING and every logger.info the pipeline writes went nowhere. That is
@@ -48,7 +50,8 @@ app.add_middleware(
 
 class RenderedPictures(StaticFiles):
     """The one part of the uploads folder a browser fetches without signing in:
-    the rendered screens, because an <img> tag cannot carry the session.
+    the rendered screens, because an <img> tag cannot carry the session. Each
+    address the server hands out carries a key, so they cannot be counted through.
 
     Everything else in that folder is a client's: packages stored under a
     sequential id (exports/), their documents (engagements/). Those leave only
@@ -57,7 +60,8 @@ class RenderedPictures(StaticFiles):
     """
 
     async def get_response(self, path, scope):
-        if not path.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        key = parse_qs(scope.get("query_string", b"").decode()).get("k", [""])[0]
+        if not path.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) or not key_is_right(path, key):
             raise StarletteHTTPException(status_code=404)
         return await super().get_response(path, scope)
 

@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app import auth_client, mailer, produced
+from app.serving import signed
 from app.config import settings
 from app.database import get_db
 from app.figures import casefile
@@ -457,7 +458,7 @@ def showcase_gallery(db: Session = Depends(get_db)):
         if images:
             cache_v = int(req.created_at.timestamp()) if req.created_at else 0
             hero = compositing.variant_url(images[0].file_path, "hero", settings.UPLOADS_DIR)
-            first_image = f"{hero or images[0].file_path}?v={cache_v}"
+            first_image = signed(f"{hero or images[0].file_path}?v={cache_v}")
         cards.append({
             "id": req.id,
             "business_name": req.business_name,
@@ -1023,7 +1024,7 @@ def get_preview(request_ref: str, review_token: str | None = None,
     cache_v = int(req.created_at.timestamp()) if req.created_at else 0
 
     def _versioned(path: str | None) -> str | None:
-        return f"{path}?v={cache_v}" if path else None
+        return signed(f"{path}?v={cache_v}") if path else None
 
     attraction_images = [
         {
@@ -1229,8 +1230,8 @@ def get_admin_detail(request_ref: str, db: Session = Depends(get_db)):
                 # be able to tell those apart.
                 "text_truth": json.loads(img.text_truth_json) if img.text_truth_json else None,
                 "cost": _screen_cost(img.role_id),
-                "image_url": img.file_path,
-                "hero_url": compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR),
+                "image_url": signed(img.file_path),
+                "hero_url": signed(compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR)),
             }
             for img in sorted(req.images, key=lambda i: (i.role_id, i.variant))
         ],

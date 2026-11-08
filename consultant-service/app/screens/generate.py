@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
+from app.serving import signed
 from app.figures import known as _known
 from app.figures.bind import bind, clean_sentences
 from app.figures.model import FigureSet
@@ -482,7 +483,7 @@ def payload(req: Request) -> dict:
         has_png = os.path.isfile(os.path.join(out_dir, f"{s['id']}.png"))
         screens.append({"id": s["id"], "title": s["title"], "caption": s.get("caption", ""),
                         "module_id": s.get("module_id") or None,
-                        "png_url": f"/uploads/images/{req.id}/{s['id']}.png?v={cache_v}" if has_png else None})
+                        "png_url": signed(f"/uploads/images/{req.id}/{s['id']}.png?v={cache_v}") if has_png else None})
     p = system["product"]
     return {"available": True,
             "product": {"name": p["name"], "tagline": p.get("tagline", ""), "workspace": p.get("workspace", "")},

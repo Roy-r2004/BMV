@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings
+from app.serving import signed
 from main import app
 
 #: The folder the server mounted when it started. Read here, at import: the
@@ -46,16 +47,33 @@ def test_private_files_are_not_served(client, relative):
     assert client.get(f"/uploads/{relative}").status_code == 404
 
 
-def test_a_rendered_screen_is_served(client):
+def test_a_rendered_screen_is_served_at_the_address_the_server_gave(client):
     _put("images/1/dashboard_0.png", b"\x89PNG")
-    response = client.get("/uploads/images/1/dashboard_0.png")
+    response = client.get(signed("/uploads/images/1/dashboard_0.png?v=3"))
     assert response.status_code == 200 and response.content == b"\x89PNG"
+
+
+def test_a_screen_cannot_be_reached_by_counting(client):
+    _put("images/1/dashboard_0.png", b"\x89PNG")
+    assert client.get("/uploads/images/1/dashboard_0.png").status_code == 404
+    assert client.get("/uploads/images/1/dashboard_0.png?k=guess").status_code == 404
+
+
+def test_one_engagements_key_does_not_open_another(client):
+    _put("images/2/dashboard_0.png", b"\x89PNG")
+    key = signed("/uploads/images/1/dashboard_0.png").split("k=")[1]
+    assert client.get(f"/uploads/images/2/dashboard_0.png?k={key}").status_code == 404
 
 
 @pytest.mark.parametrize("name", ["dashboard_0.json", "dashboard_0.html", "notes.txt"])
 def test_only_pictures_leave_the_images_folder(client, name):
     _put(f"images/1/{name}")
-    assert client.get(f"/uploads/images/1/{name}").status_code == 404
+    assert client.get(signed(f"/uploads/images/1/{name}")).status_code == 404
+
+
+def test_an_address_outside_the_pictures_is_left_alone():
+    assert signed(None) is None
+    assert signed("https://example.com/a.png") == "https://example.com/a.png"
 
 
 @pytest.mark.parametrize("path", ["/uploads/images/../exports/1-engagement.zip", "/uploads/images/%2e%2e/exports/1-engagement.zip"])

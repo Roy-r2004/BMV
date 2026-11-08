@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app import produced
+from app.serving import signed
 from app.config import settings
 from app.database import get_db
 from app.figures import payload as figure_payload
@@ -51,8 +52,8 @@ def shared_package(token: str, db: Session = Depends(get_db)):
     screens = [
         {
             "role_label": img.role_label,
-            "image_url": f"{img.file_path}?v={cache_v}",
-            "hero_url": (lambda u: f"{u}?v={cache_v}" if u else None)(
+            "image_url": signed(f"{img.file_path}?v={cache_v}"),
+            "hero_url": (lambda u: signed(f"{u}?v={cache_v}") if u else None)(
                 compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR)),
             "story": screen_story.from_spec_json(img.spec_json, img.role_label or ""),
         }
