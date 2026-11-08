@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -34,6 +35,8 @@ from app.models import Request
 from app.pipeline import canon as _canon
 from app.pipeline import pilot_gate as _pg
 from app.pipeline import registry as _reg
+
+logger = logging.getLogger("consultant.integrity")
 
 VERSION = 2
 
@@ -89,6 +92,12 @@ def load(row) -> dict:
                              ("business_description", "main_problem", "desired_outcome", "revenue_today")]
     content["concept_name"] = getattr(row, "concept_name", None) or getattr(row, "business_name", None) or ""
     content["business_name"] = getattr(row, "business_name", None) or ""
+    try:
+        from app.figures.known import known_for
+
+        content["known"] = known_for(row)
+    except Exception:
+        logger.warning("the figures could not be read for this request", exc_info=True)
     return content
 
 
@@ -156,6 +165,31 @@ def normalize(content: dict, canon: _canon.Canon) -> list[dict]:
     return applied
 
 
+_TIME_UNITS = {"day", "week", "month", "year", "hour", "minute"}
+
+
+def _figure_words(content: dict):
+    """What an id stands for, as words: its value, and its unit when that unit is
+    a length of time the sentence has not already said ("for 6 weeks", "week 6")."""
+    claims = {c.get("id"): c for c in (content.get("registry") or {}).get("claims") or [] if isinstance(c, dict)}
+
+    def value_of(figure_id: str, before: str) -> str | None:
+        known = content.get("known")
+        figure = known.get(figure_id) if known is not None else None
+        claim = claims.get(figure_id) or {}
+        value = figure.value if figure is not None else claim.get("value")
+        if value is None:
+            return None
+        unit = str((figure.unit if figure is not None else claim.get("unit")) or "").lower().rstrip("s")
+        number = f"{float(value):g}"
+        said_already = before.rstrip().lower().endswith(unit)
+        if unit in _TIME_UNITS and not said_already:
+            return f"{number} {unit}{'' if number == '1' else 's'}"
+        return number
+
+    return value_of
+
+
 def sanitize(content: dict, canon: _canon.Canon) -> list[dict]:
     """Well-formedness of the names and statements themselves, repaired at
     source before anything is mapped.
@@ -199,11 +233,14 @@ def sanitize(content: dict, canon: _canon.Canon) -> list[dict]:
             applied.append({"where": "names", "surface": name, "canonical": fixed, "entity": "name",
                             "law": f"a canonical name states each of its tokens once — {why}"})
 
+    from app.figures import law
+
     modules = content.get("modules") or []
+    value_of = _figure_words(content)
 
     def _walk(obj, where: str):
         if isinstance(obj, str):
-            out = _reg.name_the_ids(obj, modules)
+            out = law.fill_tokens(_reg.name_the_ids(obj, modules), value_of)
             for bad, good in repairs.items():
                 if bad in out:
                     out = out.replace(bad, good)

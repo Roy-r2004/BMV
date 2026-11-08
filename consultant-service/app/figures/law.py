@@ -284,6 +284,19 @@ def strip_ids(text: str, value_of) -> str:
     return _THRESHOLD_ID.sub(threshold, _CITED_IDS.sub("", text))
 
 
+_BARE_TOKEN = re.compile(rf"\{{\{{\s*({_ID}|[A-Z]+-[A-Za-z0-9-]+)\s*\}}\}}(?:\s*\(([^()]*\d[^()]*)\))?")
+
+
+def fill_tokens(text: str, value_of) -> str:
+    """A writer told to cite "{{F:id}}" sometimes drops the "F:", and that token
+    reaches no binder. It reads as what it stands for: the value it printed beside
+    itself if it did, or `value_of(id, words before it)`."""
+    def one(m: re.Match) -> str:
+        return m.group(2) or value_of(m.group(1), text[:m.start()]) or ""
+
+    return _BARE_TOKEN.sub(one, text)
+
+
 def _without_ids(text: str, known: FigureSet) -> str:
     def value_of(figure_id: str) -> str | None:
         figure = known.get(figure_id)

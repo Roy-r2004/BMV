@@ -32,6 +32,32 @@ def test_a_longer_word_containing_an_id_is_left_alone():
     assert registry.name_the_ids(text, MODULES) == text
 
 
+def _words(content):
+    from app.figures import law
+
+    return lambda text: law.fill_tokens(text, integrity._figure_words(content))
+
+
+CLAIMS = {"registry": {"claims": [{"id": "CF-17", "value": 20, "unit": "count"}, {"id": "PG-duration", "value": 6, "unit": "weeks"}]}}
+
+
+def test_a_dropped_token_reads_as_its_figure():
+    assert _words(CLAIMS)("Contact the {{CF-17}} households") == "Contact the 20 households"
+
+
+def test_a_token_that_printed_its_own_value_keeps_only_the_value():
+    assert _words(CLAIMS)("an initial network of {{T7-2}} (20 households)") == "an initial network of 20 households"
+
+
+def test_a_length_of_time_says_its_unit_once():
+    assert _words(CLAIMS)("after launch for {{PG-duration}}") == "after launch for 6 weeks"
+    assert _words({"registry": {"claims": [{"id": "PLAN-WEEKS", "value": 6, "unit": "week"}]}})("week {{PLAN-WEEKS}}") == "week 6"
+
+
+def test_the_proper_figure_token_is_left_for_the_binder():
+    assert _words(CLAIMS)("{{F:CF-17}} households") == "{{F:CF-17}} households"
+
+
 def test_the_settled_sequence_is_what_the_writers_are_told():
     assert registry.phase_lines(MODULES).split("\n") == [
         "Phase 2: Cleaner Matching Engine", "Phase 3: Cleaner Earnings Dashboard",

@@ -127,13 +127,17 @@ def write(db, request_id: int) -> None:
         prompt = render("sums.j2", question=req.desired_outcome or "", main_problem=req.main_problem or "",
                         stage="not launched yet, this is a plan" if req.operating_stage == "opening" else "already operating",
                         figures_block=prompt_lines(known), most=settings.SUMS_MAX)
-        try:
-            reply = ask_until_usable(
-                lambda: provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}], max_tokens=_TOKENS),
-                reply_json, ledger(db, request_id, model=settings.REASONING_MODEL, purpose="sums"))
-            figures = compute(reply.get("sums"), known)
-        except Exception as exc:
-            logger.warning("the sums could not be worked out: %s", str(exc)[:200])
-            figures = []
+        figures: list[Figure] = []
+        # code does the arithmetic and the model only proposes it, so a second
+        # model is as good as the first, and no sums would weaken the whole answer
+        for model in (settings.REASONING_MODEL, settings.ANALYSIS_MODEL):
+            try:
+                reply = ask_until_usable(
+                    lambda: provider.chat(model, [{"role": "user", "content": prompt}], max_tokens=_TOKENS),
+                    reply_json, ledger(db, request_id, model=model, purpose="sums"))
+                figures = compute(reply.get("sums"), known)
+                break
+            except Exception as exc:
+                logger.warning("the sums could not be worked out with %s: %s", model, str(exc)[:200])
         req.sums_json = json.dumps([as_json(f) for f in figures]) if figures else None
     db.commit()

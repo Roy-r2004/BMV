@@ -120,6 +120,33 @@ def test_the_answer_prompt_forbids_stating_an_unproven_cause_only_when_unproven(
     assert "was NOT proven" not in render("answer.j2", settled=True, **args)
 
 
+def test_when_the_first_model_cannot_answer_the_second_is_asked(monkeypatch):
+    from app.config import settings
+    from app.database import Base, SessionLocal, engine
+    from app.models import Request
+
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    row = _row(ops_numbers_json=json.dumps([{"id": "a", "question": "How many?", "answer": "500 bookings at AED 180"}]))
+    db.add(row)
+    db.commit()
+    asked = []
+
+    def chat(model, *a, **k):
+        asked.append(model)
+        content = "thinking out loud, no JSON here" if model == settings.REASONING_MODEL else '{"sums": []}'
+        return {"choices": [{"message": {"content": content}}], "usage": {}}
+
+    monkeypatch.setattr(sums.provider, "chat", chat)
+    monkeypatch.setattr(sums, "compute", lambda proposed, known: [theirs("SUM-1", 5, "AED")])
+    sums.write(db, row.id)
+    db.refresh(row)
+    assert asked[-1] == settings.ANALYSIS_MODEL and asked[0] == settings.REASONING_MODEL and row.sums_json
+    db.delete(db.get(Request, row.id))
+    db.commit()
+    db.close()
+
+
 def test_a_bad_reply_means_no_sums_not_a_stopped_run(monkeypatch):
     from app.database import Base, SessionLocal, engine
     from app.models import Request
