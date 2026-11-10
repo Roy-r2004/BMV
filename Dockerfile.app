@@ -55,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     xz-utils \
+    libatomic1 \
     && curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz \
       | tar -xJ -C /opt \
     && mv /opt/node-v22.14.0-linux-x64 /opt/node \
