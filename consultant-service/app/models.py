@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -267,3 +267,51 @@ class AiUsageEvent(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Prospect(Base):
+    """A business the outreach pipeline found, what it read about it, and what
+    Roy did with it (docs/superpowers/specs/2026-11-10-gcc-outreach-design.md)."""
+    __tablename__ = "outreach_prospects"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # the report's address: unguessable, never listed
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    city: Mapped[str] = mapped_column(String(80))
+    kind: Mapped[str] = mapped_column(String(80), default="")
+    # one row per business however it was spelled (find.dedup_key)
+    key: Mapped[str] = mapped_column(String(300), unique=True, index=True)
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    instagram: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    what: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # [{"url", "what"}]: every page anything about this business came from
+    sources_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    site_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    signals_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    reasons_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dm_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # found | ready | queued | sent | replied | call_booked | not_interested | skip | removed
+    status: Mapped[str] = mapped_column(String(20), default="found", index=True)
+    queued_on: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    opened_first_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    opens: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class OutreachRun(Base):
+    """One outreach run a day: a second start on the same day does nothing."""
+    __tablename__ = "outreach_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[date] = mapped_column(Date, unique=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    found: Mapped[int] = mapped_column(Integer, default=0)
+    queued: Mapped[int] = mapped_column(Integer, default=0)
+    stopped_because: Mapped[str | None] = mapped_column(String(200), nullable=True)

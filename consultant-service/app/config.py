@@ -150,6 +150,20 @@ class Settings:
     # Off by Roy's decision (2026-11-08). The checks still run and are recorded,
     # and each volume's "Not verified" list still names what did not pass.
     SHOW_DRAFT_STAMP: bool = _env_or("SHOW_DRAFT_STAMP", "off") == "on"
+    # GCC outreach (docs/superpowers/specs/2026-11-10-gcc-outreach-design.md):
+    # how many businesses a day, the monthly spend cap, what an unpriced call
+    # counts as, where to look, the score a business needs, and the daily run.
+    OUTREACH_DAILY: int = _env_int_within("OUTREACH_DAILY", 30, 1, 200)
+    OUTREACH_MONTHLY_USD: float = float(_env_or("OUTREACH_MONTHLY_USD", "100"))
+    OUTREACH_UNPRICED_CALL_USD: float = float(_env_or("OUTREACH_UNPRICED_CALL_USD", "0.02"))
+    OUTREACH_CITIES: list = [c.strip() for c in _env_or(
+        "OUTREACH_CITIES", "Dubai,Riyadh,Doha,Abu Dhabi,Kuwait City,Manama,Muscat").split(",") if c.strip()]
+    OUTREACH_KINDS: list = [k.strip() for k in _env_or(
+        "OUTREACH_KINDS", "clinic,salon,gym,restaurant,real estate agent").split(",") if k.strip()]
+    OUTREACH_MIN_SCORE: int = _env_int_within("OUTREACH_MIN_SCORE", 30, 0, 100)
+    OUTREACH_AUTO: str = _env_or("OUTREACH_AUTO", "off")
+    # Where a business opens its report: <PUBLIC_SITE_URL>/for/<token>
+    PUBLIC_SITE_URL: str = _env_or("PUBLIC_SITE_URL", "https://buildmyversion.com").rstrip("/")
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
     # Managing Consultant"). A document a person signs reads senior; one
     # nobody signs reads generated. Empty = omitted entirely.
