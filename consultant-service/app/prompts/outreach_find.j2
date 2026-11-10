@@ -1,0 +1,19 @@
+Search the web for real, currently operating businesses of this kind in this city.
+
+Kind: {{ kind }}
+City: {{ city }}
+
+Find up to {{ most }}. Prefer independent, small and mid-sized businesses that take bookings or orders by Instagram message, WhatsApp or phone. Leave out large chains and franchises.
+
+For each business give:
+- "name": its name as it appears on the page
+- "website": its own website address, or null if it has none
+- "instagram": its Instagram handle, only if a page you cite shows it, else null
+- "phone": its public business phone number, or null
+- "source": the address of the page you found it on
+- "what": what it does, in a few plain words, from that page
+
+Only include a business you can point to on a page. A business you cannot point to is left out, and an empty list is a correct answer. Never guess a handle, a website or a phone number.
+
+Respond with ONLY this JSON, no fences:
+{"found": [{"name": "", "website": null, "instagram": null, "phone": null, "source": "", "what": ""}]}

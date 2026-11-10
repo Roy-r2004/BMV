@@ -7,23 +7,6 @@ from sqlalchemy.exc import IntegrityError
 from app.config import settings
 
 
-@pytest.fixture
-def db():
-    from app import models  # noqa: F401 - the tables must be known before they are made
-    from app.database import Base, SessionLocal, engine
-
-    Base.metadata.create_all(bind=engine)
-    session = SessionLocal()
-    yield session
-    session.rollback()
-    from app.models import OutreachRun, Prospect
-
-    session.query(Prospect).delete()
-    session.query(OutreachRun).delete()
-    session.commit()
-    session.close()
-
-
 def test_a_prospect_is_stored_with_an_unguessable_token(db):
     from app.models import Prospect
     from app.outreach import new_token
