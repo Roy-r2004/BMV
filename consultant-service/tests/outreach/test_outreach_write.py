@@ -31,6 +31,11 @@ def test_a_percentage_that_was_not_read_is_refused():
     assert write.problems({**GOOD, "today": "This could lift bookings 30%."}, GOOD_DM, READ)
 
 
+def test_a_guess_is_refused():
+    assert write.problems({**GOOD, "today": "Customers likely reach you by phone."}, GOOD_DM, READ)
+    assert write.problems({**GOOD, "today": "Perhaps you take walk-ins."}, GOOD_DM, READ)
+
+
 def test_a_claim_about_past_clients_is_refused():
     assert write.problems(GOOD, "We helped salons in Dubai do this. {link}", READ)
 

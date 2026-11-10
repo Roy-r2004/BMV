@@ -33,6 +33,7 @@ _WORD_NUMBER = re.compile(rf"\b({'|'.join(_WORDS)})\s+(?:\w+\s+)?{_UNITS}\b", re
 _CLAIMS = re.compile(r"\bwe(?:'ve| have)? helped\b|\bour clients\b|\bclients like you\b|\bcase stud(?:y|ies)\b|"
                      r"\bguarantee|\bincrease your revenue by\b|\btrusted by\b|\bwe have worked with\b", re.I)
 _CHANGE_KEYS = ("change", "ai", "day_to_day", "difference")
+_GUESS = re.compile(r"\b(?:likely|perhaps|probably|presumably|might be|we assume|it seems|seemingly)\b", re.I)
 
 
 def _numbers(text: str) -> set[str]:
@@ -75,6 +76,8 @@ def problems(report: dict, dm: str, read_text: str) -> list[str]:
                 found.append(f"'{m.group(0)}' was not in anything we read about them. Remove it.")
         for m in _CLAIMS.finditer(clean):
             found.append(f"'{m.group(0)}' claims past work or results we cannot show. Remove it.")
+        for m in _GUESS.finditer(clean):
+            found.append(f"'{m.group(0)}' is a guess. Say only what was read, or leave it out.")
     return list(dict.fromkeys(found))
 
 
@@ -85,8 +88,8 @@ def _read_text(p: Prospect) -> str:
 def write(db, p: Prospect) -> Prospect:
     """The report and DM for one business, or the business skipped."""
     base = render("outreach_report.j2", name=p.name, city=p.city, kind=p.kind, what=p.what or "",
-                  site=(p.site_text or "")[:SITE_FOR_PROMPT], reasons=json.loads(p.reasons_json or "[]"),
-                  has_site=bool(p.site_text))
+                  site_text=(p.site_text or "")[:SITE_FOR_PROMPT], reasons=json.loads(p.reasons_json or "[]"),
+                  site=json.loads(p.signals_json or "{}").get("site") or ("read" if p.site_text else "none"))
     feedback = ""
     for _ in range(2):
         prompt = base + (("\n\nYOUR LAST DRAFT WAS REFUSED FOR THESE REASONS. Fix exactly these:\n" + feedback)

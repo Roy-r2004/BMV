@@ -83,9 +83,13 @@ def parse_found(body: dict) -> list[dict]:
         if not name or source not in cited:
             continue
         website = str(item.get("website") or "").strip() or None
+        if website and "instagram.com" in website:
+            website = None
+        facts = [" ".join(f.split())[:160] for f in item.get("facts") or [] if isinstance(f, str) and f.strip()][:4]
+        what = "\n".join([" ".join(str(item.get("what") or "").split())[:300]] + [f"- {f}" for f in facts])
         out.append({"name": name, "website": website if website and website.startswith("http") else None,
-                    "instagram": handle(item.get("instagram")), "phone": str(item.get("phone") or "").strip()[:40] or None,
-                    "source": source, "what": " ".join(str(item.get("what") or "").split())[:300]})
+                    "instagram": handle(item.get("instagram")) or (handle(source) if "instagram.com" in source else None),
+                    "phone": str(item.get("phone") or "").strip()[:40] or None, "source": source, "what": what})
     return out
 
 

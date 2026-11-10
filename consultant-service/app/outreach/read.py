@@ -26,33 +26,42 @@ _WHATSAPP = re.compile(r"\bwhatsapp\b|wa\.me/")
 _INSTAGRAM = re.compile(r"instagram\.com/([a-z0-9._]{1,30})")
 
 REASONS = {
-    "no_site": "No working website was found",
+    "no_site": "No website was found",
+    "unreadable": "Its website could not be read automatically",
     "no_online": "No way to book online on the website",
     "by_message": "Bookings are taken by message or phone",
     "whatsapp": "Customers are sent to WhatsApp",
 }
 
 
-def signals(text: str | None) -> dict:
-    """What the page shows, as plain yes/no facts, and the Instagram handle on it."""
+def signals(text: str | None, site: str = "read", quoted: str = "") -> dict:
+    """What the page and the search's quoted facts show, as plain yes/no facts.
+    `site` is "read", "unreadable" (a site exists that we could not read) or
+    "none" (no site was found); only "none" may ever be called missing."""
     page = (text or "").lower()
+    seen = page + "\n" + (quoted or "").lower()
     found = _INSTAGRAM.search(page)
     return {
+        "site": site,
         "has_site": bool(page.strip()),
         "books_online": any(p in page for p in _PLATFORMS) or bool(_BOOK_ONLINE.search(page)),
-        "books_by_message": bool(_BY_MESSAGE.search(page)),
-        "shows_whatsapp": bool(_WHATSAPP.search(page)),
+        "books_by_message": bool(_BY_MESSAGE.search(seen)),
+        "shows_whatsapp": bool(_WHATSAPP.search(seen)),
         "instagram": handle(found.group(1)) if found else None,
     }
 
 
 def score(sig: dict) -> tuple[int, list[str]]:
     """How much the business would gain, and why, from the signals alone."""
-    if not sig.get("has_site"):
-        return 40, [REASONS["no_site"]]
     if sig.get("books_online"):
         return 0, []
-    points, why = 30, [REASONS["no_online"]]
+    site = sig.get("site") or ("read" if sig.get("has_site") else "none")
+    if site == "none":
+        points, why = 40, [REASONS["no_site"]]
+    elif site == "unreadable":
+        points, why = 20, [REASONS["unreadable"]]
+    else:
+        points, why = 30, [REASONS["no_online"]]
     if sig.get("books_by_message"):
         points, why = points + 30, why + [REASONS["by_message"]]
     if sig.get("shows_whatsapp"):
@@ -62,13 +71,15 @@ def score(sig: dict) -> tuple[int, list[str]]:
 
 def read(db, p: Prospect) -> Prospect:
     """Fetch the site, keep what it said, score it, and mark it ready or skipped."""
-    text = None
+    text, site = None, "none"
     if p.website:
         try:
             text = references._fetch(p.website)[:SITE_TEXT_MAX]
+            site = "read" if text and text.strip() else "unreadable"
         except references.Unreadable as exc:
+            site = "unreadable"
             logger.info("outreach: %s could not be read (%s)", p.website[:120], exc)
-    sig = signals(text)
+    sig = signals(text, site, p.what or "")
     points, why = score(sig)
     p.site_text = text
     p.signals_json = json.dumps(sig)

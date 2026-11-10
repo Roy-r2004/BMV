@@ -18,6 +18,20 @@ def test_only_cited_sources_are_kept():
     assert [b["name"] for b in find.parse_found(body)] == ["Glow Salon"]
 
 
+def test_quoted_facts_from_cited_pages_are_kept_with_what_it_does():
+    item = {**_item(), "facts": ["Bio: DM to book", "Open 10am to 10pm", 7, "x" * 400]}
+    [found] = find.parse_found(reply(json.dumps({"found": [item]}), [SRC]))
+    assert found["what"].startswith("a hair and nails salon in JLT")
+    assert "- Bio: DM to book" in found["what"] and "- Open 10am to 10pm" in found["what"]
+    assert "x" * 200 not in found["what"]
+
+
+def test_a_cited_instagram_profile_gives_the_handle():
+    [found] = find.parse_found(reply(json.dumps({"found": [{**_item(instagram=None), "source": "https://www.instagram.com/glow.dxb/"}]}),
+                                     ["https://www.instagram.com/glow.dxb/"]))
+    assert found["instagram"] == "glow.dxb"
+
+
 def test_an_instagram_url_becomes_a_handle():
     assert find.handle("https://www.instagram.com/glow.dxb/") == "glow.dxb"
     assert find.handle("@glow.dxb") == "glow.dxb"

@@ -25,14 +25,28 @@ def test_dm_to_book_is_booking_by_message():
     assert sig["books_by_message"] is True and sig["books_online"] is False
 
 
-def test_a_site_that_cannot_be_read_scores_as_no_website(db, monkeypatch):
+def test_a_site_that_cannot_be_read_is_never_called_missing(db, monkeypatch):
     def blocked(url):
         raise references.Unreadable("403")
 
     monkeypatch.setattr(read.references, "_fetch", blocked)
     p = read.read(db, _prospect(db))
-    assert p.score == 40 and p.status == "ready"
-    assert json.loads(p.reasons_json) == ["No working website was found"]
+    assert json.loads(p.reasons_json) == ["Its website could not be read automatically"]
+    assert p.score == 20 and p.status == "skip"
+    assert json.loads(p.signals_json)["site"] == "unreadable"
+
+
+def test_no_website_at_all_is_said_plainly(db):
+    p = read.read(db, _prospect(db, website=None))
+    assert p.score == 40 and json.loads(p.reasons_json) == ["No website was found"]
+    assert json.loads(p.signals_json)["site"] == "none"
+
+
+def test_what_the_search_quoted_counts_when_there_is_no_site(db):
+    p = _prospect(db, website=None)
+    p.what = "a ladies salon\n- Bio: DM to book or WhatsApp 050 000 0000"
+    p = read.read(db, p)
+    assert p.score == 80 and "Bookings are taken by message or phone" in json.loads(p.reasons_json)
 
 
 def test_a_business_that_already_books_online_is_skipped(db, monkeypatch):
