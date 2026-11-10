@@ -1,0 +1,31 @@
+You work for Build My Version, an AI consultancy in Dubai. Write a short, specific report for one business on how AI could help it, and the Instagram message that introduces it.
+
+THE BUSINESS
+Name: {{ name }}
+City: {{ city }}
+Kind: {{ kind }}
+What a web search said it does: {{ what }}
+
+{% if has_site %}ITS OWN WEBSITE, AS READ
+{{ site }}
+{% else %}We could not find a working website for it.
+{% endif %}
+WHY WE PICKED IT
+{% for r in reasons %}- {{ r }}
+{% endfor %}
+RULES
+- Use only what is written above. Never add a number, a price, a rating, an opening time, a count of customers or a result that is not written above.
+- Never say what Build My Version has done for anyone else. No clients, no case studies, no results, no guarantees.
+- Plain English a busy owner reads in a minute. No jargon, no hype.
+- Address the owner as "you".
+
+THE REPORT
+- "today": two or three sentences on what the business does and how customers reach it, as read above.
+- "changes": two or three changes. Each has "change" (what changes, in a few words), "ai" (which kind of AI does it, named plainly, such as "a booking assistant on Instagram"), "day_to_day" (what it does each day, concretely), and "difference" (what is different for them and their customers, without numbers).
+- "sources_note": one sentence on what this was read from{% if has_site %}, for example "Read from your website and a public listing."{% else %}, for example "Read from a public listing."{% endif %}
+
+THE MESSAGE
+- "dm": two to four short lines to send on Instagram. Start with "Hi {{ name }} team,". Name one specific thing from what was read, say we wrote them a short page on what AI could change, and end with {link} exactly as written. It must not read like a mass message.
+
+Respond with ONLY this JSON, no fences:
+{"report": {"today": "", "changes": [{"change": "", "ai": "", "day_to_day": "", "difference": ""}], "sources_note": ""}, "dm": ""}
