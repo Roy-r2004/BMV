@@ -113,7 +113,11 @@ consultation product is not part of this pitch.
 - "Book a call" goes to consulting@buildmyversion.com.
 - As many as he can send.
 - Businesses are found with the web-search model plus their own websites, not
-  Google Maps.
+  Google Maps. Public business-directory websites can be added later, one at a
+  time, each only after its terms are checked to allow it.
+- Instagram is never automated: no reverse-engineered or private Instagram API,
+  no logged-in session, not even the official lookup (Roy declined it on
+  2026-11-11). The handle comes from the business's own website or a web search.
 - Spending is capped at $100 a month for searches and AI writing. When the cap
   is reached, the pipeline stops finding new businesses until the next month,
   and the list says so.
