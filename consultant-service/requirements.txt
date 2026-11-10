@@ -8,7 +8,7 @@ jinja2==3.1.5
 python-pptx==1.0.2
 Pillow==11.1.0
 pytest==8.3.4
-reportlab>=4.0
-pymupdf
-playwright>=1.49
-openpyxl>=3.1
+reportlab==5.0.0
+pymupdf==1.28.2
+playwright==1.62.0
+openpyxl==3.1.5
