@@ -11,5 +11,5 @@ beautifulsoup4
 lxml
 markdown
 jinja2
-playwright
+playwright==1.62.0
 Pillow==12.2.0
