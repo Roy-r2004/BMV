@@ -56,9 +56,27 @@ def test_the_same_business_is_found_once(db, monkeypatch):
     assert new[0].status == "found" and json.loads(new[0].sources_json)[0]["url"] == SRC
 
 
-def test_a_failed_search_finds_nothing_and_does_not_raise(db, monkeypatch):
+def test_a_shared_platform_address_does_not_merge_two_businesses():
+    a = find.keys("Glow Salon", "Dubai", "https://linktr.ee/glow", None)
+    b = find.keys("Rose Spa", "Dubai", "https://linktr.ee/rose", None)
+    assert not (a & b)
+    assert find.dedup_key("Glow Salon", "Dubai", "https://www.fresha.com/a/glow", None).startswith("name:")
+
+
+def test_arabic_names_are_told_apart():
+    assert find.keys("صالون الورد", "Dubai", None, None) != find.keys("مركز النخيل", "Dubai", None, None)
+
+
+def test_a_failed_search_is_told_apart_from_an_empty_one(db, monkeypatch):
     def down(*a, **k):
         raise RuntimeError("search down")
 
     monkeypatch.setattr(find.provider, "chat", down)
-    assert find.find(db, "Dubai", "salon", 10) == []
+    import pytest
+
+    with pytest.raises(find.SearchFailed):
+        find.find(db, "Dubai", "salon", 10)
+
+
+def test_a_bad_address_from_the_search_is_dropped_not_fatal():
+    assert find._domain("http://[x") is None

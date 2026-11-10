@@ -25,13 +25,21 @@ _TOKENS = 2000
 SITE_FOR_PROMPT = 6000
 DM_MAX = 600
 COULD_NOT = "The draft could not be written from what was read"
-_NUMBER = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?")
-_WORDS = ("two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
+_NUMBER = re.compile(r"(?<![\d.])\d[\d,]*(?:\.\d+)?")
+_WORDS = ("two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+          "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "thirty",
+          "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred", "hundreds", "thousand", "thousands",
+          "dozen", "dozens")
+_SCALE = re.compile(r"\b(?:half|halve|halves|halving|double|doubles|doubling|twice|triple|triples|tripling|"
+                    r"quadruple|tenfold)\b", re.I)
 _UNITS = (r"(?:minutes?|hours?|days?|weeks?|months?|years?|bookings?|customers?|clients?|patients?|calls?|"
           r"messages?|aed|dirhams?|riyals?|dollars?|people|staff|times)")
 _WORD_NUMBER = re.compile(rf"\b({'|'.join(_WORDS)})\s+(?:\w+\s+)?{_UNITS}\b", re.I)
-_CLAIMS = re.compile(r"\bwe(?:'ve| have)? helped\b|\bour clients\b|\bclients like you\b|\bcase stud(?:y|ies)\b|"
-                     r"\bguarantee|\bincrease your revenue by\b|\btrusted by\b|\bwe have worked with\b", re.I)
+_CLAIMS = re.compile(r"\bwe(?:'ve| have)? (?:helped|worked with|built for|done this for)\b|\bour clients\b|"
+                     r"\bclients like you\b|\bcase stud(?:y|ies)\b|\bguarantee|\bincrease your revenue by\b|"
+                     r"\btrusted by\b", re.I)
+_LOSING = re.compile(r"\b(?:may|might|could) be (?:missing|losing)\b|\bare (?:missing|losing) (?:out|bookings|customers)\b",
+                     re.I)
 _CHANGE_KEYS = ("change", "ai", "day_to_day", "difference")
 _GUESS = re.compile(r"\b(?:likely|perhaps|probably|presumably|might be|we assume|it seems|seemingly)\b", re.I)
 
@@ -68,7 +76,7 @@ def problems(report: dict, dm: str, read_text: str) -> list[str]:
     read = (read_text or "").lower()
     allowed = _numbers(read)
     for text in _texts(report if isinstance(report, dict) else {}, dm if isinstance(dm, str) else ""):
-        clean = text.replace("{link}", "")
+        clean = text.replace("{link}", "").replace("\u2019", "'").replace("\u2018", "'")
         for n in _numbers(clean) - allowed:
             found.append(f"The number {n} was not in anything we read about them. Remove it.")
         for m in _WORD_NUMBER.finditer(clean):
@@ -78,6 +86,9 @@ def problems(report: dict, dm: str, read_text: str) -> list[str]:
             found.append(f"'{m.group(0)}' claims past work or results we cannot show. Remove it.")
         for m in _GUESS.finditer(clean):
             found.append(f"'{m.group(0)}' is a guess. Say only what was read, or leave it out.")
+        for m in list(_SCALE.finditer(clean)) + list(_LOSING.finditer(clean)):
+            if m.group(0).lower() not in read:
+                found.append(f"'{m.group(0)}' claims an amount or a loss nobody measured. Remove it.")
     return list(dict.fromkeys(found))
 
 
@@ -100,8 +111,10 @@ def write(db, p: Prospect) -> Prospect:
                                                     max_tokens=_TOKENS),
                 reply_json, ledger(db, None, model=settings.ANALYSIS_MODEL, purpose="outreach:write"))
         except Exception as exc:
+            # the model could not be reached: nothing was refused, so the
+            # business waits for the next run instead of being skipped
             logger.warning("outreach: no draft for %s: %s", p.name[:80], str(exc)[:200])
-            break
+            return p
         report, dm = draft.get("report"), str(draft.get("dm") or "").strip()
         found = problems(report, dm, _read_text(p))
         if not found:

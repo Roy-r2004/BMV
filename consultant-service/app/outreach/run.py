@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta
 from app.config import settings
 from app.models import OutreachRun, Prospect
 from app.outreach.budget import can_spend
-from app.outreach.find import find
+from app.outreach.find import SearchFailed, find
 from app.outreach.read import read
 from app.outreach.write import write
 
@@ -26,6 +26,7 @@ logger = logging.getLogger("consultant.outreach")
 
 OUT_OF_BUDGET = "The monthly budget is used up"
 NONE_LEFT = "No more new businesses were found today"
+SEARCH_DOWN = "The web search could not be reached; try again later"
 _SEARCH_AT_ONCE = 10
 _CLEARED = ("website", "instagram", "phone", "what", "sources_json", "site_text", "signals_json", "reasons_json",
             "report_json", "dm_text", "sent_at", "opened_first_at")
@@ -51,34 +52,60 @@ def fill(db, day: date, want: int | None = None, *, scheduled: bool = False) -> 
         db.add(r)
         db.commit()
     r.stopped_because = None
-    queued = _queue(db, db.query(Prospect).filter(Prospect.status == "ready", Prospect.dm_text.isnot(None)).all(),
-                    day, want)
-    stopped = None
-    if queued < want:
-        stopped = NONE_LEFT
+    queued, stopped = 0, None
+
+    def take(p: Prospect) -> str | None:
+        """Read, write and queue one business; why the run must stop, if it must."""
+        nonlocal queued
+        try:
+            if p.status == "found" and read(db, p).status != "ready":
+                return None
+        except Exception:
+            logger.exception("outreach: %s could not be read", p.name[:80])
+            return None
+        if not p.dm_text:
+            if not can_spend(db):
+                return OUT_OF_BUDGET
+            write(db, p)
+        if p.status == "ready" and p.dm_text:
+            queued += _queue(db, [p], day, want - queued)
+        return None
+
+    # what an earlier run left half done goes first: found but not read, read but not written
+    leftovers = (db.query(Prospect).filter(Prospect.status.in_(("found", "ready")))
+                 .order_by(Prospect.score.desc(), Prospect.id).all())
+    for p in leftovers:
+        if queued >= want:
+            break
+        stopped = take(p)
+        if stopped:
+            break
+    searched, failures = 0, 0
+    if queued < want and not stopped:
         for city in settings.OUTREACH_CITIES:
             for kind in settings.OUTREACH_KINDS:
-                if queued >= want:
+                if queued >= want or stopped:
                     break
                 if not can_spend(db):
                     stopped = OUT_OF_BUDGET
                     break
-                new = find(db, city, kind, min(_SEARCH_AT_ONCE, 2 * (want - queued)))
+                try:
+                    new = find(db, city, kind, min(_SEARCH_AT_ONCE, 2 * (want - queued)))
+                    searched += 1
+                except SearchFailed:
+                    failures += 1
+                    continue
                 r.found += len(new)
                 for p in new:
-                    if read(db, p).status != "ready":
-                        continue
-                    if not can_spend(db):
-                        stopped = OUT_OF_BUDGET
+                    if queued >= want:
                         break
-                    if write(db, p).status == "ready" and p.dm_text:
-                        queued += _queue(db, [p], day, want - queued)
-                if stopped == OUT_OF_BUDGET or queued >= want:
-                    break
-            if stopped == OUT_OF_BUDGET or queued >= want:
+                    stopped = take(p)
+                    if stopped:
+                        break
+            if queued >= want or stopped:
                 break
-        if queued >= want:
-            stopped = None
+        if queued < want and not stopped:
+            stopped = SEARCH_DOWN if failures and not searched else NONE_LEFT
     r.queued += queued
     r.stopped_because = stopped
     r.finished_at = datetime.utcnow()

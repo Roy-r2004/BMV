@@ -34,17 +34,18 @@ REASONS = {
 }
 
 
-def signals(text: str | None, site: str = "read", quoted: str = "") -> dict:
+def signals(text: str | None, site: str = "read", quoted: str = "", hrefs: list[str] | None = None) -> dict:
     """What the page and the search's quoted facts show, as plain yes/no facts.
     `site` is "read", "unreadable" (a site exists that we could not read) or
     "none" (no site was found); only "none" may ever be called missing."""
     page = (text or "").lower()
-    seen = page + "\n" + (quoted or "").lower()
-    found = _INSTAGRAM.search(page)
+    linked = " ".join(hrefs or [])
+    seen = page + "\n" + linked + "\n" + (quoted or "").lower()
+    found = _INSTAGRAM.search(linked + " " + page)
     return {
         "site": site,
         "has_site": bool(page.strip()),
-        "books_online": any(p in page for p in _PLATFORMS) or bool(_BOOK_ONLINE.search(page)),
+        "books_online": any(p in page or p in linked for p in _PLATFORMS) or bool(_BOOK_ONLINE.search(page)),
         "books_by_message": bool(_BY_MESSAGE.search(seen)),
         "shows_whatsapp": bool(_WHATSAPP.search(seen)),
         "instagram": handle(found.group(1)) if found else None,
@@ -71,15 +72,16 @@ def score(sig: dict) -> tuple[int, list[str]]:
 
 def read(db, p: Prospect) -> Prospect:
     """Fetch the site, keep what it said, score it, and mark it ready or skipped."""
-    text, site = None, "none"
+    text, site, hrefs = None, "none", []
     if p.website:
         try:
-            text = references._fetch(p.website)[:SITE_TEXT_MAX]
-            site = "read" if text and text.strip() else "unreadable"
-        except references.Unreadable as exc:
+            html = references._fetch_html(p.website)
+            text, hrefs = references._text(html)[:SITE_TEXT_MAX], references.links(html)
+            site = "read" if text.strip() else "unreadable"
+        except (references.Unreadable, ValueError) as exc:
             site = "unreadable"
             logger.info("outreach: %s could not be read (%s)", p.website[:120], exc)
-    sig = signals(text, site, p.what or "")
+    sig = signals(text, site, p.what or "", hrefs)
     points, why = score(sig)
     p.site_text = text
     p.signals_json = json.dumps(sig)

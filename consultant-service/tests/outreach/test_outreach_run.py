@@ -95,3 +95,41 @@ def test_nothing_older_than_90_days_is_kept_about_a_skipped_business(db):
     assert old.site_text is None and old.website is None and old.name == "B1" and old.status == "not_interested"
     assert fresh.site_text == "kept for now"
     assert json.loads(old.reasons_json or "[]") == []
+
+
+def test_leftovers_from_a_stopped_run_are_finished_first(db, monkeypatch):
+    _no_search(monkeypatch)
+    found = _ready(db, "f", 0, status="found", dm=None)
+    unwritten = _ready(db, "u", 60, status="ready", dm=None)
+    monkeypatch.setattr(run, "read", lambda db_, p: (setattr(p, "status", "ready"), p)[1])
+    monkeypatch.setattr(run, "write", lambda db_, p: (setattr(p, "dm_text", "Hi {link}"), p)[1])
+    r = run.fill(db, DAY, want=5)
+    db.refresh(found)
+    db.refresh(unwritten)
+    assert found.status == "queued" and unwritten.status == "queued" and r.queued == 2
+
+
+def test_a_page_that_breaks_the_reader_does_not_stop_the_run(db, monkeypatch):
+    calls = []
+
+    def find(db_, city, kind, want):
+        calls.append(kind)
+        return [_ready(db_, f"x{len(calls)}", 50, status="found", dm=None)] if len(calls) == 1 else []
+
+    def broken(db_, p):
+        raise ValueError("bad page")
+
+    monkeypatch.setattr(run, "find", find)
+    monkeypatch.setattr(run, "read", broken)
+    run.fill(db, DAY, want=2)
+    assert len(calls) > 1
+
+
+def test_a_search_outage_is_not_reported_as_nothing_found(db, monkeypatch):
+    from app.outreach.find import SearchFailed
+
+    def down(*a):
+        raise SearchFailed("down")
+
+    monkeypatch.setattr(run, "find", down)
+    assert run.fill(db, DAY, want=5).stopped_because == run.SEARCH_DOWN

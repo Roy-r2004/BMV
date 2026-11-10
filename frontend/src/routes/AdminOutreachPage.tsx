@@ -74,7 +74,7 @@ function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) =>
               Find the handle
             </a>
           )}
-          <a className="ac-btn" href={row.report_url} target="_blank" rel="noopener noreferrer">
+          <a className="ac-btn" href={`${row.report_url}?preview=1`} target="_blank" rel="noopener noreferrer">
             Open report
           </a>
         </div>

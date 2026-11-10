@@ -94,8 +94,9 @@ export interface OutreachReport {
   remove_subject: string;
 }
 
-export async function getOutreachReport(token: string): Promise<OutreachReport> {
-  const { data } = await client.get<OutreachReport>(`/api/outreach/report/${encodeURIComponent(token)}`);
+export async function getOutreachReport(token: string, preview = false): Promise<OutreachReport> {
+  const suffix = preview ? '?preview=1' : '';
+  const { data } = await client.get<OutreachReport>(`/api/outreach/report/${encodeURIComponent(token)}${suffix}`);
   return data;
 }
 

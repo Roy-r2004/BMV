@@ -24,6 +24,14 @@ logger = logging.getLogger("consultant.outreach")
 _TOKENS = 3000
 _HANDLE = re.compile(r"^[A-Za-z0-9._]{1,30}$")
 _SUFFIXES = {"llc", "l", "c", "fz", "fze", "fzco", "fzllc", "est", "co", "company", "trading", "the"}
+#: Addresses many businesses share, so they say nothing about which one it is.
+_SHARED = ("linktr.ee", "linkin.bio", "beacons.ai", "taplink.cc", "bio.link", "fresha.com", "booksy.com",
+           "calendly.com", "setmore.com", "facebook.com", "instagram.com", "wa.me", "whatsapp.com", "tiktok.com",
+           "google.com", "goo.gl", "bit.ly", "business.site", "wixsite.com", "x.com", "twitter.com", "youtube.com")
+
+
+class SearchFailed(Exception):
+    """The search could not be done, which is not the same as finding nobody."""
 
 
 def handle(raw: object) -> str | None:
@@ -37,21 +45,28 @@ def handle(raw: object) -> str | None:
 
 
 def _domain(website: str | None) -> str | None:
+    """The site's own domain, or None for no site, a malformed one, or a platform
+    many businesses share."""
     if not website:
         return None
-    host = urlsplit(website if "//" in website else "https://" + website).hostname or ""
+    try:
+        host = urlsplit(website if "//" in website else "https://" + website).hostname or ""
+    except ValueError:
+        return None
     host = host.lower().removeprefix("www.")
-    return host or None
+    if not host or any(host == s or host.endswith("." + s) for s in _SHARED):
+        return None
+    return host
 
 
-def _name_part(name: str, city: str) -> str:
-    words = [w for w in re.findall(r"[a-z0-9]+", (name or "").lower()) if w not in _SUFFIXES]
-    return "".join(words) + "|" + (city or "").lower().strip()
+def _name_part(name: str, city: str) -> str | None:
+    words = [w for w in re.findall(r"\w+", (name or "").lower()) if w not in _SUFFIXES]
+    return ("".join(words) + "|" + (city or "").lower().strip()) if words else None
 
 
 def keys(name: str, city: str, website: str | None, instagram: str | None) -> set[str]:
     """Every way this business could be recognised again."""
-    out = {"name:" + _name_part(name, city)}
+    out = {"name:" + _name_part(name, city)} if _name_part(name, city) else set()
     if handle(instagram):
         out.add("ig:" + handle(instagram).lower())
     if _domain(website):
@@ -65,7 +80,7 @@ def dedup_key(name: str, city: str, website: str | None, instagram: str | None) 
         return "ig:" + handle(instagram).lower()
     if _domain(website):
         return "web:" + _domain(website)
-    return "name:" + _name_part(name, city)
+    return "name:" + (_name_part(name, city) or name.strip().lower() + "|" + city.lower())
 
 
 def parse_found(body: dict) -> list[dict]:
@@ -94,7 +109,8 @@ def parse_found(body: dict) -> list[dict]:
 
 
 def find(db, city: str, kind: str, want: int) -> list[Prospect]:
-    """New businesses of `kind` in `city`, saved as found. A failed search finds none."""
+    """New businesses of `kind` in `city`, saved as found. A search that could not
+    be done raises SearchFailed, so an outage never reads as "nobody found"."""
     prompt = render("outreach_find.j2", city=city, kind=kind, most=want)
     try:
         items = ask_until_usable(
@@ -103,7 +119,7 @@ def find(db, city: str, kind: str, want: int) -> list[Prospect]:
             parse_found, ledger(db, None, model=settings.RESEARCH_MODEL, purpose="outreach:find"))
     except Exception as exc:
         logger.warning("outreach search failed for %s in %s: %s", kind, city, str(exc)[:200])
-        return []
+        raise SearchFailed(str(exc)[:200]) from exc
     seen: set[str] = set()
     for row in db.query(Prospect.name, Prospect.city, Prospect.website, Prospect.instagram, Prospect.key):
         seen |= keys(row.name, row.city, row.website, row.instagram) | {row.key}

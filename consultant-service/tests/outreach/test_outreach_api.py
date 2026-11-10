@@ -105,3 +105,42 @@ def test_fill_starts_a_run(client, monkeypatch):
     started = []
     monkeypatch.setattr(run, "fill", lambda db, day, **k: started.append(day))
     assert client.post("/api/outreach/fill", headers=ADMIN).status_code == 202
+
+
+def test_the_instagram_in_app_browser_is_a_real_open(client, db):
+    p = _queued(db, status="sent")
+    ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Instagram 300.0.0.0"
+    client.get(f"/api/outreach/report/{p.token}", headers={"User-Agent": ua})
+    db.refresh(p)
+    assert p.opens == 1
+
+
+def test_roys_own_preview_is_not_an_open(client, db):
+    p = _queued(db)
+    client.get(f"/api/outreach/report/{p.token}?preview=1", headers={"User-Agent": "Mozilla/5.0 Chrome/130"})
+    db.refresh(p)
+    assert p.opens == 0
+
+
+def test_the_manual_fill_also_forgets_old_refusals(client, monkeypatch):
+    from app.outreach import run
+
+    purged = []
+    monkeypatch.setattr(run, "fill", lambda db, day, **k: None)
+    monkeypatch.setattr(run, "purge", lambda db, **k: purged.append(1) or 0)
+    from app.routers import outreach as router
+
+    router._fill_in_background()
+    assert purged == [1]
+
+
+def test_a_crashed_fill_is_recorded_and_frees_the_lock(db, monkeypatch):
+    from app.outreach import run
+    from app.routers import outreach as router
+
+    def boom(db_, day, **k):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(run, "fill", boom)
+    router._fill_in_background()
+    assert not run.running.locked()

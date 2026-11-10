@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import re
 import threading
 from datetime import datetime, timedelta
@@ -19,9 +20,13 @@ from app.models import OutreachRun, Prospect
 from app.outreach import budget, run
 
 router = APIRouter(prefix="/api/outreach", tags=["outreach"])
+logger = logging.getLogger("consultant.outreach")
 
 EMAIL = "consulting@buildmyversion.com"
-_BOT = re.compile(r"facebookexternalhit|instagram|whatsapp|bot|crawler|spider|preview", re.I)
+# Link previews (Instagram's and WhatsApp's) load the page without running it, so
+# they never reach this API; what does arrive from Instagram's in-app browser is
+# the business itself and counts.
+_BOT = re.compile(r"facebookexternalhit|facebot|bot\b|crawler|spider|headless", re.I)
 _LISTS = {"queued", "sent", "replied", "call_booked", "not_interested", "skip", "removed"}
 
 
@@ -73,8 +78,17 @@ def _fill_in_background() -> None:
     if not run.running.acquire(blocking=False):
         return
     db = SessionLocal()
+    day = (datetime.utcnow() + timedelta(hours=4)).date()
     try:
-        run.fill(db, (datetime.utcnow() + timedelta(hours=4)).date())
+        run.fill(db, day)
+        run.purge(db)
+    except Exception:
+        logger.exception("the outreach run failed")
+        db.rollback()
+        r = db.query(OutreachRun).filter_by(day=day).one_or_none()
+        if r is not None:
+            r.stopped_because, r.finished_at = "The run stopped on an error; see the service log", datetime.utcnow()
+            db.commit()
     finally:
         db.close()
         run.running.release()
@@ -110,13 +124,14 @@ def outreach_status(prospect_id: int, change: StatusChange, db: Session = Depend
 
 
 @router.get("/report/{token}")
-def outreach_report(token: str, request: HttpRequest, response: Response, db: Session = Depends(get_db)) -> dict:
+def outreach_report(token: str, request: HttpRequest, response: Response, preview: bool = False,
+                    db: Session = Depends(get_db)) -> dict:
     """One business's report. Never indexed; a preview bot's visit is not an open."""
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     p = db.query(Prospect).filter(Prospect.token == token).one_or_none()
     if p is None or p.status == "removed" or not p.report_json:
         raise HTTPException(status_code=404, detail="This page is not available")
-    if not _BOT.search(request.headers.get("user-agent") or ""):
+    if not preview and not _BOT.search(request.headers.get("user-agent") or ""):
         p.opens = (p.opens or 0) + 1
         p.opened_first_at = p.opened_first_at or datetime.utcnow()
         db.commit()

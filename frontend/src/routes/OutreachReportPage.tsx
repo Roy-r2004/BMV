@@ -4,7 +4,7 @@
  * call. Made from public information only, never listed, never indexed.
  */
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 
 import { getOutreachReport, type OutreachReport } from '../api/outreach';
 import { COMPANY } from '../data/company';
@@ -35,6 +35,8 @@ function host(url: string) {
 
 export default function OutreachReportPage() {
   const { token = '' } = useParams<{ token: string }>();
+  // Roy checking a page before he sends it is not the business opening it.
+  const preview = useSearchParams()[0].get('preview') === '1';
   const [data, setData] = useState<OutreachReport | null>(null);
   const [missing, setMissing] = useState(false);
   usePageMeta(data ? `For ${data.name}` : 'A page made for you');
@@ -42,13 +44,13 @@ export default function OutreachReportPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getOutreachReport(token)
+    getOutreachReport(token, preview)
       .then((d) => !cancelled && setData(d))
       .catch(() => !cancelled && setMissing(true));
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, preview]);
 
   return (
     <div className="cx">

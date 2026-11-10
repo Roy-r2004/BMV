@@ -86,3 +86,27 @@ def test_the_model_sees_no_more_than_was_read(db, monkeypatch):
     monkeypatch.setattr(write.provider, "chat", chat)
     write.write(db, _prospect(db))
     assert "DM us to book" in seen[0] and "555 1234" not in seen[0]
+
+
+def test_curly_quotes_do_not_hide_a_claim():
+    assert write.problems(GOOD, "We\u2019ve helped many salons. {link}", READ)
+    assert write.problems(GOOD, "We\u2019ve worked with clinics like yours. {link}", READ)
+
+
+def test_more_number_words_and_numbers_touching_letters_are_checked():
+    for bad in ("Save twenty hours a week.", "Halve your no-shows.", "It costs AED250.", "Double your bookings."):
+        assert write.problems({**GOOD, "today": bad}, GOOD_DM, READ), bad
+
+
+def test_a_claim_that_they_are_losing_out_is_refused():
+    assert write.problems({**GOOD, "today": "You may be missing bookings at night."}, GOOD_DM, READ)
+
+
+def test_a_model_outage_leaves_the_business_to_try_again(db, monkeypatch):
+    def down(*a, **k):
+        raise RuntimeError("provider down")
+
+    monkeypatch.setattr(write.provider, "chat", down)
+    p = write.write(db, _prospect(db))
+    assert p.status == "ready" and p.dm_text is None
+    assert write.COULD_NOT not in json.loads(p.reasons_json)

@@ -65,7 +65,11 @@ def _public(host: str) -> bool:
 
 
 def _allowed(url: str) -> bool:
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+        parts.hostname  # a malformed address ("http://[x") raises here
+    except ValueError:
+        return False
     return parts.scheme in ("http", "https") and bool(parts.hostname) and _public(parts.hostname)
 
 
@@ -106,7 +110,20 @@ def _text(html: str) -> str:
 
 
 def _fetch(url: str) -> str:
-    """The page's text. Redirects are followed by hand so each hop is checked."""
+    """The page's text."""
+    return _text(_fetch_html(url))
+
+
+_HREF = re.compile(r"""href\s*=\s*["']?([^"'\s>]{1,500})""", re.I)
+
+
+def links(html: str) -> list[str]:
+    """The addresses a page links to, lowercased, at most 500 of them."""
+    return [m.group(1).lower() for _, m in zip(range(500), _HREF.finditer(html or ""))]
+
+
+def _fetch_html(url: str) -> str:
+    """The page as it came. Redirects are followed by hand so each hop is checked."""
     deadline = time.monotonic() + _PAGE_SECONDS
     for _ in range(_MAX_REDIRECTS + 1):
         if not _allowed(url):
@@ -127,7 +144,7 @@ def _fetch(url: str) -> str:
                         raise Unreadable("the page took too long")
                     if len(body) > _MAX_BYTES:
                         break
-                return _text(bytes(body).decode(response.encoding or "utf-8", errors="replace"))
+                return bytes(body).decode(response.encoding or "utf-8", errors="replace")
         except httpx.HTTPError as exc:
             raise Unreadable(str(exc)) from exc
     raise Unreadable("too many redirects")
