@@ -1,8 +1,7 @@
-"""GCC outreach over the API: Roy's list (reviewer token only) and the private
+"""GCC outreach over the API: Roy's list (admin sign-in only) and the private
 report a business opens (anyone with its unguessable link)."""
 from __future__ import annotations
 
-import hmac
 import json
 import logging
 import re
@@ -14,6 +13,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request as HttpRe
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app import auth_client
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import OutreachRun, Prospect
@@ -30,9 +30,11 @@ _BOT = re.compile(r"facebookexternalhit|facebot|bot\b|crawler|spider|headless", 
 _LISTS = {"queued", "sent", "replied", "call_booked", "not_interested", "skip", "removed"}
 
 
-def _admin(x_review_token: str | None = Header(default=None)) -> None:
-    if not settings.REVIEW_TOKEN or not x_review_token or not hmac.compare_digest(x_review_token, settings.REVIEW_TOKEN):
-        raise HTTPException(status_code=403, detail="Reviewer token required")
+def _admin(x_admin_password: str | None = Header(default=None),
+           authorization: str | None = Header(default=None)) -> None:
+    """The main site's admin sign-in, the same one the rest of the admin area uses."""
+    if not auth_client.is_admin(x_admin_password, authorization):
+        raise HTTPException(status_code=403, detail="Admin sign-in required")
 
 
 def _report_url(p: Prospect) -> str:

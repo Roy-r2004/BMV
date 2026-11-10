@@ -1,31 +1,15 @@
 /**
- * GCC outreach: Roy's list (reviewer token) and a business's private report.
+ * GCC outreach: Roy's list (admin sign-in) and a business's private report.
  * Both live on the consultation service, beside the consultation itself.
  */
 import axios from 'axios';
+import { getAdminHeaders } from './client';
 import { CONSULTANT_API_BASE } from './consultant';
 
 const client = axios.create({ baseURL: CONSULTANT_API_BASE });
-const TOKEN_KEY = 'bmv_review_token';
 
-export function getReviewToken(): string {
-  try {
-    return sessionStorage.getItem(TOKEN_KEY) || '';
-  } catch {
-    return '';
-  }
-}
-
-export function setReviewToken(token: string): void {
-  try {
-    if (token) sessionStorage.setItem(TOKEN_KEY, token);
-    else sessionStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* a private window: the token is asked for again next time */
-  }
-}
-
-const admin = () => ({ headers: { 'X-Review-Token': getReviewToken() } });
+// The same admin sign-in as the rest of the admin area.
+const admin = () => ({ headers: getAdminHeaders() });
 
 export type OutreachStatus =
   | 'queued'

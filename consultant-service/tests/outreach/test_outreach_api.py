@@ -8,14 +8,16 @@ from app.config import settings
 from app.models import Prospect
 from app.outreach import new_token
 
-TOKEN = "reviewer-secret"
+PASSWORD = "admin-secret"
 REPORT = {"today": "Glow takes bookings by DM.", "changes": [{"change": "a", "ai": "b", "day_to_day": "c", "difference": "d"}] * 2,
           "sources_note": "Read from its website."}
 
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setattr(settings, "REVIEW_TOKEN", TOKEN)
+    from app import auth_client
+
+    monkeypatch.setattr(auth_client, "is_admin", lambda password, authorization: password == PASSWORD)
     from main import app
 
     return TestClient(app)
@@ -32,18 +34,38 @@ def _queued(db, status="queued", **kw):
     return p
 
 
-ADMIN = {"X-Review-Token": TOKEN}
+ADMIN = {"X-Admin-Password": PASSWORD}
 
 
-def test_admin_needs_the_token(client):
+def test_the_list_needs_the_admin_sign_in(client):
     assert client.get("/api/outreach/list").status_code == 403
-    assert client.get("/api/outreach/list", headers={"X-Review-Token": "wrong"}).status_code == 403
+    assert client.get("/api/outreach/list", headers={"X-Admin-Password": "wrong"}).status_code == 403
     assert client.post("/api/outreach/fill").status_code == 403
 
 
-def test_no_token_configured_means_no_admin(client, monkeypatch):
-    monkeypatch.setattr(settings, "REVIEW_TOKEN", "")
-    assert client.get("/api/outreach/list", headers={"X-Review-Token": ""}).status_code == 403
+def test_the_main_site_decides_who_is_admin(monkeypatch):
+    from app import auth_client
+
+    asked = []
+
+    class Reply:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def urlopen(req, timeout):
+        asked.append((req.full_url, dict(req.header_items())))
+        return Reply()
+
+    monkeypatch.setattr(auth_client.urllib.request, "urlopen", urlopen)
+    auth_client._ADMIN_CACHE.clear()
+    assert auth_client.is_admin("pw-1", None) is True
+    assert asked[0][0].endswith("/api/admin/settings") and asked[0][1]["X-admin-password"] == "pw-1"
+    assert auth_client.is_admin(None, None) is False and len(asked) == 1
 
 
 def test_the_list_shows_unsent_businesses_with_the_link_in_the_message(client, db):

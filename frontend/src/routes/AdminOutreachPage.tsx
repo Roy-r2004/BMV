@@ -10,10 +10,8 @@ import { hasAdminSession } from '../api/admin';
 import {
   fillOutreach,
   getOutreachList,
-  getReviewToken,
   isForbidden,
   setOutreachStatus,
-  setReviewToken,
   type OutreachList,
   type OutreachRow,
   type OutreachStatus,
@@ -115,8 +113,6 @@ function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) =>
 
 export default function AdminOutreachPage() {
   const navigate = useNavigate();
-  const [token, setToken] = useState(getReviewToken());
-  const [draft, setDraft] = useState('');
   const [list, setList] = useState<OutreachStatus>('queued');
   const [data, setData] = useState<OutreachList | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -126,20 +122,17 @@ export default function AdminOutreachPage() {
   }, [navigate]);
 
   const load = useCallback(async () => {
-    if (!token) return;
     try {
       setData(await getOutreachList(list));
       setError(null);
     } catch (err) {
       if (isForbidden(err)) {
-        setReviewToken('');
-        setToken('');
-        setError('That reviewer token was not accepted.');
+        navigate('/admin/login');
       } else {
         setError('The outreach service could not be reached.');
       }
     }
-  }, [token, list]);
+  }, [list, navigate]);
 
   useEffect(() => {
     void load();
@@ -170,33 +163,6 @@ export default function AdminOutreachPage() {
       setError(`${row.name} could not be marked.`);
     }
   };
-
-  if (!token) {
-    return (
-      <div className="ac-page">
-        <header className="ac-hero">
-          <div>
-            <p className="ac-hero__eyebrow">Outreach</p>
-            <h1 className="ac-hero__title">Reviewer token</h1>
-            <p className="ac-hero__sub">The outreach list is behind the consultation service's reviewer token.</p>
-          </div>
-        </header>
-        <form
-          className="ac-panel"
-          style={{ padding: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            setReviewToken(draft.trim());
-            setToken(draft.trim());
-          }}
-        >
-          <input className="ac-input" type="password" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="REVIEW_TOKEN" style={{ flex: 1, minWidth: 220 }} />
-          <button type="submit" className="ac-btn ac-btn--primary">Open the list</button>
-        </form>
-        {error ? <p className="ac-empty">{error}</p> : null}
-      </div>
-    );
-  }
 
   return (
     <div className="ac-page">
