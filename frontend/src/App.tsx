@@ -22,6 +22,8 @@ const StudioPage = lazy(() => import('./routes/StudioPage'));
 const EngagementsPage = lazy(() => import('./routes/EngagementsPage'));
 const ResultPreviewPage = lazy(() => import('./routes/ResultPreviewPage'));
 const SharedPage = lazy(() => import('./routes/SharedPage'));
+const OutreachReportPage = lazy(() => import('./routes/OutreachReportPage'));
+const AdminOutreachPage = lazy(() => import('./routes/AdminOutreachPage'));
 const LoginPage = lazy(() => import('./routes/LoginPage'));
 const SignupPage = lazy(() => import('./routes/SignupPage'));
 const AdminLoginPage = lazy(() => import('./routes/AdminLoginPage'));
@@ -84,12 +86,15 @@ export default function App() {
               through a revocable token. Not /share, which is the older preview-app
               page and keeps its own links working. */}
           <Route path="/shared/:token" element={<SharedPage />} />
+          {/* A business's private outreach report: unguessable, never listed or indexed. */}
+          <Route path="/for/:token" element={<OutreachReportPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOpsPage />} />
             <Route path="requests" element={<AdminDashboardPage />} />
             <Route path="requests/:id" element={<AdminRequestDetailPage />} />
             <Route path="usage" element={<AdminUsagePage />} />
+            <Route path="outreach" element={<AdminOutreachPage />} />
           </Route>
         </Routes>
         </Suspense>

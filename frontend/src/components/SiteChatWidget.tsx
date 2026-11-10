@@ -91,6 +91,7 @@ export default function SiteChatWidget() {
     pathname.startsWith('/engagements/') ||
     pathname.startsWith('/result') ||
     pathname.startsWith('/share') ||
+    pathname.startsWith('/for/') ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/signup')
   ) {

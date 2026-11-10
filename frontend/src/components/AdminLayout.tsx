@@ -49,6 +49,7 @@ export default function AdminLayout() {
     { to: '/admin', end: true, icon: <IconOps />, label: 'Overview', short: 'Home' },
     { to: '/admin/requests', end: false, icon: <IconRequests />, label: 'Requests', short: 'Requests' },
     { to: '/admin/usage', end: false, icon: <IconUsage />, label: 'Usage', short: 'Usage' },
+    { to: '/admin/outreach', end: false, icon: <IconRequests />, label: 'Outreach', short: 'Outreach' },
   ];
 
   const loadStatus = useCallback(async () => {

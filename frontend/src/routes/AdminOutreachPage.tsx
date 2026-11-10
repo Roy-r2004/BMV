@@ -1,0 +1,247 @@
+/**
+ * Roy's outreach list: businesses found, why they were picked, the message ready
+ * to copy, and a status he sets once he has messaged them on Instagram by hand.
+ * Nothing here sends anything.
+ */
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { hasAdminSession } from '../api/admin';
+import {
+  fillOutreach,
+  getOutreachList,
+  getReviewToken,
+  isForbidden,
+  setOutreachStatus,
+  setReviewToken,
+  type OutreachList,
+  type OutreachRow,
+  type OutreachStatus,
+} from '../api/outreach';
+
+const LISTS: { id: OutreachStatus; label: string }[] = [
+  { id: 'queued', label: 'To send' },
+  { id: 'sent', label: 'Sent' },
+  { id: 'replied', label: 'Replied' },
+  { id: 'call_booked', label: 'Call booked' },
+  { id: 'not_interested', label: 'Not interested' },
+  { id: 'skip', label: 'Skipped' },
+];
+
+const MARKS: { id: OutreachStatus; label: string }[] = [
+  { id: 'sent', label: 'Sent' },
+  { id: 'replied', label: 'Replied' },
+  { id: 'call_booked', label: 'Call booked' },
+  { id: 'not_interested', label: 'Not interested' },
+  { id: 'skip', label: 'Skip' },
+];
+
+function when(iso: string | null) {
+  return iso ? new Date(iso).toLocaleString() : '';
+}
+
+function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(row.dm);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  };
+  const findHandle = row.website || `https://www.google.com/search?q=${encodeURIComponent(`${row.name} ${row.city} instagram`)}`;
+  return (
+    <article className="ac-panel" style={{ padding: 18 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 650 }}>{row.name}</h2>
+          <p className="ac-hero__sub" style={{ margin: '4px 0 0' }}>
+            {row.kind}, {row.city}
+            {row.phone ? `, ${row.phone}` : ''}
+            {row.opens ? `, opened ${row.opens}× (first ${when(row.opened_first_at)})` : ''}
+            {row.sent_at ? `, sent ${when(row.sent_at)}` : ''}
+          </p>
+        </div>
+        <div className="ac-actions">
+          {row.instagram_url ? (
+            <a className="ac-btn ac-btn--primary" href={row.instagram_url} target="_blank" rel="noopener noreferrer">
+              Open @{row.instagram}
+            </a>
+          ) : (
+            <a className="ac-btn" href={findHandle} target="_blank" rel="noopener noreferrer">
+              Find the handle
+            </a>
+          )}
+          <a className="ac-btn" href={row.report_url} target="_blank" rel="noopener noreferrer">
+            Open report
+          </a>
+        </div>
+      </div>
+
+      {row.reasons.length ? (
+        <ul style={{ margin: '12px 0 0', paddingLeft: 18, fontSize: 14 }}>
+          {row.reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {row.dm ? (
+        <div style={{ marginTop: 12 }}>
+          <textarea className="ac-input" readOnly value={row.dm} rows={4} style={{ width: '100%', resize: 'vertical' }} />
+          <button type="button" className="ac-btn" onClick={copy} style={{ marginTop: 8 }}>
+            {copied ? 'Copied' : 'Copy message'}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="ac-actions" style={{ marginTop: 12, flexWrap: 'wrap' }}>
+        {MARKS.filter((m) => m.id !== row.status).map((m) => (
+          <button key={m.id} type="button" className="ac-btn" onClick={() => onMark(m.id)}>
+            {m.label}
+          </button>
+        ))}
+        {row.status !== 'queued' && row.dm ? (
+          <button type="button" className="ac-btn" onClick={() => onMark('queued')}>
+            Back to send
+          </button>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+export default function AdminOutreachPage() {
+  const navigate = useNavigate();
+  const [token, setToken] = useState(getReviewToken());
+  const [draft, setDraft] = useState('');
+  const [list, setList] = useState<OutreachStatus>('queued');
+  const [data, setData] = useState<OutreachList | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasAdminSession()) navigate('/admin/login');
+  }, [navigate]);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    try {
+      setData(await getOutreachList(list));
+      setError(null);
+    } catch (err) {
+      if (isForbidden(err)) {
+        setReviewToken('');
+        setToken('');
+        setError('That reviewer token was not accepted.');
+      } else {
+        setError('The outreach service could not be reached.');
+      }
+    }
+  }, [token, list]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // While a run is going, look again every few seconds.
+  useEffect(() => {
+    if (!data?.running) return;
+    const t = setInterval(() => void load(), 4000);
+    return () => clearInterval(t);
+  }, [data?.running, load]);
+
+  const fill = async () => {
+    try {
+      await fillOutreach();
+      setData((d) => (d ? { ...d, running: true } : d));
+      setTimeout(() => void load(), 1500);
+    } catch {
+      setError('A run could not be started. One may already be going.');
+    }
+  };
+
+  const mark = async (row: OutreachRow, status: OutreachStatus) => {
+    try {
+      await setOutreachStatus(row.id, status);
+      await load();
+    } catch {
+      setError(`${row.name} could not be marked.`);
+    }
+  };
+
+  if (!token) {
+    return (
+      <div className="ac-page">
+        <header className="ac-hero">
+          <div>
+            <p className="ac-hero__eyebrow">Outreach</p>
+            <h1 className="ac-hero__title">Reviewer token</h1>
+            <p className="ac-hero__sub">The outreach list is behind the consultation service's reviewer token.</p>
+          </div>
+        </header>
+        <form
+          className="ac-panel"
+          style={{ padding: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setReviewToken(draft.trim());
+            setToken(draft.trim());
+          }}
+        >
+          <input className="ac-input" type="password" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="REVIEW_TOKEN" style={{ flex: 1, minWidth: 220 }} />
+          <button type="submit" className="ac-btn ac-btn--primary">Open the list</button>
+        </form>
+        {error ? <p className="ac-empty">{error}</p> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="ac-page">
+      <header className="ac-hero">
+        <div>
+          <p className="ac-hero__eyebrow">Outreach</p>
+          <h1 className="ac-hero__title">Businesses to message</h1>
+          <p className="ac-hero__sub">
+            {data ? `$${data.spent.toFixed(2)} of $${data.cap.toFixed(0)} spent this month` : 'Loading…'}
+            {data?.last_run
+              ? `. Last run ${data.last_run.day}: ${data.last_run.queued} added${data.last_run.stopped_because ? `, ${data.last_run.stopped_because.toLowerCase()}` : ''}.`
+              : ''}
+          </p>
+        </div>
+        <div className="ac-actions">
+          <button type="button" className="ac-btn ac-btn--primary" onClick={fill} disabled={!data || data.running}>
+            {data?.running ? 'Finding businesses…' : `Find up to ${data?.daily ?? 30} more`}
+          </button>
+        </div>
+      </header>
+
+      <nav className="ac-actions" style={{ flexWrap: 'wrap', marginBottom: 16 }} aria-label="Lists">
+        {LISTS.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            className={`ac-btn${list === l.id ? ' ac-btn--primary' : ''}`}
+            onClick={() => setList(l.id)}
+          >
+            {l.label} {data?.counts?.[l.id] != null ? `(${data.counts[l.id]})` : ''}
+          </button>
+        ))}
+      </nav>
+
+      {error ? <p className="ac-empty">{error}</p> : null}
+      {data && !data.rows.length ? (
+        <p className="ac-empty">
+          {list === 'queued' ? 'Nothing waiting. Press "Find" to look for new businesses.' : 'Nothing in this list yet.'}
+        </p>
+      ) : null}
+      <div style={{ display: 'grid', gap: 14 }}>
+        {data?.rows.map((row) => (
+          <Row key={row.id} row={row} onMark={(s) => void mark(row, s)} />
+        ))}
+      </div>
+    </div>
+  );
+}

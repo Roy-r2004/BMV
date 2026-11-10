@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /for/
+Disallow: /admin
+Disallow: /shared/
