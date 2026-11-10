@@ -163,7 +163,8 @@ class Settings:
     OUTREACH_MIN_SCORE: int = _env_int_within("OUTREACH_MIN_SCORE", 30, 0, 100)
     OUTREACH_AUTO: str = _env_or("OUTREACH_AUTO", "off")
     # Where a business opens its report: <PUBLIC_SITE_URL>/for/<token>
-    PUBLIC_SITE_URL: str = _env_or("PUBLIC_SITE_URL", "https://buildmyversion.com").rstrip("/")
+    # (the site's own origin unless set apart)
+    PUBLIC_SITE_URL: str = _env_or("PUBLIC_SITE_URL", _env_or("FRONTEND_ORIGIN", "https://buildmyversion.com")).rstrip("/")
     # Named on covers and in the closing pages when set ("Roy Rizkallah -
     # Managing Consultant"). A document a person signs reads senior; one
     # nobody signs reads generated. Empty = omitted entirely.
