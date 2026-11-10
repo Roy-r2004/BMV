@@ -87,6 +87,9 @@ def on_startup() -> None:
     _fail_stranded_requests()
     engine_startup()
     _warn_if_mail_is_not_configured()
+    from app.outreach.run import start_daily
+
+    start_daily()
 
 
 MAIL_NOT_CONFIGURED = "Mail is not configured: failures, stalls and ready notices will not be emailed."
