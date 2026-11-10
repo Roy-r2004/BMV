@@ -23,7 +23,9 @@ logger = logging.getLogger("consultant.outreach")
 
 _TOKENS = 2000
 SITE_FOR_PROMPT = 6000
-DM_MAX = 600
+DM_MAX = 400
+FOLLOWUP_MAX = 300
+_URL = re.compile(r"https?://|www\.|\{link\}", re.I)
 COULD_NOT = "The draft could not be written from what was read"
 _NUMBER = re.compile(r"(?<![\d.])\d[\d,]*(?:\.\d+)?")
 _WORDS = ("two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
@@ -58,7 +60,7 @@ def _texts(report: dict, dm: str) -> list[str]:
     return out
 
 
-def problems(report: dict, dm: str, read_text: str) -> list[str]:
+def problems(report: dict, dm: str, read_text: str, followup: str = "") -> list[str]:
     """Why a draft cannot go out; empty when it can."""
     found: list[str] = []
     if not isinstance(report, dict) or not isinstance(report.get("today"), str) or not report.get("today", "").strip():
@@ -69,13 +71,23 @@ def problems(report: dict, dm: str, read_text: str) -> list[str]:
         found.append("The report needs two or three changes, each with change, ai, day_to_day and difference.")
     if not isinstance(report, dict) or not str(report.get("sources_note") or "").strip():
         found.append("The report needs 'sources_note': what it was read from.")
-    if not isinstance(dm, str) or "{link}" not in dm:
-        found.append("The DM must contain {link}.")
-    elif len(dm) > DM_MAX:
-        found.append(f"The DM must be under {DM_MAX} characters.")
+    if not isinstance(dm, str) or not dm.strip():
+        found.append("The first message is missing.")
+    else:
+        if _URL.search(dm):
+            found.append("The first message must carry no link: a stranger's link reads as spam.")
+        if not dm.rstrip().endswith("?"):
+            found.append("The first message must end by asking whether they want the breakdown.")
+        if len(dm) > DM_MAX:
+            found.append(f"The first message must be under {DM_MAX} characters.")
+    if not isinstance(followup, str) or "{link}" not in followup:
+        found.append("The follow-up must contain {link}.")
+    elif len(followup) > FOLLOWUP_MAX:
+        found.append(f"The follow-up must be under {FOLLOWUP_MAX} characters.")
     read = (read_text or "").lower()
     allowed = _numbers(read)
-    for text in _texts(report if isinstance(report, dict) else {}, dm if isinstance(dm, str) else ""):
+    for text in _texts(report if isinstance(report, dict) else {}, dm if isinstance(dm, str) else "") + \
+            [followup if isinstance(followup, str) else ""]:
         clean = text.replace("{link}", "").replace("\u2019", "'").replace("\u2018", "'")
         for n in _numbers(clean) - allowed:
             found.append(f"The number {n} was not in anything we read about them. Remove it.")
@@ -116,9 +128,10 @@ def write(db, p: Prospect) -> Prospect:
             logger.warning("outreach: no draft for %s: %s", p.name[:80], str(exc)[:200])
             return p
         report, dm = draft.get("report"), str(draft.get("dm") or "").strip()
-        found = problems(report, dm, _read_text(p))
+        followup = str(draft.get("followup") or "").strip()
+        found = problems(report, dm, _read_text(p), followup)
         if not found:
-            p.report_json, p.dm_text = json.dumps(report), dm
+            p.report_json, p.dm_text, p.followup_text = json.dumps(report), dm, followup
             db.commit()
             return p
         feedback = "\n".join(f"- {f}" for f in found)

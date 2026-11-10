@@ -29,7 +29,7 @@ NONE_LEFT = "No more new businesses were found today"
 SEARCH_DOWN = "The web search could not be reached; try again later"
 _SEARCH_AT_ONCE = 10
 _CLEARED = ("website", "instagram", "phone", "what", "sources_json", "site_text", "signals_json", "reasons_json",
-            "report_json", "dm_text", "sent_at", "opened_first_at")
+            "report_json", "dm_text", "followup_text", "sent_at", "opened_first_at")
 running = threading.Lock()
 
 

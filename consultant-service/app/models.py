@@ -293,7 +293,10 @@ class Prospect(Base):
     score: Mapped[int] = mapped_column(Integer, default=0)
     reasons_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # the first message: no link, it asks whether they want the breakdown
     dm_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # sent with the image once they reply, carrying the page's {link}
+    followup_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     # found | ready | queued | sent | replied | call_booked | not_interested | skip | removed
     status: Mapped[str] = mapped_column(String(20), default="found", index=True)
     queued_on: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)

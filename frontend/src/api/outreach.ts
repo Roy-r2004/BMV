@@ -34,6 +34,8 @@ export interface OutreachRow {
   reasons: string[];
   sources: string[];
   dm: string;
+  followup: string;
+  image_url: string;
   report_url: string;
   status: OutreachStatus;
   queued_on: string | null;
@@ -64,6 +66,19 @@ export async function fillOutreach(): Promise<void> {
 export async function setOutreachStatus(id: number, status: OutreachStatus): Promise<OutreachRow> {
   const { data } = await client.patch<OutreachRow>(`/api/outreach/${id}`, { status }, admin());
   return data;
+}
+
+/** Saves the business's report image (needs the admin sign-in, so it is fetched, not linked). */
+export async function downloadOutreachImage(row: OutreachRow): Promise<void> {
+  const { data } = await client.get<Blob>(row.image_url, { ...admin(), responseType: 'blob' });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `BMV for ${row.name}.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 export interface OutreachReport {

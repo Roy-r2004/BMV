@@ -29,7 +29,9 @@ THE REPORT
 - "sources_note": one sentence on what this was read from{% if site == "read" %}, for example "Read from your website and public pages about you."{% else %}, for example "Read from public pages about you."{% endif %}
 
 THE MESSAGE
-- "dm": two to four short lines to send on Instagram. Start with "Hi {{ name }} team,". Name one specific thing from what was read, say we wrote them a short page on what AI could change, and end with {link} exactly as written. It must not read like a mass message.
+THE MESSAGES (two, sent by hand on Instagram)
+- "dm": the first message, two or three short lines. Start with "Hi {{ name }} team,". Name one specific thing from what was read, say we made them a short breakdown of what AI could change, and end by asking whether they would like it, with a question mark. No link, no website address. It must not read like a mass message.
+- "followup": one or two short lines sent with the breakdown once they reply yes, ending with {link} exactly as written, offered as the same breakdown as a page.
 
 Respond with ONLY this JSON, no fences:
-{"report": {"today": "", "changes": [{"change": "", "ai": "", "day_to_day": "", "difference": ""}], "sources_note": ""}, "dm": ""}
+{"report": {"today": "", "changes": [{"change": "", "ai": "", "day_to_day": "", "difference": ""}], "sources_note": ""}, "dm": "", "followup": ""}

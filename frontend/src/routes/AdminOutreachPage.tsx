@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { hasAdminSession } from '../api/admin';
 import {
+  downloadOutreachImage,
   fillOutreach,
   getOutreachList,
   isForbidden,
@@ -38,15 +39,37 @@ function when(iso: string | null) {
   return iso ? new Date(iso).toLocaleString() : '';
 }
 
-function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) => void }) {
+function CopyBox({ label, text }: { label: string; text: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(row.dm);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
       setCopied(false);
+    }
+  };
+  return (
+    <div style={{ marginTop: 10 }}>
+      <p className="ac-kpi__label" style={{ margin: '0 0 6px' }}>{label}</p>
+      <textarea className="ac-input" readOnly value={text} rows={3} style={{ width: '100%', resize: 'vertical' }} />
+      <button type="button" className="ac-btn" onClick={copy} style={{ marginTop: 6 }}>
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
+  );
+}
+
+function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) => void }) {
+  const [saving, setSaving] = useState<'idle' | 'busy' | 'failed'>('idle');
+  const saveImage = async () => {
+    setSaving('busy');
+    try {
+      await downloadOutreachImage(row);
+      setSaving('idle');
+    } catch {
+      setSaving('failed');
     }
   };
   const findHandle = row.website || `https://www.google.com/search?q=${encodeURIComponent(`${row.name} ${row.city} instagram`)}`;
@@ -86,12 +109,15 @@ function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) =>
         </ul>
       ) : null}
 
-      {row.dm ? (
-        <div style={{ marginTop: 12 }}>
-          <textarea className="ac-input" readOnly value={row.dm} rows={4} style={{ width: '100%', resize: 'vertical' }} />
-          <button type="button" className="ac-btn" onClick={copy} style={{ marginTop: 8 }}>
-            {copied ? 'Copied' : 'Copy message'}
+      {row.dm ? <CopyBox label="1. First message (no link)" text={row.dm} /> : null}
+      {row.followup ? (
+        <div style={{ marginTop: 10 }}>
+          <p className="ac-kpi__label" style={{ margin: '0 0 6px' }}>2. When they reply: send the image, then this</p>
+          <button type="button" className="ac-btn ac-btn--primary" onClick={saveImage} disabled={saving === 'busy'}>
+            {saving === 'busy' ? 'Drawing the image…' : 'Download image'}
           </button>
+          {saving === 'failed' ? <span className="ac-hero__sub" style={{ marginLeft: 10 }}>The image could not be made; send the page link instead.</span> : null}
+          <CopyBox label="Message with the image" text={row.followup} />
         </div>
       ) : null}
 

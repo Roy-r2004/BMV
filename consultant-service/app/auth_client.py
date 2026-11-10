@@ -64,7 +64,7 @@ _ADMIN_CACHE: dict[str, tuple[float, bool]] = {}
 def is_admin(x_admin_password: str | None, authorization: str | None) -> bool:
     """Whether these are the main site's admin credentials: the admin password, or
     a signed-in admin. The main API decides (an admin-only route answers 200),
-    so there is one admin sign-in for the whole site. Cached ~5 minutes."""
+    so there is one admin sign-in for the whole site. Cached 30 seconds."""
     import hashlib
 
     headers = {}
@@ -89,5 +89,6 @@ def is_admin(x_admin_password: str | None, authorization: str | None) -> bool:
     with _LOCK:
         if len(_ADMIN_CACHE) > _CACHE_MAX:
             _ADMIN_CACHE.clear()
-        _ADMIN_CACHE[key] = (now + (_TTL_SECONDS if allowed else 30), allowed)
+        # short either way: a revoked admin or a changed password stops working within 30 seconds
+        _ADMIN_CACHE[key] = (now + 30, allowed)
     return allowed

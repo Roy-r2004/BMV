@@ -49,7 +49,8 @@ def _row(p: Prospect) -> dict:
         "instagram": p.instagram, "instagram_url": f"https://instagram.com/{p.instagram}" if p.instagram else None,
         "website": p.website, "phone": p.phone, "what": p.what,
         "reasons": json.loads(p.reasons_json or "[]"), "sources": [s.get("url") for s in sources if s.get("url")],
-        "dm": (p.dm_text or "").replace("{link}", url), "report_url": url, "status": p.status,
+        "dm": p.dm_text or "", "followup": (p.followup_text or "").replace("{link}", url),
+        "image_url": f"/api/outreach/{p.id}/image", "report_url": url, "status": p.status,
         "queued_on": p.queued_on.isoformat() if p.queued_on else None,
         "sent_at": p.sent_at.isoformat() if p.sent_at else None,
         "opens": p.opens or 0, "opened_first_at": p.opened_first_at.isoformat() if p.opened_first_at else None,
@@ -123,6 +124,22 @@ def outreach_status(prospect_id: int, change: StatusChange, db: Session = Depend
         p.sent_at = datetime.utcnow()
     db.commit()
     return _row(p)
+
+
+@router.get("/{prospect_id}/image", dependencies=[Depends(_admin)])
+def outreach_image(prospect_id: int, db: Session = Depends(get_db)) -> Response:
+    """The report as a PNG for Roy to attach once the business replies."""
+    from app.outreach import image
+
+    p = db.get(Prospect, prospect_id)
+    if p is None or not p.report_json:
+        raise HTTPException(status_code=404, detail="No report for this business")
+    png = image.png_for(p.token, p.name, p.city, json.loads(p.report_json))
+    if not png:
+        raise HTTPException(status_code=503, detail="The image could not be drawn here; use the page link")
+    safe = re.sub(r"[^\w .-]", "", p.name)[:60].strip() or "report"
+    return Response(content=png, media_type="image/png",
+                    headers={"Content-Disposition": f'attachment; filename="BMV for {safe}.png"'})
 
 
 @router.get("/report/{token}")
