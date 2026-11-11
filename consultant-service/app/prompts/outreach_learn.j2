@@ -1,0 +1,20 @@
+Search the web for public pages about this one business and collect what makes it itself.
+
+Business: {{ name }}
+Kind: {{ kind }}
+City: {{ city }}
+{% if website %}Website: {{ website }}
+{% endif %}{% if instagram %}Instagram: @{{ instagram }}
+{% endif %}{% if phone %}Phone: {{ phone }}
+{% endif %}
+Look for, in this order:
+- its signature or named services and treatments, by the names it uses
+- what its customers say about it in reviews, close to their own words, good or bad
+- what sets it apart: a speciality, who it serves, home visits, languages, the area it covers
+- how customers book or reach it, and anything they complain about when booking
+- its hours and listed prices, only as written on the page
+
+Only this business, never another with a similar name or in another city. Every fact must come from a page you cite, word for word or nearly. No opinions, nothing inferred. Fewer true facts are better than many weak ones, and an empty list is a correct answer.
+
+Respond with ONLY this JSON, no fences:
+{"facts": [{"fact": "", "source": ""}]}

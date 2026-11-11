@@ -19,19 +19,22 @@ RULES
 - Never say what Build My Version has done for anyone else. No clients, no case studies, no results, no guarantees.
 - Never guess. If something was not read above, such as how customers reach them, leave it out. No "likely", "perhaps" or "probably".
 - No flattery: no "great", "amazing" or "beautiful". Name something specific instead.
+- Never call a service popular, best, loved or signature unless that is written above.
 - Suggest only changes that follow from what was read, mostly about how customers book, ask and get answers.
 - Plain English a busy owner reads in a minute. No jargon, no hype.
 - Address the owner as "you".
 
 THE REPORT
+It must read as written for {{ name }} alone. If a sentence would fit any other {{ kind }} in {{ city }}, rewrite it around something named above: one of their services by its own name, how they take bookings, what they are known for.
+- "noticed": one or two sentences, the opening. Not a list of their services: the one detail that shows we looked closely at them (something their customers say, a treatment they are known for, how a booking actually reaches them), and what it means for the people trying to book.
 - "today": two or three sentences on what the business does and how customers reach it, as read above.
-- "changes": two or three changes. Each has "change" (what changes, in a few words), "ai" (which kind of AI does it, named plainly, such as "a booking assistant on Instagram"), "day_to_day" (what it does each day, concretely), and "difference" (what is different for them and their customers, without numbers).
+- "chat": a short WhatsApp exchange showing their own AI assistant at work, four to six turns, as a list of {"from": "customer" or "assistant", "text": ""}. The customer speaks first and asks about one of their real services by its own name. Make it the moment the owner thinks "that is exactly my customer": the assistant does the one thing a good person on their team would do for that service, such as asking the question needed before booking it, checking the area for a home visit, or taking the code for an offer they run. Short, warm WhatsApp messages; never repeat a sentence. The assistant answers only from what was read above, in the business's own voice, and ends by offering to book it or to pass it to the team. It never states a price, a time, a free slot, a duration or a result that is not written above.
+- "changes": two or three changes, each built on one of their real services or the way they take bookings, named, and each a different kind of change: not three ways of answering questions. At least one is built on something only they have. Each has "change" (what changes, in a few words), "ai" (which kind of AI does it, named plainly, such as "a booking assistant on Instagram"), "day_to_day" (what it does each day, concretely, for their own services), and "difference" (what is different for them and their customers, without numbers).
 - "sources_note": one sentence on what this was read from{% if site == "read" %}, for example "Read from your website and public pages about you."{% else %}, for example "Read from public pages about you."{% endif %}
 
-THE MESSAGE
 THE MESSAGES (two, sent by hand on Instagram)
 - "dm": the first message, two or three short lines. Start with "Hi {{ name }} team,". Name one specific thing from what was read, say we made them a short breakdown of what AI could change, and end by asking whether they would like it, with a question mark. No link, no website address. It must not read like a mass message.
 - "followup": one or two short lines sent with the breakdown once they reply yes, ending with {link} exactly as written, offered as the same breakdown as a page.
 
 Respond with ONLY this JSON, no fences:
-{"report": {"today": "", "changes": [{"change": "", "ai": "", "day_to_day": "", "difference": ""}], "sources_note": ""}, "dm": "", "followup": ""}
+{"report": {"noticed": "", "today": "", "chat": [{"from": "customer", "text": ""}, {"from": "assistant", "text": ""}], "changes": [{"change": "", "ai": "", "day_to_day": "", "difference": ""}], "sources_note": ""}, "dm": "", "followup": ""}

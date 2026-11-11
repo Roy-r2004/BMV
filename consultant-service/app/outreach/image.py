@@ -1,8 +1,8 @@
 """The report as a few portrait slides, sent together as one swipeable set.
 
 Instagram shows a 4:5 picture full screen without shrinking it, so each slide
-is 1080 x 1350 and readable without zooming: a cover with what we saw, one
-slide per change, and a closing slide. They say exactly what the report page
+is 1080 x 1350 and readable without zooming: a cover with what we noticed,
+their own assistant answering a customer, one slide per change, and a close. They say exactly what the report page
 says, nothing more, and every word from the model is escaped. Drawn once per
 business by the service's Chromium and kept beside its uploads.
 """
@@ -44,15 +44,38 @@ h2{font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
 .row b{display:block;font-size:13px;font-weight:600;color:#7a8394}
 .row span{display:block;margin-top:4px;font-size:18px;line-height:1.45;color:#2b3240}
 .foot{font-size:13px;color:#7a8394;line-height:1.5}
+.phone{margin-top:16px;border:1px solid #d5dbe4;border-radius:22px;overflow:hidden;background:#efeae2;
+  box-shadow:0 10px 30px rgba(16,19,26,.10)}
+.phone .top{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#075e54;color:#fff}
+.phone .av{width:32px;height:32px;border-radius:50%;background:#fff;color:#075e54;display:flex;align-items:center;
+  justify-content:center;font-weight:700;font-size:15px}
+.phone .who{font-weight:600;font-size:14.5px;line-height:1.2}
+.phone .who small{display:block;font-weight:400;font-size:11.5px;opacity:.85}
+.phone .msgs{padding:14px 12px 16px;display:flex;flex-direction:column;gap:8px}
+.bub{max-width:82%;padding:8px 11px;border-radius:10px;font-size:14.5px;line-height:1.4;color:#111b21;
+  box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.bub.customer{align-self:flex-start;background:#fff;border-top-left-radius:3px}
+.bub.assistant{align-self:flex-end;background:#d9fdd3;border-top-right-radius:3px}
 </style></head><body>
-{% set total = report.changes|length + 2 %}
+{% set has_chat = report.chat is defined and report.chat %}
+{% set total = report.changes|length + 2 + (1 if has_chat else 0) %}
+{% set first = 3 if has_chat else 2 %}
 <div class="slide"><div class="brand">{{ logo_tag }}Build My Version<span class="n">1 / {{ total }}</span></div>
 <div class="body"><p class="for">Made for {{ name }}, {{ city }}</p>
 <h1>What AI could change for {{ name }}.</h1>
-<p class="label">What we saw</p><p class="text">{{ report.today }}</p></div>
+{% if report.noticed %}<p class="label">What we noticed</p><p class="text">{{ report.noticed }}</p>
+{% else %}<p class="label">What we saw</p><p class="text">{{ report.today }}</p>{% endif %}</div>
 <p class="foot">{{ report.sources_note }}</p></div>
+{% if has_chat %}
+<div class="slide"><div class="brand">{{ logo_tag }}Build My Version<span class="n">2 / {{ total }}</span></div>
+<div class="body"><h2 style="font-size:25px">Your own assistant, answering a customer</h2>
+<div class="phone"><div class="top"><div class="av">{{ name[:1] }}</div>
+<div class="who">{{ name }}<small>AI assistant</small></div></div>
+<div class="msgs">{% for t in report.chat %}<div class="bub {{ 'assistant' if t['from'] == 'assistant' else 'customer' }}">{{ t.text }}</div>{% endfor %}</div>
+</div></div><p class="foot">An example of how it could answer, written from what we read about you.</p></div>
+{% endif %}
 {% for c in report.changes %}
-<div class="slide"><div class="brand">{{ logo_tag }}Build My Version<span class="n">{{ loop.index + 1 }} / {{ total }}</span></div>
+<div class="slide"><div class="brand">{{ logo_tag }}Build My Version<span class="n">{{ loop.index + first - 1 }} / {{ total }}</span></div>
 <div class="body"><p class="for">Change {{ loop.index }} of {{ report.changes|length }}</p>
 <h2 style="margin-top:10px">{{ c.change }}</h2>
 <div class="row"><b>Who does it</b><span>{{ c.ai }}</span></div>
@@ -89,7 +112,9 @@ _env = Environment(autoescape=select_autoescape(default=True, default_for_string
 def count(report: dict) -> int:
     """How many slides the report makes: a cover, one per change, a close."""
     changes = report.get("changes") if isinstance(report, dict) else None
-    return len(changes) + 2 if isinstance(changes, list) else 0
+    if not isinstance(changes, list):
+        return 0
+    return len(changes) + 2 + (1 if report.get("chat") else 0)
 
 
 def html(name: str, city: str, report: dict) -> str:

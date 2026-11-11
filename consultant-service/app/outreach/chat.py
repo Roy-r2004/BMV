@@ -14,11 +14,17 @@ def _fit(text: str) -> str:
 
 
 def messages(report: dict | None) -> list[str]:
-    """What we saw, then one message per change."""
+    """What we noticed and saw, their assistant answering a customer, then one message per change."""
     if not isinstance(report, dict) or not str(report.get("today") or "").strip():
         return []
     note = str(report.get("sources_note") or "").strip()
-    out = [_fit(f"Here is the short breakdown. {note}".strip() + f"\n\nWhat we saw: {report['today'].strip()}")]
+    noticed = str(report.get("noticed") or "").strip()
+    opening = f"What we noticed: {noticed}\n\n" if noticed else ""
+    out = [_fit(f"Here is the short breakdown. {note}".strip() + f"\n\n{opening}What we saw: {report['today'].strip()}")]
+    turns = [t for t in report.get("chat") or [] if isinstance(t, dict) and str(t.get("text") or "").strip()]
+    if turns:
+        lines = [f"{'Customer' if t.get('from') == 'customer' else 'Your assistant'}: {t['text'].strip()}" for t in turns]
+        out.append(_fit("Here is how your own AI assistant could answer a customer:\n\n" + "\n".join(lines)))
     for i, c in enumerate(report.get("changes") or [], start=1):
         if not isinstance(c, dict):
             continue

@@ -31,3 +31,13 @@ def test_every_message_fits_one_instagram_message():
 
 def test_a_broken_report_gives_no_messages():
     assert chat.messages({}) == [] and chat.messages(None) == []
+
+
+CHAT = [{"from": "customer", "text": "Do you do balayage?"}, {"from": "assistant", "text": "Yes. Shall I book it?"}]
+
+
+def test_what_we_noticed_opens_and_the_sample_chat_follows():
+    msgs = chat.messages({**REPORT, "noticed": "Every booking goes through DMs.", "chat": CHAT})
+    assert len(msgs) == 4 and "What we noticed: Every booking goes through DMs." in msgs[0]
+    assert "Customer: Do you do balayage?" in msgs[1] and "Your assistant: Yes. Shall I book it?" in msgs[1]
+    assert msgs[2].startswith("1. Answer at once")

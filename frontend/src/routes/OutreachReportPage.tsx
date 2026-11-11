@@ -1,7 +1,8 @@
 /**
  * The private report a business opens from Roy's Instagram message: what we
- * saw, two or three changes and the AI that makes each one, and a way to book a
- * call. Made from public information only, never listed, never indexed.
+ * noticed and saw, their own assistant answering a customer, two or three
+ * changes and the AI that makes each one, and a way to book a call. Made from
+ * public information only, never listed, never indexed.
  */
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -83,10 +84,47 @@ export default function OutreachReportPage() {
             <p className="cx-faint text-[15px]">Made for {data.name}, {data.city}</p>
             <h1 className="cx-h1 mt-4">What AI could change for {data.name}.</h1>
 
+            {data.noticed ? (
+              <section className="mt-12">
+                <h2 className="cx-h3">What we noticed</h2>
+                <p className="cx-lead mt-3">{data.noticed}</p>
+              </section>
+            ) : null}
+
             <section className="mt-12">
               <h2 className="cx-h3">What we saw</h2>
               <p className="cx-lead mt-3">{data.today}</p>
             </section>
+
+            {data.chat.length ? (
+              <section className="mt-12">
+                <h2 className="cx-h3">Your own assistant, answering a customer</h2>
+                <div className="mt-6 max-w-[460px] overflow-hidden rounded-[18px] border border-[var(--cx-line)] bg-[#efeae2]">
+                  <div className="flex items-center gap-3 bg-[#075e54] px-4 py-3 text-white">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[15px] font-bold text-[#075e54]">
+                      {data.name.slice(0, 1)}
+                    </span>
+                    <span className="leading-tight">
+                      <span className="block text-[15px] font-semibold">{data.name}</span>
+                      <span className="block text-[12px] opacity-85">AI assistant</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2 px-3 py-4">
+                    {data.chat.map((t, i) => (
+                      <p
+                        key={i}
+                        className={`max-w-[82%] rounded-[10px] px-3 py-2 text-[15px] leading-snug text-[#111b21] shadow-sm ${
+                          t.from === 'assistant' ? 'self-end bg-[#d9fdd3]' : 'self-start bg-white'
+                        }`}
+                      >
+                        {t.text}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+                <p className="cx-faint mt-3 text-[14px]">An example of how it could answer, written from what we read about you.</p>
+              </section>
+            ) : null}
 
             <section className="mt-12">
               <h2 className="cx-h3">What could change</h2>

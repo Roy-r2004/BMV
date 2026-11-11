@@ -9,7 +9,12 @@ READ = "Glow Salon, JLT. Rated 4.8. DM us to book. Open 10am to 10pm."
 CHANGE = {"change": "Answer booking messages at once", "ai": "A booking assistant on Instagram",
           "day_to_day": "It replies to every DM, offers the free slots and books them",
           "difference": "No one waits for a reply to book"}
-GOOD = {"today": "Glow Salon takes bookings by DM and is rated 4.8.", "changes": [CHANGE, CHANGE],
+CHAT = [{"from": "customer", "text": "Do you do balayage?"},
+        {"from": "assistant", "text": "Yes, Glow Salon does balayage. Shall I book it for you?"},
+        {"from": "customer", "text": "Yes please, this weekend."},
+        {"from": "assistant", "text": "I'll pass it to the team to confirm a time with you."}]
+GOOD = {"noticed": "Every booking at Glow Salon goes through Instagram DMs.",
+        "today": "Glow Salon takes bookings by DM and is rated 4.8.", "chat": CHAT, "changes": [CHANGE, CHANGE],
         "sources_note": "Read from the salon's website."}
 GOOD_DM = "Hi Glow team, I saw that bookings at Glow Salon go through DMs. I made you a short breakdown of how AI could answer them. Want me to send it?"
 GOOD_FOLLOW = "Here it is. The same thing as a page, if that is easier to read: {link}"
@@ -120,3 +125,19 @@ def test_the_first_message_carries_no_link():
 
 def test_the_first_message_asks_before_sending_anything():
     assert write.problems(GOOD, "Hi Glow team, I made you a short breakdown.", READ, GOOD_FOLLOW)
+
+
+def test_the_report_opens_with_what_we_noticed_about_them():
+    assert write.problems({**GOOD, "noticed": ""}, GOOD_DM, READ, GOOD_FOLLOW)
+
+
+def test_the_sample_chat_starts_with_the_customer_and_has_four_to_six_turns():
+    assert write.problems({**GOOD, "chat": CHAT[:2]}, GOOD_DM, READ, GOOD_FOLLOW)
+    assert write.problems({**GOOD, "chat": CHAT[1:] + CHAT[:1]}, GOOD_DM, READ, GOOD_FOLLOW)
+    assert write.problems({**GOOD, "chat": [{"from": "bot", "text": "hi"}] + CHAT[1:]}, GOOD_DM, READ, GOOD_FOLLOW)
+
+
+def test_the_sample_chat_never_invents_a_price_or_a_time():
+    bad = CHAT[:3] + [{"from": "assistant", "text": "We have 3pm free, it costs 450 AED."}]
+    found = write.problems({**GOOD, "chat": bad}, GOOD_DM, READ, GOOD_FOLLOW)
+    assert any("450" in f for f in found) and any("3" in f for f in found)

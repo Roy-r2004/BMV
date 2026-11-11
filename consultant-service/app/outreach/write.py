@@ -43,6 +43,7 @@ _CLAIMS = re.compile(r"\bwe(?:'ve| have)? (?:helped|worked with|built for|done t
 _LOSING = re.compile(r"\b(?:may|might|could) be (?:missing|losing)\b|\bare (?:missing|losing) (?:out|bookings|customers)\b",
                      re.I)
 _CHANGE_KEYS = ("change", "ai", "day_to_day", "difference")
+CHAT_TURNS = (4, 6)
 _GUESS = re.compile(r"\b(?:likely|perhaps|probably|presumably|might be|we assume|it seems|seemingly)\b", re.I)
 
 
@@ -71,6 +72,14 @@ def problems(report: dict, dm: str, read_text: str, followup: str = "") -> list[
         found.append("The report needs two or three changes, each with change, ai, day_to_day and difference.")
     if not isinstance(report, dict) or not str(report.get("sources_note") or "").strip():
         found.append("The report needs 'sources_note': what it was read from.")
+    if not isinstance(report, dict) or not str(report.get("noticed") or "").strip():
+        found.append("The report needs 'noticed': the most specific thing we saw about them.")
+    chat = report.get("chat") if isinstance(report, dict) else None
+    if not isinstance(chat, list) or not CHAT_TURNS[0] <= len(chat) <= CHAT_TURNS[1] or not all(
+            isinstance(t, dict) and t.get("from") in ("customer", "assistant") and str(t.get("text") or "").strip()
+            for t in chat) or chat[0].get("from") != "customer":
+        found.append("The report needs 'chat': four to six turns, each from the customer or the assistant, "
+                     "the customer first.")
     if not isinstance(dm, str) or not dm.strip():
         found.append("The first message is missing.")
     else:
@@ -119,9 +128,9 @@ def write(db, p: Prospect) -> Prospect:
                          if feedback else "")
         try:
             draft = ask_until_usable(
-                lambda prompt=prompt: provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}],
+                lambda prompt=prompt: provider.chat(settings.REASONING_MODEL, [{"role": "user", "content": prompt}],
                                                     max_tokens=_TOKENS),
-                reply_json, ledger(db, None, model=settings.ANALYSIS_MODEL, purpose="outreach:write"))
+                reply_json, ledger(db, None, model=settings.REASONING_MODEL, purpose="outreach:write"))
         except Exception as exc:
             # the model could not be reached: nothing was refused, so the
             # business waits for the next run instead of being skipped

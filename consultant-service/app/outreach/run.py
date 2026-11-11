@@ -20,6 +20,7 @@ from app.models import OutreachRun, Prospect
 from app.outreach import image
 from app.outreach.budget import can_spend
 from app.outreach.find import SearchFailed, find
+from app.outreach.learn import learn, learned
 from app.outreach.read import read
 from app.outreach.write import write
 
@@ -65,6 +66,10 @@ def fill(db, day: date, want: int | None = None, *, scheduled: bool = False) -> 
             logger.exception("outreach: %s could not be read", p.name[:80])
             return None
         if not p.dm_text:
+            if not learned(p):
+                if not can_spend(db):
+                    return OUT_OF_BUDGET
+                learn(db, p)
             if not can_spend(db):
                 return OUT_OF_BUDGET
             write(db, p)

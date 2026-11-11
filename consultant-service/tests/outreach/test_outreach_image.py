@@ -32,3 +32,14 @@ def test_slides_are_drawn_once_and_forgotten_on_request(monkeypatch):
     image.forget("tok1")
     image.slides_for("tok1", "Glow Salon", "Dubai", REPORT)
     assert len(drawn) == 2
+
+
+def test_their_own_assistant_gets_a_slide_of_its_own():
+    rich = {**REPORT, "noticed": "Every booking goes through DMs.",
+            "chat": [{"from": "customer", "text": "Do you do balayage?"},
+                     {"from": "assistant", "text": "Yes <b>always</b>. Shall I book it?"}]}
+    html = image.html("Glow Salon", "Dubai", rich)
+    assert image.count(rich) == 5 and html.count('class="slide"') == 5
+    assert "Your own assistant, answering a customer" in html and "Do you do balayage?" in html
+    assert 'class="bub assistant"' in html and "&lt;b&gt;always" in html
+    assert "What we noticed" in html and "5 / 5" in html

@@ -158,7 +158,8 @@ def outreach_report(token: str, request: HttpRequest, response: Response, previe
         db.commit()
     report = json.loads(p.report_json)
     return {
-        "name": p.name, "city": p.city, "today": report.get("today"), "changes": report.get("changes") or [],
+        "name": p.name, "city": p.city, "noticed": report.get("noticed"), "today": report.get("today"),
+        "chat": report.get("chat") or [], "changes": report.get("changes") or [],
         "sources_note": report.get("sources_note"),
         "sources": [s.get("url") for s in json.loads(p.sources_json or "[]") if s.get("url")],
         "email": EMAIL, "book_subject": f"Call about {p.name}", "remove_subject": f"Remove the page for {p.name}",

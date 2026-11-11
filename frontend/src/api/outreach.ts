@@ -90,7 +90,10 @@ export async function downloadOutreachSlides(row: OutreachRow): Promise<void> {
 export interface OutreachReport {
   name: string;
   city: string;
+  noticed: string | null;
   today: string;
+  /** Their own assistant answering a customer; empty on reports written before it existed. */
+  chat: { from: 'customer' | 'assistant'; text: string }[];
   changes: { change: string; ai: string; day_to_day: string; difference: string }[];
   sources_note: string;
   sources: string[];

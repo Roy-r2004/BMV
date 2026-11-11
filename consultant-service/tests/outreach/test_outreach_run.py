@@ -41,6 +41,7 @@ def test_found_businesses_are_read_written_and_queued(db, monkeypatch):
     monkeypatch.setattr(run, "find", find)
     monkeypatch.setattr(run, "read", lambda db_, p: (setattr(p, "status", "ready"), p)[1])
     monkeypatch.setattr(run, "write", lambda db_, p: (setattr(p, "dm_text", "Hi {link}"), p)[1])
+    monkeypatch.setattr(run, "learn", lambda db_, p: p)
     r = run.fill(db, DAY, want=2)
     assert r.queued == 2 and r.found == 2
 
@@ -106,6 +107,7 @@ def test_leftovers_from_a_stopped_run_are_finished_first(db, monkeypatch):
     unwritten = _ready(db, "u", 60, status="ready", dm=None)
     monkeypatch.setattr(run, "read", lambda db_, p: (setattr(p, "status", "ready"), p)[1])
     monkeypatch.setattr(run, "write", lambda db_, p: (setattr(p, "dm_text", "Hi {link}"), p)[1])
+    monkeypatch.setattr(run, "learn", lambda db_, p: p)
     r = run.fill(db, DAY, want=5)
     db.refresh(found)
     db.refresh(unwritten)
@@ -136,3 +138,24 @@ def test_a_search_outage_is_not_reported_as_nothing_found(db, monkeypatch):
 
     monkeypatch.setattr(run, "find", down)
     assert run.fill(db, DAY, want=5).stopped_because == run.SEARCH_DOWN
+
+
+def test_each_business_is_learned_about_once_before_it_is_written(db, monkeypatch):
+    order = []
+
+    def learn(db_, p):
+        order.append(("learn", p.name))
+        p.sources_json = json.dumps([{"url": "", "what": run_learn.LEARNED}])
+        return p
+
+    from app.outreach import learn as run_learn
+
+    p = _ready(db, 1, 50, dm=None)
+    monkeypatch.setattr(run, "find", lambda *a: [])
+    monkeypatch.setattr(run, "learn", learn)
+    monkeypatch.setattr(run, "write", lambda db_, p: order.append(("write", p.name)) or p)
+    run.fill(db, DAY, want=1)
+    run.fill(db, DAY, want=1)
+    assert order[:2] == [("learn", p.name), ("write", p.name)]
+    assert order.count(("learn", p.name)) == 1
+
