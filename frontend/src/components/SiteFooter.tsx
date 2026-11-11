@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { COMPANY } from '../data/company';
+import '../styles/footer.css';
 
 const COLUMNS = [
   {
@@ -29,49 +30,52 @@ const COLUMNS = [
   },
 ] as const;
 
+/**
+ * The footer every page ends on: black, the firm and its address, the link
+ * columns, and the line the firm stands on, set as large as the page allows.
+ */
 export default function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="fm-foot">
-      <div className="fm-wrap">
-        <div className="fm-foot-top">
-          <div className="fm-foot-brand">
-            <Link to="/" className="fm-brand">
-              <img src="/logo-160.png" alt="" width={36} height={36} />
-              <span>{COMPANY.name}</span>
-            </Link>
-            <p>
-              An AI consultancy. We test business decisions against the client's own figures, and design and build the
-              systems that carry them out.
-            </p>
-            <a className="fm-foot-mail" href={`mailto:${COMPANY.email}`}>
-              {COMPANY.email}
-            </a>
-          </div>
-
-          <div className="fm-foot-cols">
-            {COLUMNS.map((c) => (
-              <div key={c.title}>
-                <h2>{c.title}</h2>
-                <ul>
-                  {c.links.map((l) => (
-                    <li key={l.label}>
-                      <Link to={l.to}>{l.label}</Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="fm-foot-base">
+    <footer className="sf">
+      <div className="sf-top">
+        <div className="sf-firm">
+          <Link to="/" className="sf-brand">
+            <img src="/logo-160.png" alt="" width={40} height={40} />
+            <span>{COMPANY.name}</span>
+          </Link>
           <p>
-            © {year} {COMPANY.name}. {COMPANY.registered}.
+            An AI consultancy. We test business decisions against the client's own figures, and design and build the systems
+            that carry them out.
           </p>
-          <Link to="/login">Client sign in</Link>
+          <a className="sf-mail" href={`mailto:${COMPANY.email}`}>
+            {COMPANY.email}
+          </a>
         </div>
+        {COLUMNS.map((c) => (
+          <div className="sf-col" key={c.title}>
+            <h2>{c.title}</h2>
+            <ul>
+              {c.links.map((l) => (
+                <li key={l.label}>
+                  <Link to={l.to}>{l.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <p className="sf-line" aria-hidden="true">
+        Your idea, tested and built.
+      </p>
+
+      <div className="sf-base">
+        <p>
+          © {year} {COMPANY.name}. {COMPANY.registered}.
+        </p>
+        <Link to="/login">Client sign in</Link>
       </div>
     </footer>
   );

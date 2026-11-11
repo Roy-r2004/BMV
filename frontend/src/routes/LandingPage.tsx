@@ -10,6 +10,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Rise from '../film/Rise';
 import FramedHero from '../film/FramedHero';
 import Shot from '../film/Shot';
+import StatementBand from '../film/StatementBand';
 import { PRICE_LINE } from '../data/offer';
 import { saveFrontDoor } from '../utils/frontDoor';
 import { usePageMeta } from '../utils/pageMeta';
@@ -17,12 +18,12 @@ import { usePageMeta } from '../utils/pageMeta';
 const EXAMPLE_IDEA = 'A booking app for home cleaners in Dubai';
 
 const FILES = [
-  { title: 'The answer page', body: 'The answer in two lines' },
-  { title: 'The blueprint', body: 'Each decision, with its figures' },
-  { title: 'The technical plan', body: 'A plan any team could build from' },
-  { title: 'The operations manual', body: 'How it runs once handed over' },
-  { title: 'The roadmap', body: 'What comes first, and in what order' },
-  { title: 'The presentation', body: 'The answer, as slides' },
+  { title: 'The answer page', body: 'The answer in two lines', look: 'page' },
+  { title: 'The blueprint', body: 'Each decision, with its figures', look: 'page' },
+  { title: 'The technical plan', body: 'A plan any team could build from', look: 'page' },
+  { title: 'The operations manual', body: 'How it runs once handed over', look: 'page' },
+  { title: 'The roadmap', body: 'What comes first, and in what order', look: 'bars' },
+  { title: 'The presentation', body: 'The answer, as slides', look: 'slide' },
 ] as const;
 
 /** The consultation's steps, as the hero's layers and the sections below it. */
@@ -158,19 +159,36 @@ export default function LandingPage() {
         <p className="film-sub">You can challenge it. Nothing is built until you decide.</p>
       </Shot>
 
-      <Shot title="The plan">
+      <StatementBand
+        caption="Private AI · on your own servers"
+        lead="Every figure in your plan says"
+        rest="where it came from."
+        action={
+          <Link to="/approach" className="film-pill film-pill--light">
+            How a consultation is run
+          </Link>
+        }
+      />
+
+      <Shot title="The plan" stack>
         <p className="film-mark">04 · The plan</p>
         <Rise className="film-h2">Six files. *One plan.*</Rise>
-        <ul className="film-grid2">
-          {FILES.map((f, i) => (
-            <li key={f.title}>
-              <small>0{i + 1}</small>
+        <p className="film-body">The plan is yours, whether you build with us, with your own team or with another firm.</p>
+        <ul className="film-docs">
+          {FILES.map((f) => (
+            <li key={f.title} className={`film-doc film-doc--${f.look}`}>
+              <div className="film-doc-paper" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
               <b>{f.title}</b>
               <span>{f.body}</span>
             </li>
           ))}
         </ul>
-        <p className="film-sub">The plan is yours, whether you build with us, with your own team or with another firm.</p>
       </Shot>
 
       <Shot title="The build">

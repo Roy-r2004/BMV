@@ -1,26 +1,25 @@
-/* The consultation — white and light blue, one thing at a time.
-   Built from the approved mockups (v4, all blue). Blue carries action and our
-   marks; a deep blue carries the finding, so the one thing on screen that
-   matters is the one that pops. Scoped under .cx so nothing leaks into the
-   rest of the site. */
+/* The consultation — white, one thing at a time, in the site's own look:
+   one sans (Geist), near-black type, blue only for action and our marks, and
+   a deep blue for the finding, so the one thing on screen that matters is the
+   one that pops. Scoped under .cx so nothing leaks into the rest of the site. */
 
 .cx {
   --cx-bg0: #ffffff;
-  --cx-bg1: #eef4ff;
-  --cx-txt: #0a2240;
-  --cx-txt2: #4a5a80;
-  --cx-txt3: #8290ae;
-  --cx-blue: #1f4fd1;
+  --cx-bg1: #f3f4f6;
+  --cx-txt: #0a0a0a;
+  --cx-txt2: #5c6170;
+  --cx-txt3: #8a8f9c;
+  --cx-blue: #2650f0;
   --cx-blue-soft: rgba(37, 99, 235, 0.09);
-  --cx-hot: #173ea6;
+  --cx-hot: #0f2a5c;
   --cx-green: #0e9f6e;
   --cx-green-soft: rgba(14, 159, 110, 0.1);
   --cx-red: #d13c42;
   --cx-amber-bg: #fff1dc;
   --cx-amber: #a85b00;
-  --cx-line: #d9e0e8;
-  --cx-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-  --cx-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --cx-line: #e3e5ea;
+  --cx-display: Geist, 'Segoe UI', system-ui, sans-serif;
+  --cx-body: Geist, 'Segoe UI', system-ui, sans-serif;
   --cx-hand: 'Caveat', cursive;
 
   min-height: 100vh;
@@ -28,7 +27,7 @@
   font: 400 16px/1.5 var(--cx-body);
   font-feature-settings: 'tnum';
   -webkit-font-smoothing: antialiased;
-  background: linear-gradient(180deg, #f2f5f9 0, #ffffff 420px);
+  background: #ffffff;
   display: flex;
   flex-direction: column;
 }
@@ -47,6 +46,8 @@
 }
 /* The site's own Logo component sits in here, unchanged. */
 .cx-brand { display: flex; align-items: center; min-width: 0; }
+/* the firm's name in the site's own sans, as in the bar of the public pages */
+.cx .fm-brand span { font-family: var(--cx-body); font-weight: 500; letter-spacing: -0.01em; }
 .cx-steps { display: flex; align-items: flex-start; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .cx-step { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0 4px; font-size: 12px; font-weight: 600; color: var(--cx-txt3); white-space: nowrap; }
 .cx-step i { display: block; width: 74px; height: 3px; border-radius: 3px; background: rgba(37, 99, 235, 0.16); transition: background 0.4s; }
@@ -66,13 +67,13 @@
 .cx-wrap { width: 100%; max-width: 1680px; margin: 0 auto; padding: 0 clamp(16px, 5.5vw, 96px) 64px; }
 
 /* ── type ── */
-.cx-display { font-family: var(--cx-display); font-weight: 600; letter-spacing: -0.012em; line-height: 1.04; }
-.cx-h1 { font: 600 clamp(38px, 5.2vw, 76px)/1.04 var(--cx-display); letter-spacing: -0.012em; }
+.cx-display { font-family: var(--cx-display); font-weight: 400; letter-spacing: -0.03em; line-height: 1.04; }
+.cx-h1 { font: 400 clamp(38px, 5.2vw, 76px)/1.04 var(--cx-display); letter-spacing: -0.035em; }
 /* the front door's question: sized by height too, so the button is on screen without scrolling */
 .cx-h1.cx-door-h1 { font-size: clamp(36px, min(5.2vw, 8.2vh), 80px); }
 .cx-field.cx-door-field { font-size: clamp(16px, min(1.4vw, 2.3vh), 20px); padding: 18px 22px; }
-.cx-h2 { font: 600 clamp(28px, 3.4vw, 48px)/1.08 var(--cx-display); letter-spacing: -0.012em; }
-.cx-h3 { font: 600 22px/1.2 var(--cx-display); }
+.cx-h2 { font: 400 clamp(28px, 3.4vw, 48px)/1.08 var(--cx-display); letter-spacing: -0.03em; }
+.cx-h3 { font: 500 22px/1.2 var(--cx-display); letter-spacing: -0.015em; }
 .cx-lead { font-size: clamp(17px, 1.35vw, 19.5px); color: var(--cx-txt2); line-height: 1.55; }
 .cx-muted { color: var(--cx-txt2); }
 .cx-faint { color: var(--cx-txt3); }
@@ -96,16 +97,17 @@
 
 /* ── controls ── */
 .cx-btn {
-  height: 52px; padding: 0 26px; border-radius: 4px; border: 0;
-  background: var(--cx-txt); color: #fff; font: 600 16.5px var(--cx-body);
+  height: 52px; padding: 0 24px; border-radius: 8px; border: 0;
+  background: var(--cx-txt); color: #fff; font: 500 16px var(--cx-body);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   white-space: nowrap; cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, opacity 0.2s;
 }
 .cx-btn:disabled { opacity: 0.55; cursor: default; }
 .cx-btn:focus-visible, .cx-link:focus-visible, .cx-field:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.45); outline-offset: 3px; }
-.cx-btn--blue { background: var(--cx-blue); }
-.cx-btn--blue:hover:not(:disabled) { background: var(--cx-hot); }
+/* the main action is black, as on the public pages; blue stays for marks and links */
+.cx-btn--blue { background: var(--cx-txt); }
+.cx-btn--blue:hover:not(:disabled) { background: #2b2e36; }
 .cx-btn--ghost { background: #fff; color: var(--cx-txt); border: 1px solid #b7c2cf; }
 .cx-btn--ghost:hover:not(:disabled) { border-color: var(--cx-txt); }
 .cx-btn--sm { height: 40px; padding: 0 18px; font-size: 14.5px; }
@@ -259,7 +261,7 @@
 .cx-stage { max-width: 1180px; margin: 0 auto; padding-top: 36px; animation: cx-rise 0.45s ease both; }
 @keyframes cx-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .cx-kicker { font-size: 13px; font-weight: 600; color: var(--cx-blue); margin: 0 0 10px; }
-.cx-title { font: 600 clamp(2rem, 3.4vw, 2.8rem)/1.08 var(--cx-display); letter-spacing: -0.012em; text-wrap: balance; margin: 0; }
+.cx-title { font: 400 clamp(2rem, 3.4vw, 2.8rem)/1.08 var(--cx-display); letter-spacing: -0.03em; text-wrap: balance; margin: 0; }
 .cx-lede { margin: 14px 0 0; max-width: 40em; color: var(--cx-txt2); font-size: 1.05rem; }
 .cx-lbl { font-size: 12.5px; font-weight: 600; color: var(--cx-txt3); margin: 0 0 8px; }
 .cx-pane { background: #fff; border: 1px solid var(--cx-line); border-radius: 4px; box-shadow: 0 1px 2px rgba(10, 34, 64, 0.06); }
@@ -269,7 +271,7 @@
 .cx-textbtn:hover { color: var(--cx-txt); }
 .cx-textbtn:disabled { opacity: 0.5; cursor: default; }
 .cx-stage ul, .cx-stage ol { list-style: none; margin: 0; padding: 0; }
-.cx-stage h2, .cx-stage h3, .cx-stage h4 { font-family: var(--cx-display); letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+.cx-stage h2, .cx-stage h3, .cx-stage h4 { font-family: var(--cx-display); font-weight: 500; letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
 
 /* 1 · the brief */
 .cx-brief { margin-top: 30px; display: grid; grid-template-columns: 1.5fr 1fr; gap: 22px; align-items: start; }

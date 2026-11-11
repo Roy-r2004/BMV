@@ -1,8 +1,12 @@
 import type { ReactNode } from 'react';
-import Rise from './Rise';
-import Shot from './Shot';
 
-/** Sign in and sign up, on the film stage: one shot with the form, over the key. */
+const STEPS = ['Your words', 'The test', 'The answer', 'The plan'] as const;
+
+/**
+ * Sign in and sign up: the form on the left, on white; on the right, the data
+ * hall in a frame with the firm's line and the consultation's steps. On a
+ * phone the picture is dropped and the form has the screen.
+ */
 export default function FilmAuth({
   kicker,
   title,
@@ -17,16 +21,30 @@ export default function FilmAuth({
   children: ReactNode;
 }) {
   return (
-    <div className="film-auth">
-      <Shot title={kicker} first>
-        <p className="film-mark">{kicker}</p>
-        <Rise as="h1" className="film-h2">
-          {title}
-        </Rise>
-        <p className="film-body">{lead}</p>
-        {children}
-        {footer ? <p className="film-form-foot">{footer}</p> : null}
-      </Shot>
-    </div>
+    <section className="film-auth" data-tone="light" aria-label={kicker}>
+      <div className="film-auth-form">
+        <div className="film-auth-in">
+          <p className="film-mark">{kicker}</p>
+          <h1 className="film-auth-h">{title}</h1>
+          <p className="film-body">{lead}</p>
+          {children}
+          {footer ? <p className="film-form-foot">{footer}</p> : null}
+        </div>
+      </div>
+      <div className="film-auth-art" aria-hidden="true">
+        <div className="film-auth-photo" />
+        <div className="film-auth-say">
+          <p className="film-mark">AI consultancy, Dubai</p>
+          <p className="film-auth-line">Your idea, tested and built into a working business.</p>
+          <p className="film-auth-steps">
+            {STEPS.map((s, i) => (
+              <span key={s}>
+                {String(i + 1).padStart(2, '0')} {s}
+              </span>
+            ))}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }

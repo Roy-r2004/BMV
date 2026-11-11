@@ -82,6 +82,7 @@ export default function FramedHero({
               ))}
             </div>
             <div className="fh-floor" />
+            <div className="fh-photo" />
             <div className="fh-shade" />
           </div>
           <div className="fh-copy">{children}</div>

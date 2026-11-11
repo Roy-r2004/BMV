@@ -1,0 +1,24 @@
+/* The footer every page ends on. Self-contained: it carries its own fonts and colours,
+   so it looks the same under the public pages, the consultation and the engagements. */
+.sf { background: #000; color: #fff; font: 400 15px/1.6 Geist, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  padding: 80px max(24px, env(safe-area-inset-right, 0px)) 32px max(24px, env(safe-area-inset-left, 0px)); overflow: hidden; }
+.sf a { color: #fff; text-decoration: none; }
+.sf a:hover { opacity: .75; }
+.sf a:focus-visible { outline: 1.5px solid #8fb0ff; outline-offset: 3px; border-radius: 4px; }
+.sf-top { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 40px 32px; max-width: 1400px; }
+.sf-firm { display: grid; gap: 14px; align-content: start; max-width: 380px; }
+.sf-brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 500; font-size: 16px; }
+.sf-brand img { width: 40px; height: 40px; border-radius: 50%; display: block; }
+.sf-firm p { margin: 0; color: #9a9ca3; font-size: 14.5px; }
+.sf-mail { font: 400 13px "Geist Mono", ui-monospace, Consolas, monospace; color: #c9cbd1 !important; }
+.sf-col h2 { margin: 0 0 14px; font: 400 12px "Geist Mono", ui-monospace, Consolas, monospace; color: #7d808a; }
+.sf-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.sf-line { margin: 96px 0 64px; font: 400 clamp(2.6rem, 6.6vw, 7.4rem)/0.98 Geist, "Segoe UI", system-ui, sans-serif; letter-spacing: -0.045em; color: #fff; }
+.sf-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font: 400 12px "Geist Mono", ui-monospace, Consolas, monospace; color: #7d808a; }
+.sf-base p { margin: 0; }
+.sf-base a { color: #9a9ca3; }
+@media (max-width: 860px) {
+  .sf-top { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sf-firm { grid-column: 1 / -1; }
+  .sf-line { margin: 64px 0 40px; }
+}
