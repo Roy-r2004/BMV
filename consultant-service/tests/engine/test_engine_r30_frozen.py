@@ -78,7 +78,7 @@ def manifest() -> dict:
 def test_manifest_declares_its_rules(manifest):
     """The manifest says which commit it was recorded at and which trees it
     covers, so a reader never has to infer the scope from the file list."""
-    assert manifest["commit"] == "73d5a4c"
+    assert manifest["commit"] == "3f47d62"
     assert tuple(manifest["roots"]) == FROZEN_ROOTS
     assert manifest["file_count"] == len(manifest["files"])
     assert manifest["file_count"] > 0

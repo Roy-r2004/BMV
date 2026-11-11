@@ -1,6 +1,6 @@
 {
-  "commit": "73d5a4c",
-  "recorded": "sha256 of the bytes on disk at commit 820a5d8 (re-frozen 2026-09-27 after the owner's consultation, roadmap and screens rewrite; originally f9fc846), rebuilt with test_engine_r30_frozen.collect_frozen_files. Re-frozen at f073fde after the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 24688c7 after the final-review fixes to the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 15ec65a after the typed-figures step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 98a46f3 after the output-shape step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 3683d17 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 8662b67 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 5195a4d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 91e9743 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at baf2fba after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0f32a21 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 1df639d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 6d7c802 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 834ac07 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0ff2976 after the honest-failure step (2026-11-11), same rules, same collector.. Re-frozen at 0716f17 after the honest-failure step (2026-11-11), same rules, same collector.. Re-frozen at 73d5a4c after the honest-failure step (2026-11-11), same rules, same collector.",
+  "commit": "3f47d62",
+  "recorded": "sha256 of the bytes on disk at commit 820a5d8 (re-frozen 2026-09-27 after the owner's consultation, roadmap and screens rewrite; originally f9fc846), rebuilt with test_engine_r30_frozen.collect_frozen_files. Re-frozen at f073fde after the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 24688c7 after the final-review fixes to the honest-failure step (2026-11-01), same rules, same collector.. Re-frozen at 15ec65a after the typed-figures step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 98a46f3 after the output-shape step (2026-11-01), same rules, same collector. (2026-11-01), same rules, same collector.. Re-frozen at 3683d17 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 8662b67 after the fixes to the Step 3 review (C1-C3, H1-H5, M1-M6, L1, L2, L4, L7, L8) (2026-11-07), same rules, same collector.. Re-frozen at 5195a4d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 91e9743 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at baf2fba after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0f32a21 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 1df639d after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 6d7c802 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 834ac07 after the honest-failure step (2026-11-08), same rules, same collector.. Re-frozen at 0ff2976 after the honest-failure step (2026-11-11), same rules, same collector.. Re-frozen at 0716f17 after the honest-failure step (2026-11-11), same rules, same collector.. Re-frozen at 73d5a4c after the honest-failure step (2026-11-11), same rules, same collector.. Re-frozen at 3f47d62 after the honest-failure step (2026-11-11), same rules, same collector.",
   "roots": [
     "app/pipeline",
     "app/prompts",
@@ -14,7 +14,7 @@
     "*.pyo"
   ],
   "why": "MF3.6: the engine's own tests live under tests/engine and change every wave; freezing them would make the manifest a diary. What must not move is r30: app/pipeline, app/prompts, tools and the suite that proves them.",
-  "file_count": 110,
+  "file_count": 111,
   "files": {
     "app/pipeline/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "app/pipeline/_shared.py": "75ec4cbb57de71850385ee6aed9c9600c138f7931e4cf6def0e89655e2c27b4f",
@@ -72,7 +72,8 @@
     "app/prompts/module_spec.j2": "9022059bf678e030f734b3fa60fb7cebb1b72c0815ee08e8ad84ecb37995e8d5",
     "app/prompts/organization.j2": "e8bb73e538aaa5d7c983f37e16916663e85a12da4d38aa4b18f832350c4b4b01",
     "app/prompts/outreach_find.j2": "4ab68ea9c1bee4013b2e5471c12e2b3e442fe6ec7a260d13fafde72934f7b908",
-    "app/prompts/outreach_report.j2": "2965edb87eea5c4ae516401cbe99b74dd09e5899bf5b346f1561ce2a73914e0c",
+    "app/prompts/outreach_learn.j2": "cdffa41aabb2d4b60cd62d4cf46aa613ebeedcac97ef5758d30a91c8c882cc44",
+    "app/prompts/outreach_report.j2": "ad65aad09a5eb874719d3d1b60ebcf41af2f5f986d37f533eb92d9b12bda9039",
     "app/prompts/pilot_sop.j2": "b2e539459345408257b53481e828c3347dc04853b119cabc734af1f9473c6251",
     "app/prompts/plan.j2": "5e1950990ca68f4da9d1aee35a26fdd5f14a6b7d999cb5268b730db1d6579db3",
     "app/prompts/playbook.j2": "4f2cf9a05158a18f06166dc46bab2f73b98b14afc266b79b29043e864b2342b9",
