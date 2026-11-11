@@ -83,13 +83,16 @@ def test_running_out_of_places_says_so(db, monkeypatch):
     assert run.fill(db, DAY, want=5).stopped_because == run.NONE_LEFT
 
 
-def test_nothing_older_than_90_days_is_kept_about_a_skipped_business(db):
+def test_nothing_older_than_90_days_is_kept_about_a_skipped_business(db, monkeypatch):
     old = _ready(db, 1, 10, status="not_interested")
     old.site_text, old.website, old.updated_at = "their site", "https://x.ae", datetime(2026, 1, 1)
     fresh = _ready(db, 2, 10, status="skip")
     fresh.site_text = "kept for now"
     db.commit()
+    forgotten = []
+    monkeypatch.setattr(run.image, "forget", forgotten.append)
     assert run.purge(db, now=datetime(2026, 1, 1) + timedelta(days=91)) == 1
+    assert forgotten == [old.token]
     db.refresh(old)
     db.refresh(fresh)
     assert old.site_text is None and old.website is None and old.name == "B1" and old.status == "not_interested"

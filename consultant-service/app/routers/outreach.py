@@ -17,7 +17,7 @@ from app import auth_client
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import OutreachRun, Prospect
-from app.outreach import budget, run
+from app.outreach import budget, chat, image, run
 
 router = APIRouter(prefix="/api/outreach", tags=["outreach"])
 logger = logging.getLogger("consultant.outreach")
@@ -44,13 +44,15 @@ def _report_url(p: Prospect) -> str:
 def _row(p: Prospect) -> dict:
     url = _report_url(p)
     sources = json.loads(p.sources_json or "[]")
+    report = json.loads(p.report_json) if p.report_json else None
     return {
         "id": p.id, "name": p.name, "city": p.city, "kind": p.kind, "score": p.score,
         "instagram": p.instagram, "instagram_url": f"https://instagram.com/{p.instagram}" if p.instagram else None,
         "website": p.website, "phone": p.phone, "what": p.what,
         "reasons": json.loads(p.reasons_json or "[]"), "sources": [s.get("url") for s in sources if s.get("url")],
         "dm": p.dm_text or "", "followup": (p.followup_text or "").replace("{link}", url),
-        "image_url": f"/api/outreach/{p.id}/image", "report_url": url, "status": p.status,
+        "messages": chat.messages(report), "slides": image.count(report),
+        "slides_url": f"/api/outreach/{p.id}/slides/", "report_url": url, "status": p.status,
         "queued_on": p.queued_on.isoformat() if p.queued_on else None,
         "sent_at": p.sent_at.isoformat() if p.sent_at else None,
         "opens": p.opens or 0, "opened_first_at": p.opened_first_at.isoformat() if p.opened_first_at else None,
@@ -126,20 +128,20 @@ def outreach_status(prospect_id: int, change: StatusChange, db: Session = Depend
     return _row(p)
 
 
-@router.get("/{prospect_id}/image", dependencies=[Depends(_admin)])
-def outreach_image(prospect_id: int, db: Session = Depends(get_db)) -> Response:
-    """The report as a PNG for Roy to attach once the business replies."""
-    from app.outreach import image
-
+@router.get("/{prospect_id}/slides/{n}", dependencies=[Depends(_admin)])
+def outreach_slide(prospect_id: int, n: int, db: Session = Depends(get_db)) -> Response:
+    """One of the report's slides as a PNG, for Roy to send once the business replies."""
     p = db.get(Prospect, prospect_id)
     if p is None or not p.report_json:
         raise HTTPException(status_code=404, detail="No report for this business")
-    png = image.png_for(p.token, p.name, p.city, json.loads(p.report_json))
-    if not png:
-        raise HTTPException(status_code=503, detail="The image could not be drawn here; use the page link")
+    pngs = image.slides_for(p.token, p.name, p.city, json.loads(p.report_json))
+    if not pngs:
+        raise HTTPException(status_code=503, detail="The slides could not be drawn here; send the messages and the link")
+    if not 1 <= n <= len(pngs):
+        raise HTTPException(status_code=404, detail="No such slide")
     safe = re.sub(r"[^\w .-]", "", p.name)[:60].strip() or "report"
-    return Response(content=png, media_type="image/png",
-                    headers={"Content-Disposition": f'attachment; filename="BMV for {safe}.png"'})
+    return Response(content=pngs[n - 1], media_type="image/png",
+                    headers={"Content-Disposition": f'attachment; filename="BMV for {safe} {n}.png"'})
 
 
 @router.get("/report/{token}")

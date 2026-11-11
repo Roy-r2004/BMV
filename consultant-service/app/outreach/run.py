@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 
 from app.config import settings
 from app.models import OutreachRun, Prospect
+from app.outreach import image
 from app.outreach.budget import can_spend
 from app.outreach.find import SearchFailed, find
 from app.outreach.read import read
@@ -126,6 +127,7 @@ def purge(db, now: datetime | None = None) -> int:
             continue
         for c in _CLEARED:
             setattr(p, c, None)
+        image.forget(p.token)
         n += 1
     db.commit()
     return n

@@ -76,7 +76,9 @@ def test_the_list_shows_unsent_businesses_with_the_link_in_the_message(client, d
     [row] = body["rows"]
     url = f"{settings.PUBLIC_SITE_URL}/for/{p.token}"
     assert row["report_url"] == url and row["followup"].endswith(url) and "{link}" not in row["followup"]
-    assert "http" not in row["dm"] and row["image_url"] == f"/api/outreach/{p.id}/image"
+    assert "http" not in row["dm"] and row["slides_url"] == f"/api/outreach/{p.id}/slides/"
+    assert row["slides"] == len(REPORT["changes"]) + 2
+    assert len(row["messages"]) == len(REPORT["changes"]) + 1 and not any("http" in m for m in row["messages"])
     assert row["instagram_url"] == "https://instagram.com/glow.dxb" and row["reasons"]
     assert body["cap"] == settings.OUTREACH_MONTHLY_USD and "spent" in body and "running" in body
 
@@ -170,18 +172,20 @@ def test_a_crashed_fill_is_recorded_and_frees_the_lock(db, monkeypatch):
     assert not run.running.locked()
 
 
-def test_the_report_image_is_drawn_once_and_needs_the_admin(client, db, monkeypatch):
+def test_the_slides_are_drawn_once_and_need_the_admin(client, db, monkeypatch):
     from app.outreach import image
 
     p = _queued(db)
     drawn = []
-    monkeypatch.setattr(image, "draw", lambda html: drawn.append(html) or b"\x89PNG fake")
-    assert client.get(f"/api/outreach/{p.id}/image").status_code == 403
-    first = client.get(f"/api/outreach/{p.id}/image", headers=ADMIN)
-    second = client.get(f"/api/outreach/{p.id}/image", headers=ADMIN)
+    n = image.count(REPORT)
+    monkeypatch.setattr(image, "draw", lambda html: drawn.append(html) or [b"png%d" % i for i in range(n)])
+    assert client.get(f"/api/outreach/{p.id}/slides/1").status_code == 403
+    first = client.get(f"/api/outreach/{p.id}/slides/1", headers=ADMIN)
+    last = client.get(f"/api/outreach/{p.id}/slides/{n}", headers=ADMIN)
     assert first.status_code == 200 and first.headers["content-type"] == "image/png"
-    assert first.content == second.content and len(drawn) == 1
+    assert first.content == b"png0" and last.content == b"png%d" % (n - 1) and len(drawn) == 1
     assert "Glow Salon" in first.headers["content-disposition"]
+    assert client.get(f"/api/outreach/{p.id}/slides/{n + 1}", headers=ADMIN).status_code == 404
 
 
 def test_no_browser_means_no_image_said_plainly(client, db, monkeypatch):
@@ -189,4 +193,4 @@ def test_no_browser_means_no_image_said_plainly(client, db, monkeypatch):
 
     p = _queued(db)
     monkeypatch.setattr(image, "draw", lambda html: None)
-    assert client.get(f"/api/outreach/{p.id}/image", headers=ADMIN).status_code == 503
+    assert client.get(f"/api/outreach/{p.id}/slides/1", headers=ADMIN).status_code == 503

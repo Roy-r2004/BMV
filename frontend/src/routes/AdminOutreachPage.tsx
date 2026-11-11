@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { hasAdminSession } from '../api/admin';
 import {
-  downloadOutreachImage,
+  downloadOutreachSlides,
   fillOutreach,
   getOutreachList,
   isForbidden,
@@ -63,10 +63,10 @@ function CopyBox({ label, text }: { label: string; text: string }) {
 
 function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) => void }) {
   const [saving, setSaving] = useState<'idle' | 'busy' | 'failed'>('idle');
-  const saveImage = async () => {
+  const saveSlides = async () => {
     setSaving('busy');
     try {
-      await downloadOutreachImage(row);
+      await downloadOutreachSlides(row);
       setSaving('idle');
     } catch {
       setSaving('failed');
@@ -110,14 +110,24 @@ function Row({ row, onMark }: { row: OutreachRow; onMark: (s: OutreachStatus) =>
       ) : null}
 
       {row.dm ? <CopyBox label="1. First message (no link)" text={row.dm} /> : null}
-      {row.followup ? (
-        <div style={{ marginTop: 10 }}>
-          <p className="ac-kpi__label" style={{ margin: '0 0 6px' }}>2. When they reply: send the image, then this</p>
-          <button type="button" className="ac-btn ac-btn--primary" onClick={saveImage} disabled={saving === 'busy'}>
-            {saving === 'busy' ? 'Drawing the image…' : 'Download image'}
-          </button>
-          {saving === 'failed' ? <span className="ac-hero__sub" style={{ marginLeft: 10 }}>The image could not be made; send the page link instead.</span> : null}
-          <CopyBox label="Message with the image" text={row.followup} />
+      {row.messages.length ? (
+        <div style={{ marginTop: 14 }}>
+          <p className="ac-kpi__label" style={{ margin: 0 }}>2. When they reply yes: send these messages, then the slides, then the link</p>
+          {row.messages.map((m, i) => (
+            <CopyBox key={i} label={`Message ${i + 1} of ${row.messages.length}`} text={m} />
+          ))}
+          {row.slides ? (
+            <div style={{ marginTop: 10 }}>
+              <p className="ac-kpi__label" style={{ margin: '0 0 6px' }}>Slides ({row.slides}), sent together as one set</p>
+              <button type="button" className="ac-btn ac-btn--primary" onClick={saveSlides} disabled={saving === 'busy'}>
+                {saving === 'busy' ? 'Drawing the slides…' : 'Download slides'}
+              </button>
+              {saving === 'failed' ? (
+                <span className="ac-hero__sub" style={{ marginLeft: 10 }}>The slides could not be made; the messages and the link are enough.</span>
+              ) : null}
+            </div>
+          ) : null}
+          {row.followup ? <CopyBox label="Last: the link" text={row.followup} /> : null}
         </div>
       ) : null}
 

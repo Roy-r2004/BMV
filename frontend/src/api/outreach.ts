@@ -35,7 +35,11 @@ export interface OutreachRow {
   sources: string[];
   dm: string;
   followup: string;
-  image_url: string;
+  /** The report as chat messages, sent before the slides. */
+  messages: string[];
+  /** How many slides; each is at slides_url + its number, from 1. */
+  slides: number;
+  slides_url: string;
   report_url: string;
   status: OutreachStatus;
   queued_on: string | null;
@@ -68,17 +72,19 @@ export async function setOutreachStatus(id: number, status: OutreachStatus): Pro
   return data;
 }
 
-/** Saves the business's report image (needs the admin sign-in, so it is fetched, not linked). */
-export async function downloadOutreachImage(row: OutreachRow): Promise<void> {
-  const { data } = await client.get<Blob>(row.image_url, { ...admin(), responseType: 'blob' });
-  const url = URL.createObjectURL(data);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `BMV for ${row.name}.png`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+/** Saves the business's slides, one file each (they need the admin sign-in, so they are fetched, not linked). */
+export async function downloadOutreachSlides(row: OutreachRow): Promise<void> {
+  for (let n = 1; n <= row.slides; n += 1) {
+    const { data } = await client.get<Blob>(`${row.slides_url}${n}`, { ...admin(), responseType: 'blob' });
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `BMV for ${row.name} ${n}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
 }
 
 export interface OutreachReport {
