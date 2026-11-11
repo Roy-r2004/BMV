@@ -18,7 +18,7 @@ export default function FilmAuth({
 }) {
   return (
     <div className="film-auth">
-      <Shot shape="key" title={kicker} first>
+      <Shot title={kicker} first>
         <p className="film-mark">{kicker}</p>
         <Rise as="h1" className="film-h2">
           {title}

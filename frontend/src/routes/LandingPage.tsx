@@ -1,13 +1,14 @@
 /**
- * The home page: the firm's story in six shots over the light field. The
- * visitor's idea, typed into the first shot, becomes the light's first shape
- * and the opening line of their consultation. Then the explanations are
+ * The home page: the firm's story, opening on a data hall in a frame. The
+ * visitor's idea, typed into the box over it, is quoted back in the next
+ * section and becomes the opening line of their consultation. Then the explanations are
  * tested, the answer fits on a page, the plan is six files, and the system is
  * built. Every line is the firm's own; nothing is invented.
  */
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Rise from '../film/Rise';
+import FramedHero from '../film/FramedHero';
 import Shot from '../film/Shot';
 import { PRICE_LINE } from '../data/offer';
 import { saveFrontDoor } from '../utils/frontDoor';
@@ -24,6 +25,9 @@ const FILES = [
   { title: 'The presentation', body: 'The answer, as slides' },
 ] as const;
 
+/** The consultation's steps, as the hero's layers and the sections below it. */
+const STEPS = ['Your words', 'The test', 'The answer', 'The plan', 'The build'] as const;
+
 const LABELS = [
   { k: 'theirs', name: 'Yours', body: 'A figure you gave us, or one read from your files.' },
   { k: 'derived', name: 'Worked out', body: 'Calculated from your figures, with the calculation shown.' },
@@ -37,7 +41,7 @@ export default function LandingPage() {
   );
   const navigate = useNavigate();
   const [idea, setIdea] = useState('');
-  // the light follows the typing once the visitor pauses, not on every key
+  // the quote below follows the typing once the visitor pauses, not on every key
   const [settled, setSettled] = useState('');
   useEffect(() => {
     const t = window.setTimeout(() => setSettled(idea), 280);
@@ -53,11 +57,17 @@ export default function LandingPage() {
 
   return (
     <>
-      <Shot shape={typed.length > 2 ? 'words' : 'seed'} words={sentence} title="Your idea" first>
+      <FramedHero
+        layers={STEPS}
+        after={
+          <>
+            <p className="film-mark">How a consultation works</p>
+            <h2 className="film-h2">From your words to a working business, in five steps.</h2>
+          </>
+        }
+      >
         <p className="film-mark">AI consultancy · Dubai</p>
-        <Rise as="h1" className="film-h">
-          Your idea, *tested* and built into a working business.
-        </Rise>
+        <h1 className="film-h">Your idea, tested and built into a working business.</h1>
         <p className="film-body">
           Describe it in your own words. We test whether its numbers work, write the plan, and build what it needs to run.
         </p>
@@ -93,9 +103,9 @@ export default function LandingPage() {
           </div>
         </form>
         <p className="film-sub">Already running a business? Describe the decision in front of you instead.</p>
-      </Shot>
+      </FramedHero>
 
-      <Shot shape="words" words={sentence} title="Your words">
+      <Shot tone="dark" title="Your words">
         <p className="film-mark">01 · Your words</p>
         <Rise className="film-h2">It starts with your words. *Nothing else.*</Rise>
         <p className="film-quote">“{sentence.charAt(0).toUpperCase() + sentence.slice(1)}.”</p>
@@ -119,7 +129,7 @@ export default function LandingPage() {
         </ul>
       </Shot>
 
-      <Shot shape="test" title="The test">
+      <Shot tone="dark" title="The test">
         <p className="film-mark">02 · The test</p>
         <Rise className="film-h2">Every explanation is tested. *Including yours.*</Rise>
         <p className="film-body">
@@ -131,7 +141,7 @@ export default function LandingPage() {
         </p>
       </Shot>
 
-      <Shot shape="page" title="The answer">
+      <Shot tone="dark" title="The answer">
         <p className="film-mark">03 · The answer</p>
         <Rise className="film-h2">The answer fits on *one page.*</Rise>
         <p className="film-body">
@@ -148,7 +158,7 @@ export default function LandingPage() {
         <p className="film-sub">You can challenge it. Nothing is built until you decide.</p>
       </Shot>
 
-      <Shot shape="layers" title="The plan">
+      <Shot title="The plan">
         <p className="film-mark">04 · The plan</p>
         <Rise className="film-h2">Six files. *One plan.*</Rise>
         <ul className="film-grid2">
@@ -163,7 +173,7 @@ export default function LandingPage() {
         <p className="film-sub">The plan is yours, whether you build with us, with your own team or with another firm.</p>
       </Shot>
 
-      <Shot shape="city" title="The build">
+      <Shot title="The build">
         <p className="film-mark">05 · The build</p>
         <Rise className="film-h2">Then we *build it.*</Rise>
         <p className="film-body">

@@ -73,7 +73,7 @@ export default function AboutPage() {
 
   return (
     <>
-      <Shot shape="ring" title="The firm" first>
+      <Shot title="The firm" first>
         <p className="film-mark">About the firm</p>
         <Rise as="h1" className="film-h">
           An AI consultancy that turns ideas into *working businesses.*
@@ -96,7 +96,7 @@ export default function AboutPage() {
         </p>
       </Shot>
 
-      <Shot shape="loose" title="Useful AI">
+      <Shot tone="dark" title="Useful AI">
         <p className="film-mark">01 · A different order</p>
         <Rise className="film-h2">Most of what is sold as AI *does not change how a business performs.*</Rise>
         <p className="film-body">
@@ -119,7 +119,7 @@ export default function AboutPage() {
         </ul>
       </Shot>
 
-      <Shot shape="four" title="Four disciplines" wide>
+      <Shot tone="dark" title="Four disciplines" wide>
         <p className="film-mark">02 · Four disciplines</p>
         <Rise className="film-h2">Business, product, AI and infrastructure *in one engagement.*</Rise>
         <ul className="film-grid2">
@@ -133,7 +133,7 @@ export default function AboutPage() {
         <p className="film-sub">The engagement that diagnoses the problem carries it through to production. Nothing is handed to another firm in between.</p>
       </Shot>
 
-      <Shot shape="trio" title="Principles" wide>
+      <Shot title="Principles" wide>
         <p className="film-mark">03 · Principles</p>
         <Rise className="film-h2">The principles *we hold to.*</Rise>
         <ul className="film-rows">
@@ -149,7 +149,7 @@ export default function AboutPage() {
         </ul>
       </Shot>
 
-      <Shot shape="hexa" title="What we build" wide>
+      <Shot title="What we build" wide>
         <p className="film-mark">04 · What we build</p>
         <Rise className="film-h2">We design systems across *six areas of a business.*</Rise>
         <ul className="film-grid2">
@@ -167,7 +167,7 @@ export default function AboutPage() {
         </div>
       </Shot>
 
-      <Shot shape="solid" title="Engagements" id="process" wide>
+      <Shot title="Engagements" id="process" wide>
         <p className="film-mark">05 · How an engagement runs</p>
         <Rise className="film-h2">Loose at diagnosis. *Solid by the time you own it.*</Rise>
         <ul className="film-rows">
@@ -185,7 +185,7 @@ export default function AboutPage() {
         </div>
       </Shot>
 
-      <Shot shape="privateflow" title="Deployment" wide>
+      <Shot tone="dark" title="Deployment" wide>
         <p className="film-mark">06 · Deployment</p>
         <Rise className="film-h2">Cloud when it suits the workload, *private when the data requires it.*</Rise>
         <p className="film-body">
@@ -207,7 +207,7 @@ export default function AboutPage() {
         </div>
       </Shot>
 
-      <Shot shape="four" title="The people" id="team" wide>
+      <Shot title="The people" id="team" wide>
         <p className="film-mark">07 · Who built the method</p>
         <Rise className="film-h2">Built by *consultants and engineers.*</Rise>
         <p className="film-body">

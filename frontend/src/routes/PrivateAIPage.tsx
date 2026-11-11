@@ -55,7 +55,7 @@ export default function PrivateAIPage() {
 
   return (
     <>
-      <Shot shape="vault" title="Your AI" first>
+      <Shot title="Your AI" first>
         <p className="film-mark">Private AI</p>
         <Rise as="h1" className="film-h">
           Private AI on infrastructure *your business owns* and controls.
@@ -72,7 +72,7 @@ export default function PrivateAIPage() {
         <p className="film-sub">You own the deployment, and you can run it without us.</p>
       </Shot>
 
-      <Shot shape="vaultdots" title="Why private" wide>
+      <Shot tone="dark" title="Why private" wide>
         <p className="film-mark">01 · Why private</p>
         <Rise className="film-h2">Why companies choose *private AI.*</Rise>
         <ul className="film-grid2">
@@ -85,7 +85,7 @@ export default function PrivateAIPage() {
         </ul>
       </Shot>
 
-      <Shot shape="timeline4" title="How it works" id="how-it-works" wide>
+      <Shot tone="dark" title="How it works" id="how-it-works" wide>
         <p className="film-mark">02 · How it works</p>
         <Rise className="film-h2">Four steps, *into your environment.*</Rise>
         <ul className="film-rows">
@@ -101,7 +101,7 @@ export default function PrivateAIPage() {
         </ul>
       </Shot>
 
-      <Shot shape={mode === 'cloud' ? 'cloudflow' : 'privateflow'} title="Cloud or private">
+      <Shot title="Cloud or private">
         <p className="film-mark">03 · Cloud AI vs private AI</p>
         <Rise className="film-h2">Watch where *each request goes.*</Rise>
         <div className="film-seg" role="group" aria-label="Deployment to show">
@@ -127,7 +127,7 @@ export default function PrivateAIPage() {
         <p className="film-sub">You choose the hardware and control the environment. We design, deploy and integrate the system.</p>
       </Shot>
 
-      <Shot shape="loose" title="Honest fit">
+      <Shot title="Honest fit">
         <p className="film-mark">04 · Honest fit</p>
         <Rise className="film-h2">The right choice for some workloads, *not all of them.*</Rise>
         <p className="film-body">
@@ -137,7 +137,7 @@ export default function PrivateAIPage() {
         <p className="film-sub">We recommend the deployment the requirement calls for.</p>
       </Shot>
 
-      <Shot shape="vault" title="Talk to us">
+      <Shot title="Talk to us">
         <p className="film-mark">05 · Talk to us</p>
         <Rise className="film-h2">Tell us what the AI needs to do, *and on what data.*</Rise>
         <p className="film-body">

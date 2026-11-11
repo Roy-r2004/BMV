@@ -86,7 +86,7 @@ export default function ApproachPage() {
 
   return (
     <>
-      <Shot shape="test" title="The method" first>
+      <Shot title="The method" first>
         <p className="film-mark">Approach</p>
         <Rise as="h1" className="film-h">
           Every answer is tested against *your own figures* before you read it.
@@ -105,7 +105,7 @@ export default function ApproachPage() {
         </div>
       </Shot>
 
-      <Shot shape="timeline" title="Six stages" wide>
+      <Shot tone="dark" title="Six stages" wide>
         <p className="film-mark">01 · How a consultation runs</p>
         <Rise className="film-h2">Six stages, *in this order,* for every client.</Rise>
         <ul className="film-rows">
@@ -123,7 +123,7 @@ export default function ApproachPage() {
         </ul>
       </Shot>
 
-      <Shot shape="page4" title="Labels" id="labels">
+      <Shot tone="dark" title="Labels" id="labels">
         <p className="film-mark">02 · How figures are labelled</p>
         <Rise className="film-h2">Every figure says *where it came from.*</Rise>
         <p className="film-body">
@@ -140,7 +140,7 @@ export default function ApproachPage() {
         </div>
       </Shot>
 
-      <Shot shape="layers" title="The writing" wide>
+      <Shot title="The writing" wide>
         <p className="film-mark">03 · How the answer is written</p>
         <Rise className="film-h2">The answer *comes first.*</Rise>
         <ul className="film-rows">
@@ -156,7 +156,7 @@ export default function ApproachPage() {
         </ul>
       </Shot>
 
-      <Shot shape="loose" title="What we will not do" wide>
+      <Shot title="What we will not do" wide>
         <p className="film-mark">04 · What we will not do</p>
         <Rise className="film-h2">Four things *we will not do.*</Rise>
         <ul className="film-rows">

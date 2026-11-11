@@ -1,24 +1,22 @@
 import type { ReactNode } from 'react';
-import type { ShapeName } from './shapes';
 
 /**
- * One shot of a scene: a screen-high section whose shape the light field
- * takes while the section is in the middle of the screen. `title` names the
- * shot in the rail and the slate; `words` is the sentence for the words shape.
+ * One section of a public page. `tone` paints it white or black; a white
+ * section that follows a black one rises over it as a panel, and the bar
+ * above the page takes the colour that reads on the section under it.
+ * `title` names the section for screen readers' landmarks.
  */
 export default function Shot({
-  shape,
+  tone = 'light',
   title,
-  words,
   first = false,
   wide = false,
   compact = false,
   id,
   children,
 }: {
-  shape: ShapeName;
+  tone?: 'light' | 'dark';
   title: string;
-  words?: string;
   first?: boolean;
   wide?: boolean;
   /** As tall as its content: the opening of a page that is mostly reading. */
@@ -28,10 +26,9 @@ export default function Shot({
 }) {
   return (
     <section
-      className={`film-shot${first ? ' film-shot--first' : ''}${compact ? ' film-shot--compact' : ''}`}
-      data-shape={shape}
-      data-shot={title}
-      data-words={words}
+      className={`film-shot film-shot--${tone}${first ? ' film-shot--first' : ''}${compact ? ' film-shot--compact' : ''}`}
+      data-tone={tone}
+      aria-label={title}
       id={id}
     >
       <div className={`film-col${wide ? ' film-col--wide' : ''}`}>{children}</div>

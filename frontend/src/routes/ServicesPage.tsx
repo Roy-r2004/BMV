@@ -69,7 +69,7 @@ export default function ServicesPage() {
 
   return (
     <>
-      <Shot shape="trio" title="Three services" first>
+      <Shot title="Three services" first>
         <p className="film-mark">Services</p>
         <Rise as="h1" className="film-h">
           From an idea to a working business, *in three services.*
@@ -102,7 +102,7 @@ export default function ServicesPage() {
         </div>
       </Shot>
 
-      <Shot shape="page" title="Consultation" id="consultation">
+      <Shot tone="dark" title="Consultation" id="consultation">
         <p className="film-mark">01 · Consultation · {CONSULTATION_FEE}</p>
         <Rise className="film-h2">Whether the idea's numbers work, *and the full plan.*</Rise>
         <p className="film-body">
@@ -124,7 +124,7 @@ export default function ServicesPage() {
         </div>
       </Shot>
 
-      <Shot shape="city" title="The build" id="build">
+      <Shot tone="dark" title="The build" id="build">
         <p className="film-mark">02 · Quoted after the scope is agreed</p>
         <Rise className="film-h2">We build it *for you.*</Rise>
         <p className="film-body">
@@ -143,7 +143,7 @@ export default function ServicesPage() {
         </div>
       </Shot>
 
-      <Shot shape="vault" title="Private AI" id="private-ai">
+      <Shot tone="dark" title="Private AI" id="private-ai">
         <p className="film-mark">03 · Quoted after the workload is assessed</p>
         <Rise className="film-h2">Private AI, *inside your walls.*</Rise>
         <p className="film-body">
@@ -162,7 +162,7 @@ export default function ServicesPage() {
         </div>
       </Shot>
 
-      <Shot shape="layers" title="What you receive" wide>
+      <Shot title="What you receive" wide>
         <p className="film-mark">04 · What a consultation delivers</p>
         <Rise className="film-h2">Six files, each opening with *the same answer.*</Rise>
         <p className="film-body">
@@ -182,7 +182,7 @@ export default function ServicesPage() {
         <p className="film-sub">When the answer is to build software, the package also shows the system, screen by screen, before a line of it is written.</p>
       </Shot>
 
-      <Shot shape="timeline4" title="Fees">
+      <Shot title="Fees">
         <p className="film-mark">05 · How fees work</p>
         <Rise className="film-h2">One price to start. *The rest is quoted.*</Rise>
         <p className="film-body">{BUILD_LINE}</p>
@@ -202,7 +202,7 @@ export default function ServicesPage() {
         </dl>
       </Shot>
 
-      <Shot shape="test" title="Questions" wide>
+      <Shot title="Questions" wide>
         <p className="film-mark">06 · Questions clients ask before starting</p>
         <Rise className="film-h2">Before you *start.*</Rise>
         <ul className="film-rows">

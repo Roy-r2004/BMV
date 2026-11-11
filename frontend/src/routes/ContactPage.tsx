@@ -30,7 +30,7 @@ export default function ContactPage() {
 
   return (
     <>
-      <Shot shape="beacon" title="Write to us" first wide>
+      <Shot title="Write to us" first wide>
         <p className="film-mark">Contact</p>
         <Rise as="h1" className="film-h2">
           Write to us about *the decision in front of you.*

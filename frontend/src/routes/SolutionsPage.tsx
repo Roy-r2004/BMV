@@ -34,7 +34,7 @@ export default function SolutionsPage() {
 
   return (
     <>
-      <Shot shape="screens" title="Examples" first>
+      <Shot title="Examples" first>
         <p className="film-mark">Examples</p>
         <Rise as="h1" className="film-h">
           From a first idea to a running business: *what we test, and what we build.*
@@ -46,7 +46,7 @@ export default function SolutionsPage() {
         </p>
       </Shot>
 
-      <Shot shape="words" words={ex.system} title="The question" wide>
+      <Shot tone="dark" title="The question" wide>
         <p className="film-mark">Pick an example</p>
         <div className="film-ex-groups" role="tablist" aria-label="Examples">
           {STAGES.map((g) => (
@@ -91,7 +91,7 @@ export default function SolutionsPage() {
         </article>
       </Shot>
 
-      <Shot shape="screens" title="What we build" wide>
+      <Shot title="What we build" wide>
         <p className="film-mark">What we build</p>
         <h2 className="film-h2">{ex.system}</h2>
         <p className="film-body">{ex.systemLine}</p>
@@ -117,7 +117,7 @@ export default function SolutionsPage() {
         <p className="film-sub">You can change the question into your own before it starts. {PRICE_LINE}</p>
       </Shot>
 
-      <Shot shape="loose" title="Not every answer is software">
+      <Shot title="Not every answer is software">
         <p className="film-mark">Not every answer is software</p>
         <Rise className="film-h2">A system is recommended only *when it pays for itself.*</Rise>
         <p className="film-body">
@@ -130,7 +130,7 @@ export default function SolutionsPage() {
         </div>
       </Shot>
 
-      <Shot shape="seed" title="Your own idea">
+      <Shot title="Your own idea">
         <p className="film-mark">Your idea is not one of these?</p>
         <Rise className="film-h2">The method is the same for *every idea.*</Rise>
         <p className="film-body">Write it in your own words and the consultation starts from it.</p>

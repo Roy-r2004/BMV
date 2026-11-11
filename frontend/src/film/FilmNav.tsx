@@ -5,29 +5,22 @@ import { COMPANY, SECTIONS } from '../data/company';
 import { pad2 } from './scenes';
 
 /**
- * The bar over every scene. On a wide screen every section is in it; on a
- * narrow one a single button opens a curtain with the sections as a numbered
- * list, the way in to a consultation, and the firm's address. A signed-in
- * client also sees their engagements.
+ * The bar over every page. It has no background: `tone` is the section under
+ * it, and its text turns white over a black one. On a wide screen every
+ * section is in it; on a narrow one a single button opens a curtain with the
+ * sections as a numbered list, the way in to a consultation, and the firm's
+ * address. A signed-in client also sees their engagements.
  */
-export default function FilmNav() {
+export default function FilmNav({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
   const { pathname } = useLocation();
   const { user, isAuthenticated, logout, loading } = useAuth();
   const [open, setOpen] = useState(false);
-  const [solid, setSolid] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
 
   const links = isAuthenticated
     ? [...SECTIONS, { to: '/engagements', label: 'Your engagements', hint: 'Consultations you have started' }]
     : [...SECTIONS];
-
-  useEffect(() => {
-    const on = () => setSolid(window.scrollY > 30);
-    on();
-    window.addEventListener('scroll', on, { passive: true });
-    return () => window.removeEventListener('scroll', on);
-  }, []);
 
   useEffect(() => setOpen(false), [pathname]);
 
@@ -52,7 +45,7 @@ export default function FilmNav() {
 
   return (
     <>
-      <header className={`film-bar${solid ? ' is-solid' : ''}`}>
+      <header className="film-bar" data-on={tone}>
         <Link to="/" className="film-brand">
           <img src="/logo-160.png" alt="" width={36} height={36} />
           <span>{COMPANY.name}</span>
@@ -74,7 +67,7 @@ export default function FilmNav() {
               Sign in
             </Link>
           ))}
-        <Link to="/demo" className="film-pill film-bar-cta">
+        <Link to="/demo" className="film-pill film-pill--bar film-bar-cta">
           Start a consultation
         </Link>
         <button
