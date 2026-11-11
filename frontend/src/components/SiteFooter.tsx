@@ -75,6 +75,14 @@ export default function SiteFooter() {
         <p>
           © {year} {COMPANY.name}. {COMPANY.registered}.
         </p>
+        {/* the server photograph is CC BY-SA and must be credited where it is shown; the Dubai photograph is CC0 */}
+        <p>
+          Server photo:{' '}
+          <a href="https://commons.wikimedia.org/wiki/File:Wikimedia_Foundation_Servers-8055_14.jpg" target="_blank" rel="noopener noreferrer">
+            Victor Grigas
+          </a>
+          , Wikimedia Commons, CC BY-SA 3.0
+        </p>
         <Link to="/login">Client sign in</Link>
       </div>
     </footer>

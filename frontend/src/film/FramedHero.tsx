@@ -1,8 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
 /**
- * The home page's opening. A data hall in a frame, the headline and the idea
- * box over it. The stage is pinned while the visitor scrolls: the page goes
+ * The home page's opening. Dubai at night in a frame, the headline and the
+ * idea box over it. The stage is pinned while the visitor scrolls: the page goes
  * black, the frame steps back and tilts, and the consultation's layers fan
  * out around it, one outline per step, while the line under it comes up.
  * Scroll progress is one CSS variable, `--p`, from 0 to 1; the stylesheet
@@ -70,18 +70,6 @@ export default function FramedHero({
         </div>
         <div className="fh-frame">
           <div className="fh-hall" aria-hidden="true">
-            <div className="fh-glow" />
-            <div className="fh-wall fh-wall--l">
-              {Array.from({ length: 10 }, (_, i) => (
-                <i key={i} className={i % 3 === 1 ? 'dim' : undefined} />
-              ))}
-            </div>
-            <div className="fh-wall fh-wall--r">
-              {Array.from({ length: 10 }, (_, i) => (
-                <i key={i} className={i % 3 === 2 ? 'dim' : undefined} />
-              ))}
-            </div>
-            <div className="fh-floor" />
             <div className="fh-photo" />
             <div className="fh-shade" />
           </div>

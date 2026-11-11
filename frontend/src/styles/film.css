@@ -134,10 +134,29 @@
 .film-doc--slide .film-doc-paper { background: #0a0a0a; justify-content: flex-end; }
 .film-doc--slide .film-doc-paper i { background: #2b2e36; } .film-doc--slide .film-doc-paper i:first-child { background: #fff; width: 62%; height: 11px; }
 
+/* the example answer page: a white sheet on the black section */
+.film-card.film-answer { background: #fff; color: #0a0a0a; border-radius: 14px; box-shadow: none; padding: 26px 28px 22px; gap: 16px;
+  --theirs: #2650f0; --derived: #0b8a64; --ours: #b26a06; }
+.film-answer header { display: flex; justify-content: space-between; gap: 12px; font: 400 11.5px var(--mono); color: #8a8f9c; padding-bottom: 12px; border-bottom: 1px solid #e6e8ec; }
+.film-answer-q { font: 400 14.5px/1.45 var(--text); color: #5c6170; }
+.film-answer-a { font: 400 clamp(1.25rem, 1.8vw, 1.55rem)/1.3 var(--display); letter-spacing: -0.02em; color: #0a0a0a; }
+.film-answer table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.film-answer th, .film-answer td { padding: 11px 0; border-top: 1px solid #e6e8ec; text-align: left; font-weight: 400; vertical-align: middle; }
+.film-answer th { color: #2b2e36; }
+.film-answer td:nth-child(2) { font: 500 1.05rem var(--text); text-align: right; padding-right: 16px; white-space: nowrap; }
+.film-answer td:last-child { width: 1%; white-space: nowrap; }
+.film-answer .film-chip { background: #fff; font-size: 11.5px; padding: 3px 9px; }
+.film-answer dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.film-answer dl div { background: #f3f4f6; border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; }
+.film-answer dt { font: 400 11.5px var(--mono); color: #8a8f9c; }
+.film-answer dd { margin: 0; font-size: 14.5px; line-height: 1.4; }
+.film-answer footer { display: grid; gap: 4px; padding-top: 12px; border-top: 1px solid #e6e8ec; font-size: 12.5px; color: #8a8f9c; }
+.film-answer footer b { font-weight: 500; color: #5c6170; }
+
 /* the black band: a picture and one sentence on blue */
 .film-band { position: relative; background: #000; padding: 80px 16px; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 16px; }
 .film-band-pic { position: relative; margin: 0; border-radius: 18px; overflow: hidden; min-height: 440px; background: #070a14; }
-.film-band-photo { position: absolute; inset: 0; background: url("/hero-datacenter.jpg") center / cover no-repeat,
+.film-band-photo { position: absolute; inset: 0; background: url("/band-servers.jpg") center / cover no-repeat,
   radial-gradient(circle, #8fc0ff 1.2px, transparent 1.8px) 0 0 / 20px 15px, repeating-linear-gradient(90deg, #0c1222 0 34px, #05080f 34px 40px); }
 .film-band-pic::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.75) 100%); }
 .film-band-pic figcaption { position: absolute; left: 22px; bottom: 20px; z-index: 1; font: 400 12px var(--mono); color: #c9d3f2; }
@@ -217,7 +236,7 @@ label.film-field { font: 400 12px var(--mono); color: var(--haze); }
 .film-auth-in { width: min(420px, 100%); display: grid; gap: 16px; }
 .film-auth-h { font: 400 clamp(2.2rem, 3.4vw, 2.8rem)/1.05 var(--display); letter-spacing: -0.03em; }
 .film-auth-art { position: relative; margin: 76px 16px 16px 0; border-radius: 18px; overflow: hidden; background: #070a14; min-height: 520px; }
-.film-auth-photo { position: absolute; inset: 0; background: url("/hero-datacenter.jpg") center / cover no-repeat,
+.film-auth-photo { position: absolute; inset: 0; background: url("/band-servers.jpg") center / cover no-repeat,
   radial-gradient(circle, #8fc0ff 1.2px, transparent 1.8px) 0 0 / 22px 16px, repeating-linear-gradient(90deg, #0c1222 0 34px, #05080f 34px 40px); }
 .film-auth-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,10,20,.15) 30%, rgba(7,10,20,.9) 100%); }
 .film-auth-say { position: absolute; z-index: 1; left: clamp(24px, 4vw, 44px); right: clamp(24px, 4vw, 44px); bottom: clamp(24px, 4vw, 44px); display: grid; gap: 16px; color: #fff; }
@@ -287,23 +306,11 @@ label.film-field { font: 400 12px var(--mono); color: var(--haze); }
 /* each layer's name runs down its right edge, the part that shows beside the frame */
 .fh-layer span { position: absolute; right: 7px; top: 14px; writing-mode: vertical-rl; font: 400 11.5px var(--mono); color: rgba(255,255,255,.75); white-space: nowrap; }
 .fh-hall { position: absolute; inset: 0; }
-.fh-glow { position: absolute; left: 50%; top: 46%; width: 34vw; height: 34vw; transform: translate(-50%, -50%); border-radius: 50%;
-  background: radial-gradient(circle, rgba(170,200,255,.42) 0%, rgba(60,108,255,.14) 42%, rgba(7,10,20,0) 70%); }
-.fh-wall { position: absolute; top: 4%; height: 92%; width: 52%; display: flex; }
-.fh-wall--l { left: -3%; transform-origin: left center; transform: perspective(900px) rotateY(64deg); }
-.fh-wall--r { right: -3%; transform-origin: right center; transform: perspective(900px) rotateY(-64deg); }
-.fh-wall i { flex: 1 1 0; margin-right: 7px; border: 1px solid rgba(160,190,255,.14);
-  background-image: radial-gradient(circle, #8fc0ff 1.3px, transparent 1.9px), radial-gradient(circle, #3c6cff 1.1px, transparent 1.7px),
-    repeating-linear-gradient(to bottom, #11182c 0 13px, #080c18 13px 16px);
-  background-size: 22px 16px, 30px 48px, 100% 100%; background-position: 8px 4px, 15px 20px, 0 0; }
-.fh-wall i.dim { background-image: radial-gradient(circle, #3c6cff 1.1px, transparent 1.7px), repeating-linear-gradient(to bottom, #0e1426 0 13px, #080c18 13px 16px);
-  background-size: 26px 32px, 100% 100%; background-position: 10px 6px, 0 0; }
-.fh-floor { position: absolute; left: -8%; right: -8%; bottom: -6%; height: 40%; transform-origin: center top; transform: perspective(520px) rotateX(64deg);
-  background-color: #0a0f1e; background-image: linear-gradient(rgba(160,190,255,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(160,190,255,.16) 1px, transparent 1px);
-  background-size: 64px 64px; }
-/* the photograph, over the drawn hall: until the file is there, the drawing shows */
-.fh-photo { position: absolute; inset: 0; background: url("/hero-datacenter.jpg") center / cover no-repeat; }
-.fh-shade { position: absolute; inset: 0; background: radial-gradient(70% 60% at 50% 50%, rgba(7,10,20,.4) 0%, rgba(7,10,20,.82) 100%); }
+
+.fh-photo { position: absolute; inset: 0; background: #07101f url("/hero-dubai.jpg") center 42% / cover no-repeat; }
+/* darker at the middle and the foot, where the words and the idea box sit */
+.fh-shade { position: absolute; inset: 0; background: radial-gradient(60% 55% at 50% 52%, rgba(4,9,20,.62) 0%, rgba(4,9,20,.34) 100%),
+  linear-gradient(180deg, rgba(4,9,20,.15) 0%, rgba(4,9,20,0) 35%, rgba(4,9,20,.55) 100%); }
 .fh-copy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center;
   padding: 0 clamp(20px, 8vw, 140px); color: #fff; opacity: calc(1 - var(--k) * 1.7); }
 .fh-stage.is-past .fh-copy { visibility: hidden; }
@@ -331,7 +338,6 @@ label.film-field { font: 400 12px var(--mono); color: var(--haze); }
   .film-shot { padding-top: 100px; padding-bottom: 80px; }
   .film-shot.film-shot--compact { padding-top: 120px; }
   .fh-frame, .fh-layers { top: 70px; left: 10px; right: 10px; bottom: 10px; }
-  .fh-wall { width: 60%; }
   .film-col--split { grid-template-columns: minmax(0, 1fr); gap: 34px; }
   .film-side { position: static; }
   .film-docs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -345,6 +351,9 @@ label.film-field { font: 400 12px var(--mono); color: var(--haze); }
   .film-brand span { display: none; }
   .film-rows li { grid-template-columns: 1fr; gap: 4px; }
   .fh-copy { gap: 14px; }
+  .film-card.film-answer { padding: 20px 18px; }
+  .film-answer dl { grid-template-columns: minmax(0, 1fr); }
+  .film-answer header { flex-direction: column; gap: 2px; }
   .fh-copy .film-body { font-size: .98rem; }
 }
 @media (prefers-reduced-motion: reduce) {

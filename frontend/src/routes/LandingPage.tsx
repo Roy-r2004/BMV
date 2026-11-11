@@ -26,6 +26,13 @@ const FILES = [
   { title: 'The presentation', body: 'The answer, as slides', look: 'slide' },
 ] as const;
 
+/** The example answer page's figures: made up to show the labels, and said to be so on the page. */
+const SAMPLE_FIGURES = [
+  { what: 'Cleaners ready to start', value: '6', k: 'theirs' },
+  { what: 'Bookings a week to cover costs', value: '42', k: 'derived' },
+  { what: 'Customers who book again', value: '35%', k: 'ours' },
+] as const;
+
 /** The consultation's steps, as the hero's layers and the sections below it. */
 const STEPS = ['Your words', 'The test', 'The answer', 'The plan', 'The build'] as const;
 
@@ -37,7 +44,7 @@ const LABELS = [
 
 export default function LandingPage() {
   usePageMeta(
-    'Your idea, tested and built into a working business',
+    'AI consultants and engineers in Dubai',
     'Build My Version is an AI consultancy. Describe your idea; we test whether its numbers work, write the plan and build what it needs to run. A consultation is $200.',
   );
   const navigate = useNavigate();
@@ -67,10 +74,11 @@ export default function LandingPage() {
           </>
         }
       >
-        <p className="film-mark">AI consultancy · Dubai</p>
-        <h1 className="film-h">Your idea, tested and built into a working business.</h1>
+        <p className="film-mark">Build My Version · Dubai</p>
+        <h1 className="film-h">AI consultants and engineers, based in Dubai.</h1>
         <p className="film-body">
-          Describe it in your own words. We test whether its numbers work, write the plan, and build what it needs to run.
+          We study how a business works, test each decision against its own figures, and build the AI and software it needs
+          to run.
         </p>
         <form
           className="film-prompt"
@@ -148,15 +156,48 @@ export default function LandingPage() {
         <p className="film-body">
           The question, the answer in two lines, the figures it rests on, what to do first and what we would not do.
         </p>
-        <div className="film-labels">
-          {LABELS.map((l) => (
-            <div className="film-label" key={l.k}>
-              <span className={`film-chip film-chip--${l.k}`}>{l.name}</span>
-              <p>{l.body}</p>
-            </div>
-          ))}
-        </div>
         <p className="film-sub">You can challenge it. Nothing is built until you decide.</p>
+        <article className="film-card film-answer" aria-label="An example answer page">
+          <header>
+            <span>Example answer page</span>
+            <span>Figures are illustrative</span>
+          </header>
+          <p className="film-answer-q">Should I launch a booking app for home cleaners in Dubai?</p>
+          <p className="film-answer-a">
+            Yes, but smaller than an app. Take bookings on WhatsApp in one area first, and build the app once repeat bookings
+            hold.
+          </p>
+          <table>
+            <tbody>
+              {SAMPLE_FIGURES.map((f) => (
+                <tr key={f.what}>
+                  <th scope="row">{f.what}</th>
+                  <td>{f.value}</td>
+                  <td>
+                    <span className={`film-chip film-chip--${f.k}`}>{LABELS.find((l) => l.k === f.k)?.name}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <dl>
+            <div>
+              <dt>Do first</dt>
+              <dd>Run WhatsApp bookings in one area for a month.</dd>
+            </div>
+            <div>
+              <dt>We would not</dt>
+              <dd>Build the app before repeat bookings are proven.</dd>
+            </div>
+          </dl>
+          <footer>
+            {LABELS.map((l) => (
+              <p key={l.k}>
+                <b>{l.name}:</b> {l.body}
+              </p>
+            ))}
+          </footer>
+        </article>
       </Shot>
 
       <StatementBand

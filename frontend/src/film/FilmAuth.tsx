@@ -34,8 +34,8 @@ export default function FilmAuth({
       <div className="film-auth-art" aria-hidden="true">
         <div className="film-auth-photo" />
         <div className="film-auth-say">
-          <p className="film-mark">AI consultancy, Dubai</p>
-          <p className="film-auth-line">Your idea, tested and built into a working business.</p>
+          <p className="film-mark">Build My Version · Dubai</p>
+          <p className="film-auth-line">AI consultants and engineers, based in Dubai.</p>
           <p className="film-auth-steps">
             {STEPS.map((s, i) => (
               <span key={s}>
