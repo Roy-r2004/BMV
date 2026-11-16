@@ -1,6 +1,6 @@
 /* The footer every page ends on. Self-contained: it carries its own fonts and colours,
    so it looks the same under the public pages, the consultation and the engagements. */
-.sf { background: #000; color: #fff; font: 400 15px/1.6 Geist, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+.sf { background: #0b1220; color: #fff; font: 400 15px/1.6 Geist, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
   padding: 80px max(24px, env(safe-area-inset-right, 0px)) 32px max(24px, env(safe-area-inset-left, 0px)); overflow: hidden; }
 .sf a { color: #fff; text-decoration: none; }
 .sf a:hover { opacity: .75; }

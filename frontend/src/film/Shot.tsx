@@ -26,6 +26,7 @@ export default function Shot({
   wide = false,
   compact = false,
   stack = false,
+  tint = false,
   id,
   children,
 }: {
@@ -37,13 +38,15 @@ export default function Shot({
   compact?: boolean;
   /** One full-width column: headline, then the blocks across the page. */
   stack?: boolean;
+  /** A light section on pale grey, to set it apart from the white ones around it. */
+  tint?: boolean;
   id?: string;
   children: ReactNode;
 }) {
   const all = Children.toArray(children);
   const right = stack ? [] : all.filter(isBlock);
   const left = right.length ? all.filter((c) => !isBlock(c)) : all;
-  const cls = `film-shot film-shot--${tone}${first ? ' film-shot--first' : ''}${compact ? ' film-shot--compact' : ''}`;
+  const cls = `film-shot film-shot--${tone}${first ? ' film-shot--first' : ''}${compact ? ' film-shot--compact' : ''}${tint ? ' film-shot--tint' : ''}`;
 
   return (
     <section className={cls} data-tone={tone} aria-label={title} id={id}>

@@ -26,6 +26,13 @@ const FILES = [
   { title: 'The presentation', body: 'The answer, as slides', look: 'slide' },
 ] as const;
 
+/** The example test: three causes a client might suspect, two ruled out by their own figures. Illustrative, and said so. */
+const SAMPLE_TESTS = [
+  { cause: "Prices are too high", why: "Ruled out: bookings fell the same at every price point.", kept: false },
+  { cause: "A new competitor opened", why: "Ruled out: the fall began two months before it opened.", kept: false },
+  { cause: "Repeat customers are not returning", why: "First bookings held steady; repeat bookings fell by half.", kept: true },
+] as const;
+
 /** The example answer page's figures: made up to show the labels, and said to be so on the page. */
 const SAMPLE_FIGURES = [
   { what: 'Cleaners ready to start', value: '6', k: 'theirs' },
@@ -114,7 +121,7 @@ export default function LandingPage() {
         <p className="film-sub">Already running a business? Describe the decision in front of you instead.</p>
       </FramedHero>
 
-      <Shot tone="dark" title="Your words">
+      <Shot title="Your words">
         <p className="film-mark">01 · Your words</p>
         <Rise className="film-h2">It starts with your words. *Nothing else.*</Rise>
         <p className="film-quote">“{sentence.charAt(0).toUpperCase() + sentence.slice(1)}.”</p>
@@ -138,7 +145,7 @@ export default function LandingPage() {
         </ul>
       </Shot>
 
-      <Shot tone="dark" title="The test">
+      <Shot title="The test" tint>
         <p className="film-mark">02 · The test</p>
         <Rise className="film-h2">Every explanation is tested. *Including yours.*</Rise>
         <p className="film-body">
@@ -148,9 +155,27 @@ export default function LandingPage() {
         <p className="film-body">
           The strongest goes to two reviewers whose task is to disprove it. It stays only if it survives both.
         </p>
+        <article className="film-card film-sheet" aria-label="An example of explanations tested">
+          <header>
+            <span>Example · Why are bookings falling?</span>
+            <span>Illustrative</span>
+          </header>
+          <ul>
+            {SAMPLE_TESTS.map((x) => (
+              <li key={x.cause} className={x.kept ? 'is-kept' : undefined}>
+                <div>
+                  <b>{x.cause}</b>
+                  <span>{x.why}</span>
+                </div>
+                <em>{x.kept ? 'Kept' : 'Ruled out'}</em>
+              </li>
+            ))}
+          </ul>
+          <footer>Reviewed by two reviewers asked to disprove it. It survived both.</footer>
+        </article>
       </Shot>
 
-      <Shot tone="dark" title="The answer">
+      <Shot title="The answer">
         <p className="film-mark">03 · The answer</p>
         <Rise className="film-h2">The answer fits on *one page.*</Rise>
         <p className="film-body">
