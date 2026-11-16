@@ -75,7 +75,7 @@ export default function LandingPage() {
         }
       >
         <p className="film-mark">Build My Version · Dubai</p>
-        <h1 className="film-h">AI consultants and engineers, based in Dubai.</h1>
+        <h1 className="film-h">AI consultants and engineers.</h1>
         <p className="film-body">
           We study how a business works, test each decision against its own figures, and build the AI and software it needs
           to run.
